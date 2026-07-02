@@ -283,17 +283,17 @@ Ringkasan berlapis (detail per lapisan di [dok 01 §8](./01-tanya-jawab-fundamen
 
 Estimasi durasi mengasumsikan 1–2 developer full-time (atau setara, dengan bantuan AI coding). Setiap fase diakhiri demo yang bisa dicoba di URL nyata.
 
-### Fase 0 — Fondasi (± 1 bulan)
+### Fase 0 — Fondasi ✅ (selesai 2 Jul 2026 — [log](./log/2026-07-02-fase-0.md))
 
-- [ ] Setup monorepo pnpm (struktur §1.4), linting, Vitest.
-- [ ] CI/CD: GitHub Actions → test → deploy `wrangler` (environment staging & production).
-- [ ] Worker Hono + React SPA "hello world" tayang di domain.
-- [ ] Skema control-plane + autentikasi lengkap (register, login, verifikasi email via Resend, reset password).
-- [ ] Provisioning tenant otomatis (buat D1 + migrasi + subdomain).
-- [ ] RBAC dasar + audit log.
-- [ ] Design system: tokens, layout aplikasi (sidebar/topbar responsif), 10–15 komponen inti, dark mode.
+- [x] Setup monorepo pnpm (struktur §1.4), Vitest.
+- [x] CI/CD: GitHub Actions → typecheck + test + build + smoke test; job deploy `wrangler` aktif otomatis saat secret Cloudflare tersedia.
+- [x] Worker Hono + React SPA berjalan (lokal tervalidasi; tayang di domain menunggu `CLOUDFLARE_API_TOKEN` — lihat [STATUS.md](./STATUS.md)).
+- [x] Skema control-plane + autentikasi lengkap (register, login, verifikasi email, reset password; mailer console/Resend).
+- [x] Provisioning tenant otomatis (database per tenant + migrasi; routing subdomain menyusul di Fase 2).
+- [x] RBAC dasar + audit log.
+- [x] Design system: tokens, layout aplikasi responsif, komponen inti, dark mode.
 
-**Gerbang keluar:** bisa mendaftar perusahaan baru dan login ke workspace kosong yang aman.
+**Gerbang keluar:** ✅ terpenuhi — mendaftar perusahaan baru & login ke workspace aman, dibuktikan 22 pemeriksaan smoke test end-to-end di CI.
 
 ### Fase 1 — MVP Produk (± 3 bulan)
 

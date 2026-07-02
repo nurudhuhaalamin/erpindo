@@ -1,0 +1,26 @@
+{
+  "name": "@erpindo/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "build": "true",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@erpindo/db": "workspace:*",
+    "@erpindo/shared": "workspace:*",
+    "drizzle-orm": "^0.44.0",
+    "hono": "^4.7.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250620.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.0",
+    "wrangler": "^4.20.0"
+  }
+}
