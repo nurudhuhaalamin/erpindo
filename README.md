@@ -4,7 +4,7 @@
 
 ## Visi
 
-Menyediakan ERP terjangkau berbahasa Indonesia yang mencakup Keuangan & Akuntansi, Penjualan, Pembelian, Inventori, hingga HR & Payroll — dengan model langganan (subscription) dan biaya operasional yang sangat rendah berkat arsitektur serverless.
+Menyediakan ERP terjangkau berbahasa Indonesia yang mencakup Keuangan & Akuntansi, Penjualan, Pembelian, Inventori, POS (kasir), hingga HR & Payroll — dengan model langganan (subscription) dan biaya operasional yang sangat rendah berkat arsitektur serverless.
 
 ## Dokumen Perencanaan
 

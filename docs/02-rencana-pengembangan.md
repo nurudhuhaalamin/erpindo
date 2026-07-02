@@ -155,16 +155,36 @@ Legenda prioritas: **MVP** = wajib rilis pertama · **v2** = setelah komersial �
 
 | Modul | Fitur inti |
 |---|---|
+| **POS (Point of Sale / Kasir)** — prioritas tertinggi v2 | Layar kasir cepat untuk retail & F&B; **offline-first** (PWA menyimpan transaksi lokal, sinkron saat online kembali); struk printer thermal (Web Bluetooth/USB); pembayaran tunai, QRIS, EDC; sesi shift & rekap kas; diskon & promo; otomatis memotong stok dan membuat jurnal penjualan. Segmen retail/F&B adalah pasar UMKM terbesar di Indonesia — POS sering menjadi pintu masuk pelanggan sebelum memakai modul lain |
 | **HR & Payroll** | Data karyawan & kontrak, absensi & cuti, komponen gaji, hitung otomatis PPh 21 (TER) + BPJS Kesehatan/JHT/JP/JKK/JKM, slip gaji PDF, jurnal beban gaji otomatis |
+| **CRM Pipeline** | Lead & sumber lead, peluang (opportunity) dengan tahapan funnel, aktivitas & pengingat follow-up, konversi peluang → quotation; melengkapi master pelanggan yang sudah ada di MVP |
 | **Aset Tetap** | Registrasi aset, penyusutan garis lurus/saldo menurun otomatis per bulan (Cron), pelepasan/penjualan aset |
+| **Anggaran (Budgeting)** | Anggaran per akun/departemen/proyek per periode, laporan budget vs realisasi, peringatan saat mendekati batas |
+| **Inventori Lanjutan** | Batch/lot & nomor seri, tanggal kedaluwarsa + peringatan (wajib untuk F&B, farmasi, kosmetik), penilaian FIFO |
+| **Manajemen Dokumen** | Lampiran terpusat di R2 melekat ke transaksi/master (kontrak, faktur pajak, bukti transfer), pratinjau, kontrol akses mengikuti RBAC |
+| **Workflow & Approval Engine** | Aturan persetujuan berjenjang yang dapat dikustom per tenant (mis. PO > Rp X butuh 2 approver, diskon > Y% butuh manajer) — dipakai lintas modul, dibangun sekali sebagai fondasi |
 | **Proyek** | Proyek & tugas, biaya dan pendapatan per proyek, profitabilitas proyek |
-| **Integrasi** | Impor rekening koran, API publik + webhook, integrasi marketplace (v2.5) |
+| **Integrasi dasar** | Impor rekening koran (rekonsiliasi), API publik + webhook |
 
 ### 2.8 Modul v3
 
-- **Manufaktur**: BoM bertingkat, perintah produksi, konsumsi bahan, biaya produksi.
-- **e-Faktur/Coretax & pelaporan pajak elektronik** (menyesuaikan regulasi DJP saat implementasi).
-- **BI lanjutan**: report builder kustom, penjadwalan laporan email.
+| Modul | Fitur inti |
+|---|---|
+| **Integrasi E-commerce & Marketplace** | Sinkronisasi produk, stok, dan pesanan dengan Tokopedia, Shopee, TikTok Shop; pesanan marketplace otomatis menjadi SO + jurnal; rekonsiliasi dana settlement |
+| **Pengiriman & Ekspedisi** | Integrasi kurir (JNE, J&T, SiCepat — via agregator seperti Biteship agar satu integrasi mencakup banyak kurir), cek ongkir saat membuat SO, cetak label, tracking resi |
+| **Manufaktur** | BoM bertingkat, perintah produksi, konsumsi bahan, biaya produksi |
+| **QC (Quality Control)** | Rencana inspeksi, pemeriksaan saat penerimaan barang & hasil produksi, karantina barang gagal |
+| **Maintenance (Pemeliharaan)** | Jadwal servis preventif mesin/kendaraan/aset (Cron), work order perbaikan, riwayat & biaya per aset — terhubung modul Aset Tetap |
+| **Multi Mata Uang** | Master kurs (update otomatis), transaksi valas, laba/rugi selisih kurs, revaluasi saldo |
+| **Helpdesk / Layanan Pelanggan** | Tiket via email/form, prioritas & SLA, riwayat terhubung ke pelanggan dan penjualan |
+| **Kontrak & Penagihan Berulang** | Kontrak berlangganan pelanggan tenant, recurring invoice otomatis (Cron), pengingat perpanjangan |
+| **Konsolidasi Multi-Perusahaan** | Beberapa entitas legal dalam satu grup, transaksi antar-perusahaan, laporan keuangan konsolidasi — fitur paket Enterprise |
+| **e-Faktur/Coretax** | Pelaporan pajak elektronik, menyesuaikan regulasi DJP saat implementasi |
+| **BI lanjutan** | Report builder kustom, penjadwalan laporan email |
+
+### 2.9 Modul yang Sengaja di Luar Cakupan
+
+Agar fokus dan kualitas terjaga, beberapa domain **tidak** direncanakan: koperasi simpan-pinjam, rental/persewaan khusus, properti/strata, rumah sakit/klinik, dan sekolah (SIS). Domain-domain ini punya regulasi dan alur yang sangat spesifik — lebih tepat digarap sebagai produk vertikal terpisah bila kelak ada peluang, bukan ditempelkan ke ERP umum.
 
 ---
 
@@ -292,17 +312,22 @@ Estimasi durasi mengasumsikan 1–2 developer full-time (atau setara, dengan ban
 - [ ] Hardening: rate limiting, Turnstile, uji keamanan, kebijakan privasi & ToS.
 - [ ] **Peluncuran komersial.**
 
-### Fase 3 — Modul Lanjutan (3+ bulan, berkelanjutan)
+### Fase 3 — Modul Lanjutan / v2 (3+ bulan, berkelanjutan)
 
-- [ ] HR & Payroll (PPh 21 TER, BPJS) → Aset Tetap (penyusutan Cron) → Proyek.
-- [ ] Impor rekening koran & rekonsiliasi; API publik + webhook.
-- [ ] Multi-cabang; FIFO; approval berjenjang lanjutan.
+Urutan di dalam fase ini fleksibel — ikuti permintaan pelanggan berbayar. Usulan urutan awal:
 
-### Fase 4 — Distribusi Native & Skala
+- [ ] **POS** lebih dulu (permintaan pasar tertinggi, pintu masuk pelanggan retail/F&B) + Workflow/Approval Engine (fondasi yang dipakai modul lain).
+- [ ] HR & Payroll (PPh 21 TER, BPJS) → Aset Tetap (penyusutan Cron) → CRM Pipeline → Anggaran → Proyek.
+- [ ] Inventori lanjutan (batch/lot, kedaluwarsa, FIFO) + Manajemen Dokumen.
+- [ ] Impor rekening koran & rekonsiliasi; API publik + webhook; multi-cabang.
+
+### Fase 4 — Distribusi Native, Ekosistem & Skala (v3)
 
 - [ ] Capacitor → Play Store & App Store (push notification, scan barcode kamera).
 - [ ] Tauri → installer Windows/macOS.
-- [ ] Integrasi marketplace, e-Faktur/Coretax, report builder.
+- [ ] Integrasi marketplace (Tokopedia/Shopee/TikTok Shop) & ekspedisi (agregator kurir).
+- [ ] Manufaktur + QC, Maintenance, multi mata uang, helpdesk, recurring billing, konsolidasi multi-perusahaan.
+- [ ] e-Faktur/Coretax, report builder.
 
 ```mermaid
 gantt

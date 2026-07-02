@@ -21,9 +21,25 @@ ERP yang lengkap umumnya terdiri dari modul inti berikut. Tidak semuanya harus d
 | **HR & Payroll** | Data karyawan, absensi, cuti, penggajian (PPh 21, BPJS Kesehatan & Ketenagakerjaan), slip gaji | v2 |
 | **Aset Tetap** | Registrasi aset, penyusutan otomatis, pelepasan aset | v2 |
 | **Manajemen Proyek** | Proyek, tugas, pencatatan biaya & waktu per proyek | v2 |
+| **POS (Point of Sale / Kasir)** | Kasir retail & F&B offline-first, struk printer thermal, QRIS, shift & rekap kas, terintegrasi stok & jurnal | v2 — prioritas tinggi (segmen UMKM terbesar di Indonesia) |
+| **CRM Pipeline** | Lead, peluang (opportunity), aktivitas & follow-up, funnel penjualan | v2 |
+| **Anggaran (Budgeting)** | Anggaran per akun/departemen, laporan budget vs realisasi | v2 |
+| **Inventori Lanjutan** | Batch/lot, nomor seri, tanggal kedaluwarsa (wajib untuk F&B, farmasi, kosmetik) | v2 |
+| **Manajemen Dokumen** | Lampiran terpusat (kontrak, faktur pajak, bukti transfer) melekat ke setiap transaksi | v2 |
+| **Workflow & Approval Engine** | Aturan persetujuan berjenjang kustom lintas modul (PO, pengeluaran kas, diskon) | v2 — fondasi |
+| **Integrasi E-commerce & Marketplace** | Sinkronisasi produk, stok, dan pesanan Tokopedia/Shopee/TikTok Shop | v3 |
+| **Pengiriman & Ekspedisi** | Integrasi kurir (JNE, J&T, SiCepat via agregator), cek ongkir, tracking resi | v3 |
+| **Multi Mata Uang** | Kurs, transaksi valas, selisih kurs (bisnis impor/ekspor) | v3 |
+| **Helpdesk / Layanan Pelanggan** | Tiket, SLA, terhubung ke data pelanggan & penjualan | v3 |
 | **Manufaktur** | Bill of Materials (BoM), perintah produksi, perhitungan biaya produksi | v3 |
+| **QC (Quality Control)** | Inspeksi penerimaan barang & hasil produksi | v3 — bersama Manufaktur |
+| **Maintenance (Pemeliharaan)** | Jadwal servis mesin/kendaraan/aset, riwayat perbaikan | v3 |
+| **Kontrak & Penagihan Berulang** | Recurring invoice/langganan untuk pelanggan tenant | v3 |
+| **Konsolidasi Multi-Perusahaan** | Laporan keuangan gabungan beberapa entitas dalam satu grup | v3 / paket Enterprise |
 
 **Prinsip penting:** semua modul berbagi satu sumber data (misalnya faktur penjualan otomatis membuat jurnal akuntansi dan mengurangi stok). Integrasi inilah yang membedakan ERP dari kumpulan aplikasi terpisah.
+
+**Catatan strategi:** tidak ada ERP yang meluncurkan semua modul sekaligus — bahkan Odoo/SAP membangunnya bertahun-tahun. Strateginya: kuasai modul inti (MVP) sampai benar-benar solid, lalu tambahkan modul pelengkap mengikuti permintaan pelanggan berbayar. Daftar lengkap beserta detail tiap modul ada di [rincian modul](./02-rencana-pengembangan.md#2-rincian-modul).
 
 ---
 
