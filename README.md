@@ -21,4 +21,16 @@ Menyediakan ERP terjangkau berbahasa Indonesia yang mencakup Keuangan & Akuntans
 
 ## Status
 
-📋 Tahap perencanaan — lihat roadmap di [docs/02-rencana-pengembangan.md](docs/02-rencana-pengembangan.md#6-langkah-pengembangan--roadmap).
+🏗️ **Fase 0 (Fondasi) selesai** — autentikasi, multi-tenant (database per perusahaan), RBAC, design system, dan CI/CD sudah berjalan. Papan status untuk pemilik produk: [docs/STATUS.md](docs/STATUS.md) · log pekerjaan: [docs/log/](docs/log/).
+
+## Menjalankan Secara Lokal
+
+```bash
+pnpm install
+pnpm build        # build SPA (dilayani oleh Worker)
+pnpm dev:api      # wrangler dev di http://127.0.0.1:8787 (API + aplikasi)
+# atau untuk pengembangan frontend dengan hot-reload:
+pnpm dev:web      # vite di http://127.0.0.1:5173 (proxy /api ke :8787)
+```
+
+Validasi: `pnpm typecheck && pnpm test && pnpm build && pnpm smoke` (smoke = 22 skenario end-to-end terhadap wrangler dev).

@@ -1,0 +1,19 @@
+{
+  "name": "erpindo",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "workerd", "sharp"]
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "build": "pnpm -r build",
+    "smoke": "node apps/api/scripts/smoke.mjs",
+    "dev:api": "pnpm --filter @erpindo/api dev",
+    "dev:web": "pnpm --filter @erpindo/web dev"
+  }
+}
