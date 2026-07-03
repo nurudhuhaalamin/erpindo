@@ -316,9 +316,9 @@ Estimasi durasi mengasumsikan 1–2 developer full-time (atau setara, dengan ban
 
 Urutan di dalam fase ini fleksibel — ikuti permintaan pelanggan berbayar. Usulan urutan awal:
 
-- [ ] **POS** lebih dulu (permintaan pasar tertinggi, pintu masuk pelanggan retail/F&B) + Workflow/Approval Engine (fondasi yang dipakai modul lain).
+- [x] **POS** lebih dulu (permintaan pasar tertinggi, pintu masuk pelanggan retail/F&B) + Workflow/Approval Engine (fondasi yang dipakai modul lain).
 - [ ] HR & Payroll (PPh 21 TER, BPJS) → Aset Tetap (penyusutan Cron) → CRM Pipeline → Anggaran → Proyek.
-- [ ] Inventori lanjutan (batch/lot, kedaluwarsa, FIFO) + Manajemen Dokumen.
+- [x] Inventori lanjutan (batch/lot, kedaluwarsa, FEFO) — Manajemen Dokumen menyusul.
 - [ ] Impor rekening koran & rekonsiliasi; API publik + webhook; multi-cabang.
 
 ### Fase 4 — Distribusi Native, Ekosistem & Skala (v3)

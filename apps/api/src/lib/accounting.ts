@@ -98,8 +98,36 @@ export async function postJournal(
  */
 export async function stockIn(
   db: SqlExecutor,
-  input: { productId: string; warehouseId: string; qty: number; unitCost: number; refType: string; refId: string },
+  input: {
+    productId: string;
+    warehouseId: string;
+    qty: number;
+    unitCost: number;
+    refType: string;
+    refId: string;
+    /** Opsional: lot/batch + tanggal kedaluwarsa (produk berpelacakan). */
+    lot?: { lotNo: string | null; expiryDate: string | null };
+  },
 ): Promise<void> {
+  if (input.lot) {
+    const { results } = await db
+      .prepare(
+        `SELECT id FROM stock_lots WHERE product_id = ? AND warehouse_id = ?
+           AND COALESCE(lot_no,'') = COALESCE(?,'') AND COALESCE(expiry_date,'') = COALESCE(?,'')`,
+      )
+      .bind(input.productId, input.warehouseId, input.lot.lotNo, input.lot.expiryDate)
+      .all<{ id: string }>();
+    if (results[0]) {
+      await db.prepare(`UPDATE stock_lots SET qty = qty + ? WHERE id = ?`).bind(input.qty, results[0].id).run();
+    } else {
+      await db
+        .prepare(
+          `INSERT INTO stock_lots (id, product_id, warehouse_id, lot_no, expiry_date, qty) VALUES (?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(crypto.randomUUID(), input.productId, input.warehouseId, input.lot.lotNo, input.lot.expiryDate, input.qty)
+        .run();
+    }
+  }
   await db
     .prepare(
       `INSERT INTO stock_movements (id, product_id, warehouse_id, ref_type, ref_id, qty, unit_cost)
@@ -169,6 +197,24 @@ export async function stockOut(
     .prepare(`UPDATE stock_levels SET qty = qty - ? WHERE product_id = ? AND warehouse_id = ?`)
     .bind(input.qty, input.productId, input.warehouseId)
     .run();
+
+  // Konsumsi lot secara FEFO (kedaluwarsa terdekat lebih dulu; tanpa tanggal
+  // di akhir). Bila sebagian stok tidak berlot, sisa konsumsi dibiarkan.
+  let remaining = input.qty;
+  const { results: lots } = await db
+    .prepare(
+      `SELECT id, qty FROM stock_lots
+       WHERE product_id = ? AND warehouse_id = ? AND qty > 0
+       ORDER BY expiry_date IS NULL, expiry_date ASC, created_at ASC`,
+    )
+    .bind(input.productId, input.warehouseId)
+    .all<{ id: string; qty: number }>();
+  for (const lot of lots) {
+    if (remaining <= 0) break;
+    const take = Math.min(lot.qty, remaining);
+    await db.prepare(`UPDATE stock_lots SET qty = qty - ? WHERE id = ?`).bind(take, lot.id).run();
+    remaining -= take;
+  }
 
   return input.qty * level.avg_cost;
 }

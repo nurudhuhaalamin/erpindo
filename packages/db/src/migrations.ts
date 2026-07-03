@@ -368,6 +368,23 @@ export const TENANT_MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    id: "0007_lots",
+    statements: [
+      // Pelacakan lot/batch + kedaluwarsa per produk (opsional per produk).
+      `ALTER TABLE products ADD COLUMN track_expiry INTEGER NOT NULL DEFAULT 0`,
+      `CREATE TABLE stock_lots (
+        id TEXT PRIMARY KEY,
+        product_id TEXT NOT NULL REFERENCES products(id),
+        warehouse_id TEXT NOT NULL REFERENCES warehouses(id),
+        lot_no TEXT,
+        expiry_date TEXT,
+        qty INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX stock_lots_fefo ON stock_lots (product_id, warehouse_id, expiry_date)`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

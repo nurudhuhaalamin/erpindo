@@ -127,7 +127,15 @@ function useEntityPage(entity: "products" | "contacts" | "warehouses") {
 
 // ---------------------------------------------------------------------------
 
-type ProductRow = { id: string; sku: string; name: string; unit: string; sell_price: number; buy_price: number };
+type ProductRow = {
+  id: string;
+  sku: string;
+  name: string;
+  unit: string;
+  sell_price: number;
+  buy_price: number;
+  track_expiry: number;
+};
 
 export function ProductsPage() {
   const { isAdmin, query, create, archive, issues, setIssues } = useEntityPage("products");
@@ -143,6 +151,7 @@ export function ProductsPage() {
       unit: raw.unit || "pcs",
       sellPrice: Number(raw.sellPrice) || 0,
       buyPrice: Number(raw.buyPrice) || 0,
+      trackExpiry: raw.trackExpiry === "on",
     });
     if (!parsed.success) {
       setIssues(parsed.error.flatten().fieldErrors as Record<string, string[]>);
@@ -161,14 +170,15 @@ export function ProductsPage() {
           <CardBody className="space-y-4">
             <ImportCsvButton
               entity="products"
-              templateHeaders={["sku", "nama", "satuan", "harga_jual", "harga_beli"]}
-              templateExample={["BRG-001", "Kopi Arabika 1kg", "pcs", 150000, 100000]}
+              templateHeaders={["sku", "nama", "satuan", "harga_jual", "harga_beli", "lacak_exp"]}
+              templateExample={["BRG-001", "Kopi Arabika 1kg", "pcs", 150000, 100000, "tidak"]}
               mapRow={(r) => ({
                 sku: r.sku ?? "",
                 name: r.nama ?? r.name ?? "",
                 unit: r.satuan || r.unit || "pcs",
                 sellPrice: Number(r.harga_jual ?? r.sellprice ?? 0) || 0,
                 buyPrice: Number(r.harga_beli ?? r.buyprice ?? 0) || 0,
+                trackExpiry: ["ya", "yes", "1", "true"].includes((r.lacak_exp ?? "").toLowerCase()),
               })}
             />
             <form onSubmit={onSubmit} className="grid gap-3 sm:grid-cols-[8rem_1fr_6rem_10rem_10rem_auto] sm:items-end" noValidate>
@@ -197,6 +207,11 @@ export function ProductsPage() {
               <Button type="submit" disabled={create.isPending}>
                 {create.isPending ? <Spinner /> : null} Tambah
               </Button>
+              <label className="flex items-center gap-2 text-sm text-slate-600 sm:col-span-3 dark:text-slate-300">
+                <input type="checkbox" name="trackExpiry" className="h-4 w-4 rounded border-slate-300" />
+                Lacak lot &amp; tanggal kedaluwarsa (F&amp;B/farmasi) — wajib isi tgl exp saat pembelian, keluar otomatis
+                FEFO
+              </label>
             </form>
           </CardBody>
         </Card>
@@ -216,6 +231,7 @@ export function ProductsPage() {
                     <th className={th}>Satuan</th>
                     <th className={`${th} text-right`}>Harga Jual</th>
                     <th className={`${th} text-right`}>Harga Beli</th>
+                    <th className={th}>Exp</th>
                     {isAdmin ? <th className={th}></th> : null}
                   </tr>
                 </thead>
@@ -227,6 +243,7 @@ export function ProductsPage() {
                       <td className={td}>{p.unit}</td>
                       <td className={`${td} text-right tabular-nums`}>{formatIDR(p.sell_price)}</td>
                       <td className={`${td} text-right tabular-nums`}>{formatIDR(p.buy_price)}</td>
+                      <td className={td}>{p.track_expiry ? <Badge tone="amber">FEFO</Badge> : "—"}</td>
                       {isAdmin ? (
                         <td className={`${td} text-right`}>
                           <Button variant="ghost" className="h-8" onClick={() => archive.mutate(p.id)}>

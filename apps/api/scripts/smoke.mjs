@@ -934,6 +934,111 @@ try {
   const tbAfterApprovals = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah alur persetujuan", tbAfterApprovals.json?.balanced === true);
 
+  // --- Lot & kedaluwarsa (Fase 2j) ----------------------------------------------
+  console.log("11f. Batch/lot & kedaluwarsa (FEFO)");
+
+  // Owner dipakai agar ambang persetujuan 1.000.000 tidak ikut campur; PPN 0 dan
+  // faktur dibiarkan belum dibayar supaya ekspektasi arus kas tidak berubah.
+  const prodExp = await owner("POST", `/api/tenants/${tenantId}/products`, {
+    sku: "BRG-EXP",
+    name: "Yogurt Botol 250ml",
+    unit: "pcs",
+    sellPrice: 15_000,
+    buyPrice: 10_000,
+    trackExpiry: true,
+  });
+  check("produk berpelacakan kedaluwarsa dibuat 201", prodExp.status === 201);
+
+  const buyNoExp = await owner("POST", `/api/tenants/${tenantId}/purchases`, {
+    contactId: supplier.json.id,
+    invoiceDate: "2026-07-03",
+    taxRate: 0,
+    warehouseId: whUtama.id,
+    lines: [{ productId: prodExp.json.id, qty: 5, unitPrice: 10_000 }],
+  });
+  check(
+    "pembelian produk terlacak TANPA tanggal exp DITOLAK 400",
+    buyNoExp.status === 400 && /kedaluwarsa/.test(buyNoExp.json?.error ?? ""),
+    `→ ${JSON.stringify(buyNoExp.json)}`,
+  );
+
+  // Dua lot: LOT-A kedaluwarsa +10 hari (harus keluar duluan), LOT-B +100 hari.
+  const expSoon = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10);
+  const expFar = new Date(Date.now() + 100 * 86_400_000).toISOString().slice(0, 10);
+  const buyLots = await owner("POST", `/api/tenants/${tenantId}/purchases`, {
+    contactId: supplier.json.id,
+    invoiceDate: "2026-07-03",
+    taxRate: 0,
+    warehouseId: whUtama.id,
+    lines: [
+      { productId: prodExp.json.id, qty: 5, unitPrice: 10_000, lotNo: "LOT-A", expiryDate: expSoon },
+      { productId: prodExp.json.id, qty: 5, unitPrice: 10_000, lotNo: "LOT-B", expiryDate: expFar },
+    ],
+  });
+  check("pembelian 2 lot diposting (total 100.000)", buyLots.status === 201 && buyLots.json?.total === 100_000);
+
+  let lotsRes = await owner("GET", `/api/tenants/${tenantId}/stock-lots`);
+  let expLots = (lotsRes.json?.lots ?? []).filter((l) => l.sku === "BRG-EXP");
+  check(
+    "daftar lot urut FEFO (LOT-A dulu, 5+5)",
+    lotsRes.status === 200 &&
+      expLots.length === 2 &&
+      expLots[0]?.lotNo === "LOT-A" &&
+      expLots[0]?.qty === 5 &&
+      expLots[1]?.lotNo === "LOT-B" &&
+      expLots[1]?.qty === 5,
+    `→ ${JSON.stringify(expLots)}`,
+  );
+  check(
+    "peringatan: 1 lot kedaluwarsa ≤ 30 hari (LOT-A)",
+    lotsRes.json?.expiringSoon === 1 && expLots[0]?.daysToExpiry === 10,
+    `→ expiringSoon=${lotsRes.json?.expiringSoon}, days=${expLots[0]?.daysToExpiry}`,
+  );
+  check(
+    "produk tanpa pelacakan tidak punya lot (BRG-002 bebas lot)",
+    !(lotsRes.json?.lots ?? []).some((l) => l.sku === "BRG-002"),
+  );
+
+  // Jual 3 → semuanya dari LOT-A (kedaluwarsa terdekat lebih dulu).
+  const sellFefo1 = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id,
+    invoiceDate: "2026-07-04",
+    taxRate: 0,
+    warehouseId: whUtama.id,
+    lines: [{ productId: prodExp.json.id, qty: 3, unitPrice: 15_000 }],
+  });
+  lotsRes = await owner("GET", `/api/tenants/${tenantId}/stock-lots`);
+  expLots = (lotsRes.json?.lots ?? []).filter((l) => l.sku === "BRG-EXP");
+  check(
+    "jual 3 mengambil LOT-A dulu (FEFO): LOT-A sisa 2, LOT-B tetap 5",
+    sellFefo1.status === 201 &&
+      expLots.find((l) => l.lotNo === "LOT-A")?.qty === 2 &&
+      expLots.find((l) => l.lotNo === "LOT-B")?.qty === 5,
+    `→ ${JSON.stringify(expLots)}`,
+  );
+
+  // Jual 4 → LOT-A habis (2) lalu lanjut ke LOT-B (2).
+  const sellFefo2 = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id,
+    invoiceDate: "2026-07-04",
+    taxRate: 0,
+    warehouseId: whUtama.id,
+    lines: [{ productId: prodExp.json.id, qty: 4, unitPrice: 15_000 }],
+  });
+  lotsRes = await owner("GET", `/api/tenants/${tenantId}/stock-lots`);
+  expLots = (lotsRes.json?.lots ?? []).filter((l) => l.sku === "BRG-EXP");
+  check(
+    "jual 4 menghabiskan LOT-A lalu memotong LOT-B (sisa hanya LOT-B = 3)",
+    sellFefo2.status === 201 && expLots.length === 1 && expLots[0]?.lotNo === "LOT-B" && expLots[0]?.qty === 3,
+    `→ ${JSON.stringify(expLots)}`,
+  );
+
+  const lotsByViewer = await viewer("GET", `/api/tenants/${tenantId}/stock-lots`);
+  check("viewer boleh melihat daftar lot", lotsByViewer.status === 200);
+
+  const tbAfterLots = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah alur lot/FEFO", tbAfterLots.json?.balanced === true);
+
   // Tutup buku sampai 10 Juli — transaksi ≤ tanggal itu harus ditolak.
   const closeByViewer = await viewer("POST", `/api/tenants/${tenantId}/close-books`, { date: "2026-07-10" });
   check("viewer/admin DITOLAK menutup buku (403)", closeByViewer.status === 403);
