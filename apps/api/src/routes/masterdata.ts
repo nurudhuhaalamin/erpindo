@@ -100,6 +100,63 @@ function crudRoutes<S extends z.ZodTypeAny>(path: string, cfg: EntityConfig<S>) 
       return c.json({ ok: true });
     })
 
+    // Impor batch: validasi per baris, lewati duplikat, laporkan hasil rinci.
+    .post(`/:tenantId/${path}/import`, requireAuth, requireTenantRole("admin"), async (c) => {
+      const body = (await c.req.json().catch(() => ({}))) as { rows?: unknown[] };
+      if (!Array.isArray(body.rows) || body.rows.length === 0) {
+        return c.json({ error: "Tidak ada baris untuk diimpor." }, 400);
+      }
+      if (body.rows.length > 500) {
+        return c.json({ error: "Maksimal 500 baris per impor — pecah file Anda." }, 400);
+      }
+
+      const tenant = c.get("tenant");
+      const db = getTenantDb(c.env, tenant.dbRef);
+
+      let inserted = 0;
+      const errors: { row: number; message: string }[] = [];
+
+      for (const [index, raw] of body.rows.entries()) {
+        const rowNo = index + 1;
+        const parsed = cfg.schema.safeParse(raw);
+        if (!parsed.success) {
+          const first = parsed.error.issues[0];
+          errors.push({ row: rowNo, message: `${String(first?.path?.[0] ?? "")}: ${first?.message ?? "tidak valid"}` });
+          continue;
+        }
+        const row = cfg.toRow(parsed.data);
+
+        if (cfg.uniqueField) {
+          const { results } = await db
+            .prepare(`SELECT id FROM ${cfg.table} WHERE ${cfg.uniqueField.column} = ?`)
+            .bind(row[cfg.uniqueField.column])
+            .all();
+          if (results.length > 0) {
+            errors.push({ row: rowNo, message: `${cfg.uniqueField.input} '${row[cfg.uniqueField.column]}' sudah ada — dilewati` });
+            continue;
+          }
+        }
+
+        const columns = Object.keys(row);
+        await db
+          .prepare(
+            `INSERT INTO ${cfg.table} (id, ${columns.join(", ")}) VALUES (?, ${columns.map(() => "?").join(", ")})`,
+          )
+          .bind(crypto.randomUUID(), ...columns.map((k) => row[k]))
+          .run();
+        inserted++;
+      }
+
+      await audit(c.env, {
+        action: `${cfg.auditPrefix}.imported`,
+        userId: c.get("user").id,
+        tenantId: tenant.id,
+        detail: { inserted, failed: errors.length },
+        ip: clientIp(c),
+      });
+      return c.json({ ok: true, inserted, failed: errors.length, errors: errors.slice(0, 50) });
+    })
+
     .post(`/:tenantId/${path}/:id/archive`, requireAuth, requireTenantRole("admin"), async (c) => {
       const tenant = c.get("tenant");
       const db = getTenantDb(c.env, tenant.dbRef);
