@@ -3,6 +3,7 @@ import {
   createPaymentSchema,
   createPurchaseSchema,
   stockAdjustmentSchema,
+  stockTransferSchema,
   type ApiCommerceDoc,
   type ApiCommerceLine,
   type ApiStockLevel,
@@ -587,6 +588,62 @@ export const commerceRoutes = new Hono<AppEnv>()
       ip: clientIp(c),
     });
     return c.json({ ok: true, delta, value, entryNo }, 201);
+  })
+
+  // -------------------------------------------------------------------------
+  // Transfer antar gudang: nilai persediaan berpindah pada biaya rata-rata —
+  // total nilai perusahaan tidak berubah, jadi tidak perlu jurnal.
+  // -------------------------------------------------------------------------
+  .post("/:tenantId/stock-transfers", requireAuth, requireTenantRole("admin"), async (c) => {
+    const parsed = stockTransferSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) {
+      const flat = parsed.error.flatten();
+      return c.json(
+        { error: flat.formErrors[0] ?? "Data tidak valid", issues: flat.fieldErrors as Record<string, string[]> },
+        400,
+      );
+    }
+    const tenant = c.get("tenant");
+    const db = getTenantDb(c.env, tenant.dbRef);
+    const input = parsed.data;
+
+    const { results: whs } = await db
+      .prepare(`SELECT id FROM warehouses WHERE is_archived = 0 AND id IN (?, ?)`)
+      .bind(input.fromWarehouseId, input.toWarehouseId)
+      .all<{ id: string }>();
+    if (whs.length !== 2) return c.json({ error: "Gudang asal/tujuan tidak ditemukan." }, 400);
+
+    const transferId = crypto.randomUUID();
+    let cost: number;
+    try {
+      cost = await stockOut(db, {
+        productId: input.productId,
+        warehouseId: input.fromWarehouseId,
+        qty: input.qty,
+        refType: "adjustment",
+        refId: transferId,
+      });
+    } catch (err) {
+      if (err instanceof InsufficientStockError) return c.json({ error: err.message }, 400);
+      throw err;
+    }
+    await stockIn(db, {
+      productId: input.productId,
+      warehouseId: input.toWarehouseId,
+      qty: input.qty,
+      unitCost: Math.round(cost / input.qty),
+      refType: "adjustment",
+      refId: transferId,
+    });
+
+    await audit(c.env, {
+      action: "inventory.transferred",
+      userId: c.get("user").id,
+      tenantId: tenant.id,
+      detail: { productId: input.productId, qty: input.qty, from: input.fromWarehouseId, to: input.toWarehouseId },
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true, qty: input.qty, value: cost }, 201);
   })
 
   // -------------------------------------------------------------------------

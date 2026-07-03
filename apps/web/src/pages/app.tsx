@@ -86,7 +86,8 @@ export function AppShell() {
   }
 
   const me = meQuery.data;
-  const tenant = me.memberships[0];
+  const storedTenantId = localStorage.getItem("erpindo-tenant");
+  const tenant = me.memberships.find((m) => m.tenantId === storedTenantId) ?? me.memberships[0];
   if (!tenant) {
     return (
       <div className="p-6">
@@ -130,7 +131,25 @@ export function AppShell() {
         <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-white md:flex dark:border-slate-800 dark:bg-slate-900">
           <div className="border-b border-slate-200 px-4 py-4 dark:border-slate-800">
             <div className="text-lg font-bold tracking-tight text-brand-700 dark:text-brand-400">erpindo</div>
-            <div className="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">{tenant.tenantName}</div>
+            {me.memberships.length > 1 ? (
+              <select
+                aria-label="Pilih perusahaan"
+                className="mt-1 w-full rounded-md border border-slate-200 bg-transparent px-1.5 py-1 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300"
+                value={tenant.tenantId}
+                onChange={(e) => {
+                  localStorage.setItem("erpindo-tenant", e.target.value);
+                  window.location.href = "/app";
+                }}
+              >
+                {me.memberships.map((m) => (
+                  <option key={m.tenantId} value={m.tenantId}>
+                    {m.tenantName}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">{tenant.tenantName}</div>
+            )}
           </div>
           {nav}
         </aside>
@@ -288,6 +307,7 @@ export function SettingsPage() {
     <div className="max-w-3xl space-y-6">
       <h1 className="text-2xl font-semibold">Pengaturan</h1>
       <SubscriptionCard />
+      <ProfileCard />
       <SecurityCard />
       <CompanySettingsCard tenantId={tenant.tenantId} readOnly={!isAdmin} />
       {isAdmin ? <MembersCard tenantId={tenant.tenantId} /> : null}
@@ -386,6 +406,73 @@ function SubscriptionCard() {
           Pembayaran langganan online (QRIS/transfer/e-wallet) sedang disiapkan — untuk saat ini hubungi kami untuk
           aktivasi paket.
         </p>
+      </CardBody>
+    </Card>
+  );
+}
+
+function ProfileCard() {
+  const { me } = useWorkspace();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [name, setName] = useState(me.user.name);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+
+  const saveName = useMutation({
+    mutationFn: () => api.updateProfile(name),
+    onSuccess: () => {
+      toast("success", "Nama diperbarui.");
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+  const savePassword = useMutation({
+    mutationFn: () => api.changePassword(currentPassword, newPassword),
+    onSuccess: () => {
+      toast("success", "Password diganti. Sesi di perangkat lain telah dikeluarkan.");
+      setCurrentPassword("");
+      setNewPassword("");
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  return (
+    <Card>
+      <CardHeader title="Profil saya" description={me.user.email} />
+      <CardBody className="space-y-5">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex-1 sm:max-w-xs">
+            <Label htmlFor="prof-name">Nama</Label>
+            <Input id="prof-name" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <Button variant="secondary" onClick={() => saveName.mutate()} disabled={saveName.isPending || name.trim().length < 2}>
+            {saveName.isPending ? <Spinner /> : null} Simpan Nama
+          </Button>
+        </div>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="sm:w-56">
+            <Label htmlFor="prof-cur">Password saat ini</Label>
+            <Input id="prof-cur" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
+          </div>
+          <div className="sm:w-56">
+            <Label htmlFor="prof-new">Password baru</Label>
+            <Input
+              id="prof-new"
+              type="password"
+              placeholder="Minimal 8 karakter"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+          </div>
+          <Button
+            variant="secondary"
+            onClick={() => savePassword.mutate()}
+            disabled={savePassword.isPending || !currentPassword || newPassword.length < 8}
+          >
+            {savePassword.isPending ? <Spinner /> : null} Ganti Password
+          </Button>
+        </div>
       </CardBody>
     </Card>
   );

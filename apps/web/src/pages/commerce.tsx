@@ -625,6 +625,93 @@ function StockAdjustmentForm() {
   );
 }
 
+function StockTransferForm() {
+  const { tenant } = useWorkspace();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [productId, setProductId] = useState("");
+  const [fromWh, setFromWh] = useState("");
+  const [toWh, setToWh] = useState("");
+  const [qty, setQty] = useState("");
+
+  const productsQuery = useQuery({
+    queryKey: ["products", tenant.tenantId],
+    queryFn: () => api.listItems<ProductRow>(tenant.tenantId, "products"),
+  });
+  const warehousesQuery = useQuery({
+    queryKey: ["warehouses", tenant.tenantId],
+    queryFn: () => api.listItems<WarehouseRow>(tenant.tenantId, "warehouses"),
+  });
+  const warehouses = (warehousesQuery.data?.items ?? []) as WarehouseRow[];
+
+  const transfer = useMutation({
+    mutationFn: () =>
+      api.transferStock(tenant.tenantId, {
+        productId,
+        fromWarehouseId: fromWh || warehouses[0]?.id || "",
+        toWarehouseId: toWh,
+        qty: Number(qty),
+      }),
+    onSuccess: (res) => {
+      toast("success", `Transfer ${res.qty} unit berhasil (nilai ${formatIDR(res.value)}).`);
+      setQty("");
+      queryClient.invalidateQueries({ queryKey: ["stock", tenant.tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  if (warehouses.length < 2) return null;
+
+  return (
+    <Card>
+      <CardHeader title="Transfer antar gudang" description="Nilai persediaan berpindah pada biaya rata-rata — tanpa jurnal." />
+      <CardBody>
+        <div className="grid gap-3 sm:grid-cols-[1fr_11rem_11rem_7rem_auto] sm:items-end">
+          <div>
+            <Label htmlFor="tr-product">Produk</Label>
+            <Select id="tr-product" value={productId} onChange={(e) => setProductId(e.target.value)}>
+              <option value="">— pilih produk —</option>
+              {((productsQuery.data?.items ?? []) as ProductRow[]).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.sku} · {p.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="tr-from">Dari gudang</Label>
+            <Select id="tr-from" value={fromWh} onChange={(e) => setFromWh(e.target.value)}>
+              {warehouses.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="tr-to">Ke gudang</Label>
+            <Select id="tr-to" value={toWh} onChange={(e) => setToWh(e.target.value)}>
+              <option value="">— pilih —</option>
+              {warehouses.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="tr-qty">Qty</Label>
+            <Input id="tr-qty" type="number" min={1} value={qty} onChange={(e) => setQty(e.target.value)} />
+          </div>
+          <Button onClick={() => transfer.mutate()} disabled={!productId || !toWh || !qty || transfer.isPending}>
+            {transfer.isPending ? <Spinner /> : null} Transfer
+          </Button>
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
+
 export function StockPage() {
   const { tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
@@ -635,6 +722,7 @@ export function StockPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Stok</h1>
       {isAdmin ? <StockAdjustmentForm /> : null}
+      {isAdmin ? <StockTransferForm /> : null}
       <Card>
         <CardHeader
           title="Level stok per gudang"

@@ -1,8 +1,10 @@
 import {
+  changePasswordSchema,
   forgotPasswordSchema,
   loginSchema,
   registerSchema,
   resetPasswordSchema,
+  updateProfileSchema,
   toSlug,
   TRIAL_DAYS,
   type MeResponse,
@@ -279,6 +281,45 @@ export const authRoutes = new Hono<AppEnv>()
       })),
     };
     return c.json(body);
+  })
+
+  // -------------------------------------------------------------------------
+  // Profil pengguna
+  // -------------------------------------------------------------------------
+  .patch("/profile", requireAuth, async (c) => {
+    const parsed = updateProfileSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) {
+      return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
+    }
+    const user = c.get("user");
+    await c.env.DB.prepare(`UPDATE users SET name = ? WHERE id = ?`).bind(parsed.data.name, user.id).run();
+    await audit(c.env, { action: "auth.profile_updated", userId: user.id, ip: clientIp(c) });
+    return c.json({ ok: true });
+  })
+
+  .post("/change-password", requireAuth, async (c) => {
+    const parsed = changePasswordSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) {
+      return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
+    }
+    const user = c.get("user");
+    const row = await c.env.DB.prepare(`SELECT password_hash FROM users WHERE id = ?`)
+      .bind(user.id)
+      .first<{ password_hash: string }>();
+    if (!row || !(await verifyPassword(parsed.data.currentPassword, row.password_hash))) {
+      return c.json({ error: "Password saat ini salah." }, 400);
+    }
+
+    await c.env.DB.batch([
+      c.env.DB.prepare(`UPDATE users SET password_hash = ? WHERE id = ?`).bind(
+        await hashPassword(parsed.data.newPassword),
+        user.id,
+      ),
+      // Semua sesi LAIN dicabut; sesi ini tetap hidup.
+      c.env.DB.prepare(`DELETE FROM sessions WHERE user_id = ? AND id != ?`).bind(user.id, user.sessionId),
+    ]);
+    await audit(c.env, { action: "auth.password_changed", userId: user.id, ip: clientIp(c) });
+    return c.json({ ok: true });
   })
 
   // -------------------------------------------------------------------------
