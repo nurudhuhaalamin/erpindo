@@ -13,6 +13,7 @@
     "@erpindo/shared": "workspace:*",
     "@tanstack/react-query": "^5.80.0",
     "@tanstack/react-router": "^1.120.0",
+    "lucide-react": "^1.23.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "zod": "^3.25.0"

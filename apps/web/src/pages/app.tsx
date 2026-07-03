@@ -1,6 +1,34 @@
 import { PLAN_LABELS, PLAN_LIMITS, type ApiMembership, type MeResponse } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useNavigate } from "@tanstack/react-router";
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  BookOpen,
+  BookText,
+  Boxes,
+  Building2,
+  CheckSquare,
+  Contact,
+  Hourglass,
+  LayoutDashboard,
+  LineChart,
+  ListTree,
+  LogOut,
+  Menu,
+  Moon,
+  Package,
+  Receipt,
+  Scale,
+  Settings,
+  ShoppingCart,
+  Store,
+  Sun,
+  Users,
+  Wallet,
+  Warehouse,
+  type LucideIcon,
+} from "lucide-react";
 import { createContext, useContext, useState, type FormEvent } from "react";
 import { api, ApiRequestError } from "../api/client";
 import {
@@ -13,6 +41,7 @@ import {
   Input,
   Label,
   Select,
+  Skeleton,
   Spinner,
   useDarkMode,
   useToast,
@@ -35,26 +64,40 @@ export function useWorkspace(): Workspace {
 // Shell aplikasi: sidebar (desktop) / menu atas (mobile)
 // ---------------------------------------------------------------------------
 
-const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string }[] = [
-  { to: "/app", label: "Dashboard", exact: true },
-  { to: "/app/pos", label: "Kasir (POS)", exact: false, section: "Transaksi" },
-  { to: "/app/penjualan", label: "Penjualan", exact: false, section: "Transaksi" },
-  { to: "/app/pembelian", label: "Pembelian", exact: false, section: "Transaksi" },
-  { to: "/app/stok", label: "Stok", exact: false, section: "Transaksi" },
-  { to: "/app/keuangan/akun", label: "Bagan Akun", exact: false, section: "Keuangan" },
-  { to: "/app/keuangan/jurnal", label: "Jurnal Umum", exact: false, section: "Keuangan" },
-  { to: "/app/keuangan/buku-besar", label: "Buku Besar", exact: false, section: "Keuangan" },
-  { to: "/app/keuangan/neraca-saldo", label: "Neraca Saldo", exact: false, section: "Keuangan" },
-  { to: "/app/keuangan/laba-rugi", label: "Laba Rugi", exact: false, section: "Keuangan" },
-  { to: "/app/keuangan/neraca", label: "Neraca", exact: false, section: "Keuangan" },
-  { to: "/app/keuangan/arus-kas", label: "Arus Kas", exact: false, section: "Keuangan" },
-  { to: "/app/keuangan/umur-tagihan", label: "Umur Piutang/Hutang", exact: false, section: "Keuangan" },
-  { to: "/app/master/produk", label: "Produk", exact: false, section: "Master Data" },
-  { to: "/app/master/kontak", label: "Kontak", exact: false, section: "Master Data" },
-  { to: "/app/master/gudang", label: "Gudang", exact: false, section: "Master Data" },
-  { to: "/app/persetujuan", label: "Persetujuan", exact: false, section: "Lainnya" },
-  { to: "/app/pengaturan", label: "Pengaturan", exact: false, section: "Lainnya" },
+const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; icon: LucideIcon }[] = [
+  { to: "/app", label: "Dashboard", exact: true, icon: LayoutDashboard },
+  { to: "/app/pos", label: "Kasir (POS)", exact: false, section: "Transaksi", icon: Store },
+  { to: "/app/penjualan", label: "Penjualan", exact: false, section: "Transaksi", icon: Receipt },
+  { to: "/app/pembelian", label: "Pembelian", exact: false, section: "Transaksi", icon: ShoppingCart },
+  { to: "/app/stok", label: "Stok", exact: false, section: "Transaksi", icon: Boxes },
+  { to: "/app/keuangan/akun", label: "Bagan Akun", exact: false, section: "Keuangan", icon: ListTree },
+  { to: "/app/keuangan/jurnal", label: "Jurnal Umum", exact: false, section: "Keuangan", icon: BookText },
+  { to: "/app/keuangan/buku-besar", label: "Buku Besar", exact: false, section: "Keuangan", icon: BookOpen },
+  { to: "/app/keuangan/neraca-saldo", label: "Neraca Saldo", exact: false, section: "Keuangan", icon: Scale },
+  { to: "/app/keuangan/laba-rugi", label: "Laba Rugi", exact: false, section: "Keuangan", icon: LineChart },
+  { to: "/app/keuangan/neraca", label: "Neraca", exact: false, section: "Keuangan", icon: Scale },
+  { to: "/app/keuangan/arus-kas", label: "Arus Kas", exact: false, section: "Keuangan", icon: Wallet },
+  { to: "/app/keuangan/umur-tagihan", label: "Umur Piutang/Hutang", exact: false, section: "Keuangan", icon: Hourglass },
+  { to: "/app/master/produk", label: "Produk", exact: false, section: "Master Data", icon: Package },
+  { to: "/app/master/kontak", label: "Kontak", exact: false, section: "Master Data", icon: Contact },
+  { to: "/app/master/gudang", label: "Gudang", exact: false, section: "Master Data", icon: Warehouse },
+  { to: "/app/persetujuan", label: "Persetujuan", exact: false, section: "Lainnya", icon: CheckSquare },
+  { to: "/app/pengaturan", label: "Pengaturan", exact: false, section: "Lainnya", icon: Settings },
 ];
+
+/** Avatar inisial (maks 2 huruf) dengan warna brand — ala aplikasi SaaS. */
+function Avatar({ name }: { name: string }) {
+  const initials = name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+  return (
+    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-xs font-semibold text-white">
+      {initials || "?"}
+    </span>
+  );
+}
 
 export function AppShell() {
   const navigate = useNavigate();
@@ -99,26 +142,23 @@ export function AppShell() {
   }
 
   const nav = (
-    <nav className="flex flex-col gap-1 p-3">
+    <nav className="flex flex-col gap-0.5 p-3">
       {NAV_ITEMS.map((item, i) => (
         <div key={item.to}>
           {item.section && NAV_ITEMS[i - 1]?.section !== item.section ? (
-            <div className="mb-1 mt-3 px-3 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            <div className="mb-1 mt-4 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
               {item.section}
             </div>
           ) : null}
           <Link
             to={item.to}
             activeOptions={{ exact: item.exact }}
-            activeProps={{
-              className: "bg-brand-50 font-medium text-brand-800 dark:bg-brand-900/40 dark:text-brand-200",
-            }}
-            inactiveProps={{
-              className: "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
-            }}
-            className="block rounded-lg px-3 py-2 text-sm"
+            activeProps={{ className: "bg-brand-600/20 font-medium text-white" }}
+            inactiveProps={{ className: "text-slate-400 hover:bg-white/5 hover:text-slate-100" }}
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors"
             onClick={() => setMenuOpen(false)}
           >
+            <item.icon className="size-4 shrink-0" aria-hidden />
             {item.label}
           </Link>
         </div>
@@ -126,34 +166,57 @@ export function AppShell() {
     </nav>
   );
 
+  const workspacePicker =
+    me.memberships.length > 1 ? (
+      <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-white/5 px-2 py-1.5">
+        <Building2 className="size-4 shrink-0 text-slate-400" aria-hidden />
+        <select
+          aria-label="Pilih perusahaan"
+          className="w-full bg-transparent text-sm text-slate-200 outline-none [&>option]:text-slate-900"
+          value={tenant.tenantId}
+          onChange={(e) => {
+            localStorage.setItem("erpindo-tenant", e.target.value);
+            window.location.href = "/app";
+          }}
+        >
+          {me.memberships.map((m) => (
+            <option key={m.tenantId} value={m.tenantId}>
+              {m.tenantName}
+            </option>
+          ))}
+        </select>
+      </div>
+    ) : (
+      <div className="mt-2 flex items-center gap-1.5 truncate px-1 text-sm text-slate-400">
+        <Building2 className="size-4 shrink-0" aria-hidden />
+        <span className="truncate">{tenant.tenantName}</span>
+      </div>
+    );
+
   return (
     <WorkspaceContext.Provider value={{ me, tenant }}>
       <div className="flex min-h-full">
-        {/* Sidebar desktop */}
-        <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-white md:flex dark:border-slate-800 dark:bg-slate-900">
-          <div className="border-b border-slate-200 px-4 py-4 dark:border-slate-800">
-            <div className="text-lg font-bold tracking-tight text-brand-700 dark:text-brand-400">erpindo</div>
-            {me.memberships.length > 1 ? (
-              <select
-                aria-label="Pilih perusahaan"
-                className="mt-1 w-full rounded-md border border-slate-200 bg-transparent px-1.5 py-1 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300"
-                value={tenant.tenantId}
-                onChange={(e) => {
-                  localStorage.setItem("erpindo-tenant", e.target.value);
-                  window.location.href = "/app";
-                }}
-              >
-                {me.memberships.map((m) => (
-                  <option key={m.tenantId} value={m.tenantId}>
-                    {m.tenantName}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div className="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">{tenant.tenantName}</div>
-            )}
+        {/* Sidebar desktop — gelap kontras ala SaaS modern */}
+        <aside className="hidden w-60 shrink-0 flex-col bg-slate-950 md:flex">
+          <div className="border-b border-white/10 px-4 py-4">
+            <div className="flex items-center gap-2">
+              <span className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-bold text-white">
+                e
+              </span>
+              <span className="text-lg font-bold tracking-tight text-white">erpindo</span>
+            </div>
+            {workspacePicker}
           </div>
-          {nav}
+          <div className="flex-1 overflow-y-auto">{nav}</div>
+          <div className="border-t border-white/10 p-3">
+            <div className="flex items-center gap-2.5 px-1">
+              <Avatar name={me.user.name} />
+              <div className="min-w-0">
+                <div className="truncate text-sm font-medium text-slate-100">{me.user.name}</div>
+                <div className="truncate text-xs text-slate-500">{me.user.email}</div>
+              </div>
+            </div>
+          </div>
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
@@ -162,10 +225,10 @@ export function AppShell() {
             <div className="flex items-center gap-3 md:hidden">
               <button
                 onClick={() => setMenuOpen((o) => !o)}
-                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700"
+                className="rounded-lg border border-slate-300 p-2 dark:border-slate-700"
                 aria-label="Menu"
               >
-                ☰
+                <Menu className="size-4" aria-hidden />
               </button>
               <span className="font-bold text-brand-700 dark:text-brand-400">erpindo</span>
             </div>
@@ -176,23 +239,23 @@ export function AppShell() {
             <div className="flex items-center gap-2">
               <button
                 onClick={toggle}
-                className="rounded-lg px-2.5 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
                 aria-label="Ganti tema"
                 title="Ganti tema terang/gelap"
               >
-                {dark ? "☀️" : "🌙"}
+                {dark ? <Sun className="size-4" aria-hidden /> : <Moon className="size-4" aria-hidden />}
               </button>
-              <span className="hidden text-sm text-slate-600 sm:block dark:text-slate-300">{me.user.name}</span>
+              <span className="hidden sm:block">
+                <Avatar name={me.user.name} />
+              </span>
               <Button variant="secondary" className="h-9" onClick={() => logout.mutate()}>
-                Keluar
+                <LogOut className="size-4" aria-hidden /> Keluar
               </Button>
             </div>
           </header>
 
-          {/* Menu mobile */}
-          {menuOpen ? (
-            <div className="border-b border-slate-200 bg-white md:hidden dark:border-slate-800 dark:bg-slate-900">{nav}</div>
-          ) : null}
+          {/* Menu mobile — panel gelap yang sama dengan sidebar */}
+          {menuOpen ? <div className="bg-slate-950 md:hidden">{nav}</div> : null}
 
           {!me.user.emailVerified ? (
             <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
@@ -239,19 +302,48 @@ export function DashboardPage() {
     queryFn: () => api.dashboard(tenant.tenantId),
   });
 
-  const fmt = (n: number | undefined) =>
-    n === undefined ? "…" : new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
+  const fmt = (n: number) =>
+    new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
 
-  const stats = [
-    { label: "Kas & Bank", value: fmt(dash.data?.cashAndBank) },
+  const stats: { label: string; value?: number; hint?: string; icon: LucideIcon; chip: string }[] = [
+    {
+      label: "Kas & Bank",
+      value: dash.data?.cashAndBank,
+      icon: Wallet,
+      chip: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300",
+    },
     {
       label: "Penjualan Bulan Ini",
-      value: fmt(dash.data?.salesThisMonth),
+      value: dash.data?.salesThisMonth,
       hint: dash.data ? `${dash.data.salesCountThisMonth} faktur` : undefined,
+      icon: LineChart,
+      chip: "bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-300",
     },
-    { label: "Piutang Belum Lunas", value: fmt(dash.data?.receivableOutstanding) },
-    { label: "Hutang Belum Lunas", value: fmt(dash.data?.payableOutstanding) },
-    { label: "Nilai Persediaan", value: fmt(dash.data?.inventoryValue) },
+    {
+      label: "Piutang Belum Lunas",
+      value: dash.data?.receivableOutstanding,
+      icon: ArrowDownToLine,
+      chip: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
+    },
+    {
+      label: "Hutang Belum Lunas",
+      value: dash.data?.payableOutstanding,
+      icon: ArrowUpFromLine,
+      chip: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
+    },
+    {
+      label: "Nilai Persediaan",
+      value: dash.data?.inventoryValue,
+      icon: Boxes,
+      chip: "bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300",
+    },
+  ];
+
+  const quickLinks: { to: string; icon: LucideIcon; text: string; label: string }[] = [
+    { to: "/app/pembelian", icon: ShoppingCart, label: "Pembelian", text: "Catat pembelian untuk mengisi stok" },
+    { to: "/app/penjualan", icon: Receipt, label: "Penjualan", text: "Buat faktur — jurnal & stok otomatis" },
+    { to: "/app/keuangan/laba-rugi", icon: LineChart, label: "Laba Rugi", text: "Lihat laba rugi & neraca kapan saja" },
+    { to: "/app/pengaturan", icon: Users, label: "Pengaturan", text: "Undang tim dengan peran berbeda" },
   ];
 
   return (
@@ -267,8 +359,17 @@ export function DashboardPage() {
         {stats.map((stat) => (
           <Card key={stat.label}>
             <CardBody>
-              <div className="text-sm text-slate-500 dark:text-slate-400">{stat.label}</div>
-              <div className="mt-1 text-xl font-semibold tabular-nums">{stat.value}</div>
+              <div className="flex items-start justify-between gap-2">
+                <div className="text-sm text-slate-500 dark:text-slate-400">{stat.label}</div>
+                <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${stat.chip}`}>
+                  <stat.icon className="size-4" aria-hidden />
+                </span>
+              </div>
+              {stat.value === undefined ? (
+                <Skeleton className="mt-2 h-6 w-28" />
+              ) : (
+                <div className="mt-1 text-xl font-semibold tabular-nums">{fmt(stat.value)}</div>
+              )}
               {stat.hint ? <div className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{stat.hint}</div> : null}
             </CardBody>
           </Card>
@@ -278,20 +379,23 @@ export function DashboardPage() {
       <Card>
         <CardHeader title="Mulai dari sini" description="Alur kerja harian yang umum." />
         <CardBody>
-          <ul className="grid gap-2 text-sm text-slate-600 sm:grid-cols-2 dark:text-slate-300">
-            <li>
-              🛒 Catat <Link to="/app/pembelian" className="font-medium text-brand-700 hover:underline dark:text-brand-400">pembelian</Link> untuk mengisi stok
-            </li>
-            <li>
-              🧾 Buat <Link to="/app/penjualan" className="font-medium text-brand-700 hover:underline dark:text-brand-400">faktur penjualan</Link> — jurnal & stok otomatis
-            </li>
-            <li>
-              📊 Lihat <Link to="/app/keuangan/laba-rugi" className="font-medium text-brand-700 hover:underline dark:text-brand-400">Laba Rugi</Link> dan <Link to="/app/keuangan/neraca" className="font-medium text-brand-700 hover:underline dark:text-brand-400">Neraca</Link>
-            </li>
-            <li>
-              👥 Undang tim di <Link to="/app/pengaturan" className="font-medium text-brand-700 hover:underline dark:text-brand-400">Pengaturan</Link>
-            </li>
-          </ul>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {quickLinks.map((q) => (
+              <Link
+                key={q.to}
+                to={q.to}
+                className="group flex items-center gap-3 rounded-xl border border-slate-200 p-3 transition-colors hover:border-brand-300 hover:bg-brand-50/50 dark:border-slate-800 dark:hover:border-brand-800 dark:hover:bg-brand-950/30"
+              >
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition-colors group-hover:bg-brand-100 group-hover:text-brand-700 dark:bg-slate-800 dark:text-slate-300 dark:group-hover:bg-brand-900/60 dark:group-hover:text-brand-300">
+                  <q.icon className="size-4" aria-hidden />
+                </span>
+                <span>
+                  <span className="block text-sm font-medium">{q.label}</span>
+                  <span className="block text-xs text-slate-500 dark:text-slate-400">{q.text}</span>
+                </span>
+              </Link>
+            ))}
+          </div>
         </CardBody>
       </Card>
     </div>
