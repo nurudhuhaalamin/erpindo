@@ -44,6 +44,8 @@ const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string }
   { to: "/app/keuangan/jurnal", label: "Jurnal Umum", exact: false, section: "Keuangan" },
   { to: "/app/keuangan/buku-besar", label: "Buku Besar", exact: false, section: "Keuangan" },
   { to: "/app/keuangan/neraca-saldo", label: "Neraca Saldo", exact: false, section: "Keuangan" },
+  { to: "/app/keuangan/laba-rugi", label: "Laba Rugi", exact: false, section: "Keuangan" },
+  { to: "/app/keuangan/neraca", label: "Neraca", exact: false, section: "Keuangan" },
   { to: "/app/master/produk", label: "Produk", exact: false, section: "Master Data" },
   { to: "/app/master/kontak", label: "Kontak", exact: false, section: "Master Data" },
   { to: "/app/master/gudang", label: "Gudang", exact: false, section: "Master Data" },
@@ -190,39 +192,63 @@ export function AppShell() {
 
 export function DashboardPage() {
   const { me, tenant } = useWorkspace();
+  const dash = useQuery({
+    queryKey: ["dashboard", tenant.tenantId],
+    queryFn: () => api.dashboard(tenant.tenantId),
+  });
+
+  const fmt = (n: number | undefined) =>
+    n === undefined ? "…" : new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
+
+  const stats = [
+    { label: "Kas & Bank", value: fmt(dash.data?.cashAndBank) },
+    {
+      label: "Penjualan Bulan Ini",
+      value: fmt(dash.data?.salesThisMonth),
+      hint: dash.data ? `${dash.data.salesCountThisMonth} faktur` : undefined,
+    },
+    { label: "Piutang Belum Lunas", value: fmt(dash.data?.receivableOutstanding) },
+    { label: "Hutang Belum Lunas", value: fmt(dash.data?.payableOutstanding) },
+    { label: "Nilai Persediaan", value: fmt(dash.data?.inventoryValue) },
+  ];
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Selamat datang, {me.user.name.split(" ")[0]} 👋</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Workspace <span className="font-medium">{tenant.tenantName}</span> siap digunakan.
+          Ringkasan <span className="font-medium">{tenant.tenantName}</span> hari ini.
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: "Kas & Bank", value: "—" },
-          { label: "Penjualan Bulan Ini", value: "—" },
-          { label: "Piutang Jatuh Tempo", value: "—" },
-          { label: "Nilai Persediaan", value: "—" },
-        ].map((stat) => (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        {stats.map((stat) => (
           <Card key={stat.label}>
             <CardBody>
               <div className="text-sm text-slate-500 dark:text-slate-400">{stat.label}</div>
-              <div className="mt-1 text-2xl font-semibold">{stat.value}</div>
+              <div className="mt-1 text-xl font-semibold tabular-nums">{stat.value}</div>
+              {stat.hint ? <div className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{stat.hint}</div> : null}
             </CardBody>
           </Card>
         ))}
       </div>
 
       <Card>
-        <CardHeader title="Modul sedang disiapkan" description="Fase 1 menghadirkan modul inti ERP." />
+        <CardHeader title="Mulai dari sini" description="Alur kerja harian yang umum." />
         <CardBody>
           <ul className="grid gap-2 text-sm text-slate-600 sm:grid-cols-2 dark:text-slate-300">
-            <li>📒 Keuangan & Akuntansi — bagan akun, jurnal, laporan keuangan</li>
-            <li>🧾 Penjualan — pelanggan, faktur, piutang</li>
-            <li>🛒 Pembelian — pemasok, pesanan pembelian, hutang</li>
-            <li>📦 Inventori — produk, stok multi-gudang</li>
+            <li>
+              🛒 Catat <Link to="/app/pembelian" className="font-medium text-brand-700 hover:underline dark:text-brand-400">pembelian</Link> untuk mengisi stok
+            </li>
+            <li>
+              🧾 Buat <Link to="/app/penjualan" className="font-medium text-brand-700 hover:underline dark:text-brand-400">faktur penjualan</Link> — jurnal & stok otomatis
+            </li>
+            <li>
+              📊 Lihat <Link to="/app/keuangan/laba-rugi" className="font-medium text-brand-700 hover:underline dark:text-brand-400">Laba Rugi</Link> dan <Link to="/app/keuangan/neraca" className="font-medium text-brand-700 hover:underline dark:text-brand-400">Neraca</Link>
+            </li>
+            <li>
+              👥 Undang tim di <Link to="/app/pengaturan" className="font-medium text-brand-700 hover:underline dark:text-brand-400">Pengaturan</Link>
+            </li>
           </ul>
         </CardBody>
       </Card>

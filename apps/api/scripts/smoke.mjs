@@ -433,8 +433,54 @@ try {
   });
   check("viewer DITOLAK membuat faktur (403)", viewerInvoice.status === 403);
 
+  // --- Laporan keuangan & dashboard (Fase 1c) -----------------------------------
+  console.log("10. Laporan keuangan & dashboard");
+
+  // Konteks angka: modal 50jt + penjualan tunai (jurnal manual) 2,5jt masuk 4-1000;
+  // siklus dagang: jual 450rb (+PPN 49,5rb), HPP 300rb; beli 1,11jt belum dibayar.
+  const pl = await owner("GET", `/api/tenants/${tenantId}/reports/income-statement?from=2026-07-01&to=2026-07-31`);
+  check(
+    "laba rugi: pendapatan 2.950.000, beban 300.000, laba 2.650.000",
+    pl.status === 200 &&
+      pl.json?.totalIncome === 2_950_000 &&
+      pl.json?.totalExpense === 300_000 &&
+      pl.json?.netProfit === 2_650_000,
+    `→ ${JSON.stringify(pl.json && { i: pl.json.totalIncome, e: pl.json.totalExpense, n: pl.json.netProfit })}`,
+  );
+
+  const bs = await owner("GET", `/api/tenants/${tenantId}/reports/balance-sheet?asOf=2026-07-31`);
+  check(
+    "neraca SEIMBANG: aset = kewajiban + ekuitas (incl. laba berjalan)",
+    bs.status === 200 && bs.json?.balanced === true,
+    `→ aset ${bs.json?.totalAssets} vs K+E ${(bs.json?.totalLiabilities ?? 0) + (bs.json?.totalEquity ?? 0)}`,
+  );
+  check(
+    "neraca memuat baris Laba (Rugi) Berjalan 2.650.000",
+    bs.json?.equity?.some((r) => r.name.includes("Berjalan") && r.amount === 2_650_000),
+  );
+
+  const badDate = await owner("GET", `/api/tenants/${tenantId}/reports/balance-sheet?asOf=31-07-2026`);
+  check("format tanggal salah DITOLAK 400", badDate.status === 400);
+
+  const dash = await owner("GET", `/api/tenants/${tenantId}/dashboard`);
+  check(
+    "dashboard: piutang 0, hutang 1.110.000, persediaan 700.000",
+    dash.status === 200 &&
+      dash.json?.receivableOutstanding === 0 &&
+      dash.json?.payableOutstanding === 1_110_000 &&
+      dash.json?.inventoryValue === 700_000,
+    `→ ${JSON.stringify(dash.json)}`,
+  );
+  check("dashboard: kas & bank 52.999.500", dash.json?.cashAndBank === 52_999_500, `→ ${dash.json?.cashAndBank}`);
+
+  const viewerPl = await viewer(
+    "GET",
+    `/api/tenants/${tenantId}/reports/income-statement?from=2026-07-01&to=2026-07-31`,
+  );
+  check("viewer boleh melihat laba rugi", viewerPl.status === 200);
+
   // --- Logout -----------------------------------------------------------------
-  console.log("10. Logout");
+  console.log("11. Logout");
   const out = await owner("POST", "/api/auth/logout");
   check("logout 200", out.status === 200);
   const afterLogout = await owner("GET", "/api/auth/me");

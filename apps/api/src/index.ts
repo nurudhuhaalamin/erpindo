@@ -5,6 +5,7 @@ import type { AppEnv, Env } from "./env";
 import { accountingRoutes } from "./routes/accounting";
 import { authRoutes } from "./routes/auth";
 import { commerceRoutes } from "./routes/commerce";
+import { reportRoutes } from "./routes/reports";
 import { masterDataRoutes } from "./routes/masterdata";
 import { inviteRoutes, tenantRoutes } from "./routes/tenants";
 
@@ -38,6 +39,7 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", accountingRoutes)
   .route("/api/tenants", masterDataRoutes)
   .route("/api/tenants", commerceRoutes)
+  .route("/api/tenants", reportRoutes)
   .route("/api/invites", inviteRoutes)
   .notFound((c) =>
     c.req.path.startsWith("/api/")

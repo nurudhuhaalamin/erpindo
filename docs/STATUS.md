@@ -12,8 +12,9 @@
 | Perencanaan | Blueprint bisnis & teknis | ✅ Selesai |
 | Fase 0 — Fondasi | Kerangka aplikasi, akun & login, multi-tenant, keamanan dasar, design system, CI/CD | ✅ Selesai |
 | Fase 1a — Akuntansi inti & master data | Bagan akun (template Indonesia), jurnal double-entry, buku besar, neraca saldo; produk, kontak, gudang | ✅ Selesai |
-| **Fase 1b — Penjualan & Pembelian** | Faktur jual/beli dengan jurnal & stok otomatis (biaya rata-rata), pembayaran, PPN, level stok | ✅ **Selesai** |
-| Fase 1c — Laporan & dashboard | Neraca, laba-rugi, dashboard angka nyata, ekspor | ⏳ Berikutnya |
+| Fase 1b — Penjualan & Pembelian | Faktur jual/beli dengan jurnal & stok otomatis (biaya rata-rata), pembayaran, PPN, level stok | ✅ Selesai |
+| **Fase 1c — Laporan & dashboard** | Laba Rugi, Neraca (selalu seimbang), dashboard angka nyata | ✅ **Selesai** |
+| Sisa MVP + Fase 2 | Ekspor laporan, kartu stok, aging, tutup buku; lalu billing langganan & peluncuran | ⏳ Berikutnya |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
 | Fase 3+ | POS, HR & Payroll, dan modul lanjutan | Belum |
 
@@ -28,9 +29,11 @@
 7. **Master data** *(Fase 1a)*: daftar produk (dengan harga jual/beli), kontak pelanggan & pemasok, dan gudang.
 8. **Jual-beli lengkap** *(baru — Fase 1b)*: membuat faktur penjualan dan pembelian dengan PPN — sistem **otomatis** membuat catatan akuntansinya dan menambah/mengurangi stok (dengan perhitungan harga pokok rata-rata). Menjual barang yang stoknya kurang otomatis ditolak.
 9. **Pencatatan pembayaran** *(baru — Fase 1b)*: menerima pembayaran pelanggan atau membayar pemasok; status faktur otomatis menjadi "lunas"; membayar melebihi tagihan ditolak.
-10. **Pantauan stok** *(baru — Fase 1b)*: level stok per gudang beserta nilai persediaan.
+10. **Pantauan stok** *(Fase 1b)*: level stok per gudang beserta nilai persediaan.
+11. **Laporan keuangan** *(baru — Fase 1c)*: **Laba Rugi** per periode dan **Neraca** per tanggal yang selalu seimbang (laba berjalan otomatis diperhitungkan) — dihitung langsung dari jurnal, jadi pasti konsisten dengan buku besar.
+12. **Dashboard angka nyata** *(baru — Fase 1c)*: kas & bank, penjualan bulan berjalan, piutang/hutang belum lunas, dan nilai persediaan terpampang begitu Anda masuk.
 
-Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (52 skenario ujian end-to-end + 16 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
+Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (61 skenario ujian end-to-end + 16 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
 
 ## Apakah sudah bisa diakses di internet?
 
@@ -40,4 +43,4 @@ Catatan kapasitas: mode saat ini memakai pool 5 database tenant (cukup untuk 5 p
 
 ## Yang dikerjakan berikutnya
 
-Fase 1c: laporan keuangan (neraca & laba-rugi) dan dashboard berisi angka sungguhan (kas hari ini, penjualan bulan berjalan, piutang/hutang, nilai persediaan) — melengkapi MVP.
+Sisa MVP: ekspor laporan (Excel/PDF), kartu stok per barang, umur piutang/hutang (aging), dan tutup buku. Setelah itu Fase 2: pendaftaran mandiri yang dipoles, paket & pembayaran langganan (Midtrans/Xendit), dan PWA penuh — menuju peluncuran komersial.
