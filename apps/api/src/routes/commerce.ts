@@ -67,7 +67,7 @@ async function listDocs(db: SqlExecutor, cfg: DocTable): Promise<ApiCommerceDoc[
     .prepare(
       `SELECT d.id, d.${cfg.noColumn} AS doc_no, d.contact_id, c.name AS contact_name,
               d.${cfg.dateColumn} AS date, d.due_date, d.status, d.subtotal, d.tax_rate,
-              d.tax_amount, d.total, d.paid_amount
+              d.tax_amount, d.total, d.paid_amount, d.returned_amount
        FROM ${cfg.table} d JOIN contacts c ON c.id = d.contact_id
        ORDER BY d.created_at DESC LIMIT 200`,
     )
@@ -84,6 +84,7 @@ async function listDocs(db: SqlExecutor, cfg: DocTable): Promise<ApiCommerceDoc[
       tax_amount: number;
       total: number;
       paid_amount: number;
+      returned_amount: number;
     }>();
 
   const { results: lines } = await db
@@ -131,6 +132,7 @@ async function listDocs(db: SqlExecutor, cfg: DocTable): Promise<ApiCommerceDoc[
     taxAmount: d.tax_amount,
     total: d.total,
     paidAmount: d.paid_amount,
+    returnedAmount: d.returned_amount,
     lines: byDoc.get(d.id) ?? [],
   }));
 }
@@ -414,15 +416,15 @@ export const commerceRoutes = new Hono<AppEnv>()
     const cfg = input.refType === "invoice" ? INVOICE_CFG : PURCHASE_CFG;
 
     const { results: docs } = await db
-      .prepare(`SELECT ${cfg.noColumn} AS doc_no, total, paid_amount FROM ${cfg.table} WHERE id = ?`)
+      .prepare(`SELECT ${cfg.noColumn} AS doc_no, total, paid_amount, returned_amount FROM ${cfg.table} WHERE id = ?`)
       .bind(input.refId)
-      .all<{ doc_no: string; total: number; paid_amount: number }>();
+      .all<{ doc_no: string; total: number; paid_amount: number; returned_amount: number }>();
     const doc = docs[0];
     if (!doc) return c.json({ error: "Dokumen tidak ditemukan." }, 404);
     const lockError = await checkPeriodOpen(db, input.paymentDate);
     if (lockError) return c.json({ error: lockError }, 400);
 
-    const remaining = doc.total - doc.paid_amount;
+    const remaining = doc.total - doc.paid_amount - doc.returned_amount;
     if (input.amount > remaining) {
       return c.json({ error: `Nominal melebihi sisa tagihan (sisa Rp ${remaining.toLocaleString("id-ID")}).` }, 400);
     }
@@ -483,7 +485,7 @@ export const commerceRoutes = new Hono<AppEnv>()
     const newPaid = doc.paid_amount + input.amount;
     await db
       .prepare(`UPDATE ${cfg.table} SET paid_amount = ?, status = ? WHERE id = ?`)
-      .bind(newPaid, newPaid >= doc.total ? "paid" : "posted", input.refId)
+      .bind(newPaid, newPaid + doc.returned_amount >= doc.total ? "paid" : "posted", input.refId)
       .run();
 
     await audit(c.env, {
@@ -493,7 +495,7 @@ export const commerceRoutes = new Hono<AppEnv>()
       detail: { paymentNo, refType: input.refType, docNo: doc.doc_no, amount: input.amount },
       ip: clientIp(c),
     });
-    return c.json({ ok: true, paymentNo, paidAmount: newPaid, settled: newPaid >= doc.total }, 201);
+    return c.json({ ok: true, paymentNo, paidAmount: newPaid, settled: newPaid + doc.returned_amount >= doc.total }, 201);
   })
 
   // -------------------------------------------------------------------------

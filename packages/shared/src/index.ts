@@ -364,8 +364,26 @@ export type ApiCommerceDoc = {
   taxAmount: number;
   total: number;
   paidAmount: number;
+  returnedAmount: number;
   lines: ApiCommerceLine[];
 };
+
+export const createReturnSchema = z.object({
+  refType: z.enum(["invoice", "purchase"]),
+  refId: z.string().min(1),
+  warehouseId: z.string().min(1, "Gudang wajib dipilih"),
+  returnDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+  memo: z.string().trim().max(200).optional(),
+  lines: z
+    .array(
+      z.object({
+        productId: z.string().min(1),
+        qty: z.number().int("Qty harus bilangan bulat").min(1, "Qty minimal 1"),
+      }),
+    )
+    .min(1, "Minimal 1 baris retur"),
+});
+export type CreateReturnInput = z.infer<typeof createReturnSchema>;
 
 export type ApiStockLevel = {
   productId: string;

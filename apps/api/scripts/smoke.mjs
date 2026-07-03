@@ -621,6 +621,89 @@ try {
   const auditByViewer = await viewer("GET", `/api/tenants/${tenantId}/audit-logs`);
   check("viewer DITOLAK membaca audit log (403)", auditByViewer.status === 403);
 
+  // --- Retur penjualan & pembelian (Fase 2f) --------------------------------------
+  console.log("11c. Retur penjualan & pembelian");
+  // Faktur kedua (belum dibayar): jual 2 pcs @150rb + PPN 11% = 333.000; stok 6→4.
+  const inv2 = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id,
+    invoiceDate: "2026-07-03",
+    taxRate: 11,
+    warehouseId: whUtama.id,
+    lines: [{ productId: prodBarang.json.id, qty: 2, unitPrice: 150_000 }],
+  });
+  check("faktur kedua diposting (333.000)", inv2.status === 201 && inv2.json?.total === 333_000);
+
+  const returnTooMany = await owner("POST", `/api/tenants/${tenantId}/returns`, {
+    refType: "invoice",
+    refId: inv2.json.id,
+    warehouseId: whUtama.id,
+    returnDate: "2026-07-03",
+    lines: [{ productId: prodBarang.json.id, qty: 5 }],
+  });
+  check("retur melebihi qty dokumen DITOLAK 400", returnTooMany.status === 400);
+
+  const salesReturn = await owner("POST", `/api/tenants/${tenantId}/returns`, {
+    refType: "invoice",
+    refId: inv2.json.id,
+    warehouseId: whUtama.id,
+    returnDate: "2026-07-03",
+    memo: "1 rusak saat kirim",
+    lines: [{ productId: prodBarang.json.id, qty: 1 }],
+  });
+  check(
+    "retur penjualan 1 pcs: nilai 166.500 + jurnal",
+    salesReturn.status === 201 && salesReturn.json?.total === 166_500 && Boolean(salesReturn.json?.journalNo),
+    `→ ${JSON.stringify(salesReturn.json)}`,
+  );
+
+  const invoicesAfterReturn = await owner("GET", `/api/tenants/${tenantId}/invoices`);
+  const inv2After = invoicesAfterReturn.json?.docs?.find((d) => d.id === inv2.json.id);
+  check("faktur mencatat returnedAmount 166.500", inv2After?.returnedAmount === 166_500);
+
+  const agingAfterReturn = await owner("GET", `/api/tenants/${tenantId}/reports/aging?type=receivable`);
+  check(
+    "aging piutang: sisa 166.500 setelah retur",
+    agingAfterReturn.json?.grandTotal === 166_500,
+    `→ ${agingAfterReturn.json?.grandTotal}`,
+  );
+
+  // Retur pembelian 2 pcs dari PB-00001 (1.110.000): 200rb + PPN 22rb = 222rb; stok turun 2.
+  const purchases = await owner("GET", `/api/tenants/${tenantId}/purchases`);
+  const pb1 = purchases.json.docs.find((d) => d.docNo === "PB-00001");
+  const purchaseReturn = await owner("POST", `/api/tenants/${tenantId}/returns`, {
+    refType: "purchase",
+    refId: pb1.id,
+    warehouseId: whUtama.id,
+    returnDate: "2026-07-03",
+    lines: [{ productId: prodBarang.json.id, qty: 2 }],
+  });
+  check(
+    "retur pembelian 2 pcs: nilai 222.000",
+    purchaseReturn.status === 201 && purchaseReturn.json?.total === 222_000,
+    `→ ${JSON.stringify(purchaseReturn.json)}`,
+  );
+
+  const agingApAfterReturn = await owner("GET", `/api/tenants/${tenantId}/reports/aging?type=payable`);
+  check("aging hutang berkurang menjadi 888.000", agingApAfterReturn.json?.grandTotal === 888_000);
+
+  const stockAfterReturns = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  check(
+    "stok setelah retur: 6−2(jual)+1(retur jual)−2(retur beli) = 3",
+    stockAfterReturns.json?.levels?.find((l) => l.sku === "BRG-002")?.qty === 3,
+  );
+
+  const tbAfterReturns = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah retur", tbAfterReturns.json?.balanced === true);
+
+  const returnByViewer = await viewer("POST", `/api/tenants/${tenantId}/returns`, {
+    refType: "invoice",
+    refId: inv2.json.id,
+    warehouseId: whUtama.id,
+    returnDate: "2026-07-03",
+    lines: [{ productId: prodBarang.json.id, qty: 1 }],
+  });
+  check("viewer DITOLAK membuat retur (403)", returnByViewer.status === 403);
+
   // Tutup buku sampai 10 Juli — transaksi ≤ tanggal itu harus ditolak.
   const closeByViewer = await viewer("POST", `/api/tenants/${tenantId}/close-books`, { date: "2026-07-10" });
   check("viewer/admin DITOLAK menutup buku (403)", closeByViewer.status === 403);
@@ -648,7 +731,7 @@ try {
 
   const stockAfterLock = await owner("GET", `/api/tenants/${tenantId}/stock`);
   const levelAfterLock = stockAfterLock.json?.levels?.find((l) => l.sku === "BRG-002");
-  check("stok TIDAK berubah oleh faktur yang ditolak (tetap 6)", levelAfterLock?.qty === 6);
+  check("stok TIDAK berubah oleh faktur yang ditolak (tetap 3)", levelAfterLock?.qty === 3);
 
   const openJournal = await owner("POST", `/api/tenants/${tenantId}/journal-entries`, {
     entryDate: "2026-07-15",

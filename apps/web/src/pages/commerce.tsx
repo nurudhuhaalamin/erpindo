@@ -268,7 +268,36 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
   const toast = useToast();
   const queryClient = useQueryClient();
   const [payOpen, setPayOpen] = useState(false);
-  const remaining = doc.total - doc.paidAmount;
+  const [returnOpen, setReturnOpen] = useState(false);
+  const [returnQty, setReturnQty] = useState<Record<string, string>>({});
+  const remaining = doc.total - doc.paidAmount - doc.returnedAmount;
+
+  const warehousesQuery = useQuery({
+    queryKey: ["warehouses", tenant.tenantId],
+    queryFn: () => api.listItems<{ id: string }>(tenant.tenantId, "warehouses"),
+    enabled: returnOpen,
+  });
+
+  const doReturn = useMutation({
+    mutationFn: () =>
+      api.createReturn(tenant.tenantId, {
+        refType: mode === "sale" ? "invoice" : "purchase",
+        refId: doc.id,
+        warehouseId: (warehousesQuery.data?.items[0] as { id: string } | undefined)?.id ?? "",
+        returnDate: new Date().toISOString().slice(0, 10),
+        lines: Object.entries(returnQty)
+          .filter(([, q]) => Number(q) > 0)
+          .map(([productId, q]) => ({ productId, qty: Number(q) })),
+      }),
+    onSuccess: (res) => {
+      toast("success", `Retur ${res.returnNo} diposting (${formatIDR(res.total)}, jurnal ${res.journalNo}).`);
+      setReturnOpen(false);
+      setReturnQty({});
+      queryClient.invalidateQueries({ queryKey: [mode === "sale" ? "invoices" : "purchases", tenant.tenantId] });
+      queryClient.invalidateQueries({ queryKey: ["stock", tenant.tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
 
   const accountsQuery = useQuery({
     queryKey: ["accounts", tenant.tenantId],
@@ -321,6 +350,11 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
               🖨 Cetak
             </a>
           ) : null}
+          {isAdmin && remaining > 0 ? (
+            <Button variant="ghost" className="h-8" onClick={() => setReturnOpen((o) => !o)}>
+              Retur
+            </Button>
+          ) : null}
           {isAdmin && doc.status !== "paid" ? (
             <Button variant="secondary" className="h-8" onClick={() => setPayOpen((o) => !o)}>
               {mode === "sale" ? "Terima Pembayaran" : "Bayar"}
@@ -350,7 +384,44 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
             <span className="tabular-nums">{formatIDR(doc.paidAmount)}</span>
           </div>
         ) : null}
+        {doc.returnedAmount > 0 ? (
+          <div className="flex justify-between text-slate-500 dark:text-slate-400">
+            <span>Sudah diretur</span>
+            <span className="tabular-nums">− {formatIDR(doc.returnedAmount)}</span>
+          </div>
+        ) : null}
       </div>
+
+      {returnOpen ? (
+        <div className="mt-3 space-y-2 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
+          <div className="text-sm font-medium">Retur barang — isi qty yang dikembalikan:</div>
+          {doc.lines.map((l) => (
+            <div key={l.id} className="flex items-center gap-3 text-sm">
+              <span className="flex-1">
+                {l.productName} <span className="text-slate-400">(dibeli {l.qty})</span>
+              </span>
+              <Input
+                aria-label={`Qty retur ${l.productName}`}
+                type="number"
+                min={0}
+                max={l.qty}
+                className="h-9 w-24"
+                placeholder="0"
+                value={returnQty[l.productId] ?? ""}
+                onChange={(e) => setReturnQty((q) => ({ ...q, [l.productId]: e.target.value }))}
+              />
+            </div>
+          ))}
+          <div className="flex justify-end">
+            <Button
+              onClick={() => doReturn.mutate()}
+              disabled={doReturn.isPending || !Object.values(returnQty).some((q) => Number(q) > 0)}
+            >
+              {doReturn.isPending ? <Spinner /> : null} Posting Retur
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       {payOpen ? (
         <div className="mt-3 grid gap-2 rounded-lg bg-slate-50 p-3 sm:grid-cols-[1fr_10rem_10rem_auto] sm:items-end dark:bg-slate-800/50">
