@@ -14,6 +14,7 @@ import { PurchasesPage, SalesPage, StockPage } from "./pages/commerce";
 import { AccountsPage, JournalPage, LedgerPage, TrialBalancePage } from "./pages/finance";
 import { AgingPage, BalanceSheetPage, CashFlowPage, IncomeStatementPage } from "./pages/reports";
 import { ContactsPage, ProductsPage, WarehousesPage } from "./pages/masterdata";
+import { ApprovalsPage } from "./pages/approvals";
 import { PosPage } from "./pages/pos";
 import { InvoicePrintPage } from "./pages/print";
 import {
@@ -45,6 +46,7 @@ const appChildren = [
   createRoute({ getParentRoute: () => appRoute, path: "/", component: DashboardPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/pengaturan", component: SettingsPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/pos", component: PosPage }),
+  createRoute({ getParentRoute: () => appRoute, path: "/persetujuan", component: ApprovalsPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/penjualan", component: SalesPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/pembelian", component: PurchasesPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/stok", component: StockPage }),

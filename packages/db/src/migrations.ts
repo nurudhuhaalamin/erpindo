@@ -346,6 +346,28 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `ALTER TABLE invoices ADD COLUMN pos_shift_id TEXT`,
     ],
   },
+  {
+    id: "0006_approvals",
+    statements: [
+      // Antrean persetujuan: dokumen DISIMPAN sebagai payload dan baru
+      // diposting (jurnal + stok) saat Owner menyetujui.
+      `CREATE TABLE approval_requests (
+        id TEXT PRIMARY KEY,
+        request_no TEXT NOT NULL UNIQUE,
+        type TEXT NOT NULL CHECK (type IN ('purchase')),
+        payload TEXT NOT NULL,
+        summary TEXT,
+        total INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
+        requested_by TEXT NOT NULL,
+        requested_at TEXT NOT NULL DEFAULT (datetime('now')),
+        decided_by TEXT,
+        decided_at TEXT,
+        decision_note TEXT,
+        result_doc_id TEXT
+      )`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

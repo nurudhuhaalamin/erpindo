@@ -52,6 +52,7 @@ const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string }
   { to: "/app/master/produk", label: "Produk", exact: false, section: "Master Data" },
   { to: "/app/master/kontak", label: "Kontak", exact: false, section: "Master Data" },
   { to: "/app/master/gudang", label: "Gudang", exact: false, section: "Master Data" },
+  { to: "/app/persetujuan", label: "Persetujuan", exact: false, section: "Lainnya" },
   { to: "/app/pengaturan", label: "Pengaturan", exact: false, section: "Lainnya" },
 ];
 
@@ -312,6 +313,7 @@ export function SettingsPage() {
       <SecurityCard />
       <CompanySettingsCard tenantId={tenant.tenantId} readOnly={!isAdmin} />
       {isAdmin ? <MembersCard tenantId={tenant.tenantId} /> : null}
+      {tenant.role === "owner" ? <ApprovalThresholdCard tenantId={tenant.tenantId} /> : null}
       {tenant.role === "owner" ? <CloseBooksCard tenantId={tenant.tenantId} /> : null}
       {tenant.role === "owner" ? <AuditLogCard tenantId={tenant.tenantId} /> : null}
     </div>
@@ -579,6 +581,51 @@ function SecurityCard() {
             </Button>
           </div>
         )}
+      </CardBody>
+    </Card>
+  );
+}
+
+function ApprovalThresholdCard({ tenantId }: { tenantId: string }) {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const settingsQuery = useQuery({ queryKey: ["settings", tenantId], queryFn: () => api.settings(tenantId) });
+  const current = Number(settingsQuery.data?.settings.approval_threshold_purchase ?? 0);
+  const [amount, setAmount] = useState("");
+
+  const save = useMutation({
+    mutationFn: () => api.setApprovalThreshold(tenantId, Number(amount) || 0),
+    onSuccess: (res) => {
+      toast("success", res.amount > 0 ? `Ambang persetujuan: ${res.amount.toLocaleString("id-ID")}.` : "Persetujuan dinonaktifkan.");
+      queryClient.invalidateQueries({ queryKey: ["settings", tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  return (
+    <Card>
+      <CardHeader
+        title="Persetujuan pembelian"
+        description="Pembelian oleh Admin dengan nilai ≥ ambang ini harus Anda setujui dulu sebelum diproses. Isi 0 untuk menonaktifkan."
+      />
+      <CardBody className="flex flex-wrap items-end gap-3">
+        <div className="sm:w-64">
+          <Label htmlFor="apr-amount">Ambang (Rp)</Label>
+          <Input
+            id="apr-amount"
+            type="number"
+            min={0}
+            placeholder={current > 0 ? String(current) : "mis. 5000000"}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
+        </div>
+        <Button variant="secondary" onClick={() => save.mutate()} disabled={save.isPending || amount === ""}>
+          {save.isPending ? <Spinner /> : null} Simpan
+        </Button>
+        <span className="text-sm text-slate-500 dark:text-slate-400">
+          Saat ini: {current > 0 ? `Rp ${current.toLocaleString("id-ID")}` : "nonaktif"}
+        </span>
       </CardBody>
     </Card>
   );
