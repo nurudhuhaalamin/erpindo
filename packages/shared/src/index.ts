@@ -492,6 +492,49 @@ export type ApiAuditLog = {
   createdAt: string;
 };
 
+// --- POS / Kasir ------------------------------------------------------------
+
+export const openShiftSchema = z.object({
+  warehouseId: z.string().min(1, "Gudang wajib dipilih"),
+  openingCash: z.number().int().min(0).max(1_000_000_000_000),
+});
+
+export const posSaleSchema = z.object({
+  shiftId: z.string().min(1),
+  taxRate: z
+    .number()
+    .int()
+    .refine((v): v is (typeof TAX_RATES)[number] => (TAX_RATES as readonly number[]).includes(v), "Tarif pajak tidak dikenal")
+    .default(0),
+  cashReceived: z.number().int().min(0).max(1_000_000_000_000),
+  lines: z
+    .array(
+      z.object({
+        productId: z.string().min(1),
+        qty: z.number().int().min(1),
+        unitPrice: z.number().int().min(0),
+      }),
+    )
+    .min(1, "Keranjang kosong"),
+});
+export type PosSaleInput = z.infer<typeof posSaleSchema>;
+
+export const closeShiftSchema = z.object({
+  closingCash: z.number().int().min(0).max(1_000_000_000_000),
+});
+
+export type ApiPosShift = {
+  id: string;
+  shiftNo: string;
+  warehouseId: string;
+  status: "open" | "closed";
+  openingCash: number;
+  openedAt: string;
+  salesCount: number;
+  cashSalesTotal: number;
+  expectedCash: number;
+};
+
 export const stockTransferSchema = z
   .object({
     productId: z.string().min(1, "Produk wajib dipilih"),
