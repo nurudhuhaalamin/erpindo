@@ -31,7 +31,18 @@ function check(name, cond, extra = "") {
 const logs = [];
 const child = spawn(
   "pnpm",
-  ["exec", "wrangler", "dev", "--port", String(PORT), "--persist-to", persistDir, "--show-interactive-dev-session=false"],
+  [
+    "exec",
+    "wrangler",
+    "dev",
+    "-c",
+    "../../wrangler.jsonc",
+    "--port",
+    String(PORT),
+    "--persist-to",
+    persistDir,
+    "--show-interactive-dev-session=false",
+  ],
   { cwd: apiDir, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, CI: "1" } },
 );
 child.stdout.on("data", (d) => logs.push(d.toString()));

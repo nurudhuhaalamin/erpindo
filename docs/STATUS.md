@@ -30,13 +30,9 @@ Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (
 
 ## Apakah sudah bisa diakses di internet?
 
-Belum — aplikasi sudah berjalan penuh di lingkungan pengembangan. Untuk tayang di internet (akun Cloudflare Anda), ada **satu langkah 5 menit yang hanya bisa dilakukan pemilik akun**:
+**Ya — jalur deploy otomatis sudah aktif.** Anda telah menghubungkan repo GitHub ke Cloudflare (Workers Builds), dan infrastruktur produksi sudah dibuat di akun Cloudflare Anda: 1 database pusat + 5 database tenant (D1) + penyimpanan rate-limit (KV). Setiap perubahan yang masuk ke versi utama kini otomatis di-build dan di-deploy oleh Cloudflare. Alamat aplikasi bisa dilihat di dashboard Cloudflare → Workers & Pages → **erpindo** (format `erpindo.<nama-akun>.workers.dev`; domain sendiri bisa dipasang kapan saja lewat menu yang sama).
 
-1. Buka https://dash.cloudflare.com/profile/api-tokens → klik **Create Token** → pilih template **Edit Cloudflare Workers** → Create.
-2. Buka https://github.com/nurudhuhaalamin/erpindo/settings/secrets/actions → **New repository secret**:
-   - Nama: `CLOUDFLARE_API_TOKEN`, isi: token dari langkah 1.
-   - Tambahkan juga `CLOUDFLARE_ACCOUNT_ID` (terlihat di dashboard Cloudflare, sisi kanan halaman utama).
-3. Selesai. Setiap perubahan yang masuk ke versi utama akan otomatis ter-deploy.
+Catatan kapasitas: mode saat ini memakai pool 5 database tenant (cukup untuk 5 perusahaan pertama / masa pengembangan). Peralihan ke pembuatan database dinamis tanpa batas sudah disiapkan di kode — tinggal diaktifkan saat mendekati peluncuran komersial.
 
 ## Yang dikerjakan berikutnya
 

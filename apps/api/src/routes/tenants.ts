@@ -11,7 +11,7 @@ import { audit } from "../lib/audit";
 import { getMailer } from "../lib/mailer";
 import { getTenantDb } from "../lib/tenantDb";
 import { requireAuth, requireTenantRole } from "../middleware/auth";
-import { clientIp, consumeToken, createEmailToken } from "./auth";
+import { appOrigin, clientIp, consumeToken, createEmailToken } from "./auth";
 
 function now(): string {
   return new Date().toISOString();
@@ -59,7 +59,7 @@ export const tenantRoutes = new Hono<AppEnv>()
     if (already) return c.json({ error: "Pengguna tersebut sudah menjadi anggota." }, 409);
 
     const token = await createEmailToken(c.env, { type: "invite", email, tenantId: tenant.id, role });
-    const inviteUrl = `${c.env.APP_URL}/undangan?token=${token}`;
+    const inviteUrl = `${appOrigin(c)}/undangan?token=${token}`;
     await getMailer(c.env).send({
       to: email,
       subject: `Undangan bergabung ke ${tenant.name} di erpindo`,

@@ -1,0 +1,50 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "erpindo",
+  "main": "apps/api/src/index.ts",
+  "compatibility_date": "2025-06-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Cloudflare Workers Builds (integrasi Git) menjalankan `npx wrangler deploy`
+  // dari root repo; custom build di bawah memastikan SPA ter-build lebih dulu.
+  "build": {
+    "command": "pnpm --filter @erpindo/web build"
+  },
+
+  // SPA hasil build apps/web dilayani oleh Worker yang sama.
+  "assets": {
+    "directory": "apps/web/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  "d1_databases": [
+    // Control-plane: akun, tenant, langganan.
+    {
+      "binding": "DB",
+      "database_name": "erpindo-control-plane",
+      "database_id": "2979c39c-bf54-42c4-8486-e843897b3006"
+    },
+    // Pool database tenant. Di mode "local" (dev/test & produksi awal) tenant
+    // baru dipetakan ke pool ini; migrasi ke D1 dinamis via REST API tinggal
+    // mengganti TENANT_DB_MODE ke "cloudflare" + secret API token.
+    { "binding": "TENANT_DB_1", "database_name": "erpindo-tenant-1", "database_id": "a9a77374-03b6-40e6-94ca-ce1f0eedd766" },
+    { "binding": "TENANT_DB_2", "database_name": "erpindo-tenant-2", "database_id": "ee503edd-654d-4dab-b147-7630fac2e064" },
+    { "binding": "TENANT_DB_3", "database_name": "erpindo-tenant-3", "database_id": "b4b65e36-80f2-49ac-a305-003150cde427" },
+    { "binding": "TENANT_DB_4", "database_name": "erpindo-tenant-4", "database_id": "75f03aab-902d-4c04-b6b1-207bd4c70d73" },
+    { "binding": "TENANT_DB_5", "database_name": "erpindo-tenant-5", "database_id": "7064c569-1dad-4795-ae55-2e1f302f10cb" }
+  ],
+
+  "kv_namespaces": [
+    { "binding": "RATE_KV", "id": "fb7b923a51294221986d0b067a9a7a4c" }
+  ],
+
+  "vars": {
+    "TENANT_DB_MODE": "local"
+  },
+
+  "observability": {
+    "enabled": true
+  }
+}
