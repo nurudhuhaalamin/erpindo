@@ -17,6 +17,7 @@ import { audit } from "../lib/audit";
 import { generateToken, hashPassword, sha256Hex, verifyPassword } from "../lib/crypto";
 import { getMailer } from "../lib/mailer";
 import { provisionTenantDb, TENANT_SCHEMA_VERSION } from "../lib/tenantDb";
+import { generateTotpSecret, otpauthUrl, verifyTotp } from "../lib/totp";
 import { requireAuth, SESSION_COOKIE } from "../middleware/auth";
 import { rateLimit } from "../middleware/rateLimit";
 
@@ -200,16 +201,29 @@ export const authRoutes = new Hono<AppEnv>()
     if (!parsed.success) {
       return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
     }
-    const { email, password } = parsed.data;
+    const { email, password, totpCode } = parsed.data;
 
-    const user = await c.env.DB.prepare(`SELECT id, password_hash FROM users WHERE email = ?`)
+    const user = await c.env.DB.prepare(
+      `SELECT id, password_hash, totp_enabled, totp_secret FROM users WHERE email = ?`,
+    )
       .bind(email)
-      .first<{ id: string; password_hash: string }>();
+      .first<{ id: string; password_hash: string; totp_enabled: number; totp_secret: string | null }>();
 
     // Pesan sengaja sama untuk email tak terdaftar vs password salah.
     if (!user || !(await verifyPassword(password, user.password_hash))) {
       await audit(c.env, { action: "auth.login_failed", detail: { email }, ip: clientIp(c) });
       return c.json({ error: "Email atau password salah." }, 401);
+    }
+
+    // Faktor kedua (TOTP) bila diaktifkan — password benar tidak cukup.
+    if (user.totp_enabled === 1 && user.totp_secret) {
+      if (!totpCode) {
+        return c.json({ error: "Masukkan kode dari aplikasi authenticator Anda.", twoFactorRequired: true }, 401);
+      }
+      if (!(await verifyTotp(user.totp_secret, totpCode))) {
+        await audit(c.env, { action: "auth.totp_failed", userId: user.id, ip: clientIp(c) });
+        return c.json({ error: "Kode authenticator salah.", twoFactorRequired: true }, 401);
+      }
     }
 
     const session = await createSession(c.env, user.id);
@@ -242,8 +256,18 @@ export const authRoutes = new Hono<AppEnv>()
         role: Role;
       }>();
 
+    const totpRow = await c.env.DB.prepare(`SELECT totp_enabled FROM users WHERE id = ?`)
+      .bind(user.id)
+      .first<{ totp_enabled: number }>();
+
     const body: MeResponse = {
-      user: { id: user.id, name: user.name, email: user.email, emailVerified: user.emailVerified },
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        emailVerified: user.emailVerified,
+        totpEnabled: totpRow?.totp_enabled === 1,
+      },
       memberships: results.map((r) => ({
         tenantId: r.tenant_id,
         tenantName: r.name,
@@ -255,6 +279,56 @@ export const authRoutes = new Hono<AppEnv>()
       })),
     };
     return c.json(body);
+  })
+
+  // -------------------------------------------------------------------------
+  // 2FA TOTP: setup → scan/masukkan rahasia di aplikasi authenticator →
+  // konfirmasi kode → aktif. Menonaktifkan juga butuh kode yang valid.
+  // -------------------------------------------------------------------------
+  .post("/2fa/setup", requireAuth, async (c) => {
+    const user = c.get("user");
+    const row = await c.env.DB.prepare(`SELECT totp_enabled FROM users WHERE id = ?`)
+      .bind(user.id)
+      .first<{ totp_enabled: number }>();
+    if (row?.totp_enabled === 1) return c.json({ error: "2FA sudah aktif." }, 400);
+
+    const secret = generateTotpSecret();
+    await c.env.DB.prepare(`UPDATE users SET totp_secret = ?, totp_enabled = 0 WHERE id = ?`)
+      .bind(secret, user.id)
+      .run();
+    return c.json({ secret, otpauthUrl: otpauthUrl(secret, user.email) });
+  })
+
+  .post("/2fa/enable", requireAuth, async (c) => {
+    const user = c.get("user");
+    const code = String((await c.req.json().catch(() => ({}))).code ?? "");
+    const row = await c.env.DB.prepare(`SELECT totp_secret FROM users WHERE id = ?`)
+      .bind(user.id)
+      .first<{ totp_secret: string | null }>();
+    if (!row?.totp_secret) return c.json({ error: "Jalankan setup 2FA terlebih dahulu." }, 400);
+    if (!(await verifyTotp(row.totp_secret, code))) {
+      return c.json({ error: "Kode salah — periksa aplikasi authenticator Anda." }, 400);
+    }
+    await c.env.DB.prepare(`UPDATE users SET totp_enabled = 1 WHERE id = ?`).bind(user.id).run();
+    await audit(c.env, { action: "auth.totp_enabled", userId: user.id, ip: clientIp(c) });
+    return c.json({ ok: true });
+  })
+
+  .post("/2fa/disable", requireAuth, async (c) => {
+    const user = c.get("user");
+    const code = String((await c.req.json().catch(() => ({}))).code ?? "");
+    const row = await c.env.DB.prepare(`SELECT totp_secret, totp_enabled FROM users WHERE id = ?`)
+      .bind(user.id)
+      .first<{ totp_secret: string | null; totp_enabled: number }>();
+    if (row?.totp_enabled !== 1 || !row.totp_secret) return c.json({ error: "2FA tidak aktif." }, 400);
+    if (!(await verifyTotp(row.totp_secret, code))) {
+      return c.json({ error: "Kode salah — 2FA tetap aktif." }, 400);
+    }
+    await c.env.DB.prepare(`UPDATE users SET totp_enabled = 0, totp_secret = NULL WHERE id = ?`)
+      .bind(user.id)
+      .run();
+    await audit(c.env, { action: "auth.totp_disabled", userId: user.id, ip: clientIp(c) });
+    return c.json({ ok: true });
   })
 
   // -------------------------------------------------------------------------

@@ -288,6 +288,7 @@ export function SettingsPage() {
     <div className="max-w-3xl space-y-6">
       <h1 className="text-2xl font-semibold">Pengaturan</h1>
       <SubscriptionCard />
+      <SecurityCard />
       <CompanySettingsCard tenantId={tenant.tenantId} readOnly={!isAdmin} />
       {isAdmin ? <MembersCard tenantId={tenant.tenantId} /> : null}
       {tenant.role === "owner" ? <CloseBooksCard tenantId={tenant.tenantId} /> : null}
@@ -325,6 +326,111 @@ function SubscriptionCard() {
           Pembayaran langganan online (QRIS/transfer/e-wallet) sedang disiapkan — untuk saat ini hubungi kami untuk
           aktivasi paket.
         </p>
+      </CardBody>
+    </Card>
+  );
+}
+
+function SecurityCard() {
+  const { me } = useWorkspace();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [setupData, setSetupData] = useState<{ secret: string; otpauthUrl: string } | null>(null);
+  const [code, setCode] = useState("");
+
+  const setup = useMutation({
+    mutationFn: api.totpSetup,
+    onSuccess: (res) => setSetupData(res),
+    onError: (err) => toast("error", (err as Error).message),
+  });
+  const enable = useMutation({
+    mutationFn: () => api.totpEnable(code),
+    onSuccess: () => {
+      toast("success", "2FA aktif. Kode authenticator kini diminta setiap login.");
+      setSetupData(null);
+      setCode("");
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+  const disable = useMutation({
+    mutationFn: () => api.totpDisable(code),
+    onSuccess: () => {
+      toast("success", "2FA dinonaktifkan.");
+      setCode("");
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  return (
+    <Card>
+      <CardHeader
+        title="Keamanan — verifikasi dua langkah (2FA)"
+        description="Lapisan perlindungan ekstra: selain password, login membutuhkan kode 6 digit dari aplikasi authenticator (Google Authenticator, Authy, dsb.)."
+      />
+      <CardBody className="space-y-3 text-sm">
+        {me.user.totpEnabled ? (
+          <>
+            <div className="flex items-center gap-2">
+              <Badge tone="brand">2FA aktif ✓</Badge>
+            </div>
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <Label htmlFor="totp-off">Kode authenticator untuk menonaktifkan</Label>
+                <Input
+                  id="totp-off"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="6 digit"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                />
+              </div>
+              <Button variant="danger" disabled={code.length !== 6 || disable.isPending} onClick={() => disable.mutate()}>
+                {disable.isPending ? <Spinner /> : null} Nonaktifkan 2FA
+              </Button>
+            </div>
+          </>
+        ) : setupData ? (
+          <>
+            <p>
+              1. Buka aplikasi authenticator → tambah akun → <strong>masukkan kunci manual</strong> berikut (atau buka
+              tautan di perangkat yang sama):
+            </p>
+            <p className="break-all rounded-lg bg-slate-100 px-3 py-2 font-mono text-xs dark:bg-slate-800">
+              {setupData.secret}
+            </p>
+            <p>
+              <a href={setupData.otpauthUrl} className="text-brand-700 underline dark:text-brand-400">
+                Buka langsung di aplikasi authenticator
+              </a>
+            </p>
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <Label htmlFor="totp-code">2. Masukkan kode 6 digit yang muncul</Label>
+                <Input
+                  id="totp-code"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="123456"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                />
+              </div>
+              <Button disabled={code.length !== 6 || enable.isPending} onClick={() => enable.mutate()}>
+                {enable.isPending ? <Spinner /> : null} Konfirmasi & Aktifkan
+              </Button>
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-slate-500 dark:text-slate-400">2FA belum aktif.</span>
+            <Button variant="secondary" onClick={() => setup.mutate()} disabled={setup.isPending}>
+              {setup.isPending ? <Spinner /> : null} Aktifkan 2FA
+            </Button>
+          </div>
+        )}
       </CardBody>
     </Card>
   );

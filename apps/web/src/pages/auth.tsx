@@ -24,6 +24,21 @@ function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: R
 
 // ---------------------------------------------------------------------------
 
+const FEATURES = [
+  { icon: "📒", title: "Pembukuan otomatis", desc: "Faktur jual-beli langsung menjadi jurnal akuntansi double-entry — tanpa input dua kali." },
+  { icon: "📦", title: "Stok selalu akurat", desc: "Stok bergerak otomatis dengan harga pokok rata-rata; kartu stok lengkap per barang." },
+  { icon: "📊", title: "Laporan siap pakai", desc: "Laba rugi, neraca, arus kas, neraca saldo, dan umur piutang — ekspor ke Excel sekali klik." },
+  { icon: "🧾", title: "Faktur profesional", desc: "PPN otomatis, cetak/PDF berkop perusahaan, catat pembayaran sampai lunas." },
+  { icon: "📱", title: "Semua perangkat", desc: "Install di HP, tablet, dan komputer; tetap terbuka saat offline." },
+  { icon: "🔒", title: "Aman berlapis", desc: "Data tiap perusahaan di database terpisah, peran & hak akses, 2FA, audit log, tutup buku." },
+] as const;
+
+const PRICING = [
+  { name: "Starter", price: "Rp 149rb", per: "/bulan", desc: "Untuk usaha kecil yang mulai rapi", features: ["3 pengguna", "Semua modul inti", "Laporan lengkap + ekspor"] },
+  { name: "Business", price: "Rp 599rb", per: "/bulan", desc: "Untuk tim yang bertumbuh", features: ["15 pengguna", "Semua fitur Starter", "Prioritas dukungan"], highlight: true },
+  { name: "Enterprise", price: "Hubungi kami", per: "", desc: "Kebutuhan khusus & skala besar", features: ["Pengguna tak terbatas", "Onboarding khusus", "SLA"] },
+] as const;
+
 export function LandingPage() {
   return (
     <div className="flex min-h-full flex-col">
@@ -38,21 +53,79 @@ export function LandingPage() {
           </Link>
         </nav>
       </header>
-      <main className="mx-auto flex max-w-3xl flex-1 flex-col items-center justify-center px-6 pb-24 text-center">
-        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-          ERP modern untuk <span className="text-brand-600 dark:text-brand-400">UMKM Indonesia</span>
-        </h1>
-        <p className="mt-4 max-w-xl text-lg text-slate-600 dark:text-slate-300">
-          Keuangan, penjualan, pembelian, dan stok dalam satu aplikasi ringan yang berjalan di semua perangkat.
-          Gratis 14 hari, tanpa kartu kredit.
-        </p>
-        <div className="mt-8 flex gap-3">
-          <Link to="/daftar">
-            <Button className="h-11 px-6">Mulai Sekarang</Button>
-          </Link>
-        </div>
-        <p className="mt-10 text-xs text-slate-400">Sedang dalam pengembangan — Fase 0: fondasi platform.</p>
+
+      <main className="flex-1">
+        {/* Hero */}
+        <section className="mx-auto max-w-3xl px-6 pb-16 pt-14 text-center sm:pt-20">
+          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
+            ERP modern untuk <span className="text-brand-600 dark:text-brand-400">UMKM Indonesia</span>
+          </h1>
+          <p className="mx-auto mt-4 max-w-xl text-lg text-slate-600 dark:text-slate-300">
+            Keuangan, penjualan, pembelian, dan stok dalam satu aplikasi ringan. Catat transaksi sekali — pembukuan,
+            stok, dan laporan beres sendiri.
+          </p>
+          <div className="mt-8 flex justify-center gap-3">
+            <Link to="/daftar">
+              <Button className="h-11 px-6">Coba Gratis 14 Hari</Button>
+            </Link>
+          </div>
+          <p className="mt-3 text-xs text-slate-400">Tanpa kartu kredit · siap dipakai dalam 1 menit</p>
+        </section>
+
+        {/* Fitur */}
+        <section className="border-y border-slate-200 bg-white py-14 dark:border-slate-800 dark:bg-slate-900">
+          <div className="mx-auto grid max-w-5xl gap-6 px-6 sm:grid-cols-2 lg:grid-cols-3">
+            {FEATURES.map((f) => (
+              <div key={f.title}>
+                <div className="text-2xl">{f.icon}</div>
+                <h3 className="mt-2 font-semibold">{f.title}</h3>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Harga */}
+        <section className="mx-auto max-w-5xl px-6 py-14">
+          <h2 className="text-center text-2xl font-bold">Harga sederhana, tanpa kejutan</h2>
+          <p className="mt-2 text-center text-sm text-slate-500 dark:text-slate-400">
+            Mulai gratis 14 hari dengan semua fitur — pilih paket saat siap.
+          </p>
+          <div className="mt-8 grid gap-6 sm:grid-cols-3">
+            {PRICING.map((p) => (
+              <div
+                key={p.name}
+                className={`rounded-2xl border p-6 ${
+                  "highlight" in p && p.highlight
+                    ? "border-brand-500 shadow-lg shadow-brand-500/10 dark:border-brand-500"
+                    : "border-slate-200 dark:border-slate-800"
+                }`}
+              >
+                <h3 className="font-semibold">{p.name}</h3>
+                <div className="mt-2 text-3xl font-bold">
+                  {p.price}
+                  <span className="text-sm font-normal text-slate-400">{p.per}</span>
+                </div>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{p.desc}</p>
+                <ul className="mt-4 space-y-1.5 text-sm">
+                  {p.features.map((f) => (
+                    <li key={f}>✓ {f}</li>
+                  ))}
+                </ul>
+                <Link to="/daftar" className="mt-6 block">
+                  <Button variant={"highlight" in p && p.highlight ? "primary" : "secondary"} className="w-full">
+                    Mulai Gratis
+                  </Button>
+                </Link>
+              </div>
+            ))}
+          </div>
+        </section>
       </main>
+
+      <footer className="border-t border-slate-200 px-6 py-6 text-center text-xs text-slate-400 dark:border-slate-800">
+        © {new Date().getFullYear()} erpindo — ERP untuk UMKM Indonesia
+      </footer>
     </div>
   );
 }
@@ -130,15 +203,23 @@ export function RegisterPage() {
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const [needsTotp, setNeedsTotp] = useState(false);
   const mutation = useMutation({
     mutationFn: api.login,
     onSuccess: () => navigate({ to: "/app" }),
+    onError: (err) => {
+      if (err instanceof ApiRequestError && err.twoFactorRequired) setNeedsTotp(true);
+    },
   });
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const data = Object.fromEntries(new FormData(e.currentTarget)) as { email: string; password: string };
-    mutation.mutate(data);
+    const data = Object.fromEntries(new FormData(e.currentTarget)) as {
+      email: string;
+      password: string;
+      totpCode?: string;
+    };
+    mutation.mutate({ ...data, totpCode: data.totpCode || undefined });
   }
 
   return (
@@ -163,6 +244,20 @@ export function LoginPage() {
           <Label htmlFor="password">Password</Label>
           <Input id="password" name="password" type="password" required />
         </div>
+        {needsTotp ? (
+          <div>
+            <Label htmlFor="totpCode">Kode authenticator (2FA)</Label>
+            <Input
+              id="totpCode"
+              name="totpCode"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="6 digit"
+              maxLength={6}
+              autoFocus
+            />
+          </div>
+        ) : null}
         <Button type="submit" className="w-full" disabled={mutation.isPending}>
           {mutation.isPending ? <Spinner /> : null} Masuk
         </Button>
