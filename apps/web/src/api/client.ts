@@ -1,9 +1,11 @@
 import type {
   ApiAccount,
+  ApiAgingRow,
   ApiBalanceSheet,
   ApiCommerceDoc,
   ApiDashboard,
   ApiIncomeStatement,
+  ApiStockCardRow,
   ApiJournalEntry,
   ApiMember,
   ApiStockLevel,
@@ -101,6 +103,15 @@ export const api = {
   balanceSheet: (tenantId: string, asOf: string) =>
     request<ApiBalanceSheet>("GET", `/api/tenants/${tenantId}/reports/balance-sheet?asOf=${asOf}`),
   dashboard: (tenantId: string) => request<ApiDashboard>("GET", `/api/tenants/${tenantId}/dashboard`),
+  aging: (tenantId: string, type: "receivable" | "payable") =>
+    request<{ rows: ApiAgingRow[]; grandTotal: number }>("GET", `/api/tenants/${tenantId}/reports/aging?type=${type}`),
+  stockCard: (tenantId: string, productId: string, warehouseId: string) =>
+    request<{ rows: ApiStockCardRow[]; balance: number }>(
+      "GET",
+      `/api/tenants/${tenantId}/stock-card/${productId}?warehouseId=${warehouseId}`,
+    ),
+  closeBooks: (tenantId: string, date: string) =>
+    request<{ ok: true; lockedBefore: string }>("POST", `/api/tenants/${tenantId}/close-books`, { date }),
 
   // --- Penjualan & Pembelian -----------------------------------------------------
   invoices: (tenantId: string) => request<{ docs: ApiCommerceDoc[] }>("GET", `/api/tenants/${tenantId}/invoices`),
@@ -137,6 +148,23 @@ export const api = {
   archiveItem: (tenantId: string, entity: "products" | "contacts" | "warehouses", id: string) =>
     request<{ ok: true }>("POST", `/api/tenants/${tenantId}/${entity}/${id}/archive`),
 };
+
+/** Unduh data sebagai CSV (dibuka langsung oleh Excel). */
+export function downloadCsv(filename: string, headers: string[], rows: (string | number)[][]): void {
+  const escape = (v: string | number) => {
+    const s = String(v);
+    return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [headers, ...rows].map((r) => r.map(escape).join(";")).join("\r\n");
+  // BOM agar Excel mengenali UTF-8; pemisah ';' sesuai locale Indonesia.
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 /** Format rupiah tanpa desimal: 1500000 → "Rp 1.500.000" */
 export function formatIDR(value: number): string {

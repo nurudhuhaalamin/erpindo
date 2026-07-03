@@ -1,5 +1,6 @@
 import {
   acceptInviteSchema,
+  closeBooksSchema,
   inviteSchema,
   updateTenantSettingsSchema,
   type ApiMember,
@@ -122,6 +123,46 @@ export const tenantRoutes = new Hono<AppEnv>()
       ip: clientIp(c),
     });
     return c.json({ ok: true });
+  })
+
+  // -------------------------------------------------------------------------
+  // Tutup buku (khusus Owner): kunci semua transaksi ≤ tanggal yang dipilih.
+  // Gerbang penolakan ada di postJournal + handler faktur/pembayaran.
+  // -------------------------------------------------------------------------
+  .post("/:tenantId/close-books", requireAuth, requireTenantRole("owner"), async (c) => {
+    const parsed = closeBooksSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) {
+      return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
+    }
+    const tenant = c.get("tenant");
+    const db = getTenantDb(c.env, tenant.dbRef);
+
+    // Tanggal kunci hanya boleh maju — membuka periode lama butuh keputusan
+    // eksplisit (belum difasilitasi, sesuai prinsip audit).
+    const { results } = await db
+      .prepare(`SELECT value FROM settings WHERE key = 'locked_before'`)
+      .all<{ value: string }>();
+    const current = results[0]?.value;
+    if (current && parsed.data.date < current) {
+      return c.json({ error: `Periode sudah terkunci sampai ${current}; tanggal kunci hanya bisa maju.` }, 400);
+    }
+
+    await db
+      .prepare(
+        `INSERT INTO settings (key, value, updated_at) VALUES ('locked_before', ?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+      )
+      .bind(parsed.data.date, now())
+      .run();
+
+    await audit(c.env, {
+      action: "accounting.books_closed",
+      userId: c.get("user").id,
+      tenantId: tenant.id,
+      detail: { lockedBefore: parsed.data.date },
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true, lockedBefore: parsed.data.date });
   });
 
 // ---------------------------------------------------------------------------

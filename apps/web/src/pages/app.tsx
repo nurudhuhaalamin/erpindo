@@ -46,6 +46,7 @@ const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string }
   { to: "/app/keuangan/neraca-saldo", label: "Neraca Saldo", exact: false, section: "Keuangan" },
   { to: "/app/keuangan/laba-rugi", label: "Laba Rugi", exact: false, section: "Keuangan" },
   { to: "/app/keuangan/neraca", label: "Neraca", exact: false, section: "Keuangan" },
+  { to: "/app/keuangan/umur-tagihan", label: "Umur Piutang/Hutang", exact: false, section: "Keuangan" },
   { to: "/app/master/produk", label: "Produk", exact: false, section: "Master Data" },
   { to: "/app/master/kontak", label: "Kontak", exact: false, section: "Master Data" },
   { to: "/app/master/gudang", label: "Gudang", exact: false, section: "Master Data" },
@@ -268,7 +269,60 @@ export function SettingsPage() {
       <h1 className="text-2xl font-semibold">Pengaturan</h1>
       <CompanySettingsCard tenantId={tenant.tenantId} readOnly={!isAdmin} />
       {isAdmin ? <MembersCard tenantId={tenant.tenantId} /> : null}
+      {tenant.role === "owner" ? <CloseBooksCard tenantId={tenant.tenantId} /> : null}
     </div>
+  );
+}
+
+function CloseBooksCard({ tenantId }: { tenantId: string }) {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const settingsQuery = useQuery({ queryKey: ["settings", tenantId], queryFn: () => api.settings(tenantId) });
+  const lockedBefore = settingsQuery.data?.settings.locked_before;
+
+  const [date, setDate] = useState("");
+  const close = useMutation({
+    mutationFn: () => api.closeBooks(tenantId, date),
+    onSuccess: (res) => {
+      toast("success", `Pembukuan dikunci sampai ${res.lockedBefore}.`);
+      queryClient.invalidateQueries({ queryKey: ["settings", tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  return (
+    <Card>
+      <CardHeader
+        title="Tutup buku"
+        description="Semua transaksi bertanggal pada atau sebelum tanggal ini akan dikunci — tidak bisa ditambah jurnal, faktur, maupun pembayaran. Tanggal kunci hanya bisa maju."
+      />
+      <CardBody className="space-y-3">
+        {lockedBefore ? (
+          <p className="text-sm">
+            Pembukuan saat ini terkunci sampai <strong>{lockedBefore}</strong>.
+          </p>
+        ) : (
+          <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada periode yang ditutup.</p>
+        )}
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <Label htmlFor="close-date">Kunci sampai tanggal</Label>
+            <Input id="close-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <Button
+            variant="danger"
+            disabled={!date || close.isPending}
+            onClick={() => {
+              if (window.confirm(`Kunci semua transaksi sampai ${date}? Tindakan ini tidak bisa dimundurkan.`)) {
+                close.mutate();
+              }
+            }}
+          >
+            {close.isPending ? <Spinner /> : null} Tutup Buku
+          </Button>
+        </div>
+      </CardBody>
+    </Card>
   );
 }
 

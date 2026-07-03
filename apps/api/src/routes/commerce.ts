@@ -11,6 +11,7 @@ import type { SqlExecutor } from "@erpindo/db";
 import type { AppEnv } from "../env";
 import {
   accountIdByCode,
+  getLockedBefore,
   InsufficientStockError,
   nextDocNo,
   postJournal,
@@ -133,6 +134,15 @@ async function listDocs(db: SqlExecutor, cfg: DocTable): Promise<ApiCommerceDoc[
   }));
 }
 
+/** Tolak dokumen bertanggal pada periode yang sudah ditutup buku. */
+async function checkPeriodOpen(db: SqlExecutor, date: string): Promise<string | null> {
+  const lockedBefore = await getLockedBefore(db);
+  if (lockedBefore && date <= lockedBefore) {
+    return `Periode sampai ${lockedBefore} sudah ditutup — transaksi bertanggal ${date} ditolak.`;
+  }
+  return null;
+}
+
 /** Validasi rujukan bersama: kontak (jenis sesuai), gudang, produk aktif. */
 async function validateRefs(
   db: SqlExecutor,
@@ -186,6 +196,8 @@ export const commerceRoutes = new Hono<AppEnv>()
 
     const refError = await validateRefs(db, INVOICE_CFG, input);
     if (refError) return c.json({ error: refError }, 400);
+    const lockError = await checkPeriodOpen(db, input.invoiceDate);
+    if (lockError) return c.json({ error: lockError }, 400);
 
     const subtotal = input.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
     const taxAmount = Math.round((subtotal * input.taxRate) / 100);
@@ -304,6 +316,8 @@ export const commerceRoutes = new Hono<AppEnv>()
 
     const refError = await validateRefs(db, PURCHASE_CFG, input);
     if (refError) return c.json({ error: refError }, 400);
+    const lockError = await checkPeriodOpen(db, input.invoiceDate);
+    if (lockError) return c.json({ error: lockError }, 400);
 
     const subtotal = input.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
     const taxAmount = Math.round((subtotal * input.taxRate) / 100);
@@ -404,6 +418,8 @@ export const commerceRoutes = new Hono<AppEnv>()
       .all<{ doc_no: string; total: number; paid_amount: number }>();
     const doc = docs[0];
     if (!doc) return c.json({ error: "Dokumen tidak ditemukan." }, 404);
+    const lockError = await checkPeriodOpen(db, input.paymentDate);
+    if (lockError) return c.json({ error: lockError }, 400);
 
     const remaining = doc.total - doc.paid_amount;
     if (input.amount > remaining) {

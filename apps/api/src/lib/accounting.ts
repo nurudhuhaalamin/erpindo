@@ -42,6 +42,16 @@ export type JournalLineInput = {
  * Posting jurnal double-entry. Menolak jurnal tidak seimbang — benteng terakhir
  * setelah validasi Zod di endpoint (jalur otomatis juga lewat sini).
  */
+export class PeriodLockedError extends Error {}
+
+/** Tanggal tutup buku (settings key 'locked_before'); transaksi ≤ tanggal ini terkunci. */
+export async function getLockedBefore(db: SqlExecutor): Promise<string | null> {
+  const { results } = await db
+    .prepare(`SELECT value FROM settings WHERE key = 'locked_before'`)
+    .all<{ value: string }>();
+  return results[0]?.value ?? null;
+}
+
 export async function postJournal(
   db: SqlExecutor,
   input: { entryDate: string; memo?: string | null; createdBy: string; lines: JournalLineInput[] },
@@ -50,6 +60,15 @@ export async function postJournal(
   const credit = input.lines.reduce((s, l) => s + l.credit, 0);
   if (debit !== credit || debit === 0 || input.lines.length < 2) {
     throw new Error(`Jurnal tidak seimbang (debit ${debit}, kredit ${credit})`);
+  }
+
+  // Gerbang tutup buku: semua jalur posting (manual, faktur, pembayaran)
+  // lewat sini, jadi periode terkunci tidak bisa ditembus dari mana pun.
+  const lockedBefore = await getLockedBefore(db);
+  if (lockedBefore && input.entryDate <= lockedBefore) {
+    throw new PeriodLockedError(
+      `Periode sampai ${lockedBefore} sudah ditutup — transaksi bertanggal ${input.entryDate} ditolak.`,
+    );
   }
 
   const entryNo = await nextDocNo(db, "journal_entries", "JRN");

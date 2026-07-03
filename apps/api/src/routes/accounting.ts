@@ -9,7 +9,7 @@ import {
 } from "@erpindo/shared";
 import { Hono } from "hono";
 import type { AppEnv } from "../env";
-import { postJournal } from "../lib/accounting";
+import { PeriodLockedError, postJournal } from "../lib/accounting";
 import { audit } from "../lib/audit";
 import { getTenantDb } from "../lib/tenantDb";
 import { requireAuth, requireTenantRole } from "../middleware/auth";
@@ -194,17 +194,24 @@ export const accountingRoutes = new Hono<AppEnv>()
       return c.json({ error: "Ada akun yang tidak ditemukan atau sudah diarsipkan." }, 400);
     }
 
-    const { id: entryId, entryNo } = await postJournal(db, {
-      entryDate: input.entryDate,
-      memo: input.memo,
-      createdBy: c.get("user").id,
-      lines: input.lines.map((l) => ({
-        accountId: l.accountId,
-        description: l.description,
-        debit: l.debit,
-        credit: l.credit,
-      })),
-    });
+    let entryId: string;
+    let entryNo: string;
+    try {
+      ({ id: entryId, entryNo } = await postJournal(db, {
+        entryDate: input.entryDate,
+        memo: input.memo,
+        createdBy: c.get("user").id,
+        lines: input.lines.map((l) => ({
+          accountId: l.accountId,
+          description: l.description,
+          debit: l.debit,
+          credit: l.credit,
+        })),
+      }));
+    } catch (err) {
+      if (err instanceof PeriodLockedError) return c.json({ error: err.message }, 400);
+      throw err;
+    }
 
     await audit(c.env, {
       action: "accounting.journal_posted",

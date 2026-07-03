@@ -1,8 +1,12 @@
-import type {
-  ApiBalanceSheet,
-  ApiDashboard,
-  ApiIncomeStatement,
-  AccountType,
+import {
+  AGING_BUCKETS,
+  type AgingBucket,
+  type ApiAgingRow,
+  type ApiBalanceSheet,
+  type ApiDashboard,
+  type ApiIncomeStatement,
+  type ApiStockCardRow,
+  type AccountType,
 } from "@erpindo/shared";
 import { Hono } from "hono";
 import type { SqlExecutor } from "@erpindo/db";
@@ -131,6 +135,76 @@ export const reportRoutes = new Hono<AppEnv>()
       balanced: totalAssets === totalLiabilities + totalEquity,
     };
     return c.json(body);
+  })
+
+  // -------------------------------------------------------------------------
+  // Kartu stok: riwayat mutasi satu produk di satu gudang + saldo berjalan
+  // -------------------------------------------------------------------------
+  .get("/:tenantId/stock-card/:productId", requireAuth, requireTenantRole("viewer"), async (c) => {
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+    const productId = c.req.param("productId");
+    const warehouseId = c.req.query("warehouseId");
+    if (!warehouseId) return c.json({ error: "Parameter warehouseId wajib diisi." }, 400);
+
+    const { results } = await db
+      .prepare(
+        `SELECT created_at, ref_type, qty, unit_cost FROM stock_movements
+         WHERE product_id = ? AND warehouse_id = ? ORDER BY created_at, rowid`,
+      )
+      .bind(productId, warehouseId)
+      .all<{ created_at: string; ref_type: string; qty: number; unit_cost: number }>();
+
+    let balance = 0;
+    const rows: ApiStockCardRow[] = results.map((r) => {
+      balance += r.qty;
+      return { date: r.created_at, refType: r.ref_type, qty: r.qty, unitCost: r.unit_cost, balance };
+    });
+    return c.json({ rows, balance });
+  })
+
+  // -------------------------------------------------------------------------
+  // Umur piutang/hutang (aging) per kontak, berdasarkan tanggal jatuh tempo
+  // -------------------------------------------------------------------------
+  .get("/:tenantId/reports/aging", requireAuth, requireTenantRole("viewer"), async (c) => {
+    const kind = c.req.query("type");
+    if (kind !== "receivable" && kind !== "payable") {
+      return c.json({ error: "Parameter type harus 'receivable' atau 'payable'." }, 400);
+    }
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+    const table = kind === "receivable" ? "invoices" : "purchases";
+    const dateCol = kind === "receivable" ? "invoice_date" : "purchase_date";
+
+    const { results } = await db
+      .prepare(
+        `SELECT d.contact_id, k.name AS contact_name, d.total - d.paid_amount AS outstanding,
+                COALESCE(d.due_date, d.${dateCol}) AS due
+         FROM ${table} d JOIN contacts k ON k.id = d.contact_id
+         WHERE d.status != 'paid' AND d.total > d.paid_amount`,
+      )
+      .all<{ contact_id: string; contact_name: string; outstanding: number; due: string }>();
+
+    const today = new Date().toISOString().slice(0, 10);
+    const byContact = new Map<string, ApiAgingRow>();
+    for (const r of results) {
+      const days = Math.floor((Date.parse(today) - Date.parse(r.due)) / 86_400_000);
+      const bucket: AgingBucket =
+        days <= 0 ? "current" : days <= 30 ? "d1_30" : days <= 60 ? "d31_60" : days <= 90 ? "d61_90" : "d90_plus";
+      const row =
+        byContact.get(r.contact_id) ??
+        ({
+          contactId: r.contact_id,
+          contactName: r.contact_name,
+          buckets: Object.fromEntries(AGING_BUCKETS.map((b) => [b, 0])) as Record<AgingBucket, number>,
+          total: 0,
+        } satisfies ApiAgingRow);
+      row.buckets[bucket] += r.outstanding;
+      row.total += r.outstanding;
+      byContact.set(r.contact_id, row);
+    }
+
+    const rows = [...byContact.values()].sort((a, b) => b.total - a.total);
+    const grandTotal = rows.reduce((s, r) => s + r.total, 0);
+    return c.json({ rows, grandTotal });
   })
 
   // -------------------------------------------------------------------------
