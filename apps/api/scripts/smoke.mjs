@@ -8,6 +8,7 @@
  * Gagal = exit code 1. Dipakai lokal dan di CI sebagai gerbang merge.
  */
 import { spawn } from "node:child_process";
+import { createHmac } from "node:crypto";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
@@ -74,6 +75,28 @@ async function waitForReady(timeoutMs = 90_000) {
   throw new Error(`wrangler dev tidak siap dalam ${timeoutMs / 1000}s.\nLog:\n${logs.join("")}`);
 }
 
+/** TOTP RFC 6238 (SHA-1, 6 digit) — padanan Node dari apps/api/src/lib/totp.ts */
+function totpNode(secretB32, timeMs = Date.now()) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  let bits = 0;
+  let value = 0;
+  const bytes = [];
+  for (const ch of secretB32) {
+    value = (value << 5) | alphabet.indexOf(ch);
+    bits += 5;
+    if (bits >= 8) {
+      bytes.push((value >>> (bits - 8)) & 0xff);
+      bits -= 8;
+    }
+  }
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(Math.floor(timeMs / 1000 / 30)));
+  const mac = createHmac("sha1", Buffer.from(bytes)).update(counter).digest();
+  const off = mac[mac.length - 1] & 0xf;
+  const code = (((mac[off] & 0x7f) << 24) | (mac[off + 1] << 16) | (mac[off + 2] << 8) | mac[off + 3]) % 1_000_000;
+  return String(code).padStart(6, "0");
+}
+
 /** Klien fetch mini dengan cookie jar per pengguna. */
 function makeClient() {
   let cookie = "";
@@ -109,7 +132,7 @@ try {
 
   // --- Registrasi pemilik + provisioning tenant -----------------------------
   console.log("1. Registrasi perusahaan baru");
-  const owner = makeClient();
+  let owner = makeClient();
   const reg = await owner("POST", "/api/auth/register", {
     companyName: "PT Maju Jaya",
     name: "Budi Santoso",
@@ -575,8 +598,50 @@ try {
     `→ ${JSON.stringify(cf.json && { o: cf.json.openingBalance, i: cf.json.totalIn, out: cf.json.totalOut, c: cf.json.closingBalance })}`,
   );
 
+  // --- 2FA TOTP (Fase 2c) ---------------------------------------------------------
+  console.log("13. Verifikasi dua langkah (2FA TOTP)");
+  const setup = await owner("POST", "/api/auth/2fa/setup");
+  check("setup 2FA memberi rahasia base32 + otpauth", setup.status === 200 && /^[A-Z2-7]{32}$/.test(setup.json?.secret ?? "") && (setup.json?.otpauthUrl ?? "").startsWith("otpauth://totp/"));
+
+  const wrongEnable = await owner("POST", "/api/auth/2fa/enable", { code: "000000" });
+  check("aktivasi dengan kode salah DITOLAK 400", wrongEnable.status === 400);
+
+  const enable = await owner("POST", "/api/auth/2fa/enable", { code: totpNode(setup.json.secret) });
+  check("aktivasi dengan kode benar 200", enable.status === 200);
+
+  const meWith2fa = await owner("GET", "/api/auth/me");
+  check("me menunjukkan totpEnabled", meWith2fa.json?.user?.totpEnabled === true);
+
+  await owner("POST", "/api/auth/logout");
+  const ownerAgain = makeClient();
+  const loginNoCode = await ownerAgain("POST", "/api/auth/login", {
+    email: "budi@majujaya.co.id",
+    password: "rahasia-kuat-123",
+  });
+  check(
+    "login tanpa kode → 401 + twoFactorRequired",
+    loginNoCode.status === 401 && loginNoCode.json?.twoFactorRequired === true,
+  );
+  const loginBadCode = await ownerAgain("POST", "/api/auth/login", {
+    email: "budi@majujaya.co.id",
+    password: "rahasia-kuat-123",
+    totpCode: "000000",
+  });
+  check("login dengan kode salah 401", loginBadCode.status === 401);
+  const loginGood = await ownerAgain("POST", "/api/auth/login", {
+    email: "budi@majujaya.co.id",
+    password: "rahasia-kuat-123",
+    totpCode: totpNode(setup.json.secret),
+  });
+  check("login password + kode benar 200", loginGood.status === 200);
+
+  const disable2fa = await ownerAgain("POST", "/api/auth/2fa/disable", { code: totpNode(setup.json.secret) });
+  check("nonaktifkan 2FA dengan kode benar 200", disable2fa.status === 200);
+  // Pakai sesi baru (owner lama sudah logout) untuk sisa pengujian.
+  owner = ownerAgain;
+
   // --- Siklus langganan: trial kedaluwarsa → past_due → baca-saja (Fase 2b-1) ------
-  console.log("13. Siklus langganan (trial berakhir)");
+  console.log("14. Siklus langganan (trial berakhir)");
   // Semua tenant dibuat dengan TRIAL_DAYS_OVERRIDE=0 → trial sudah lewat.
   const cron = await fetch(`${BASE}/__scheduled?cron=17+1+*+*+*`);
   check("cron trigger dieksekusi", cron.status === 200);
@@ -601,7 +666,7 @@ try {
   check("mode baca-saja: MENULIS ditolak 402", writeWhilePastDue.status === 402);
 
   // --- Logout -----------------------------------------------------------------
-  console.log("14. Logout");
+  console.log("15. Logout");
   const out = await owner("POST", "/api/auth/logout");
   check("logout 200", out.status === 200);
   const afterLogout = await owner("GET", "/api/auth/me");

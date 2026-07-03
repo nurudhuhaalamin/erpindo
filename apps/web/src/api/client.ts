@@ -26,6 +26,7 @@ export class ApiRequestError extends Error {
     public status: number,
     message: string,
     public issues?: Record<string, string[]>,
+    public twoFactorRequired?: boolean,
   ) {
     super(message);
   }
@@ -39,10 +40,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const json = (await res.json().catch(() => null)) as
-    | (Record<string, unknown> & { error?: string; issues?: Record<string, string[]> })
+    | (Record<string, unknown> & { error?: string; issues?: Record<string, string[]>; twoFactorRequired?: boolean })
     | null;
   if (!res.ok) {
-    throw new ApiRequestError(res.status, json?.error ?? "Terjadi kesalahan.", json?.issues);
+    throw new ApiRequestError(res.status, json?.error ?? "Terjadi kesalahan.", json?.issues, json?.twoFactorRequired);
   }
   return json as T;
 }
@@ -52,7 +53,11 @@ export const api = {
 
   register: (input: { companyName: string; name: string; email: string; password: string }) =>
     request<{ ok: true; tenantId: string; slug: string }>("POST", "/api/auth/register", input),
-  login: (input: { email: string; password: string }) => request<{ ok: true }>("POST", "/api/auth/login", input),
+  login: (input: { email: string; password: string; totpCode?: string }) =>
+    request<{ ok: true }>("POST", "/api/auth/login", input),
+  totpSetup: () => request<{ secret: string; otpauthUrl: string }>("POST", "/api/auth/2fa/setup"),
+  totpEnable: (code: string) => request<{ ok: true }>("POST", "/api/auth/2fa/enable", { code }),
+  totpDisable: (code: string) => request<{ ok: true }>("POST", "/api/auth/2fa/disable", { code }),
   logout: () => request<{ ok: true }>("POST", "/api/auth/logout"),
   me: () => request<MeResponse>("GET", "/api/auth/me"),
   verifyEmail: (token: string) => request<{ ok: true }>("POST", "/api/auth/verify", { token }),

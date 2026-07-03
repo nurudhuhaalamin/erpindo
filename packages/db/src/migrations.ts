@@ -74,6 +74,13 @@ export const CONTROL_PLANE_MIGRATIONS: Migration[] = [
       `CREATE INDEX audit_logs_tenant ON audit_logs (tenant_id, created_at)`,
     ],
   },
+  {
+    id: "0002_totp",
+    statements: [
+      `ALTER TABLE users ADD COLUMN totp_secret TEXT`,
+      `ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0`,
+    ],
+  },
 ];
 
 /**

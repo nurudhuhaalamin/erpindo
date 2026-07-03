@@ -79,6 +79,8 @@ export type RegisterInput = z.infer<typeof registerSchema>;
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, "Password wajib diisi"),
+  /** Kode authenticator 6 digit — wajib bila akun mengaktifkan 2FA. */
+  totpCode: z.string().trim().optional(),
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
@@ -115,6 +117,7 @@ export type ApiUser = {
   name: string;
   email: string;
   emailVerified: boolean;
+  totpEnabled: boolean;
 };
 
 export type ApiMembership = {
