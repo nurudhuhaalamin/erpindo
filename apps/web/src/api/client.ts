@@ -155,7 +155,63 @@ export const api = {
   ) => request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/${entity}`, input),
   archiveItem: (tenantId: string, entity: "products" | "contacts" | "warehouses", id: string) =>
     request<{ ok: true }>("POST", `/api/tenants/${tenantId}/${entity}/${id}/archive`),
+  importItems: (tenantId: string, entity: "products" | "contacts", rows: unknown[]) =>
+    request<{ ok: true; inserted: number; failed: number; errors: { row: number; message: string }[] }>(
+      "POST",
+      `/api/tenants/${tenantId}/${entity}/import`,
+      { rows },
+    ),
 };
+
+/**
+ * Parser CSV kecil: mendukung kutipan ganda, pemisah ; atau , (deteksi otomatis
+ * dari baris header). Mengembalikan array objek berdasarkan header.
+ */
+export function parseCsv(text: string): Record<string, string>[] {
+  const firstLine = text.slice(0, text.indexOf("\n") === -1 ? text.length : text.indexOf("\n"));
+  const delim = (firstLine.match(/;/g)?.length ?? 0) >= (firstLine.match(/,/g)?.length ?? 0) ? ";" : ",";
+
+  const rows: string[][] = [];
+  let field = "";
+  let row: string[] = [];
+  let inQuotes = false;
+  const src = text.replace(/^﻿/, "");
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i]!;
+    if (inQuotes) {
+      if (ch === '"') {
+        if (src[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === delim) {
+      row.push(field);
+      field = "";
+    } else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && src[i + 1] === "\n") i++;
+      row.push(field);
+      field = "";
+      if (row.some((f) => f.trim() !== "")) rows.push(row);
+      row = [];
+    } else {
+      field += ch;
+    }
+  }
+  row.push(field);
+  if (row.some((f) => f.trim() !== "")) rows.push(row);
+
+  const [header, ...data] = rows;
+  if (!header) return [];
+  const keys = header.map((h) => h.trim().toLowerCase());
+  return data.map((r) => Object.fromEntries(keys.map((k, i) => [k, (r[i] ?? "").trim()])));
+}
 
 /** Unduh data sebagai CSV (dibuka langsung oleh Excel). */
 export function downloadCsv(filename: string, headers: string[], rows: (string | number)[][]): void {

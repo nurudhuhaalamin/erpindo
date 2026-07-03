@@ -354,6 +354,36 @@ try {
   const outsiderTb = await outsider("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("non-anggota DITOLAK membaca neraca saldo tenant lain (403)", outsiderTb.status === 403);
 
+  // Impor batch master data (Fase 2d): valid masuk, duplikat & invalid dilaporkan.
+  const importRes = await owner("POST", `/api/tenants/${tenantId}/contacts/import`, {
+    rows: [
+      { type: "customer", name: "PT Impor Satu", email: "satu@impor.co.id" },
+      { type: "supplier", name: "CV Impor Dua" },
+      { type: "customer", name: "X" }, // nama terlalu pendek → gagal validasi
+      { type: "aneh", name: "PT Jenis Salah" }, // jenis tidak dikenal → gagal
+    ],
+  });
+  check(
+    "impor kontak: 2 masuk, 2 gagal dengan pesan per-baris",
+    importRes.status === 200 && importRes.json?.inserted === 2 && importRes.json?.failed === 2 && importRes.json?.errors?.length === 2,
+    `→ ${JSON.stringify(importRes.json)}`,
+  );
+  const importDupe = await owner("POST", `/api/tenants/${tenantId}/products/import`, {
+    rows: [
+      { sku: "IMP-001", name: "Barang Impor", unit: "pcs", sellPrice: 10_000, buyPrice: 5_000 },
+      { sku: "IMP-001", name: "Duplikat SKU", unit: "pcs", sellPrice: 1, buyPrice: 1 },
+    ],
+  });
+  check(
+    "impor produk: duplikat SKU dilewati dengan laporan",
+    importDupe.json?.inserted === 1 && importDupe.json?.failed === 1 && /sudah ada/.test(importDupe.json?.errors?.[0]?.message ?? ""),
+    `→ ${JSON.stringify(importDupe.json)}`,
+  );
+  const importByViewer = await viewer("POST", `/api/tenants/${tenantId}/contacts/import`, {
+    rows: [{ type: "customer", name: "PT Viewer" }],
+  });
+  check("viewer DITOLAK mengimpor (403)", importByViewer.status === 403);
+
   // --- Siklus dagang penuh: beli → jual → bayar (Fase 1b) -----------------------
   console.log("9. Siklus pembelian → penjualan → pembayaran");
 

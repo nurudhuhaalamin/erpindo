@@ -1,7 +1,7 @@
 import { contactSchema, productSchema, warehouseSchema, type ContactType } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
-import { api, formatIDR } from "../api/client";
+import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { api, downloadCsv, formatIDR, parseCsv } from "../api/client";
 import {
   Badge,
   Button,
@@ -19,6 +19,75 @@ import { useWorkspace } from "./app";
 
 const th = "pb-2 pr-4 text-left font-medium text-slate-500 dark:text-slate-400";
 const td = "border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60";
+
+/**
+ * Tombol impor CSV: pilih file → parse di browser → petakan kolom → kirim batch
+ * ke server (validasi per baris di sana) → tampilkan hasil.
+ */
+function ImportCsvButton({
+  entity,
+  templateHeaders,
+  templateExample,
+  mapRow,
+}: {
+  entity: "products" | "contacts";
+  templateHeaders: string[];
+  templateExample: (string | number)[];
+  mapRow: (r: Record<string, string>) => unknown;
+}) {
+  const { tenant } = useWorkspace();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [result, setResult] = useState<{ inserted: number; failed: number; errors: { row: number; message: string }[] } | null>(null);
+
+  const importMutation = useMutation({
+    mutationFn: (rows: unknown[]) => api.importItems(tenant.tenantId, entity, rows),
+    onSuccess: (res) => {
+      setResult(res);
+      toast(res.failed === 0 ? "success" : "error", `Impor selesai: ${res.inserted} masuk, ${res.failed} gagal/dilewati.`);
+      queryClient.invalidateQueries({ queryKey: [entity, tenant.tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  async function onFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const rows = parseCsv(await file.text());
+    if (rows.length === 0) {
+      toast("error", "File kosong atau header tidak terbaca.");
+      return;
+    }
+    importMutation.mutate(rows.map(mapRow));
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onFile} />
+      <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={importMutation.isPending}>
+        {importMutation.isPending ? <Spinner /> : null} ⬆ Impor CSV
+      </Button>
+      <Button
+        variant="ghost"
+        onClick={() => downloadCsv(`template-${entity}.csv`, templateHeaders, [templateExample])}
+      >
+        Unduh template
+      </Button>
+      {result && result.errors.length > 0 ? (
+        <div className="w-full rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+          {result.errors.slice(0, 8).map((er) => (
+            <div key={er.row}>
+              Baris {er.row}: {er.message}
+            </div>
+          ))}
+          {result.errors.length > 8 ? <div>… dan {result.errors.length - 8} lainnya</div> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 /** Kerangka halaman master data seragam: form tambah (admin) + tabel + arsip. */
 function useEntityPage(entity: "products" | "contacts" | "warehouses") {
@@ -88,8 +157,20 @@ export function ProductsPage() {
 
       {isAdmin ? (
         <Card>
-          <CardHeader title="Tambah produk" />
-          <CardBody>
+          <CardHeader title="Tambah produk" description="Tambah satu per satu, atau impor sekaligus dari file CSV/Excel." />
+          <CardBody className="space-y-4">
+            <ImportCsvButton
+              entity="products"
+              templateHeaders={["sku", "nama", "satuan", "harga_jual", "harga_beli"]}
+              templateExample={["BRG-001", "Kopi Arabika 1kg", "pcs", 150000, 100000]}
+              mapRow={(r) => ({
+                sku: r.sku ?? "",
+                name: r.nama ?? r.name ?? "",
+                unit: r.satuan || r.unit || "pcs",
+                sellPrice: Number(r.harga_jual ?? r.sellprice ?? 0) || 0,
+                buyPrice: Number(r.harga_beli ?? r.buyprice ?? 0) || 0,
+              })}
+            />
             <form onSubmit={onSubmit} className="grid gap-3 sm:grid-cols-[8rem_1fr_6rem_10rem_10rem_auto] sm:items-end" noValidate>
               <div>
                 <Label htmlFor="p-sku">SKU</Label>
@@ -203,8 +284,24 @@ export function ContactsPage() {
 
       {isAdmin ? (
         <Card>
-          <CardHeader title="Tambah kontak" description="Pelanggan dan pemasok Anda." />
-          <CardBody>
+          <CardHeader title="Tambah kontak" description="Pelanggan dan pemasok Anda — bisa impor sekaligus dari CSV." />
+          <CardBody className="space-y-4">
+            <ImportCsvButton
+              entity="contacts"
+              templateHeaders={["jenis", "nama", "email", "telepon", "alamat", "npwp"]}
+              templateExample={["pelanggan", "PT Pelanggan Setia", "info@pelanggan.co.id", "0812345678", "Jakarta", ""]}
+              mapRow={(r) => ({
+                type:
+                  { pelanggan: "customer", pemasok: "supplier", keduanya: "both" }[
+                    (r.jenis ?? r.type ?? "").toLowerCase()
+                  ] ?? (r.type || "customer"),
+                name: r.nama ?? r.name ?? "",
+                email: r.email || undefined,
+                phone: r.telepon || r.phone || undefined,
+                address: r.alamat || r.address || undefined,
+                npwp: r.npwp || undefined,
+              })}
+            />
             <form onSubmit={onSubmit} className="grid gap-3 sm:grid-cols-[11rem_1fr_1fr_1fr_auto] sm:items-end" noValidate>
               <div>
                 <Label htmlFor="k-type">Jenis</Label>
