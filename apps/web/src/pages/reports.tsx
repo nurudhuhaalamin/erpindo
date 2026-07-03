@@ -119,6 +119,99 @@ export function IncomeStatementPage() {
 }
 
 // ---------------------------------------------------------------------------
+// Arus Kas
+// ---------------------------------------------------------------------------
+
+export function CashFlowPage() {
+  const { tenant } = useWorkspace();
+  const [from, setFrom] = useState(monthStart);
+  const [to, setTo] = useState(today);
+
+  const query = useQuery({
+    queryKey: ["cash-flow", tenant.tenantId, from, to],
+    queryFn: () => api.cashFlow(tenant.tenantId, from, to),
+    enabled: Boolean(from && to),
+  });
+
+  const row = (label: string, amount: number, bold = false) => (
+    <div className={`flex justify-between py-1 text-sm ${bold ? "font-semibold" : ""}`}>
+      <span>{label}</span>
+      <span className="tabular-nums">{formatIDR(amount)}</span>
+    </div>
+  );
+
+  return (
+    <div className="max-w-3xl space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Arus Kas</h1>
+        {query.data ? (
+          <ExportButton
+            onClick={() =>
+              downloadCsv(
+                `arus-kas-${from}-${to}.csv`,
+                ["Keterangan", "Arah", "Jumlah"],
+                [
+                  ...query.data!.inflows.map((r) => [r.label, "Masuk", r.amount] as (string | number)[]),
+                  ...query.data!.outflows.map((r) => [r.label, "Keluar", r.amount] as (string | number)[]),
+                ],
+              )
+            }
+          />
+        ) : null}
+      </div>
+      <Card>
+        <CardBody className="space-y-5">
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <Label htmlFor="cf-from">Dari</Label>
+              <Input id="cf-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="cf-to">Sampai</Label>
+              <Input id="cf-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            </div>
+          </div>
+
+          {query.isLoading ? (
+            <Spinner />
+          ) : query.data ? (
+            <>
+              {row("Saldo kas awal periode", query.data.openingBalance, true)}
+              <div>
+                <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                  Kas Masuk
+                </h3>
+                {query.data.inflows.length === 0 ? (
+                  <p className="text-sm text-slate-400">Tidak ada.</p>
+                ) : (
+                  query.data.inflows.map((r, i) => <div key={i}>{row(r.label, r.amount)}</div>)
+                )}
+                {row("Total kas masuk", query.data.totalIn, true)}
+              </div>
+              <div>
+                <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-red-600 dark:text-red-400">
+                  Kas Keluar
+                </h3>
+                {query.data.outflows.length === 0 ? (
+                  <p className="text-sm text-slate-400">Tidak ada.</p>
+                ) : (
+                  query.data.outflows.map((r, i) => <div key={i}>{row(r.label, r.amount)}</div>)
+                )}
+                {row("Total kas keluar", query.data.totalOut, true)}
+              </div>
+              <div className="rounded-lg bg-slate-100 px-4 py-3 dark:bg-slate-800">
+                {row("Perubahan kas bersih", query.data.netChange, true)}
+                {row("Saldo kas akhir periode", query.data.closingBalance, true)}
+              </div>
+            </>
+          ) : null}
+        </CardBody>
+      </Card>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Umur Piutang / Hutang (aging)
 // ---------------------------------------------------------------------------
 

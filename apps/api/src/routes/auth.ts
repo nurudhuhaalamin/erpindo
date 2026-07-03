@@ -6,6 +6,7 @@ import {
   toSlug,
   TRIAL_DAYS,
   type MeResponse,
+  type Plan,
   type Role,
   type TenantStatus,
 } from "@erpindo/shared";
@@ -147,7 +148,18 @@ export const authRoutes = new Hono<AppEnv>()
       c.env.DB.prepare(
         `INSERT INTO tenants (id, name, slug, db_ref, status, plan, trial_ends_at, schema_version, created_at)
          VALUES (?, ?, ?, ?, ?, 'trial', ?, ?, ?)`,
-      ).bind(tenantId, companyName, slug, dbRef, status, inDays(TRIAL_DAYS), TENANT_SCHEMA_VERSION, now()),
+      ).bind(
+        tenantId,
+        companyName,
+        slug,
+        dbRef,
+        status,
+        // TRIAL_DAYS_OVERRIDE dipakai suite pengujian untuk menyimulasikan
+        // trial yang sudah kedaluwarsa.
+        inDays(c.env.TRIAL_DAYS_OVERRIDE !== undefined ? Number(c.env.TRIAL_DAYS_OVERRIDE) : TRIAL_DAYS),
+        TENANT_SCHEMA_VERSION,
+        now(),
+      ),
       c.env.DB.prepare(
         `INSERT INTO memberships (id, user_id, tenant_id, role, created_at) VALUES (?, ?, ?, 'owner', ?)`,
       ).bind(crypto.randomUUID(), userId, tenantId, now()),
@@ -215,12 +227,20 @@ export const authRoutes = new Hono<AppEnv>()
   .get("/me", requireAuth, async (c) => {
     const user = c.get("user");
     const { results } = await c.env.DB.prepare(
-      `SELECT t.id AS tenant_id, t.name, t.slug, t.status, m.role
+      `SELECT t.id AS tenant_id, t.name, t.slug, t.status, t.plan, t.trial_ends_at, m.role
        FROM memberships m JOIN tenants t ON t.id = m.tenant_id
        WHERE m.user_id = ? ORDER BY m.created_at`,
     )
       .bind(user.id)
-      .all<{ tenant_id: string; name: string; slug: string; status: TenantStatus; role: Role }>();
+      .all<{
+        tenant_id: string;
+        name: string;
+        slug: string;
+        status: TenantStatus;
+        plan: Plan;
+        trial_ends_at: string | null;
+        role: Role;
+      }>();
 
     const body: MeResponse = {
       user: { id: user.id, name: user.name, email: user.email, emailVerified: user.emailVerified },
@@ -230,6 +250,8 @@ export const authRoutes = new Hono<AppEnv>()
         tenantSlug: r.slug,
         tenantStatus: r.status,
         role: r.role,
+        plan: r.plan,
+        trialEndsAt: r.trial_ends_at,
       })),
     };
     return c.json(body);

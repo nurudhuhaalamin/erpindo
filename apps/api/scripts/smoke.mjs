@@ -42,6 +42,10 @@ const child = spawn(
     "--persist-to",
     persistDir,
     "--show-interactive-dev-session=false",
+    // Untuk memicu cron via /__scheduled dan menyimulasikan trial kedaluwarsa.
+    "--test-scheduled",
+    "--var",
+    "TRIAL_DAYS_OVERRIDE:0",
   ],
   { cwd: apiDir, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, CI: "1" } },
 );
@@ -556,8 +560,48 @@ try {
   const rollback = await owner("POST", `/api/tenants/${tenantId}/close-books`, { date: "2026-07-01" });
   check("tanggal kunci mundur DITOLAK 400", rollback.status === 400);
 
+  // --- Arus kas (Fase 2b-1) -------------------------------------------------------
+  console.log("12. Arus kas");
+  // Konteks: modal 50jt (2/7) + penjualan tunai 2,5jt (3/7) + terima pembayaran 499,5rb (5/7)
+  // + jurnal pasca tutup buku 1rb (15/7). Tidak ada kas keluar.
+  const cf = await owner("GET", `/api/tenants/${tenantId}/reports/cash-flow?from=2026-07-03&to=2026-07-31`);
+  check(
+    "arus kas: saldo awal 50jt, masuk 3.000.500, saldo akhir 53.000.500",
+    cf.status === 200 &&
+      cf.json?.openingBalance === 50_000_000 &&
+      cf.json?.totalIn === 3_000_500 &&
+      cf.json?.totalOut === 0 &&
+      cf.json?.closingBalance === 53_000_500,
+    `→ ${JSON.stringify(cf.json && { o: cf.json.openingBalance, i: cf.json.totalIn, out: cf.json.totalOut, c: cf.json.closingBalance })}`,
+  );
+
+  // --- Siklus langganan: trial kedaluwarsa → past_due → baca-saja (Fase 2b-1) ------
+  console.log("13. Siklus langganan (trial berakhir)");
+  // Semua tenant dibuat dengan TRIAL_DAYS_OVERRIDE=0 → trial sudah lewat.
+  const cron = await fetch(`${BASE}/__scheduled?cron=17+1+*+*+*`);
+  check("cron trigger dieksekusi", cron.status === 200);
+
+  const meAfterCron = await owner("GET", "/api/auth/me");
+  check(
+    "status tenant menjadi past_due setelah cron",
+    meAfterCron.json?.memberships?.[0]?.tenantStatus === "past_due",
+    `→ ${meAfterCron.json?.memberships?.[0]?.tenantStatus}`,
+  );
+
+  const readWhilePastDue = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("mode baca-saja: MEMBACA laporan tetap boleh (200)", readWhilePastDue.status === 200);
+
+  const writeWhilePastDue = await owner("POST", `/api/tenants/${tenantId}/products`, {
+    sku: "BRG-BLOKIR",
+    name: "Tidak boleh masuk",
+    unit: "pcs",
+    sellPrice: 1,
+    buyPrice: 1,
+  });
+  check("mode baca-saja: MENULIS ditolak 402", writeWhilePastDue.status === 402);
+
   // --- Logout -----------------------------------------------------------------
-  console.log("12. Logout");
+  console.log("14. Logout");
   const out = await owner("POST", "/api/auth/logout");
   check("logout 200", out.status === 200);
   const afterLogout = await owner("GET", "/api/auth/me");

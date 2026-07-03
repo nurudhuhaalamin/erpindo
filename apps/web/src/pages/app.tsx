@@ -1,4 +1,4 @@
-import type { ApiMembership, MeResponse } from "@erpindo/shared";
+import { PLAN_LABELS, PLAN_LIMITS, type ApiMembership, type MeResponse } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useNavigate } from "@tanstack/react-router";
 import { createContext, useContext, useState, type FormEvent } from "react";
@@ -46,6 +46,7 @@ const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string }
   { to: "/app/keuangan/neraca-saldo", label: "Neraca Saldo", exact: false, section: "Keuangan" },
   { to: "/app/keuangan/laba-rugi", label: "Laba Rugi", exact: false, section: "Keuangan" },
   { to: "/app/keuangan/neraca", label: "Neraca", exact: false, section: "Keuangan" },
+  { to: "/app/keuangan/arus-kas", label: "Arus Kas", exact: false, section: "Keuangan" },
   { to: "/app/keuangan/umur-tagihan", label: "Umur Piutang/Hutang", exact: false, section: "Keuangan" },
   { to: "/app/master/produk", label: "Produk", exact: false, section: "Master Data" },
   { to: "/app/master/kontak", label: "Kontak", exact: false, section: "Master Data" },
@@ -178,6 +179,25 @@ export function AppShell() {
             </div>
           ) : null}
 
+          {tenant.tenantStatus === "past_due" ? (
+            <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+              Masa trial/langganan berakhir — akun dalam <strong>mode baca-saja</strong>. Aktifkan langganan di{" "}
+              <Link to="/app/pengaturan" className="font-medium underline">
+                Pengaturan
+              </Link>
+              .
+            </div>
+          ) : tenant.tenantStatus === "trial" && tenant.trialEndsAt ? (
+            (() => {
+              const daysLeft = Math.ceil((Date.parse(tenant.trialEndsAt) - Date.now()) / 86_400_000);
+              return daysLeft <= 7 ? (
+                <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                  Masa trial tersisa <strong>{Math.max(daysLeft, 0)} hari</strong>.
+                </div>
+              ) : null;
+            })()
+          ) : null}
+
           <main className="flex-1 p-4 sm:p-6">
             <Outlet />
           </main>
@@ -267,10 +287,46 @@ export function SettingsPage() {
   return (
     <div className="max-w-3xl space-y-6">
       <h1 className="text-2xl font-semibold">Pengaturan</h1>
+      <SubscriptionCard />
       <CompanySettingsCard tenantId={tenant.tenantId} readOnly={!isAdmin} />
       {isAdmin ? <MembersCard tenantId={tenant.tenantId} /> : null}
       {tenant.role === "owner" ? <CloseBooksCard tenantId={tenant.tenantId} /> : null}
     </div>
+  );
+}
+
+function SubscriptionCard() {
+  const { tenant } = useWorkspace();
+  const limits = PLAN_LIMITS[tenant.plan];
+  const daysLeft = tenant.trialEndsAt
+    ? Math.max(Math.ceil((Date.parse(tenant.trialEndsAt) - Date.now()) / 86_400_000), 0)
+    : null;
+
+  return (
+    <Card>
+      <CardHeader title="Langganan" description="Paket dan status akun perusahaan Anda." />
+      <CardBody className="space-y-2 text-sm">
+        <div className="flex items-center gap-2">
+          <span className="text-slate-500 dark:text-slate-400">Paket:</span>
+          <Badge tone="brand">{PLAN_LABELS[tenant.plan]}</Badge>
+          {tenant.tenantStatus === "past_due" ? (
+            <Badge tone="amber">baca-saja — langganan berakhir</Badge>
+          ) : tenant.tenantStatus === "trial" && daysLeft !== null ? (
+            <Badge tone="amber">trial, sisa {daysLeft} hari</Badge>
+          ) : (
+            <Badge>aktif</Badge>
+          )}
+        </div>
+        <p className="text-slate-500 dark:text-slate-400">
+          Batas pengguna paket ini:{" "}
+          {limits.maxUsers === Number.MAX_SAFE_INTEGER ? "tak terbatas" : `${limits.maxUsers} pengguna`}.
+        </p>
+        <p className="text-slate-500 dark:text-slate-400">
+          Pembayaran langganan online (QRIS/transfer/e-wallet) sedang disiapkan — untuk saat ini hubungi kami untuk
+          aktivasi paket.
+        </p>
+      </CardBody>
+    </Card>
   );
 }
 

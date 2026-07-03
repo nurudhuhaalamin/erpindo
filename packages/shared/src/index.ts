@@ -26,6 +26,28 @@ export type TenantStatus = (typeof TENANT_STATUSES)[number];
 export const TRIAL_DAYS = 14;
 
 // ---------------------------------------------------------------------------
+// Paket langganan & batasnya (Fase 2b). Integrasi pembayaran menyusul —
+// struktur ini yang ditegakkan middleware sejak sekarang.
+// ---------------------------------------------------------------------------
+
+export const PLANS = ["trial", "starter", "business", "enterprise"] as const;
+export type Plan = (typeof PLANS)[number];
+
+export const PLAN_LABELS: Record<Plan, string> = {
+  trial: "Trial",
+  starter: "Starter",
+  business: "Business",
+  enterprise: "Enterprise",
+};
+
+export const PLAN_LIMITS: Record<Plan, { maxUsers: number; pricePerMonth: number }> = {
+  trial: { maxUsers: 3, pricePerMonth: 0 },
+  starter: { maxUsers: 3, pricePerMonth: 149_000 },
+  business: { maxUsers: 15, pricePerMonth: 599_000 },
+  enterprise: { maxUsers: Number.MAX_SAFE_INTEGER, pricePerMonth: 0 },
+};
+
+// ---------------------------------------------------------------------------
 // Skema validasi bersama (dipakai form web & endpoint API)
 // ---------------------------------------------------------------------------
 
@@ -101,6 +123,8 @@ export type ApiMembership = {
   tenantSlug: string;
   tenantStatus: TenantStatus;
   role: Role;
+  plan: Plan;
+  trialEndsAt: string | null;
 };
 
 export type MeResponse = {
@@ -377,6 +401,18 @@ export type ApiBalanceSheet = {
   totalLiabilities: number;
   totalEquity: number;
   balanced: boolean;
+};
+
+export type ApiCashFlow = {
+  from: string;
+  to: string;
+  openingBalance: number;
+  inflows: { label: string; amount: number }[];
+  outflows: { label: string; amount: number }[];
+  totalIn: number;
+  totalOut: number;
+  netChange: number;
+  closingBalance: number;
 };
 
 export type ApiDashboard = {
