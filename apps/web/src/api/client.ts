@@ -9,6 +9,7 @@ import type {
   ApiDashboard,
   ApiIncomeStatement,
   ApiStockCardRow,
+  ApiStockLot,
   ApiJournalEntry,
   ApiMember,
   ApiStockLevel,
@@ -181,6 +182,8 @@ export const api = {
     ),
   stock: (tenantId: string) =>
     request<{ levels: ApiStockLevel[]; totalValue: number }>("GET", `/api/tenants/${tenantId}/stock`),
+  stockLots: (tenantId: string) =>
+    request<{ lots: ApiStockLot[]; expiringSoon: number }>("GET", `/api/tenants/${tenantId}/stock-lots`),
   adjustStock: (tenantId: string, input: { productId: string; warehouseId: string; physicalQty: number; note?: string }) =>
     request<{ ok: true; delta: number; value: number; entryNo: string | null }>(
       "POST",

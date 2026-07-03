@@ -23,7 +23,8 @@
 | Fase 2f — Retur jual/beli | Nota kredit/debit dengan jurnal pembalik & stok otomatis | ✅ Selesai |
 | Fase 2g — Transfer gudang, multi-perusahaan, profil, pengingat email | Operasional harian makin lengkap | ✅ Selesai |
 | Fase 2h — POS / Kasir | Layar kasir cepat, shift + rekap kas berjurnal, struk | ✅ Selesai |
-| **Fase 2i — Persetujuan pembelian** | Pembelian besar oleh Admin wajib disetujui Owner dulu | ✅ **Selesai** |
+| Fase 2i — Persetujuan pembelian | Pembelian besar oleh Admin wajib disetujui Owner dulu | ✅ Selesai |
+| **Fase 2j — Lot & kedaluwarsa (FEFO)** | Lacak lot/exp per produk, keluar otomatis yang paling dekat kedaluwarsa, peringatan ≤ 30 hari | ✅ **Selesai** |
 | Fase 2b-2 — Pembayaran langganan | Checkout Midtrans/Xendit, aktivasi otomatis | ⏸ **Menunggu akun gateway dari Anda** |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
 | Fase 3+ | POS, HR & Payroll, dan modul lanjutan | Belum |
@@ -61,9 +62,10 @@
 29. **Profil & ganti password** *(baru — Fase 2g)*: ganti password mencabut sesi di perangkat lain secara otomatis.
 30. **Pengingat email otomatis** *(Fase 2g)*: Owner diberi tahu saat trial hampir habis dan saat berakhir.
 31. **Kasir (POS)** *(Fase 2h)*: layar kasir cepat untuk toko/kafe — klik produk, terima tunai, kembalian dihitung, struk tercetak; buka/tutup shift dengan hitung kas fisik dan selisihnya otomatis masuk pembukuan.
-32. **Persetujuan pembelian** *(baru — Fase 2i)*: tetapkan ambang (mis. Rp 5 juta) — pembelian Admin di atas itu menunggu persetujuan Anda dan baru diproses (stok & pembukuan) setelah disetujui; bisa ditolak dengan catatan.
+32. **Persetujuan pembelian** *(Fase 2i)*: tetapkan ambang (mis. Rp 5 juta) — pembelian Admin di atas itu menunggu persetujuan Anda dan baru diproses (stok & pembukuan) setelah disetujui; bisa ditolak dengan catatan.
+33. **Lot & tanggal kedaluwarsa (FEFO)** *(baru — Fase 2j)*: centang "lacak kedaluwarsa" pada produk (cocok untuk F&B/farmasi) — pembelian wajib mengisi tanggal exp per baris, penjualan otomatis mengambil lot yang paling dekat kedaluwarsa lebih dulu, dan halaman Stok menandai lot yang lewat (merah) atau ≤ 30 hari lagi (kuning).
 
-Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (146 skenario ujian end-to-end + 20 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
+Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (149 skenario ujian end-to-end + 20 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
 
 ## Apakah sudah bisa diakses di internet?
 

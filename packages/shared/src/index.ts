@@ -250,6 +250,8 @@ export const productSchema = z.object({
   unit: z.string().trim().min(1).max(20).default("pcs"),
   sellPrice: amountSchema.default(0),
   buyPrice: amountSchema.default(0),
+  /** Wajib mencatat lot & tanggal kedaluwarsa saat pembelian (F&B/farmasi). */
+  trackExpiry: z.boolean().default(false),
 });
 export type ProductInput = z.infer<typeof productSchema>;
 
@@ -312,6 +314,12 @@ export const commerceLineSchema = z.object({
   description: z.string().trim().max(200).optional(),
   qty: z.number().int("Qty harus bilangan bulat").min(1, "Qty minimal 1").max(1_000_000),
   unitPrice: commerceAmountSchema,
+  /** Untuk produk berpelacakan kedaluwarsa (pembelian): nomor lot & tanggal exp. */
+  lotNo: z.string().trim().max(50).optional(),
+  expiryDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal kedaluwarsa tidak valid")
+    .optional(),
 });
 
 export const createInvoiceSchema = z.object({
@@ -448,6 +456,18 @@ export type ApiDashboard = {
 // ---------------------------------------------------------------------------
 // Kartu stok, aging & tutup buku (Fase 1d)
 // ---------------------------------------------------------------------------
+
+export type ApiStockLot = {
+  id: string;
+  productId: string;
+  sku: string;
+  productName: string;
+  warehouseName: string;
+  lotNo: string | null;
+  expiryDate: string | null;
+  qty: number;
+  daysToExpiry: number | null;
+};
 
 export type ApiStockCardRow = {
   date: string;

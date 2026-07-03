@@ -170,6 +170,21 @@ async function executePurchase(
   const lockError = await checkPeriodOpen(db, input.invoiceDate);
   if (lockError) return { error: lockError };
 
+  // Produk berpelacakan kedaluwarsa wajib menyertakan tanggal exp per baris.
+  const trackedIds = [...new Set(input.lines.map((l) => l.productId))];
+  const { results: tracked } = await db
+    .prepare(
+      `SELECT id FROM products WHERE track_expiry = 1 AND id IN (${trackedIds.map(() => "?").join(",")})`,
+    )
+    .bind(...trackedIds)
+    .all<{ id: string }>();
+  const trackedSet = new Set(tracked.map((t) => t.id));
+  for (const line of input.lines) {
+    if (trackedSet.has(line.productId) && !line.expiryDate) {
+      return { error: "Produk ini melacak kedaluwarsa — isi tanggal exp (dan lot) pada barisnya." };
+    }
+  }
+
   const subtotal = input.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
   const taxAmount = Math.round((subtotal * input.taxRate) / 100);
   const total = subtotal + taxAmount;
@@ -237,6 +252,7 @@ async function executePurchase(
       unitCost: line.unitPrice,
       refType: "purchase",
       refId: purchaseId,
+      lot: line.expiryDate || line.lotNo ? { lotNo: line.lotNo ?? null, expiryDate: line.expiryDate ?? null } : undefined,
     });
   }
   return { purchaseId, docNo, total };
@@ -800,6 +816,48 @@ export const commerceRoutes = new Hono<AppEnv>()
       ip: clientIp(c),
     });
     return c.json({ ok: true, qty: input.qty, value: cost }, 201);
+  })
+
+  // -------------------------------------------------------------------------
+  // Lot & kedaluwarsa: daftar lot aktif, urut kedaluwarsa terdekat (FEFO)
+  // -------------------------------------------------------------------------
+  .get("/:tenantId/stock-lots", requireAuth, requireTenantRole("viewer"), async (c) => {
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+    const today = new Date().toISOString().slice(0, 10);
+    const { results } = await db
+      .prepare(
+        `SELECT sl.id, sl.product_id, p.sku, p.name AS product_name, w.name AS warehouse_name,
+                sl.lot_no, sl.expiry_date, sl.qty
+         FROM stock_lots sl
+         JOIN products p ON p.id = sl.product_id
+         JOIN warehouses w ON w.id = sl.warehouse_id
+         WHERE sl.qty > 0
+         ORDER BY sl.expiry_date IS NULL, sl.expiry_date ASC`,
+      )
+      .all<{
+        id: string;
+        product_id: string;
+        sku: string;
+        product_name: string;
+        warehouse_name: string;
+        lot_no: string | null;
+        expiry_date: string | null;
+        qty: number;
+      }>();
+
+    const lots = results.map((r) => ({
+      id: r.id,
+      productId: r.product_id,
+      sku: r.sku,
+      productName: r.product_name,
+      warehouseName: r.warehouse_name,
+      lotNo: r.lot_no,
+      expiryDate: r.expiry_date,
+      qty: r.qty,
+      daysToExpiry: r.expiry_date ? Math.ceil((Date.parse(r.expiry_date) - Date.parse(today)) / 86_400_000) : null,
+    }));
+    const expiringSoon = lots.filter((l) => l.daysToExpiry !== null && l.daysToExpiry <= 30).length;
+    return c.json({ lots, expiringSoon });
   })
 
   // -------------------------------------------------------------------------

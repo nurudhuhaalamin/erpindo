@@ -42,10 +42,10 @@ const MODE_CFG = {
   },
 };
 
-type DraftLine = { productId: string; qty: string; unitPrice: string };
-const emptyLine = (): DraftLine => ({ productId: "", qty: "1", unitPrice: "" });
+type DraftLine = { productId: string; qty: string; unitPrice: string; lotNo: string; expiryDate: string };
+const emptyLine = (): DraftLine => ({ productId: "", qty: "1", unitPrice: "", lotNo: "", expiryDate: "" });
 
-type ProductRow = { id: string; sku: string; name: string; sell_price: number; buy_price: number };
+type ProductRow = { id: string; sku: string; name: string; sell_price: number; buy_price: number; track_expiry: number };
 type ContactRow = { id: string; name: string; type: string };
 type WarehouseRow = { id: string; name: string };
 
@@ -95,6 +95,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
       setError(null);
       queryClient.invalidateQueries({ queryKey: [cfg.queryKey, tenant.tenantId] });
       queryClient.invalidateQueries({ queryKey: ["stock", tenant.tenantId] });
+      queryClient.invalidateQueries({ queryKey: ["stock-lots", tenant.tenantId] });
     },
     onError: (err) => setError((err as Error).message),
   });
@@ -129,7 +130,13 @@ export function CommercePage({ mode }: { mode: Mode }) {
       warehouseId: warehouseId || warehouses[0]?.id || "",
       lines: lines
         .filter((l) => l.productId)
-        .map((l) => ({ productId: l.productId, qty: Number(l.qty) || 0, unitPrice: Number(l.unitPrice) || 0 })),
+        .map((l) => ({
+          productId: l.productId,
+          qty: Number(l.qty) || 0,
+          unitPrice: Number(l.unitPrice) || 0,
+          ...(mode === "purchase" && l.lotNo ? { lotNo: l.lotNo } : {}),
+          ...(mode === "purchase" && l.expiryDate ? { expiryDate: l.expiryDate } : {}),
+        })),
     });
   }
 
@@ -183,48 +190,72 @@ export function CommercePage({ mode }: { mode: Mode }) {
             </div>
 
             <div className="space-y-2">
-              {lines.map((line, i) => (
-                <div key={i} className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_6rem_10rem_10rem_2.5rem] sm:items-center">
-                  <Select
-                    aria-label={`Produk baris ${i + 1}`}
-                    value={line.productId}
-                    onChange={(e) => pickProduct(i, e.target.value)}
-                  >
-                    <option value="">— pilih produk —</option>
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.sku} · {p.name}
-                      </option>
-                    ))}
-                  </Select>
-                  <Input
-                    aria-label={`Qty baris ${i + 1}`}
-                    type="number"
-                    min={1}
-                    value={line.qty}
-                    onChange={(e) => setLine(i, { qty: e.target.value })}
-                  />
-                  <Input
-                    aria-label={`Harga baris ${i + 1}`}
-                    type="number"
-                    min={0}
-                    placeholder="Harga satuan"
-                    value={line.unitPrice}
-                    onChange={(e) => setLine(i, { unitPrice: e.target.value })}
-                  />
-                  <div className="text-right text-sm tabular-nums">
-                    {formatIDR((Number(line.qty) || 0) * (Number(line.unitPrice) || 0))}
+              {lines.map((line, i) => {
+                const tracked = mode === "purchase" && products.find((p) => p.id === line.productId)?.track_expiry === 1;
+                return (
+                  <div key={i} className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_6rem_10rem_10rem_2.5rem] sm:items-center">
+                      <Select
+                        aria-label={`Produk baris ${i + 1}`}
+                        value={line.productId}
+                        onChange={(e) => pickProduct(i, e.target.value)}
+                      >
+                        <option value="">— pilih produk —</option>
+                        {products.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.sku} · {p.name}
+                          </option>
+                        ))}
+                      </Select>
+                      <Input
+                        aria-label={`Qty baris ${i + 1}`}
+                        type="number"
+                        min={1}
+                        value={line.qty}
+                        onChange={(e) => setLine(i, { qty: e.target.value })}
+                      />
+                      <Input
+                        aria-label={`Harga baris ${i + 1}`}
+                        type="number"
+                        min={0}
+                        placeholder="Harga satuan"
+                        value={line.unitPrice}
+                        onChange={(e) => setLine(i, { unitPrice: e.target.value })}
+                      />
+                      <div className="text-right text-sm tabular-nums">
+                        {formatIDR((Number(line.qty) || 0) * (Number(line.unitPrice) || 0))}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        aria-label={`Hapus baris ${i + 1}`}
+                        onClick={() => setLines((ls) => (ls.length > 1 ? ls.filter((_, idx) => idx !== i) : ls))}
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                    {tracked ? (
+                      <div className="grid grid-cols-2 gap-2 rounded-lg bg-amber-50 p-2 sm:grid-cols-[10rem_11rem_1fr] sm:items-center dark:bg-amber-950/40">
+                        <Input
+                          aria-label={`Nomor lot baris ${i + 1}`}
+                          placeholder="No. lot (opsional)"
+                          value={line.lotNo}
+                          onChange={(e) => setLine(i, { lotNo: e.target.value })}
+                        />
+                        <Input
+                          aria-label={`Tanggal kedaluwarsa baris ${i + 1}`}
+                          type="date"
+                          value={line.expiryDate}
+                          onChange={(e) => setLine(i, { expiryDate: e.target.value })}
+                        />
+                        <span className="text-xs text-amber-700 dark:text-amber-300">
+                          Produk ini melacak kedaluwarsa — tanggal exp wajib diisi (keluar otomatis FEFO).
+                        </span>
+                      </div>
+                    ) : null}
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    aria-label={`Hapus baris ${i + 1}`}
-                    onClick={() => setLines((ls) => (ls.length > 1 ? ls.filter((_, idx) => idx !== i) : ls))}
-                  >
-                    ✕
-                  </Button>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -718,6 +749,76 @@ function StockTransferForm() {
   );
 }
 
+/** Daftar lot aktif urut FEFO dengan badge kedaluwarsa (merah lewat, kuning ≤30 hari). */
+function LotsCard() {
+  const { tenant } = useWorkspace();
+  const query = useQuery({
+    queryKey: ["stock-lots", tenant.tenantId],
+    queryFn: () => api.stockLots(tenant.tenantId),
+  });
+  const lots = query.data?.lots ?? [];
+  if (query.isLoading || lots.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader
+        title="Lot & kedaluwarsa"
+        description="Lot aktif urut kedaluwarsa terdekat — penjualan mengambil lot paling awal kedaluwarsa lebih dulu (FEFO)."
+      />
+      <CardBody>
+        {(query.data?.expiringSoon ?? 0) > 0 ? (
+          <Alert tone="error">
+            {query.data!.expiringSoon} lot kedaluwarsa dalam ≤ 30 hari — prioritaskan penjualannya atau tarik dari rak.
+          </Alert>
+        ) : null}
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-slate-800">
+                <th className={th}>SKU</th>
+                <th className={th}>Produk</th>
+                <th className={th}>Gudang</th>
+                <th className={th}>Lot</th>
+                <th className={th}>Kedaluwarsa</th>
+                <th className={`${th} text-right`}>Qty</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lots.map((l) => (
+                <tr key={l.id}>
+                  <td className="border-b border-slate-100 py-2.5 pr-4 font-mono text-xs dark:border-slate-800/60">
+                    {l.sku}
+                  </td>
+                  <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">{l.productName}</td>
+                  <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">{l.warehouseName}</td>
+                  <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">{l.lotNo ?? "—"}</td>
+                  <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">
+                    {l.expiryDate ? (
+                      <span className="inline-flex items-center gap-2">
+                        {l.expiryDate}
+                        {l.daysToExpiry !== null && l.daysToExpiry < 0 ? (
+                          <Badge tone="red">kedaluwarsa</Badge>
+                        ) : l.daysToExpiry !== null && l.daysToExpiry <= 30 ? (
+                          <Badge tone="amber">{l.daysToExpiry} hari lagi</Badge>
+                        ) : null}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="border-b border-slate-100 py-2.5 text-right tabular-nums dark:border-slate-800/60">
+                    {l.qty}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
+
 export function StockPage() {
   const { tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
@@ -729,6 +830,7 @@ export function StockPage() {
       <h1 className="text-2xl font-semibold">Stok</h1>
       {isAdmin ? <StockAdjustmentForm /> : null}
       {isAdmin ? <StockTransferForm /> : null}
+      <LotsCard />
       <Card>
         <CardHeader
           title="Level stok per gudang"
