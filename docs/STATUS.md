@@ -14,8 +14,9 @@
 | Fase 1a — Akuntansi inti & master data | Bagan akun (template Indonesia), jurnal double-entry, buku besar, neraca saldo; produk, kontak, gudang | ✅ Selesai |
 | Fase 1b — Penjualan & Pembelian | Faktur jual/beli dengan jurnal & stok otomatis (biaya rata-rata), pembayaran, PPN, level stok | ✅ Selesai |
 | Fase 1c — Laporan & dashboard | Laba Rugi, Neraca (selalu seimbang), dashboard angka nyata | ✅ Selesai |
-| **Fase 1d — Pelengkap MVP** | Kartu stok, umur piutang/hutang, ekspor CSV, tutup buku | ✅ **Selesai — MVP inti lengkap** |
-| Fase 2 — SaaS komersial | PWA penuh, PDF faktur, billing langganan (Midtrans/Xendit), peluncuran | ⏳ Berikutnya |
+| Fase 1d — Pelengkap MVP | Kartu stok, umur piutang/hutang, ekspor CSV, tutup buku | ✅ Selesai — MVP inti lengkap |
+| **Fase 2a — PWA & cetak faktur** | Aplikasi bisa di-install & offline; faktur bisa dicetak/PDF | ✅ **Selesai** |
+| Fase 2b — Billing langganan | Paket, pembayaran langganan (Midtrans/Xendit), peluncuran komersial | ⏳ Berikutnya |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
 | Fase 3+ | POS, HR & Payroll, dan modul lanjutan | Belum |
 
@@ -36,9 +37,11 @@
 13. **Kartu stok** *(baru — Fase 1d)*: riwayat keluar-masuk setiap barang dengan saldo berjalan.
 14. **Umur piutang/hutang** *(baru — Fase 1d)*: siapa berutang berapa dan sudah berapa lama (belum jatuh tempo / 1–30 / 31–60 / 61–90 / >90 hari).
 15. **Ekspor CSV** *(baru — Fase 1d)*: Laba Rugi, Neraca, dan aging dapat diunduh dan dibuka di Excel.
-16. **Tutup buku** *(baru — Fase 1d)*: Owner dapat mengunci periode — transaksi bertanggal pada periode terkunci ditolak sistem dari jalur mana pun.
+16. **Tutup buku** *(Fase 1d)*: Owner dapat mengunci periode — transaksi bertanggal pada periode terkunci ditolak sistem dari jalur mana pun.
+17. **Di-install seperti aplikasi native** *(baru — Fase 2a)*: buka aplikasi di HP/komputer → menu "Install"/"Add to Home Screen"; aplikasi tetap terbuka saat offline dan meng-update dirinya otomatis.
+18. **Cetak / simpan PDF faktur** *(baru — Fase 2a)*: setiap faktur penjualan punya tampilan cetak profesional dengan kop perusahaan Anda.
 
-Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (73 skenario ujian end-to-end + 16 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
+Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (75 skenario ujian end-to-end + 16 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
 
 ## Apakah sudah bisa diakses di internet?
 
@@ -48,4 +51,4 @@ Catatan kapasitas: mode saat ini memakai pool 5 database tenant (cukup untuk 5 p
 
 ## Yang dikerjakan berikutnya
 
-**MVP inti sudah lengkap.** Berikutnya Fase 2 — menuju peluncuran komersial: PWA penuh (bisa di-install & offline), PDF faktur, onboarding yang dipoles, lalu paket & pembayaran langganan (Midtrans/Xendit).
+Fase 2b — billing langganan: paket harga, penegakan batas paket, dan pembayaran otomatis. **Satu hal yang kelak butuh Anda**: membuat akun payment gateway (Midtrans atau Xendit) atas nama bisnis Anda — panduannya akan saya siapkan saat fase itu dimulai.
