@@ -320,8 +320,121 @@ try {
   const outsiderTb = await outsider("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("non-anggota DITOLAK membaca neraca saldo tenant lain (403)", outsiderTb.status === 403);
 
+  // --- Siklus dagang penuh: beli → jual → bayar (Fase 1b) -----------------------
+  console.log("9. Siklus pembelian → penjualan → pembayaran");
+
+  const prodBarang = await owner("POST", `/api/tenants/${tenantId}/products`, {
+    sku: "BRG-002",
+    name: "Teh Hijau Premium 250g",
+    unit: "pcs",
+    sellPrice: 150_000,
+    buyPrice: 100_000,
+  });
+  const supplier = await owner("POST", `/api/tenants/${tenantId}/contacts`, {
+    type: "supplier",
+    name: "CV Pemasok Teh",
+  });
+  const whs = await owner("GET", `/api/tenants/${tenantId}/warehouses`);
+  const whUtama = whs.json.items.find((w) => w.code === "UTAMA");
+  const customer = contact; // PT Pelanggan Setia (customer) dari bagian 8
+
+  // Jual sebelum ada stok → harus ditolak.
+  const sellNoStock = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id,
+    invoiceDate: "2026-07-03",
+    taxRate: 11,
+    warehouseId: whUtama.id,
+    lines: [{ productId: prodBarang.json.id, qty: 1, unitPrice: 150_000 }],
+  });
+  check("jual tanpa stok DITOLAK 400", sellNoStock.status === 400);
+
+  // Beli 10 pcs @ Rp100.000 + PPN 11%.
+  const purchase = await owner("POST", `/api/tenants/${tenantId}/purchases`, {
+    contactId: supplier.json.id,
+    invoiceDate: "2026-07-03",
+    taxRate: 11,
+    warehouseId: whUtama.id,
+    lines: [{ productId: prodBarang.json.id, qty: 10, unitPrice: 100_000 }],
+  });
+  check("faktur pembelian diposting (PB-00001, total 1.110.000)", purchase.status === 201 && purchase.json?.total === 1_110_000, `→ ${JSON.stringify(purchase.json)}`);
+
+  let stock = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  let level = stock.json?.levels?.find((l) => l.sku === "BRG-002");
+  check("stok masuk 10 pcs @avg 100.000", level?.qty === 10 && level?.avgCost === 100_000);
+
+  // Jual 3 pcs @ Rp150.000 + PPN 11%.
+  const invoice = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id,
+    invoiceDate: "2026-07-04",
+    taxRate: 11,
+    warehouseId: whUtama.id,
+    lines: [{ productId: prodBarang.json.id, qty: 3, unitPrice: 150_000 }],
+  });
+  check("faktur penjualan diposting (total 499.500)", invoice.status === 201 && invoice.json?.total === 499_500, `→ ${JSON.stringify(invoice.json)}`);
+
+  // Jual 100 pcs → stok tidak cukup.
+  const sellTooMany = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id,
+    invoiceDate: "2026-07-04",
+    taxRate: 0,
+    warehouseId: whUtama.id,
+    lines: [{ productId: prodBarang.json.id, qty: 100, unitPrice: 150_000 }],
+  });
+  check("jual melebihi stok DITOLAK 400", sellTooMany.status === 400);
+
+  stock = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  level = stock.json?.levels?.find((l) => l.sku === "BRG-002");
+  check("stok berkurang menjadi 7 pcs (nilai 700.000)", level?.qty === 7 && level?.value === 700_000);
+
+  // Buku besar HPP harus berisi 3 × 100.000.
+  const accountsNow = await owner("GET", `/api/tenants/${tenantId}/accounts`);
+  const hppAcc = accountsNow.json.accounts.find((a) => a.code === "5-1000");
+  const hppLedger = await owner("GET", `/api/tenants/${tenantId}/ledger/${hppAcc.id}`);
+  check("jurnal HPP otomatis 300.000", hppLedger.json?.balance === 300_000, `→ ${hppLedger.json?.balance}`);
+
+  // Terima pembayaran penuh ke Kas.
+  const kasAcc = accountsNow.json.accounts.find((a) => a.code === "1-1000");
+  const payment = await owner("POST", `/api/tenants/${tenantId}/payments`, {
+    refType: "invoice",
+    refId: invoice.json.id,
+    accountId: kasAcc.id,
+    amount: 499_500,
+    paymentDate: "2026-07-05",
+  });
+  check("pembayaran dicatat & faktur lunas", payment.status === 201 && payment.json?.settled === true);
+
+  const overpay = await owner("POST", `/api/tenants/${tenantId}/payments`, {
+    refType: "invoice",
+    refId: invoice.json.id,
+    accountId: kasAcc.id,
+    amount: 1,
+    paymentDate: "2026-07-05",
+  });
+  check("pembayaran melebihi sisa tagihan DITOLAK 400", overpay.status === 400);
+
+  const invoicesAfter = await owner("GET", `/api/tenants/${tenantId}/invoices`);
+  const paidInvoice = invoicesAfter.json?.docs?.find((d) => d.id === invoice.json.id);
+  check("status faktur = paid", paidInvoice?.status === "paid");
+
+  // Neraca saldo tetap seimbang setelah seluruh siklus otomatis.
+  const tbAfter = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check(
+    "neraca saldo TETAP seimbang setelah siklus dagang",
+    tbAfter.status === 200 && tbAfter.json?.balanced === true,
+    `→ debit ${tbAfter.json?.totalDebit} vs kredit ${tbAfter.json?.totalCredit}`,
+  );
+
+  const viewerInvoice = await viewer("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id,
+    invoiceDate: "2026-07-04",
+    taxRate: 0,
+    warehouseId: whUtama.id,
+    lines: [{ productId: prodBarang.json.id, qty: 1, unitPrice: 1 }],
+  });
+  check("viewer DITOLAK membuat faktur (403)", viewerInvoice.status === 403);
+
   // --- Logout -----------------------------------------------------------------
-  console.log("9. Logout");
+  console.log("10. Logout");
   const out = await owner("POST", "/api/auth/logout");
   check("logout 200", out.status === 200);
   const afterLogout = await owner("GET", "/api/auth/me");

@@ -1,11 +1,15 @@
 import type {
   ApiAccount,
+  ApiCommerceDoc,
   ApiJournalEntry,
   ApiMember,
+  ApiStockLevel,
   ApiTrialBalanceRow,
   ContactInput,
   CreateAccountInput,
+  CreateInvoiceInput,
   CreateJournalEntryInput,
+  CreatePaymentInput,
   MeResponse,
   ProductInput,
   WarehouseInput,
@@ -87,6 +91,30 @@ export const api = {
       "GET",
       `/api/tenants/${tenantId}/trial-balance`,
     ),
+
+  // --- Penjualan & Pembelian -----------------------------------------------------
+  invoices: (tenantId: string) => request<{ docs: ApiCommerceDoc[] }>("GET", `/api/tenants/${tenantId}/invoices`),
+  createInvoice: (tenantId: string, input: CreateInvoiceInput) =>
+    request<{ ok: true; id: string; docNo: string; total: number }>(
+      "POST",
+      `/api/tenants/${tenantId}/invoices`,
+      input,
+    ),
+  purchases: (tenantId: string) => request<{ docs: ApiCommerceDoc[] }>("GET", `/api/tenants/${tenantId}/purchases`),
+  createPurchase: (tenantId: string, input: CreateInvoiceInput) =>
+    request<{ ok: true; id: string; docNo: string; total: number }>(
+      "POST",
+      `/api/tenants/${tenantId}/purchases`,
+      input,
+    ),
+  createPayment: (tenantId: string, input: CreatePaymentInput) =>
+    request<{ ok: true; paymentNo: string; paidAmount: number; settled: boolean }>(
+      "POST",
+      `/api/tenants/${tenantId}/payments`,
+      input,
+    ),
+  stock: (tenantId: string) =>
+    request<{ levels: ApiStockLevel[]; totalValue: number }>("GET", `/api/tenants/${tenantId}/stock`),
 
   // --- Master data --------------------------------------------------------------
   listItems: <T = Record<string, unknown>>(tenantId: string, entity: "products" | "contacts" | "warehouses") =>

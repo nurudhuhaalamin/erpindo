@@ -10,6 +10,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ToastProvider } from "./components/ui";
 import { AppShell, DashboardPage, SettingsPage } from "./pages/app";
+import { PurchasesPage, SalesPage, StockPage } from "./pages/commerce";
 import { AccountsPage, JournalPage, LedgerPage, TrialBalancePage } from "./pages/finance";
 import { ContactsPage, ProductsPage, WarehousesPage } from "./pages/masterdata";
 import {
@@ -39,6 +40,9 @@ const appRoute = createRoute({ getParentRoute: () => rootRoute, path: "/app", co
 const appChildren = [
   createRoute({ getParentRoute: () => appRoute, path: "/", component: DashboardPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/pengaturan", component: SettingsPage }),
+  createRoute({ getParentRoute: () => appRoute, path: "/penjualan", component: SalesPage }),
+  createRoute({ getParentRoute: () => appRoute, path: "/pembelian", component: PurchasesPage }),
+  createRoute({ getParentRoute: () => appRoute, path: "/stok", component: StockPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/keuangan/akun", component: AccountsPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/keuangan/jurnal", component: JournalPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/keuangan/buku-besar", component: LedgerPage }),

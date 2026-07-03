@@ -3,7 +3,7 @@
 > Halaman ini ditulis untuk pemilik produk (non-teknis). Selalu diperbarui setiap ada kemajuan.
 > Log teknis per fase ada di folder [docs/log/](./log/).
 
-**Terakhir diperbarui:** 2 Juli 2026
+**Terakhir diperbarui:** 3 Juli 2026
 
 ## Di mana kita sekarang?
 
@@ -11,8 +11,9 @@
 |---|---|---|
 | Perencanaan | Blueprint bisnis & teknis | ✅ Selesai |
 | Fase 0 — Fondasi | Kerangka aplikasi, akun & login, multi-tenant, keamanan dasar, design system, CI/CD | ✅ Selesai |
-| **Fase 1a — Akuntansi inti & master data** | Bagan akun (template Indonesia), jurnal double-entry, buku besar, neraca saldo; produk, kontak, gudang | ✅ **Selesai** |
-| Fase 1b–1c — MVP lanjutan | Siklus penjualan & pembelian (faktur + jurnal & stok otomatis), kas & bank, laporan keuangan, dashboard | ⏳ Berikutnya |
+| Fase 1a — Akuntansi inti & master data | Bagan akun (template Indonesia), jurnal double-entry, buku besar, neraca saldo; produk, kontak, gudang | ✅ Selesai |
+| **Fase 1b — Penjualan & Pembelian** | Faktur jual/beli dengan jurnal & stok otomatis (biaya rata-rata), pembayaran, PPN, level stok | ✅ **Selesai** |
+| Fase 1c — Laporan & dashboard | Neraca, laba-rugi, dashboard angka nyata, ekspor | ⏳ Berikutnya |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
 | Fase 3+ | POS, HR & Payroll, dan modul lanjutan | Belum |
 
@@ -24,9 +25,12 @@
 4. **Mengatur profil perusahaan** (nama, alamat, NPWP) — tersimpan di database milik perusahaan itu sendiri.
 5. **Tampil rapi di HP, tablet, dan komputer**, dengan mode terang/gelap.
 6. **Pembukuan double-entry sungguhan** *(baru — Fase 1a)*: bagan akun standar Indonesia langsung tersedia (18 akun, bisa ditambah), mencatat jurnal umum (sistem menolak jurnal yang tidak seimbang), melihat buku besar per akun dan neraca saldo yang selalu seimbang. Jurnal yang sudah diposting tidak bisa diubah-ubah — sesuai prinsip audit.
-7. **Master data** *(baru — Fase 1a)*: daftar produk (dengan harga jual/beli), kontak pelanggan & pemasok, dan gudang.
+7. **Master data** *(Fase 1a)*: daftar produk (dengan harga jual/beli), kontak pelanggan & pemasok, dan gudang.
+8. **Jual-beli lengkap** *(baru — Fase 1b)*: membuat faktur penjualan dan pembelian dengan PPN — sistem **otomatis** membuat catatan akuntansinya dan menambah/mengurangi stok (dengan perhitungan harga pokok rata-rata). Menjual barang yang stoknya kurang otomatis ditolak.
+9. **Pencatatan pembayaran** *(baru — Fase 1b)*: menerima pembayaran pelanggan atau membayar pemasok; status faktur otomatis menjadi "lunas"; membayar melebihi tagihan ditolak.
+10. **Pantauan stok** *(baru — Fase 1b)*: level stok per gudang beserta nilai persediaan.
 
-Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (40 skenario ujian end-to-end + 16 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
+Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (52 skenario ujian end-to-end + 16 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
 
 ## Apakah sudah bisa diakses di internet?
 
@@ -36,4 +40,4 @@ Catatan kapasitas: mode saat ini memakai pool 5 database tenant (cukup untuk 5 p
 
 ## Yang dikerjakan berikutnya
 
-Fase 1b: siklus penjualan & pembelian — faktur penjualan/pembelian yang **otomatis** membuat jurnal akuntansi dan menggerakkan stok, ditambah kas & bank. Setelah itu laporan keuangan (neraca, laba-rugi) dan dashboard berisi angka nyata.
+Fase 1c: laporan keuangan (neraca & laba-rugi) dan dashboard berisi angka sungguhan (kas hari ini, penjualan bulan berjalan, piutang/hutang, nilai persediaan) — melengkapi MVP.

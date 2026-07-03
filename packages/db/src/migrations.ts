@@ -191,6 +191,98 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `INSERT INTO warehouses (id, code, name) VALUES ('wh-utama', 'UTAMA', 'Gudang Utama')`,
     ],
   },
+  {
+    id: "0003_commerce",
+    statements: [
+      // --- Faktur penjualan --------------------------------------------------
+      `CREATE TABLE invoices (
+        id TEXT PRIMARY KEY,
+        invoice_no TEXT NOT NULL UNIQUE,
+        contact_id TEXT NOT NULL REFERENCES contacts(id),
+        invoice_date TEXT NOT NULL,
+        due_date TEXT,
+        status TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted','paid')),
+        subtotal INTEGER NOT NULL,
+        tax_rate INTEGER NOT NULL DEFAULT 0,
+        tax_amount INTEGER NOT NULL DEFAULT 0,
+        total INTEGER NOT NULL,
+        paid_amount INTEGER NOT NULL DEFAULT 0,
+        journal_entry_id TEXT NOT NULL REFERENCES journal_entries(id),
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE TABLE invoice_lines (
+        id TEXT PRIMARY KEY,
+        invoice_id TEXT NOT NULL REFERENCES invoices(id),
+        product_id TEXT NOT NULL REFERENCES products(id),
+        description TEXT,
+        qty INTEGER NOT NULL CHECK (qty > 0),
+        unit_price INTEGER NOT NULL CHECK (unit_price >= 0),
+        amount INTEGER NOT NULL
+      )`,
+      `CREATE INDEX invoice_lines_invoice ON invoice_lines (invoice_id)`,
+      // --- Faktur pembelian ---------------------------------------------------
+      `CREATE TABLE purchases (
+        id TEXT PRIMARY KEY,
+        purchase_no TEXT NOT NULL UNIQUE,
+        contact_id TEXT NOT NULL REFERENCES contacts(id),
+        purchase_date TEXT NOT NULL,
+        due_date TEXT,
+        status TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted','paid')),
+        subtotal INTEGER NOT NULL,
+        tax_rate INTEGER NOT NULL DEFAULT 0,
+        tax_amount INTEGER NOT NULL DEFAULT 0,
+        total INTEGER NOT NULL,
+        paid_amount INTEGER NOT NULL DEFAULT 0,
+        journal_entry_id TEXT NOT NULL REFERENCES journal_entries(id),
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE TABLE purchase_lines (
+        id TEXT PRIMARY KEY,
+        purchase_id TEXT NOT NULL REFERENCES purchases(id),
+        product_id TEXT NOT NULL REFERENCES products(id),
+        description TEXT,
+        qty INTEGER NOT NULL CHECK (qty > 0),
+        unit_price INTEGER NOT NULL CHECK (unit_price >= 0),
+        amount INTEGER NOT NULL
+      )`,
+      `CREATE INDEX purchase_lines_purchase ON purchase_lines (purchase_id)`,
+      // --- Stok: mutasi + level berjalan (moving average cost) -----------------
+      `CREATE TABLE stock_movements (
+        id TEXT PRIMARY KEY,
+        product_id TEXT NOT NULL REFERENCES products(id),
+        warehouse_id TEXT NOT NULL REFERENCES warehouses(id),
+        ref_type TEXT NOT NULL CHECK (ref_type IN ('purchase','sale','adjustment')),
+        ref_id TEXT,
+        qty INTEGER NOT NULL,
+        unit_cost INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX stock_movements_product ON stock_movements (product_id, warehouse_id)`,
+      `CREATE TABLE stock_levels (
+        product_id TEXT NOT NULL REFERENCES products(id),
+        warehouse_id TEXT NOT NULL REFERENCES warehouses(id),
+        qty INTEGER NOT NULL DEFAULT 0,
+        avg_cost INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (product_id, warehouse_id)
+      )`,
+      // --- Pembayaran (terima dari pelanggan / bayar ke pemasok) ---------------
+      `CREATE TABLE payments (
+        id TEXT PRIMARY KEY,
+        payment_no TEXT NOT NULL UNIQUE,
+        direction TEXT NOT NULL CHECK (direction IN ('receive','pay')),
+        ref_type TEXT NOT NULL CHECK (ref_type IN ('invoice','purchase')),
+        ref_id TEXT NOT NULL,
+        account_id TEXT NOT NULL REFERENCES accounts(id),
+        amount INTEGER NOT NULL CHECK (amount > 0),
+        payment_date TEXT NOT NULL,
+        journal_entry_id TEXT NOT NULL REFERENCES journal_entries(id),
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

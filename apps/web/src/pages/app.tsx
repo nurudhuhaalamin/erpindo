@@ -37,6 +37,9 @@ export function useWorkspace(): Workspace {
 
 const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string }[] = [
   { to: "/app", label: "Dashboard", exact: true },
+  { to: "/app/penjualan", label: "Penjualan", exact: false, section: "Transaksi" },
+  { to: "/app/pembelian", label: "Pembelian", exact: false, section: "Transaksi" },
+  { to: "/app/stok", label: "Stok", exact: false, section: "Transaksi" },
   { to: "/app/keuangan/akun", label: "Bagan Akun", exact: false, section: "Keuangan" },
   { to: "/app/keuangan/jurnal", label: "Jurnal Umum", exact: false, section: "Keuangan" },
   { to: "/app/keuangan/buku-besar", label: "Buku Besar", exact: false, section: "Keuangan" },
