@@ -479,8 +479,78 @@ try {
   );
   check("viewer boleh melihat laba rugi", viewerPl.status === 200);
 
+  // --- Kartu stok, aging & tutup buku (Fase 1d) ---------------------------------
+  console.log("11. Kartu stok, umur hutang & tutup buku");
+
+  const stockCard = await owner(
+    "GET",
+    `/api/tenants/${tenantId}/stock-card/${prodBarang.json.id}?warehouseId=${whUtama.id}`,
+  );
+  check(
+    "kartu stok: 2 mutasi (+10, -3) saldo akhir 7",
+    stockCard.status === 200 &&
+      stockCard.json?.rows?.length === 2 &&
+      stockCard.json?.rows?.[0]?.qty === 10 &&
+      stockCard.json?.rows?.[1]?.qty === -3 &&
+      stockCard.json?.balance === 7,
+    `→ ${JSON.stringify(stockCard.json)}`,
+  );
+
+  const agingAp = await owner("GET", `/api/tenants/${tenantId}/reports/aging?type=payable`);
+  check(
+    "aging hutang: CV Pemasok Teh 1.110.000",
+    agingAp.status === 200 &&
+      agingAp.json?.grandTotal === 1_110_000 &&
+      agingAp.json?.rows?.[0]?.contactName === "CV Pemasok Teh",
+    `→ ${JSON.stringify(agingAp.json)}`,
+  );
+  const agingAr = await owner("GET", `/api/tenants/${tenantId}/reports/aging?type=receivable`);
+  check("aging piutang kosong (semua lunas)", agingAr.status === 200 && agingAr.json?.rows?.length === 0);
+
+  // Tutup buku sampai 10 Juli — transaksi ≤ tanggal itu harus ditolak.
+  const closeByViewer = await viewer("POST", `/api/tenants/${tenantId}/close-books`, { date: "2026-07-10" });
+  check("viewer/admin DITOLAK menutup buku (403)", closeByViewer.status === 403);
+
+  const close = await owner("POST", `/api/tenants/${tenantId}/close-books`, { date: "2026-07-10" });
+  check("owner menutup buku sampai 2026-07-10", close.status === 200 && close.json?.lockedBefore === "2026-07-10");
+
+  const lockedJournal = await owner("POST", `/api/tenants/${tenantId}/journal-entries`, {
+    entryDate: "2026-07-05",
+    lines: [
+      { accountId: kas.id, debit: 1000, credit: 0 },
+      { accountId: modal.id, debit: 0, credit: 1000 },
+    ],
+  });
+  check("jurnal pada periode terkunci DITOLAK 400", lockedJournal.status === 400);
+
+  const lockedInvoice = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id,
+    invoiceDate: "2026-07-08",
+    taxRate: 0,
+    warehouseId: whUtama.id,
+    lines: [{ productId: prodBarang.json.id, qty: 1, unitPrice: 150_000 }],
+  });
+  check("faktur pada periode terkunci DITOLAK 400", lockedInvoice.status === 400);
+
+  const stockAfterLock = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  const levelAfterLock = stockAfterLock.json?.levels?.find((l) => l.sku === "BRG-002");
+  check("stok TIDAK berubah oleh faktur yang ditolak (tetap 7)", levelAfterLock?.qty === 7);
+
+  const openJournal = await owner("POST", `/api/tenants/${tenantId}/journal-entries`, {
+    entryDate: "2026-07-15",
+    memo: "Setelah tutup buku",
+    lines: [
+      { accountId: kas.id, debit: 1000, credit: 0 },
+      { accountId: modal.id, debit: 0, credit: 1000 },
+    ],
+  });
+  check("jurnal SETELAH tanggal kunci tetap boleh (201)", openJournal.status === 201);
+
+  const rollback = await owner("POST", `/api/tenants/${tenantId}/close-books`, { date: "2026-07-01" });
+  check("tanggal kunci mundur DITOLAK 400", rollback.status === 400);
+
   // --- Logout -----------------------------------------------------------------
-  console.log("11. Logout");
+  console.log("12. Logout");
   const out = await owner("POST", "/api/auth/logout");
   check("logout 200", out.status === 200);
   const afterLogout = await owner("GET", "/api/auth/me");

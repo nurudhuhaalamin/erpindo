@@ -388,6 +388,42 @@ export type ApiDashboard = {
   inventoryValue: number;
 };
 
+// ---------------------------------------------------------------------------
+// Kartu stok, aging & tutup buku (Fase 1d)
+// ---------------------------------------------------------------------------
+
+export type ApiStockCardRow = {
+  date: string;
+  refType: string;
+  qty: number;
+  unitCost: number;
+  balance: number;
+};
+
+export const AGING_BUCKETS = ["current", "d1_30", "d31_60", "d61_90", "d90_plus"] as const;
+export type AgingBucket = (typeof AGING_BUCKETS)[number];
+
+export const AGING_BUCKET_LABELS: Record<AgingBucket, string> = {
+  current: "Belum jatuh tempo",
+  d1_30: "1–30 hari",
+  d31_60: "31–60 hari",
+  d61_90: "61–90 hari",
+  d90_plus: "> 90 hari",
+};
+
+export type ApiAgingRow = {
+  contactId: string;
+  contactName: string;
+  buckets: Record<AgingBucket, number>;
+  total: number;
+};
+
+export const closeBooksSchema = z.object({
+  /** Semua transaksi bertanggal ≤ tanggal ini dikunci. */
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid (YYYY-MM-DD)"),
+});
+export type CloseBooksInput = z.infer<typeof closeBooksSchema>;
+
 /** Ubah nama perusahaan menjadi slug subdomain yang aman. */
 export function toSlug(name: string): string {
   return (

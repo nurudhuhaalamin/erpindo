@@ -391,9 +391,72 @@ export function PurchasesPage() {
 // Stok per gudang
 // ---------------------------------------------------------------------------
 
+const REF_TYPE_LABELS: Record<string, string> = {
+  purchase: "Pembelian",
+  sale: "Penjualan",
+  adjustment: "Penyesuaian",
+};
+
+function StockCard({ productId, warehouseId, title }: { productId: string; warehouseId: string; title: string }) {
+  const { tenant } = useWorkspace();
+  const query = useQuery({
+    queryKey: ["stock-card", tenant.tenantId, productId, warehouseId],
+    queryFn: () => api.stockCard(tenant.tenantId, productId, warehouseId),
+  });
+
+  return (
+    <Card>
+      <CardHeader title={`Kartu stok — ${title}`} description="Riwayat mutasi dengan saldo berjalan." />
+      <CardBody>
+        {query.isLoading ? (
+          <Spinner />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                  <th className="pb-2 pr-4 font-medium">Waktu</th>
+                  <th className="pb-2 pr-4 font-medium">Jenis</th>
+                  <th className="pb-2 pr-4 text-right font-medium">Masuk/Keluar</th>
+                  <th className="pb-2 pr-4 text-right font-medium">Biaya Satuan</th>
+                  <th className="pb-2 text-right font-medium">Saldo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {query.data?.rows.map((r, i) => (
+                  <tr key={i}>
+                    <td className="border-b border-slate-100 py-2 pr-4 dark:border-slate-800/60">{r.date}</td>
+                    <td className="border-b border-slate-100 py-2 pr-4 dark:border-slate-800/60">
+                      {REF_TYPE_LABELS[r.refType] ?? r.refType}
+                    </td>
+                    <td
+                      className={`border-b border-slate-100 py-2 pr-4 text-right tabular-nums dark:border-slate-800/60 ${
+                        r.qty >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"
+                      }`}
+                    >
+                      {r.qty >= 0 ? `+${r.qty}` : r.qty}
+                    </td>
+                    <td className="border-b border-slate-100 py-2 pr-4 text-right tabular-nums dark:border-slate-800/60">
+                      {formatIDR(r.unitCost)}
+                    </td>
+                    <td className="border-b border-slate-100 py-2 text-right font-medium tabular-nums dark:border-slate-800/60">
+                      {r.balance}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
 export function StockPage() {
   const { tenant } = useWorkspace();
   const query = useQuery({ queryKey: ["stock", tenant.tenantId], queryFn: () => api.stock(tenant.tenantId) });
+  const [selected, setSelected] = useState<{ productId: string; warehouseId: string; title: string } | null>(null);
 
   return (
     <div className="space-y-6">
@@ -421,6 +484,7 @@ export function StockPage() {
                     <th className={`${th} text-right`}>Qty</th>
                     <th className={`${th} text-right`}>Biaya Rata-rata</th>
                     <th className={`${th} text-right`}>Nilai</th>
+                    <th className={th}></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -440,6 +504,21 @@ export function StockPage() {
                       <td className="border-b border-slate-100 py-2.5 text-right font-medium tabular-nums dark:border-slate-800/60">
                         {formatIDR(l.value)}
                       </td>
+                      <td className="border-b border-slate-100 py-2.5 text-right dark:border-slate-800/60">
+                        <Button
+                          variant="ghost"
+                          className="h-8"
+                          onClick={() =>
+                            setSelected({
+                              productId: l.productId,
+                              warehouseId: l.warehouseId,
+                              title: `${l.productName} @ ${l.warehouseName}`,
+                            })
+                          }
+                        >
+                          Kartu
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                   <tr className="font-semibold">
@@ -447,6 +526,7 @@ export function StockPage() {
                       Total nilai persediaan
                     </td>
                     <td className="py-2.5 text-right tabular-nums">{formatIDR(query.data!.totalValue)}</td>
+                    <td></td>
                   </tr>
                 </tbody>
               </table>
@@ -454,6 +534,10 @@ export function StockPage() {
           )}
         </CardBody>
       </Card>
+
+      {selected ? (
+        <StockCard productId={selected.productId} warehouseId={selected.warehouseId} title={selected.title} />
+      ) : null}
     </div>
   );
 }
