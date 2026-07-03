@@ -2,8 +2,11 @@ import {
   acceptInviteSchema,
   closeBooksSchema,
   inviteSchema,
+  PLAN_LABELS,
+  PLAN_LIMITS,
   updateTenantSettingsSchema,
   type ApiMember,
+  type Plan,
   type Role,
 } from "@erpindo/shared";
 import { Hono } from "hono";
@@ -58,6 +61,23 @@ export const tenantRoutes = new Hono<AppEnv>()
       .bind(email, tenant.id)
       .first();
     if (already) return c.json({ error: "Pengguna tersebut sudah menjadi anggota." }, 409);
+
+    // Penegakan batas anggota sesuai paket langganan.
+    const planRow = await c.env.DB.prepare(`SELECT plan FROM tenants WHERE id = ?`)
+      .bind(tenant.id)
+      .first<{ plan: Plan }>();
+    const plan: Plan = planRow?.plan ?? "trial";
+    const memberCount = await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM memberships WHERE tenant_id = ?`)
+      .bind(tenant.id)
+      .first<{ n: number }>();
+    if ((memberCount?.n ?? 0) >= PLAN_LIMITS[plan].maxUsers) {
+      return c.json(
+        {
+          error: `Paket ${PLAN_LABELS[plan]} maksimal ${PLAN_LIMITS[plan].maxUsers} pengguna. Upgrade paket untuk menambah anggota.`,
+        },
+        402,
+      );
+    }
 
     const token = await createEmailToken(c.env, { type: "invite", email, tenantId: tenant.id, role });
     const inviteUrl = `${appOrigin(c)}/undangan?token=${token}`;

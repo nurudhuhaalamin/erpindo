@@ -16,7 +16,7 @@
     "directory": "apps/web/dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": ["/api/*", "/__scheduled"]
   },
 
   "d1_databases": [
@@ -42,6 +42,11 @@
 
   "vars": {
     "TENANT_DB_MODE": "local"
+  },
+
+  // Job harian: siklus hidup langganan (trial berakhir → mode baca-saja).
+  "triggers": {
+    "crons": ["17 1 * * *"]
   },
 
   "observability": {

@@ -3,6 +3,7 @@ import {
   type AgingBucket,
   type ApiAgingRow,
   type ApiBalanceSheet,
+  type ApiCashFlow,
   type ApiDashboard,
   type ApiIncomeStatement,
   type ApiStockCardRow,
@@ -133,6 +134,65 @@ export const reportRoutes = new Hono<AppEnv>()
       totalLiabilities,
       totalEquity,
       balanced: totalAssets === totalLiabilities + totalEquity,
+    };
+    return c.json(body);
+  })
+
+  // -------------------------------------------------------------------------
+  // Arus Kas (metode langsung sederhana): mutasi akun Kas & Bank per periode,
+  // dikelompokkan berdasarkan keterangan jurnal.
+  // -------------------------------------------------------------------------
+  .get("/:tenantId/reports/cash-flow", requireAuth, requireTenantRole("viewer"), async (c) => {
+    const from = c.req.query("from") ?? "";
+    const to = c.req.query("to") ?? "";
+    if (!DATE_RE.test(from) || !DATE_RE.test(to)) {
+      return c.json({ error: "Parameter from/to wajib berformat YYYY-MM-DD." }, 400);
+    }
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+
+    const CASH_FILTER = `a.code IN ('1-1000', '1-1100')`;
+
+    const { results: openRows } = await db
+      .prepare(
+        `SELECT COALESCE(SUM(l.debit - l.credit), 0) AS balance
+         FROM journal_lines l
+         JOIN journal_entries e ON e.id = l.entry_id AND e.status = 'posted'
+         JOIN accounts a ON a.id = l.account_id
+         WHERE ${CASH_FILTER} AND e.entry_date < ?`,
+      )
+      .bind(from)
+      .all<{ balance: number }>();
+    const openingBalance = openRows[0]?.balance ?? 0;
+
+    // Delta kas per jurnal dalam periode; label = keterangan jurnal.
+    const { results: entries } = await db
+      .prepare(
+        `SELECT COALESCE(e.memo, 'Lain-lain') AS label, SUM(l.debit - l.credit) AS delta
+         FROM journal_lines l
+         JOIN journal_entries e ON e.id = l.entry_id AND e.status = 'posted'
+         JOIN accounts a ON a.id = l.account_id
+         WHERE ${CASH_FILTER} AND e.entry_date >= ? AND e.entry_date <= ?
+         GROUP BY e.id HAVING delta != 0
+         ORDER BY e.entry_date, e.entry_no`,
+      )
+      .bind(from, to)
+      .all<{ label: string; delta: number }>();
+
+    const inflows = entries.filter((r) => r.delta > 0).map((r) => ({ label: r.label, amount: r.delta }));
+    const outflows = entries.filter((r) => r.delta < 0).map((r) => ({ label: r.label, amount: -r.delta }));
+    const totalIn = inflows.reduce((s, r) => s + r.amount, 0);
+    const totalOut = outflows.reduce((s, r) => s + r.amount, 0);
+
+    const body: ApiCashFlow = {
+      from,
+      to,
+      openingBalance,
+      inflows,
+      outflows,
+      totalIn,
+      totalOut,
+      netChange: totalIn - totalOut,
+      closingBalance: openingBalance + totalIn - totalOut,
     };
     return c.json(body);
   })

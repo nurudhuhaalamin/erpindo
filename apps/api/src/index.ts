@@ -51,4 +51,30 @@ const app = new Hono<AppEnv>()
     return c.json({ error: "Terjadi kesalahan pada server." }, 500);
   });
 
-export default app;
+/**
+ * Job terjadwal (Cron Trigger harian): siklus hidup langganan.
+ * Trial yang habis → status past_due (mode baca-saja; ditegakkan middleware).
+ * Saat billing gateway aktif, job ini juga akan membuat tagihan perpanjangan.
+ */
+async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
+  await ensureMigrated(env);
+  const nowIso = new Date().toISOString();
+  const { results } = await env.DB.prepare(
+    `SELECT id, name FROM tenants WHERE status = 'trial' AND trial_ends_at IS NOT NULL AND trial_ends_at < ?`,
+  )
+    .bind(nowIso)
+    .all<{ id: string; name: string }>();
+
+  for (const tenant of results) {
+    await env.DB.prepare(`UPDATE tenants SET status = 'past_due' WHERE id = ?`).bind(tenant.id).run();
+    await env.DB.prepare(
+      `INSERT INTO audit_logs (id, tenant_id, user_id, action, detail, ip, created_at)
+       VALUES (?, ?, NULL, 'billing.trial_expired', ?, NULL, ?)`,
+    )
+      .bind(crypto.randomUUID(), tenant.id, JSON.stringify({ name: tenant.name }), nowIso)
+      .run();
+  }
+  if (results.length > 0) console.log(`[cron] ${results.length} tenant trial berakhir → past_due`);
+}
+
+export default { fetch: app.fetch, scheduled };

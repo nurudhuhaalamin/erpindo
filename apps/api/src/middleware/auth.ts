@@ -63,6 +63,14 @@ export function requireTenantRole(minRole: Role): MiddlewareHandler<AppEnv> {
     if (row.status === "suspended") {
       return c.json({ error: "Langganan perusahaan ini sedang ditangguhkan." }, 402);
     }
+    // Menunggak (trial berakhir / tagihan lewat jatuh tempo): data tetap bisa
+    // dibaca, tetapi semua perubahan diblokir sampai langganan aktif kembali.
+    if (row.status === "past_due" && c.req.method !== "GET") {
+      return c.json(
+        { error: "Masa trial/langganan telah berakhir — akun dalam mode baca-saja. Silakan aktifkan langganan." },
+        402,
+      );
+    }
     if (ROLE_LEVEL[row.role] < ROLE_LEVEL[minRole]) {
       return c.json({ error: "Anda tidak memiliki hak akses untuk aksi ini." }, 403);
     }

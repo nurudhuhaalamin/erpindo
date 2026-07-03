@@ -2,6 +2,7 @@ import type {
   ApiAccount,
   ApiAgingRow,
   ApiBalanceSheet,
+  ApiCashFlow,
   ApiCommerceDoc,
   ApiDashboard,
   ApiIncomeStatement,
@@ -103,6 +104,8 @@ export const api = {
   balanceSheet: (tenantId: string, asOf: string) =>
     request<ApiBalanceSheet>("GET", `/api/tenants/${tenantId}/reports/balance-sheet?asOf=${asOf}`),
   dashboard: (tenantId: string) => request<ApiDashboard>("GET", `/api/tenants/${tenantId}/dashboard`),
+  cashFlow: (tenantId: string, from: string, to: string) =>
+    request<ApiCashFlow>("GET", `/api/tenants/${tenantId}/reports/cash-flow?from=${from}&to=${to}`),
   aging: (tenantId: string, type: "receivable" | "payable") =>
     request<{ rows: ApiAgingRow[]; grandTotal: number }>("GET", `/api/tenants/${tenantId}/reports/aging?type=${type}`),
   stockCard: (tenantId: string, productId: string, warehouseId: string) =>

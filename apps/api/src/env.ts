@@ -16,6 +16,9 @@ export type Env = {
   /** Opsional: override URL publik aplikasi; default origin request. */
   APP_URL?: string;
 
+  /** Hanya untuk pengujian: override lama trial (hari). */
+  TRIAL_DAYS_OVERRIDE?: string;
+
   // Secret opsional (produksi).
   RESEND_API_KEY?: string;
   MAIL_FROM?: string;

@@ -15,8 +15,9 @@
 | Fase 1b — Penjualan & Pembelian | Faktur jual/beli dengan jurnal & stok otomatis (biaya rata-rata), pembayaran, PPN, level stok | ✅ Selesai |
 | Fase 1c — Laporan & dashboard | Laba Rugi, Neraca (selalu seimbang), dashboard angka nyata | ✅ Selesai |
 | Fase 1d — Pelengkap MVP | Kartu stok, umur piutang/hutang, ekspor CSV, tutup buku | ✅ Selesai — MVP inti lengkap |
-| **Fase 2a — PWA & cetak faktur** | Aplikasi bisa di-install & offline; faktur bisa dicetak/PDF | ✅ **Selesai** |
-| Fase 2b — Billing langganan | Paket, pembayaran langganan (Midtrans/Xendit), peluncuran komersial | ⏳ Berikutnya |
+| Fase 2a — PWA & cetak faktur | Aplikasi bisa di-install & offline; faktur bisa dicetak/PDF | ✅ Selesai |
+| **Fase 2b-1 — Fondasi langganan & arus kas** | Paket & batasnya, siklus trial otomatis, mode baca-saja saat menunggak, laporan arus kas | ✅ **Selesai** |
+| Fase 2b-2 — Pembayaran langganan | Checkout Midtrans/Xendit, aktivasi otomatis | ⏸ **Menunggu akun gateway dari Anda** |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
 | Fase 3+ | POS, HR & Payroll, dan modul lanjutan | Belum |
 
@@ -39,9 +40,11 @@
 15. **Ekspor CSV** *(baru — Fase 1d)*: Laba Rugi, Neraca, dan aging dapat diunduh dan dibuka di Excel.
 16. **Tutup buku** *(Fase 1d)*: Owner dapat mengunci periode — transaksi bertanggal pada periode terkunci ditolak sistem dari jalur mana pun.
 17. **Di-install seperti aplikasi native** *(baru — Fase 2a)*: buka aplikasi di HP/komputer → menu "Install"/"Add to Home Screen"; aplikasi tetap terbuka saat offline dan meng-update dirinya otomatis.
-18. **Cetak / simpan PDF faktur** *(baru — Fase 2a)*: setiap faktur penjualan punya tampilan cetak profesional dengan kop perusahaan Anda.
+18. **Cetak / simpan PDF faktur** *(Fase 2a)*: setiap faktur penjualan punya tampilan cetak profesional dengan kop perusahaan Anda.
+19. **Laporan arus kas** *(baru — Fase 2b-1)*: kas masuk/keluar per periode dengan saldo awal & akhir.
+20. **Siklus langganan otomatis** *(baru — Fase 2b-1)*: paket dengan batas pengguna yang ditegakkan sistem; trial 14 hari dengan banner pengingat; saat trial habis akun otomatis menjadi baca-saja (data aman, tidak hilang) sampai langganan diaktifkan.
 
-Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (75 skenario ujian end-to-end + 16 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
+Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (80 skenario ujian end-to-end + 16 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
 
 ## Apakah sudah bisa diakses di internet?
 
@@ -51,4 +54,10 @@ Catatan kapasitas: mode saat ini memakai pool 5 database tenant (cukup untuk 5 p
 
 ## Yang dikerjakan berikutnya
 
-Fase 2b — billing langganan: paket harga, penegakan batas paket, dan pembayaran otomatis. **Satu hal yang kelak butuh Anda**: membuat akun payment gateway (Midtrans atau Xendit) atas nama bisnis Anda — panduannya akan saya siapkan saat fase itu dimulai.
+Seluruh mekanik langganan sudah jadi — tinggal pembayarannya. **Yang dibutuhkan dari Anda untuk Fase 2b-2** (±15 menit):
+
+1. Daftar akun di https://dashboard.midtrans.com/register (gratis; siapkan data usaha & rekening bank).
+2. Setelah masuk dashboard, buka **Settings → Access Keys**, salin **Server Key** yang berlabel *Sandbox*.
+3. Kabari di sesi pengembangan — kunci akan disimpan sebagai *secret* terenkripsi (tidak pernah masuk ke kode), lalu seluruh alur checkout (QRIS/VA/e-wallet), webhook, dan aktivasi paket otomatis dibangun & diuji di mode sandbox dulu.
+
+Sementara menunggu, pengembangan berlanjut ke hal-hal yang tidak butuh akun tersebut (notifikasi email, polising tampilan, keamanan 2FA).
