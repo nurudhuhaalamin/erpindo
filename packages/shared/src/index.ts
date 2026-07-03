@@ -492,6 +492,29 @@ export type ApiAuditLog = {
   createdAt: string;
 };
 
+export const stockTransferSchema = z
+  .object({
+    productId: z.string().min(1, "Produk wajib dipilih"),
+    fromWarehouseId: z.string().min(1, "Gudang asal wajib dipilih"),
+    toWarehouseId: z.string().min(1, "Gudang tujuan wajib dipilih"),
+    qty: z.number().int("Qty harus bilangan bulat").min(1, "Qty minimal 1"),
+  })
+  .refine((v) => v.fromWarehouseId !== v.toWarehouseId, {
+    message: "Gudang asal dan tujuan tidak boleh sama",
+    path: ["toWarehouseId"],
+  });
+export type StockTransferInput = z.infer<typeof stockTransferSchema>;
+
+export const updateProfileSchema = z.object({
+  name: z.string().trim().min(2, "Nama minimal 2 karakter").max(100),
+});
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Password saat ini wajib diisi"),
+  newPassword: passwordSchema,
+});
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
 export const closeBooksSchema = z.object({
   /** Semua transaksi bertanggal ≤ tanggal ini dikunci. */
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid (YYYY-MM-DD)"),

@@ -168,6 +168,13 @@ export const api = {
       input,
     ),
   auditLogs: (tenantId: string) => request<{ logs: ApiAuditLog[] }>("GET", `/api/tenants/${tenantId}/audit-logs`),
+  transferStock: (
+    tenantId: string,
+    input: { productId: string; fromWarehouseId: string; toWarehouseId: string; qty: number },
+  ) => request<{ ok: true; qty: number; value: number }>("POST", `/api/tenants/${tenantId}/stock-transfers`, input),
+  updateProfile: (name: string) => request<{ ok: true }>("PATCH", "/api/auth/profile", { name }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<{ ok: true }>("POST", "/api/auth/change-password", { currentPassword, newPassword }),
 
   // --- Master data --------------------------------------------------------------
   listItems: <T = Record<string, unknown>>(tenantId: string, entity: "products" | "contacts" | "warehouses") =>

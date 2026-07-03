@@ -621,6 +621,73 @@ try {
   const auditByViewer = await viewer("GET", `/api/tenants/${tenantId}/audit-logs`);
   check("viewer DITOLAK membaca audit log (403)", auditByViewer.status === 403);
 
+  // --- Transfer antar gudang & profil (Fase 2g) -----------------------------------
+  console.log("11b2. Transfer antar gudang & profil pengguna");
+  const wh2 = await owner("POST", `/api/tenants/${tenantId}/warehouses`, {
+    code: "CAB-01",
+    name: "Gudang Cabang",
+  });
+  check("gudang kedua dibuat", wh2.status === 201);
+
+  const transferSame = await owner("POST", `/api/tenants/${tenantId}/stock-transfers`, {
+    productId: prodBarang.json.id,
+    fromWarehouseId: whUtama.id,
+    toWarehouseId: whUtama.id,
+    qty: 1,
+  });
+  check("transfer ke gudang yang sama DITOLAK 400", transferSame.status === 400);
+
+  const transfer = await owner("POST", `/api/tenants/${tenantId}/stock-transfers`, {
+    productId: prodBarang.json.id,
+    fromWarehouseId: whUtama.id,
+    toWarehouseId: wh2.json.id,
+    qty: 2,
+  });
+  check("transfer 2 pcs (nilai 200.000)", transfer.status === 201 && transfer.json?.value === 200_000);
+
+  const stockAfterTransfer = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  const utamaLevel = stockAfterTransfer.json?.levels?.find((l) => l.sku === "BRG-002" && l.warehouseId === whUtama.id);
+  const cabangLevel = stockAfterTransfer.json?.levels?.find((l) => l.sku === "BRG-002" && l.warehouseId === wh2.json.id);
+  check(
+    "level per gudang benar (4 & 2) dan total nilai tetap 600.000",
+    utamaLevel?.qty === 4 && cabangLevel?.qty === 2 && utamaLevel.value + cabangLevel.value === 600_000,
+    `→ ${JSON.stringify({ utama: utamaLevel?.qty, cabang: cabangLevel?.qty })}`,
+  );
+  // Kembalikan agar skenario retur di bawah tetap memakai stok Gudang Utama.
+  await owner("POST", `/api/tenants/${tenantId}/stock-transfers`, {
+    productId: prodBarang.json.id,
+    fromWarehouseId: wh2.json.id,
+    toWarehouseId: whUtama.id,
+    qty: 2,
+  });
+
+  const rename = await owner("PATCH", "/api/auth/profile", { name: "Budi Santoso Jr" });
+  const meRenamed = await owner("GET", "/api/auth/me");
+  check("ubah nama profil", rename.status === 200 && meRenamed.json?.user?.name === "Budi Santoso Jr");
+
+  const wrongPass = await owner("POST", "/api/auth/change-password", {
+    currentPassword: "salah-total",
+    newPassword: "rahasia-baru-456",
+  });
+  check("ganti password dengan password lama salah DITOLAK 400", wrongPass.status === 400);
+  const changePass = await owner("POST", "/api/auth/change-password", {
+    currentPassword: "rahasia-kuat-123",
+    newPassword: "rahasia-baru-456",
+  });
+  check("ganti password berhasil", changePass.status === 200);
+  const meStill = await owner("GET", "/api/auth/me");
+  check("sesi saat ini tetap hidup setelah ganti password", meStill.status === 200);
+  const loginOldPass = await makeClient()("POST", "/api/auth/login", {
+    email: "budi@majujaya.co.id",
+    password: "rahasia-kuat-123",
+  });
+  check("login dengan password lama DITOLAK 401", loginOldPass.status === 401);
+  // Kembalikan password agar skenario 2FA di bawah tetap valid.
+  await owner("POST", "/api/auth/change-password", {
+    currentPassword: "rahasia-baru-456",
+    newPassword: "rahasia-kuat-123",
+  });
+
   // --- Retur penjualan & pembelian (Fase 2f) --------------------------------------
   console.log("11c. Retur penjualan & pembelian");
   // Faktur kedua (belum dibayar): jual 2 pcs @150rb + PPN 11% = 333.000; stok 6→4.
@@ -689,7 +756,7 @@ try {
   const stockAfterReturns = await owner("GET", `/api/tenants/${tenantId}/stock`);
   check(
     "stok setelah retur: 6−2(jual)+1(retur jual)−2(retur beli) = 3",
-    stockAfterReturns.json?.levels?.find((l) => l.sku === "BRG-002")?.qty === 3,
+    stockAfterReturns.json?.levels?.find((l) => l.sku === "BRG-002" && l.warehouseId === whUtama.id)?.qty === 3,
   );
 
   const tbAfterReturns = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
@@ -730,7 +797,7 @@ try {
   check("faktur pada periode terkunci DITOLAK 400", lockedInvoice.status === 400);
 
   const stockAfterLock = await owner("GET", `/api/tenants/${tenantId}/stock`);
-  const levelAfterLock = stockAfterLock.json?.levels?.find((l) => l.sku === "BRG-002");
+  const levelAfterLock = stockAfterLock.json?.levels?.find((l) => l.sku === "BRG-002" && l.warehouseId === whUtama.id);
   check("stok TIDAK berubah oleh faktur yang ditolak (tetap 3)", levelAfterLock?.qty === 3);
 
   const openJournal = await owner("POST", `/api/tenants/${tenantId}/journal-entries`, {
@@ -815,6 +882,10 @@ try {
     meAfterCron.json?.memberships?.[0]?.tenantStatus === "past_due",
     `→ ${meAfterCron.json?.memberships?.[0]?.tenantStatus}`,
   );
+
+  await new Promise((r) => setTimeout(r, 400));
+  const trialMail = findInLogs(/subject="Masa trial .* telah berakhir"/);
+  check("email pemberitahuan trial berakhir terkirim ke Owner", Boolean(trialMail));
 
   const readWhilePastDue = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("mode baca-saja: MEMBACA laporan tetap boleh (200)", readWhilePastDue.status === 200);
