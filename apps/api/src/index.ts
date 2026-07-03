@@ -2,7 +2,9 @@ import { applyMigrations, CONTROL_PLANE_MIGRATIONS } from "@erpindo/db";
 import { Hono } from "hono";
 import { secureHeaders } from "hono/secure-headers";
 import type { AppEnv, Env } from "./env";
+import { accountingRoutes } from "./routes/accounting";
 import { authRoutes } from "./routes/auth";
+import { masterDataRoutes } from "./routes/masterdata";
 import { inviteRoutes, tenantRoutes } from "./routes/tenants";
 
 /**
@@ -32,6 +34,8 @@ const app = new Hono<AppEnv>()
   .get("/api/health", (c) => c.json({ ok: true, service: "erpindo", time: new Date().toISOString() }))
   .route("/api/auth", authRoutes)
   .route("/api/tenants", tenantRoutes)
+  .route("/api/tenants", accountingRoutes)
+  .route("/api/tenants", masterDataRoutes)
   .route("/api/invites", inviteRoutes)
   .notFound((c) =>
     c.req.path.startsWith("/api/")

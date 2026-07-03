@@ -297,7 +297,7 @@ Estimasi durasi mengasumsikan 1–2 developer full-time (atau setara, dengan ban
 
 ### Fase 1 — MVP Produk (± 3 bulan)
 
-- [ ] Bulan 1: master data (produk, pelanggan, pemasok, gudang), COA + template Indonesia, jurnal manual, buku besar.
+- [x] Bulan 1: master data (produk, pelanggan, pemasok, gudang), COA + template Indonesia, jurnal manual, buku besar — ✅ selesai 2 Jul 2026 ([log Fase 1a](./log/2026-07-02-fase-1a.md)), plus neraca saldo.
 - [ ] Bulan 2: siklus penjualan & pembelian lengkap dengan jurnal + mutasi stok otomatis; PDF invoice; kas & bank.
 - [ ] Bulan 3: laporan keuangan (neraca, L/R, arus kas), kartu stok & aging, dashboard, ekspor Excel/PDF, tutup buku; PWA dasar (installable); pengujian E2E alur kritis.
 - [ ] Pilot dengan 3–5 bisnis nyata (gratis) → perbaikan dari umpan balik.

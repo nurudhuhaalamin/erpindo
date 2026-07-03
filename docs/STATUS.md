@@ -10,8 +10,9 @@
 | Fase | Isi | Status |
 |---|---|---|
 | Perencanaan | Blueprint bisnis & teknis | ✅ Selesai |
-| **Fase 0 — Fondasi** | Kerangka aplikasi, akun & login, multi-tenant, keamanan dasar, design system, CI/CD | ✅ **Selesai** |
-| Fase 1 — MVP | Modul Keuangan, Penjualan, Pembelian, Inventori, Laporan | ⏳ Berikutnya |
+| Fase 0 — Fondasi | Kerangka aplikasi, akun & login, multi-tenant, keamanan dasar, design system, CI/CD | ✅ Selesai |
+| **Fase 1a — Akuntansi inti & master data** | Bagan akun (template Indonesia), jurnal double-entry, buku besar, neraca saldo; produk, kontak, gudang | ✅ **Selesai** |
+| Fase 1b–1c — MVP lanjutan | Siklus penjualan & pembelian (faktur + jurnal & stok otomatis), kas & bank, laporan keuangan, dashboard | ⏳ Berikutnya |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
 | Fase 3+ | POS, HR & Payroll, dan modul lanjutan | Belum |
 
@@ -22,8 +23,10 @@
 3. **Mengundang anggota tim dengan peran berbeda** — Owner/Admin bisa mengubah data, Viewer hanya bisa melihat. Sistem menolak orang luar yang mencoba mengakses data perusahaan lain.
 4. **Mengatur profil perusahaan** (nama, alamat, NPWP) — tersimpan di database milik perusahaan itu sendiri.
 5. **Tampil rapi di HP, tablet, dan komputer**, dengan mode terang/gelap.
+6. **Pembukuan double-entry sungguhan** *(baru — Fase 1a)*: bagan akun standar Indonesia langsung tersedia (18 akun, bisa ditambah), mencatat jurnal umum (sistem menolak jurnal yang tidak seimbang), melihat buku besar per akun dan neraca saldo yang selalu seimbang. Jurnal yang sudah diposting tidak bisa diubah-ubah — sesuai prinsip audit.
+7. **Master data** *(baru — Fase 1a)*: daftar produk (dengan harga jual/beli), kontak pelanggan & pemasok, dan gudang.
 
-Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (22 skenario ujian end-to-end + unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
+Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (40 skenario ujian end-to-end + 16 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
 
 ## Apakah sudah bisa diakses di internet?
 
@@ -37,4 +40,4 @@ Belum — aplikasi sudah berjalan penuh di lingkungan pengembangan. Untuk tayang
 
 ## Yang dikerjakan berikutnya
 
-Fase 1 dimulai dari master data & bagan akun (template akuntansi standar Indonesia), lalu jurnal & buku besar, kemudian siklus penjualan/pembelian/stok — masing-masing melalui proses uji dan merge yang sama.
+Fase 1b: siklus penjualan & pembelian — faktur penjualan/pembelian yang **otomatis** membuat jurnal akuntansi dan menggerakkan stok, ditambah kas & bank. Setelah itu laporan keuangan (neraca, laba-rugi) dan dashboard berisi angka nyata.
