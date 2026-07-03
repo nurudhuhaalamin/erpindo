@@ -571,6 +571,56 @@ try {
   const agingAr = await owner("GET", `/api/tenants/${tenantId}/reports/aging?type=receivable`);
   check("aging piutang kosong (semua lunas)", agingAr.status === 200 && agingAr.json?.rows?.length === 0);
 
+  // Penyesuaian stok (opname) — dijalankan SEBELUM tutup buku (memakai tanggal hari ini).
+  console.log("11b. Penyesuaian stok (opname) & audit log");
+  const adjDown = await owner("POST", `/api/tenants/${tenantId}/stock-adjustments`, {
+    productId: prodBarang.json.id,
+    warehouseId: whUtama.id,
+    physicalQty: 5,
+    note: "opname: 2 rusak",
+  });
+  check(
+    "opname 7→5: selisih -2, nilai 200.000, jurnal dibuat",
+    adjDown.status === 201 && adjDown.json?.delta === -2 && adjDown.json?.value === 200_000 && Boolean(adjDown.json?.entryNo),
+    `→ ${JSON.stringify(adjDown.json)}`,
+  );
+  const adjSame = await owner("POST", `/api/tenants/${tenantId}/stock-adjustments`, {
+    productId: prodBarang.json.id,
+    warehouseId: whUtama.id,
+    physicalQty: 5,
+  });
+  check("opname tanpa selisih DITOLAK 400", adjSame.status === 400);
+  const adjUp = await owner("POST", `/api/tenants/${tenantId}/stock-adjustments`, {
+    productId: prodBarang.json.id,
+    warehouseId: whUtama.id,
+    physicalQty: 6,
+    note: "ketemu 1 di rak lain",
+  });
+  check("opname 5→6: selisih +1, nilai 100.000", adjUp.status === 201 && adjUp.json?.delta === 1 && adjUp.json?.value === 100_000);
+
+  const stockAfterAdj = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  check(
+    "stok kini 6 pcs",
+    stockAfterAdj.json?.levels?.find((l) => l.sku === "BRG-002")?.qty === 6,
+  );
+  const tbAfterAdj = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah opname", tbAfterAdj.json?.balanced === true);
+
+  const adjByViewer = await viewer("POST", `/api/tenants/${tenantId}/stock-adjustments`, {
+    productId: prodBarang.json.id,
+    warehouseId: whUtama.id,
+    physicalQty: 0,
+  });
+  check("viewer DITOLAK opname (403)", adjByViewer.status === 403);
+
+  const auditLogs = await owner("GET", `/api/tenants/${tenantId}/audit-logs`);
+  check(
+    "audit log owner: berisi aktivitas incl. penyesuaian stok",
+    auditLogs.status === 200 && auditLogs.json?.logs?.some((l) => l.action === "inventory.adjusted"),
+  );
+  const auditByViewer = await viewer("GET", `/api/tenants/${tenantId}/audit-logs`);
+  check("viewer DITOLAK membaca audit log (403)", auditByViewer.status === 403);
+
   // Tutup buku sampai 10 Juli — transaksi ≤ tanggal itu harus ditolak.
   const closeByViewer = await viewer("POST", `/api/tenants/${tenantId}/close-books`, { date: "2026-07-10" });
   check("viewer/admin DITOLAK menutup buku (403)", closeByViewer.status === 403);
@@ -598,7 +648,7 @@ try {
 
   const stockAfterLock = await owner("GET", `/api/tenants/${tenantId}/stock`);
   const levelAfterLock = stockAfterLock.json?.levels?.find((l) => l.sku === "BRG-002");
-  check("stok TIDAK berubah oleh faktur yang ditolak (tetap 7)", levelAfterLock?.qty === 7);
+  check("stok TIDAK berubah oleh faktur yang ditolak (tetap 6)", levelAfterLock?.qty === 6);
 
   const openJournal = await owner("POST", `/api/tenants/${tenantId}/journal-entries`, {
     entryDate: "2026-07-15",

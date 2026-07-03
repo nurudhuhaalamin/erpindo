@@ -463,14 +463,107 @@ function StockCard({ productId, warehouseId, title }: { productId: string; wareh
   );
 }
 
+function StockAdjustmentForm() {
+  const { tenant } = useWorkspace();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [productId, setProductId] = useState("");
+  const [warehouseId, setWarehouseId] = useState("");
+  const [physicalQty, setPhysicalQty] = useState("");
+  const [note, setNote] = useState("");
+
+  const productsQuery = useQuery({
+    queryKey: ["products", tenant.tenantId],
+    queryFn: () => api.listItems<ProductRow>(tenant.tenantId, "products"),
+  });
+  const warehousesQuery = useQuery({
+    queryKey: ["warehouses", tenant.tenantId],
+    queryFn: () => api.listItems<WarehouseRow>(tenant.tenantId, "warehouses"),
+  });
+
+  const adjust = useMutation({
+    mutationFn: () =>
+      api.adjustStock(tenant.tenantId, {
+        productId,
+        warehouseId: warehouseId || (warehousesQuery.data?.items[0] as WarehouseRow | undefined)?.id || "",
+        physicalQty: Number(physicalQty),
+        note: note || undefined,
+      }),
+    onSuccess: (res) => {
+      toast(
+        "success",
+        `Stok disesuaikan (${res.delta > 0 ? "+" : ""}${res.delta}${res.entryNo ? `, jurnal ${res.entryNo}` : ""}).`,
+      );
+      setPhysicalQty("");
+      setNote("");
+      queryClient.invalidateQueries({ queryKey: ["stock", tenant.tenantId] });
+      queryClient.invalidateQueries({ queryKey: ["stock-card", tenant.tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  return (
+    <Card>
+      <CardHeader
+        title="Penyesuaian stok (opname)"
+        description="Samakan stok sistem dengan hasil hitung fisik — selisih nilainya otomatis dijurnal ke Beban Operasional Lain."
+      />
+      <CardBody>
+        <div className="grid gap-3 sm:grid-cols-[1fr_12rem_8rem_1fr_auto] sm:items-end">
+          <div>
+            <Label htmlFor="adj-product">Produk</Label>
+            <Select id="adj-product" value={productId} onChange={(e) => setProductId(e.target.value)}>
+              <option value="">— pilih produk —</option>
+              {((productsQuery.data?.items ?? []) as ProductRow[]).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.sku} · {p.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="adj-wh">Gudang</Label>
+            <Select id="adj-wh" value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
+              {((warehousesQuery.data?.items ?? []) as WarehouseRow[]).map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="adj-qty">Qty fisik</Label>
+            <Input
+              id="adj-qty"
+              type="number"
+              min={0}
+              value={physicalQty}
+              onChange={(e) => setPhysicalQty(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="adj-note">Catatan</Label>
+            <Input id="adj-note" placeholder="opsional" value={note} onChange={(e) => setNote(e.target.value)} />
+          </div>
+          <Button onClick={() => adjust.mutate()} disabled={!productId || physicalQty === "" || adjust.isPending}>
+            {adjust.isPending ? <Spinner /> : null} Sesuaikan
+          </Button>
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
+
 export function StockPage() {
   const { tenant } = useWorkspace();
+  const isAdmin = tenant.role !== "viewer";
   const query = useQuery({ queryKey: ["stock", tenant.tenantId], queryFn: () => api.stock(tenant.tenantId) });
   const [selected, setSelected] = useState<{ productId: string; warehouseId: string; title: string } | null>(null);
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Stok</h1>
+      {isAdmin ? <StockAdjustmentForm /> : null}
       <Card>
         <CardHeader
           title="Level stok per gudang"

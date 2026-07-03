@@ -5,6 +5,7 @@ import {
   PLAN_LABELS,
   PLAN_LIMITS,
   updateTenantSettingsSchema,
+  type ApiAuditLog,
   type ApiMember,
   type Plan,
   type Role,
@@ -143,6 +144,29 @@ export const tenantRoutes = new Hono<AppEnv>()
       ip: clientIp(c),
     });
     return c.json({ ok: true });
+  })
+
+  // -------------------------------------------------------------------------
+  // Riwayat aktivitas (audit log) — khusus Owner, 100 terakhir.
+  // -------------------------------------------------------------------------
+  .get("/:tenantId/audit-logs", requireAuth, requireTenantRole("owner"), async (c) => {
+    const tenant = c.get("tenant");
+    const { results } = await c.env.DB.prepare(
+      `SELECT a.id, a.action, a.detail, a.created_at, u.name AS user_name
+       FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id
+       WHERE a.tenant_id = ? ORDER BY a.created_at DESC LIMIT 100`,
+    )
+      .bind(tenant.id)
+      .all<{ id: string; action: string; detail: string | null; created_at: string; user_name: string | null }>();
+
+    const logs: ApiAuditLog[] = results.map((r) => ({
+      id: r.id,
+      action: r.action,
+      userName: r.user_name,
+      detail: r.detail,
+      createdAt: r.created_at,
+    }));
+    return c.json({ logs });
   })
 
   // -------------------------------------------------------------------------
