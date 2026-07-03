@@ -2,6 +2,7 @@ import type {
   ApiAccount,
   ApiAgingRow,
   ApiAuditLog,
+  ApiPosShift,
   ApiBalanceSheet,
   ApiCashFlow,
   ApiCommerceDoc,
@@ -173,6 +174,29 @@ export const api = {
     input: { productId: string; fromWarehouseId: string; toWarehouseId: string; qty: number },
   ) => request<{ ok: true; qty: number; value: number }>("POST", `/api/tenants/${tenantId}/stock-transfers`, input),
   updateProfile: (name: string) => request<{ ok: true }>("PATCH", "/api/auth/profile", { name }),
+  posShift: (tenantId: string) => request<{ shift: ApiPosShift | null }>("GET", `/api/tenants/${tenantId}/pos/shift`),
+  posOpenShift: (tenantId: string, input: { warehouseId: string; openingCash: number }) =>
+    request<{ ok: true; id: string; shiftNo: string }>("POST", `/api/tenants/${tenantId}/pos/shift/open`, input),
+  posSale: (
+    tenantId: string,
+    input: {
+      shiftId: string;
+      taxRate: number;
+      cashReceived: number;
+      lines: { productId: string; qty: number; unitPrice: number }[];
+    },
+  ) =>
+    request<{ ok: true; invoiceNo: string; total: number; change: number }>(
+      "POST",
+      `/api/tenants/${tenantId}/pos/sales`,
+      input,
+    ),
+  posCloseShift: (tenantId: string, shiftId: string, closingCash: number) =>
+    request<{ ok: true; expected: number; closingCash: number; difference: number; salesCount: number }>(
+      "POST",
+      `/api/tenants/${tenantId}/pos/shift/${shiftId}/close`,
+      { closingCash },
+    ),
   changePassword: (currentPassword: string, newPassword: string) =>
     request<{ ok: true }>("POST", "/api/auth/change-password", { currentPassword, newPassword }),
 

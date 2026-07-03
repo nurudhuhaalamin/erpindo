@@ -323,6 +323,29 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `ALTER TABLE purchases ADD COLUMN returned_amount INTEGER NOT NULL DEFAULT 0`,
     ],
   },
+  {
+    id: "0005_pos",
+    statements: [
+      // Sesi kasir: buka dengan kas awal, tutup dengan hitung kas fisik.
+      `CREATE TABLE pos_shifts (
+        id TEXT PRIMARY KEY,
+        shift_no TEXT NOT NULL UNIQUE,
+        warehouse_id TEXT NOT NULL REFERENCES warehouses(id),
+        status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','closed')),
+        opening_cash INTEGER NOT NULL DEFAULT 0,
+        opened_by TEXT NOT NULL,
+        opened_at TEXT NOT NULL DEFAULT (datetime('now')),
+        expected_cash INTEGER,
+        closing_cash INTEGER,
+        difference INTEGER,
+        journal_entry_id TEXT,
+        closed_by TEXT,
+        closed_at TEXT
+      )`,
+      // Penjualan POS memakai mesin faktur yang sama; kolom ini menautkannya ke shift.
+      `ALTER TABLE invoices ADD COLUMN pos_shift_id TEXT`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

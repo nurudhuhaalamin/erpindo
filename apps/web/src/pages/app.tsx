@@ -37,6 +37,7 @@ export function useWorkspace(): Workspace {
 
 const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string }[] = [
   { to: "/app", label: "Dashboard", exact: true },
+  { to: "/app/pos", label: "Kasir (POS)", exact: false, section: "Transaksi" },
   { to: "/app/penjualan", label: "Penjualan", exact: false, section: "Transaksi" },
   { to: "/app/pembelian", label: "Pembelian", exact: false, section: "Transaksi" },
   { to: "/app/stok", label: "Stok", exact: false, section: "Transaksi" },
