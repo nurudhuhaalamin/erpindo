@@ -1,5 +1,6 @@
 import type { ApiCommerceDoc } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { FileText, PackageOpen, Printer } from "lucide-react";
 import { useState } from "react";
 import { api, formatIDR } from "../api/client";
 import {
@@ -9,6 +10,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  EmptyState,
   Input,
   Label,
   Select,
@@ -286,7 +288,11 @@ export function CommercePage({ mode }: { mode: Mode }) {
           {docsQuery.isLoading ? (
             <Spinner />
           ) : (docsQuery.data?.docs.length ?? 0) === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada {cfg.docLabel.toLowerCase()}.</p>
+            <EmptyState
+              icon={<FileText className="size-6" aria-hidden />}
+              title={`Belum ada ${cfg.docLabel.toLowerCase()}`}
+              description="Dokumen yang Anda posting akan muncul di sini beserta status pembayarannya."
+            />
           ) : (
             <div className="space-y-3">
               {docsQuery.data!.docs.map((doc) => (
@@ -373,7 +379,7 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
           <span className="font-mono text-xs font-semibold">{doc.docNo}</span>
           <span className="text-slate-500 dark:text-slate-400">{doc.date}</span>
           <span>{doc.contactName}</span>
-          {doc.status === "paid" ? <Badge tone="brand">lunas</Badge> : <Badge tone="amber">belum lunas</Badge>}
+          {doc.status === "paid" ? <Badge tone="green">lunas</Badge> : <Badge tone="amber">belum lunas</Badge>}
         </div>
         <div className="flex items-center gap-3 text-sm">
           <span className="font-semibold tabular-nums">{formatIDR(doc.total)}</span>
@@ -382,9 +388,9 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
               href={`/cetak/faktur?tenant=${tenant.tenantId}&id=${doc.id}`}
               target="_blank"
               rel="noreferrer"
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
             >
-              🖨 Cetak
+              <Printer className="size-4" aria-hidden /> Cetak
             </a>
           ) : null}
           {isAdmin && remaining > 0 ? (
@@ -840,9 +846,11 @@ export function StockPage() {
           {query.isLoading ? (
             <Spinner />
           ) : (query.data?.levels.length ?? 0) === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Belum ada stok — catat faktur pembelian untuk mengisi stok.
-            </p>
+            <EmptyState
+              icon={<PackageOpen className="size-6" aria-hidden />}
+              title="Belum ada stok"
+              description="Catat faktur pembelian untuk mengisi stok — level per gudang akan tampil di sini."
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

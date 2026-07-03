@@ -15,7 +15,7 @@ type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
 const buttonVariants: Record<ButtonVariant, string> = {
   primary:
-    "bg-brand-700 text-white hover:bg-brand-800 focus-visible:ring-brand-500 disabled:bg-brand-700/50",
+    "bg-gradient-to-b from-brand-600 to-brand-700 text-white shadow-sm hover:from-brand-700 hover:to-brand-800 focus-visible:ring-brand-500 disabled:from-brand-600/60 disabled:to-brand-700/60",
   secondary:
     "border border-slate-300 bg-white text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800",
   ghost: "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800",
@@ -130,7 +130,7 @@ export function Badge({
   tone = "neutral",
   children,
 }: {
-  tone?: "neutral" | "brand" | "amber" | "red";
+  tone?: "neutral" | "brand" | "amber" | "red" | "green";
   children: ReactNode;
 }) {
   const tones = {
@@ -138,11 +138,43 @@ export function Badge({
     brand: "bg-brand-100 text-brand-800 dark:bg-brand-900 dark:text-brand-200",
     amber: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
     red: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+    green: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
   };
   return (
     <span className={cx("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium", tones[tone])}>
       {children}
     </span>
+  );
+}
+
+// --- Skeleton & empty state ---------------------------------------------------------
+
+/** Placeholder berkilau saat data dimuat — pengganti spinner untuk konten berbentuk. */
+export function Skeleton({ className }: { className?: string }) {
+  return <div className={cx("animate-pulse rounded-lg bg-slate-200 dark:bg-slate-800", className)} />;
+}
+
+/** Keadaan kosong yang ramah: ikon besar + judul + penjelasan (+ aksi opsional). */
+export function EmptyState({
+  icon,
+  title,
+  description,
+  children,
+}: {
+  icon: ReactNode;
+  title: string;
+  description?: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+      <div className="flex size-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+        {icon}
+      </div>
+      <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{title}</div>
+      {description ? <p className="max-w-sm text-sm text-slate-500 dark:text-slate-400">{description}</p> : null}
+      {children}
+    </div>
   );
 }
 
