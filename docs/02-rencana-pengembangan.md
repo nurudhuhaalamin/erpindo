@@ -308,7 +308,7 @@ Estimasi durasi mengasumsikan 1–2 developer full-time (atau setara, dengan ban
 
 - [ ] Landing page + pendaftaran self-service + onboarding wizard (impor data awal dari template Excel).
 - [ ] Billing: paket & limit, integrasi Midtrans/Xendit, webhook, dunning (tenggang → read-only → suspend).
-- [ ] PWA penuh (offline cache halaman & data referensi), notifikasi in-app/email.
+- [x] PWA penuh (installable, offline app shell, auto-update) + cetak/PDF faktur — ✅ 3 Jul 2026 ([log Fase 2a](./log/2026-07-03-fase-2a.md)). Notifikasi in-app/email menyusul.
 - [ ] Hardening: rate limiting, Turnstile, uji keamanan, kebijakan privasi & ToS.
 - [ ] **Peluncuran komersial.**
 

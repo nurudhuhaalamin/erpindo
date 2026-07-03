@@ -14,6 +14,7 @@ import { PurchasesPage, SalesPage, StockPage } from "./pages/commerce";
 import { AccountsPage, JournalPage, LedgerPage, TrialBalancePage } from "./pages/finance";
 import { AgingPage, BalanceSheetPage, IncomeStatementPage } from "./pages/reports";
 import { ContactsPage, ProductsPage, WarehousesPage } from "./pages/masterdata";
+import { InvoicePrintPage } from "./pages/print";
 import {
   ForgotPasswordPage,
   InvitePage,
@@ -35,6 +36,7 @@ const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/lupa-password", component: ForgotPasswordPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/reset-password", component: ResetPasswordPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/undangan", component: InvitePage }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/cetak/faktur", component: InvoicePrintPage }),
 ];
 
 const appRoute = createRoute({ getParentRoute: () => rootRoute, path: "/app", component: AppShell });

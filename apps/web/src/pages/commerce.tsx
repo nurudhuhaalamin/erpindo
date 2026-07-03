@@ -311,6 +311,16 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
         </div>
         <div className="flex items-center gap-3 text-sm">
           <span className="font-semibold tabular-nums">{formatIDR(doc.total)}</span>
+          {mode === "sale" ? (
+            <a
+              href={`/cetak/faktur?tenant=${tenant.tenantId}&id=${doc.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+            >
+              🖨 Cetak
+            </a>
+          ) : null}
           {isAdmin && doc.status !== "paid" ? (
             <Button variant="secondary" className="h-8" onClick={() => setPayOpen((o) => !o)}>
               {mode === "sale" ? "Terima Pembayaran" : "Bayar"}

@@ -96,6 +96,13 @@ try {
   await waitForReady();
   console.log("Server siap. Menjalankan skenario:\n");
 
+  // --- PWA: manifest & service worker terlayani (Fase 2a) -----------------------
+  console.log("0. Aset PWA");
+  const manifest = await fetch(`${BASE}/manifest.webmanifest`);
+  check("manifest.webmanifest terlayani (200)", manifest.status === 200);
+  const sw = await fetch(`${BASE}/sw.js`);
+  check("service worker sw.js terlayani (200)", sw.status === 200);
+
   // --- Registrasi pemilik + provisioning tenant -----------------------------
   console.log("1. Registrasi perusahaan baru");
   const owner = makeClient();
