@@ -352,6 +352,42 @@ export type ApiStockLevel = {
   value: number;
 };
 
+// ---------------------------------------------------------------------------
+// Laporan keuangan & dashboard (Fase 1c)
+// ---------------------------------------------------------------------------
+
+export type ApiReportLine = { accountId: string; code: string; name: string; amount: number };
+
+export type ApiIncomeStatement = {
+  from: string;
+  to: string;
+  income: ApiReportLine[];
+  expense: ApiReportLine[];
+  totalIncome: number;
+  totalExpense: number;
+  netProfit: number;
+};
+
+export type ApiBalanceSheet = {
+  asOf: string;
+  assets: ApiReportLine[];
+  liabilities: ApiReportLine[];
+  equity: ApiReportLine[];
+  totalAssets: number;
+  totalLiabilities: number;
+  totalEquity: number;
+  balanced: boolean;
+};
+
+export type ApiDashboard = {
+  cashAndBank: number;
+  salesThisMonth: number;
+  salesCountThisMonth: number;
+  receivableOutstanding: number;
+  payableOutstanding: number;
+  inventoryValue: number;
+};
+
 /** Ubah nama perusahaan menjadi slug subdomain yang aman. */
 export function toSlug(name: string): string {
   return (

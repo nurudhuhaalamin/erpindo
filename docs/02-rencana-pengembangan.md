@@ -299,7 +299,7 @@ Estimasi durasi mengasumsikan 1–2 developer full-time (atau setara, dengan ban
 
 - [x] Bulan 1: master data (produk, pelanggan, pemasok, gudang), COA + template Indonesia, jurnal manual, buku besar — ✅ selesai 2 Jul 2026 ([log Fase 1a](./log/2026-07-02-fase-1a.md)), plus neraca saldo.
 - [x] Bulan 2: siklus penjualan & pembelian dengan jurnal + mutasi stok otomatis (moving average), pembayaran & PPN — ✅ selesai 3 Jul 2026 ([log Fase 1b](./log/2026-07-03-fase-1b.md)); PDF invoice & impor rekening menyusul di Fase 1c/2.
-- [ ] Bulan 3: laporan keuangan (neraca, L/R, arus kas), kartu stok & aging, dashboard, ekspor Excel/PDF, tutup buku; PWA dasar (installable); pengujian E2E alur kritis.
+- [x] Bulan 3 (sebagian): laporan Laba Rugi & Neraca + dashboard angka nyata — ✅ 3 Jul 2026 ([log Fase 1c](./log/2026-07-03-fase-1c.md)). Tersisa: arus kas, kartu stok & aging, ekspor Excel/PDF, tutup buku, PWA penuh.
 - [ ] Pilot dengan 3–5 bisnis nyata (gratis) → perbaikan dari umpan balik.
 
 **Gerbang keluar:** satu UMKM dapat menjalankan operasional hariannya penuh di erpindo.

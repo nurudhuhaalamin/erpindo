@@ -1,6 +1,9 @@
 import type {
   ApiAccount,
+  ApiBalanceSheet,
   ApiCommerceDoc,
+  ApiDashboard,
+  ApiIncomeStatement,
   ApiJournalEntry,
   ApiMember,
   ApiStockLevel,
@@ -91,6 +94,13 @@ export const api = {
       "GET",
       `/api/tenants/${tenantId}/trial-balance`,
     ),
+
+  // --- Laporan & dashboard --------------------------------------------------------
+  incomeStatement: (tenantId: string, from: string, to: string) =>
+    request<ApiIncomeStatement>("GET", `/api/tenants/${tenantId}/reports/income-statement?from=${from}&to=${to}`),
+  balanceSheet: (tenantId: string, asOf: string) =>
+    request<ApiBalanceSheet>("GET", `/api/tenants/${tenantId}/reports/balance-sheet?asOf=${asOf}`),
+  dashboard: (tenantId: string) => request<ApiDashboard>("GET", `/api/tenants/${tenantId}/dashboard`),
 
   // --- Penjualan & Pembelian -----------------------------------------------------
   invoices: (tenantId: string) => request<{ docs: ApiCommerceDoc[] }>("GET", `/api/tenants/${tenantId}/invoices`),
