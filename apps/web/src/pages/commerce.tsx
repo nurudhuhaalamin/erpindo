@@ -81,10 +81,16 @@ export function CommercePage({ mode }: { mode: Mode }) {
   const [error, setError] = useState<string | null>(null);
 
   const create = useMutation({
-    mutationFn: (input: Parameters<typeof api.createInvoice>[1]) =>
+    mutationFn: async (
+      input: Parameters<typeof api.createInvoice>[1],
+    ): Promise<{ total: number; docNo?: string; pendingApproval?: boolean; requestNo?: string }> =>
       mode === "sale" ? api.createInvoice(tenant.tenantId, input) : api.createPurchase(tenant.tenantId, input),
     onSuccess: (res) => {
-      toast("success", `${cfg.docLabel} ${res.docNo} diposting (${formatIDR(res.total)}).`);
+      if (res.pendingApproval) {
+        toast("success", `Pengajuan ${res.requestNo} menunggu persetujuan Owner (${formatIDR(res.total)}).`);
+      } else {
+        toast("success", `${cfg.docLabel} ${res.docNo} diposting (${formatIDR(res.total)}).`);
+      }
       setLines([emptyLine()]);
       setError(null);
       queryClient.invalidateQueries({ queryKey: [cfg.queryKey, tenant.tenantId] });

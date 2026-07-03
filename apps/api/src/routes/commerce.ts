@@ -5,6 +5,7 @@ import {
   stockAdjustmentSchema,
   stockTransferSchema,
   type ApiCommerceDoc,
+  type CreatePurchaseInput,
   type ApiCommerceLine,
   type ApiStockLevel,
 } from "@erpindo/shared";
@@ -145,6 +146,100 @@ async function checkPeriodOpen(db: SqlExecutor, date: string): Promise<string | 
     return `Periode sampai ${lockedBefore} sudah ditutup — transaksi bertanggal ${date} ditolak.`;
   }
   return null;
+}
+
+/** Ambang persetujuan pembelian dari settings tenant (0 = nonaktif). */
+async function approvalThreshold(db: SqlExecutor): Promise<number> {
+  const { results } = await db
+    .prepare(`SELECT value FROM settings WHERE key = 'approval_threshold_purchase'`)
+    .all<{ value: string }>();
+  return Number(results[0]?.value ?? 0) || 0;
+}
+
+/**
+ * Posting faktur pembelian (jurnal + baris + stok masuk). Dipakai jalur
+ * langsung maupun saat Owner menyetujui permintaan — satu implementasi.
+ */
+async function executePurchase(
+  db: SqlExecutor,
+  input: CreatePurchaseInput,
+  userId: string,
+): Promise<{ purchaseId: string; docNo: string; total: number } | { error: string }> {
+  const refError = await validateRefs(db, PURCHASE_CFG, input);
+  if (refError) return { error: refError };
+  const lockError = await checkPeriodOpen(db, input.invoiceDate);
+  if (lockError) return { error: lockError };
+
+  const subtotal = input.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
+  const taxAmount = Math.round((subtotal * input.taxRate) / 100);
+  const total = subtotal + taxAmount;
+  if (total === 0) return { error: "Total faktur tidak boleh nol." };
+
+  const [persediaan, ppnMasukan, hutang] = await Promise.all([
+    accountIdByCode(db, SYS_ACCOUNTS.PERSEDIAAN),
+    accountIdByCode(db, SYS_ACCOUNTS.PPN_MASUKAN),
+    accountIdByCode(db, SYS_ACCOUNTS.HUTANG),
+  ]);
+
+  const purchaseId = crypto.randomUUID();
+  const docNo = await nextDocNo(db, "purchases", "PB");
+  const journal = await postJournal(db, {
+    entryDate: input.invoiceDate,
+    memo: `Faktur pembelian ${docNo}`,
+    createdBy: userId,
+    lines: [
+      { accountId: persediaan, description: docNo, debit: subtotal, credit: 0 },
+      ...(taxAmount > 0 ? [{ accountId: ppnMasukan, description: `PPN ${docNo}`, debit: taxAmount, credit: 0 }] : []),
+      { accountId: hutang, description: docNo, debit: 0, credit: total },
+    ],
+  });
+
+  await db
+    .prepare(
+      `INSERT INTO purchases (id, purchase_no, contact_id, purchase_date, due_date, status, subtotal,
+                              tax_rate, tax_amount, total, paid_amount, journal_entry_id, created_by)
+       VALUES (?, ?, ?, ?, ?, 'posted', ?, ?, ?, ?, 0, ?, ?)`,
+    )
+    .bind(
+      purchaseId,
+      docNo,
+      input.contactId,
+      input.invoiceDate,
+      input.dueDate ?? null,
+      subtotal,
+      input.taxRate,
+      taxAmount,
+      total,
+      journal.id,
+      userId,
+    )
+    .run();
+  for (const line of input.lines) {
+    await db
+      .prepare(
+        `INSERT INTO purchase_lines (id, purchase_id, product_id, description, qty, unit_price, amount)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        crypto.randomUUID(),
+        purchaseId,
+        line.productId,
+        line.description ?? null,
+        line.qty,
+        line.unitPrice,
+        line.qty * line.unitPrice,
+      )
+      .run();
+    await stockIn(db, {
+      productId: line.productId,
+      warehouseId: input.warehouseId,
+      qty: line.qty,
+      unitCost: line.unitPrice,
+      refType: "purchase",
+      refId: purchaseId,
+    });
+  }
+  return { purchaseId, docNo, total };
 }
 
 /** Validasi rujukan bersama: kontak (jenis sesuai), gudang, produk aktif. */
@@ -318,89 +413,150 @@ export const commerceRoutes = new Hono<AppEnv>()
     const db = getTenantDb(c.env, tenant.dbRef);
     const input = parsed.data;
 
-    const refError = await validateRefs(db, PURCHASE_CFG, input);
-    if (refError) return c.json({ error: refError }, 400);
-    const lockError = await checkPeriodOpen(db, input.invoiceDate);
-    if (lockError) return c.json({ error: lockError }, 400);
-
-    const subtotal = input.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
-    const taxAmount = Math.round((subtotal * input.taxRate) / 100);
-    const total = subtotal + taxAmount;
-    if (total === 0) return c.json({ error: "Total faktur tidak boleh nol." }, 400);
-
-    const [persediaan, ppnMasukan, hutang] = await Promise.all([
-      accountIdByCode(db, SYS_ACCOUNTS.PERSEDIAAN),
-      accountIdByCode(db, SYS_ACCOUNTS.PPN_MASUKAN),
-      accountIdByCode(db, SYS_ACCOUNTS.HUTANG),
-    ]);
-
-    const purchaseId = crypto.randomUUID();
-    const docNo = await nextDocNo(db, "purchases", "PB");
-    const journal = await postJournal(db, {
-      entryDate: input.invoiceDate,
-      memo: `Faktur pembelian ${docNo}`,
-      createdBy: c.get("user").id,
-      lines: [
-        { accountId: persediaan, description: docNo, debit: subtotal, credit: 0 },
-        ...(taxAmount > 0 ? [{ accountId: ppnMasukan, description: `PPN ${docNo}`, debit: taxAmount, credit: 0 }] : []),
-        { accountId: hutang, description: docNo, debit: 0, credit: total },
-      ],
-    });
-
-    await db
-      .prepare(
-        `INSERT INTO purchases (id, purchase_no, contact_id, purchase_date, due_date, status, subtotal,
-                                tax_rate, tax_amount, total, paid_amount, journal_entry_id, created_by)
-         VALUES (?, ?, ?, ?, ?, 'posted', ?, ?, ?, ?, 0, ?, ?)`,
-      )
-      .bind(
-        purchaseId,
-        docNo,
-        input.contactId,
-        input.invoiceDate,
-        input.dueDate ?? null,
-        subtotal,
-        input.taxRate,
-        taxAmount,
-        total,
-        journal.id,
-        c.get("user").id,
-      )
-      .run();
-    for (const line of input.lines) {
+    // Gerbang persetujuan: pembelian ≥ ambang oleh non-Owner masuk antrean,
+    // TANPA jurnal & TANPA stok — baru diposting saat Owner menyetujui.
+    const threshold = await approvalThreshold(db);
+    const previewTotal =
+      input.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0) +
+      Math.round((input.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0) * input.taxRate) / 100);
+    if (threshold > 0 && previewTotal >= threshold && tenant.role !== "owner") {
+      const requestNo = await nextDocNo(db, "approval_requests", "APR");
+      const id = crypto.randomUUID();
       await db
         .prepare(
-          `INSERT INTO purchase_lines (id, purchase_id, product_id, description, qty, unit_price, amount)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO approval_requests (id, request_no, type, payload, summary, total, requested_by)
+           VALUES (?, ?, 'purchase', ?, ?, ?, ?)`,
         )
         .bind(
-          crypto.randomUUID(),
-          purchaseId,
-          line.productId,
-          line.description ?? null,
-          line.qty,
-          line.unitPrice,
-          line.qty * line.unitPrice,
+          id,
+          requestNo,
+          JSON.stringify(input),
+          `Pembelian ${input.lines.length} baris`,
+          previewTotal,
+          c.get("user").id,
         )
         .run();
-      await stockIn(db, {
-        productId: line.productId,
-        warehouseId: input.warehouseId,
-        qty: line.qty,
-        unitCost: line.unitPrice,
-        refType: "purchase",
-        refId: purchaseId,
+      await audit(c.env, {
+        action: "approval.requested",
+        userId: c.get("user").id,
+        tenantId: tenant.id,
+        detail: { requestNo, total: previewTotal },
+        ip: clientIp(c),
       });
+      return c.json({ ok: true, pendingApproval: true, requestNo, total: previewTotal }, 202);
     }
+
+    const result = await executePurchase(db, input, c.get("user").id);
+    if ("error" in result) return c.json({ error: result.error }, 400);
 
     await audit(c.env, {
       action: "purchase.posted",
       userId: c.get("user").id,
       tenantId: tenant.id,
-      detail: { docNo, total },
+      detail: { docNo: result.docNo, total: result.total },
       ip: clientIp(c),
     });
-    return c.json({ ok: true, id: purchaseId, docNo, total }, 201);
+    return c.json({ ok: true, id: result.purchaseId, docNo: result.docNo, total: result.total }, 201);
+  })
+
+  // -------------------------------------------------------------------------
+  // Persetujuan pembelian (Owner)
+  // -------------------------------------------------------------------------
+  .post("/:tenantId/approval-threshold", requireAuth, requireTenantRole("owner"), async (c) => {
+    const body = (await c.req.json().catch(() => ({}))) as { amount?: unknown };
+    const amount = Number(body.amount ?? 0);
+    if (!Number.isInteger(amount) || amount < 0) return c.json({ error: "Nominal tidak valid." }, 400);
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+    await db
+      .prepare(
+        `INSERT INTO settings (key, value, updated_at) VALUES ('approval_threshold_purchase', ?, datetime('now'))
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+      )
+      .bind(String(amount))
+      .run();
+    await audit(c.env, {
+      action: "approval.threshold_set",
+      userId: c.get("user").id,
+      tenantId: c.get("tenant").id,
+      detail: { amount },
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true, amount });
+  })
+
+  .get("/:tenantId/approvals", requireAuth, requireTenantRole("owner"), async (c) => {
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+    const { results } = await db
+      .prepare(
+        `SELECT id, request_no, type, summary, total, status, requested_by, requested_at, decision_note
+         FROM approval_requests ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, requested_at DESC LIMIT 100`,
+      )
+      .all<Record<string, unknown>>();
+    return c.json({ requests: results });
+  })
+
+  .post("/:tenantId/approvals/:id/approve", requireAuth, requireTenantRole("owner"), async (c) => {
+    const tenant = c.get("tenant");
+    const db = getTenantDb(c.env, tenant.dbRef);
+    const id = c.req.param("id");
+
+    const { results } = await db
+      .prepare(`SELECT payload, request_no FROM approval_requests WHERE id = ? AND status = 'pending'`)
+      .bind(id)
+      .all<{ payload: string; request_no: string }>();
+    const req = results[0];
+    if (!req) return c.json({ error: "Permintaan tidak ditemukan atau sudah diputuskan." }, 404);
+
+    const parsed = createPurchaseSchema.safeParse(JSON.parse(req.payload));
+    if (!parsed.success) return c.json({ error: "Payload permintaan tidak valid." }, 400);
+
+    const result = await executePurchase(db, parsed.data, c.get("user").id);
+    if ("error" in result) return c.json({ error: result.error }, 400);
+
+    await db
+      .prepare(
+        `UPDATE approval_requests SET status = 'approved', decided_by = ?, decided_at = datetime('now'),
+                result_doc_id = ? WHERE id = ?`,
+      )
+      .bind(c.get("user").id, result.purchaseId, id)
+      .run();
+    await audit(c.env, {
+      action: "approval.approved",
+      userId: c.get("user").id,
+      tenantId: tenant.id,
+      detail: { requestNo: req.request_no, docNo: result.docNo },
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true, docNo: result.docNo, total: result.total });
+  })
+
+  .post("/:tenantId/approvals/:id/reject", requireAuth, requireTenantRole("owner"), async (c) => {
+    const tenant = c.get("tenant");
+    const db = getTenantDb(c.env, tenant.dbRef);
+    const id = c.req.param("id");
+    const note = String(((await c.req.json().catch(() => ({}))) as { note?: unknown }).note ?? "");
+
+    const { results } = await db
+      .prepare(`SELECT request_no FROM approval_requests WHERE id = ? AND status = 'pending'`)
+      .bind(id)
+      .all<{ request_no: string }>();
+    if (!results[0]) return c.json({ error: "Permintaan tidak ditemukan atau sudah diputuskan." }, 404);
+
+    await db
+      .prepare(
+        `UPDATE approval_requests SET status = 'rejected', decided_by = ?, decided_at = datetime('now'),
+                decision_note = ? WHERE id = ?`,
+      )
+      .bind(c.get("user").id, note || null, id)
+      .run();
+    await audit(c.env, {
+      action: "approval.rejected",
+      userId: c.get("user").id,
+      tenantId: tenant.id,
+      detail: { requestNo: results[0].request_no, note },
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true });
   })
 
   // -------------------------------------------------------------------------

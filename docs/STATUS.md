@@ -22,7 +22,8 @@
 | Fase 2e — Opname & audit log | Penyesuaian stok berjurnal otomatis + riwayat aktivitas untuk Owner | ✅ Selesai |
 | Fase 2f — Retur jual/beli | Nota kredit/debit dengan jurnal pembalik & stok otomatis | ✅ Selesai |
 | Fase 2g — Transfer gudang, multi-perusahaan, profil, pengingat email | Operasional harian makin lengkap | ✅ Selesai |
-| **Fase 2h — POS / Kasir** | Layar kasir cepat, shift + rekap kas berjurnal, struk | ✅ **Selesai** |
+| Fase 2h — POS / Kasir | Layar kasir cepat, shift + rekap kas berjurnal, struk | ✅ Selesai |
+| **Fase 2i — Persetujuan pembelian** | Pembelian besar oleh Admin wajib disetujui Owner dulu | ✅ **Selesai** |
 | Fase 2b-2 — Pembayaran langganan | Checkout Midtrans/Xendit, aktivasi otomatis | ⏸ **Menunggu akun gateway dari Anda** |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
 | Fase 3+ | POS, HR & Payroll, dan modul lanjutan | Belum |
@@ -59,9 +60,10 @@
 28. **Multi-perusahaan** *(baru — Fase 2g)*: satu akun bisa mengelola beberapa perusahaan dan berpindah lewat dropdown.
 29. **Profil & ganti password** *(baru — Fase 2g)*: ganti password mencabut sesi di perangkat lain secara otomatis.
 30. **Pengingat email otomatis** *(Fase 2g)*: Owner diberi tahu saat trial hampir habis dan saat berakhir.
-31. **Kasir (POS)** *(baru — Fase 2h)*: layar kasir cepat untuk toko/kafe — klik produk, terima tunai, kembalian dihitung, struk tercetak; buka/tutup shift dengan hitung kas fisik dan selisihnya otomatis masuk pembukuan.
+31. **Kasir (POS)** *(Fase 2h)*: layar kasir cepat untuk toko/kafe — klik produk, terima tunai, kembalian dihitung, struk tercetak; buka/tutup shift dengan hitung kas fisik dan selisihnya otomatis masuk pembukuan.
+32. **Persetujuan pembelian** *(baru — Fase 2i)*: tetapkan ambang (mis. Rp 5 juta) — pembelian Admin di atas itu menunggu persetujuan Anda dan baru diproses (stok & pembukuan) setelah disetujui; bisa ditolak dengan catatan.
 
-Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (133 skenario ujian end-to-end + 20 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
+Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (146 skenario ujian end-to-end + 20 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
 
 ## Apakah sudah bisa diakses di internet?
 

@@ -841,6 +841,99 @@ try {
   });
   check("viewer DITOLAK membuka shift (403)", shiftByViewer.status === 403);
 
+  // --- Approval engine pembelian (Fase 2i) -----------------------------------------
+  console.log("11e. Persetujuan pembelian (approval engine)");
+
+  // Undang admin baru untuk menguji jalur non-owner.
+  const inviteAdmin = await owner("POST", `/api/tenants/${tenantId}/invites`, {
+    email: "dewi@majujaya.co.id",
+    role: "admin",
+  });
+  const admin = makeClient();
+  await admin("POST", "/api/auth/register", {
+    companyName: "Usaha Dewi",
+    name: "Dewi Lestari",
+    email: "dewi@majujaya.co.id",
+    password: "rahasia-dewi-789",
+  });
+  await admin("POST", "/api/invites/accept", { token: inviteAdmin.json.inviteUrl.split("token=")[1] });
+
+  const thresholdByViewer = await viewer("POST", `/api/tenants/${tenantId}/approval-threshold`, { amount: 1 });
+  check("viewer DITOLAK mengatur ambang (403)", thresholdByViewer.status === 403);
+  const setThreshold = await owner("POST", `/api/tenants/${tenantId}/approval-threshold`, { amount: 1_000_000 });
+  check("owner mengatur ambang 1.000.000", setThreshold.status === 200);
+
+  const smallPurchase = await admin("POST", `/api/tenants/${tenantId}/purchases`, {
+    contactId: supplier.json.id,
+    invoiceDate: "2026-07-03",
+    taxRate: 11,
+    warehouseId: whUtama.id,
+    lines: [{ productId: prodBarang.json.id, qty: 2, unitPrice: 100_000 }],
+  });
+  check("pembelian admin DI BAWAH ambang (222rb) langsung diposting 201", smallPurchase.status === 201);
+
+  const bigPurchase = await admin("POST", `/api/tenants/${tenantId}/purchases`, {
+    contactId: supplier.json.id,
+    invoiceDate: "2026-07-03",
+    taxRate: 11,
+    warehouseId: whUtama.id,
+    lines: [{ productId: prodBarang.json.id, qty: 10, unitPrice: 100_000 }],
+  });
+  check(
+    "pembelian admin DI ATAS ambang (1.110.000) → 202 menunggu persetujuan",
+    bigPurchase.status === 202 && bigPurchase.json?.pendingApproval === true && bigPurchase.json?.requestNo === "APR-00001",
+    `→ ${JSON.stringify(bigPurchase.json)}`,
+  );
+
+  let stockPending = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  check(
+    "stok & jurnal TIDAK berubah saat menunggu (4 pcs setelah pembelian kecil)",
+    stockPending.json?.levels?.find((l) => l.sku === "BRG-002" && l.warehouseId === whUtama.id)?.qty === 4,
+  );
+
+  const approvalsByAdmin = await admin("GET", `/api/tenants/${tenantId}/approvals`);
+  check("admin DITOLAK melihat daftar persetujuan (403)", approvalsByAdmin.status === 403);
+
+  const approvals = await owner("GET", `/api/tenants/${tenantId}/approvals`);
+  const pendingReq = approvals.json?.requests?.find((r) => r.status === "pending");
+  check("owner melihat 1 permintaan menunggu", approvals.status === 200 && Boolean(pendingReq));
+
+  const approveByAdmin = await admin("POST", `/api/tenants/${tenantId}/approvals/${pendingReq.id}/approve`);
+  check("admin DITOLAK menyetujui (403)", approveByAdmin.status === 403);
+
+  const approve = await owner("POST", `/api/tenants/${tenantId}/approvals/${pendingReq.id}/approve`);
+  check("owner menyetujui → faktur pembelian diposting", approve.status === 200 && Boolean(approve.json?.docNo));
+
+  stockPending = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  check(
+    "stok bertambah 10 setelah disetujui (total 14)",
+    stockPending.json?.levels?.find((l) => l.sku === "BRG-002" && l.warehouseId === whUtama.id)?.qty === 14,
+  );
+
+  const doubleApprove = await owner("POST", `/api/tenants/${tenantId}/approvals/${pendingReq.id}/approve`);
+  check("menyetujui dua kali DITOLAK 404", doubleApprove.status === 404);
+
+  const bigPurchase2 = await admin("POST", `/api/tenants/${tenantId}/purchases`, {
+    contactId: supplier.json.id,
+    invoiceDate: "2026-07-03",
+    taxRate: 11,
+    warehouseId: whUtama.id,
+    lines: [{ productId: prodBarang.json.id, qty: 20, unitPrice: 100_000 }],
+  });
+  const approvals2 = await owner("GET", `/api/tenants/${tenantId}/approvals`);
+  const pending2 = approvals2.json?.requests?.find((r) => r.status === "pending");
+  const rejectReq = await owner("POST", `/api/tenants/${tenantId}/approvals/${pending2.id}/reject`, {
+    note: "Terlalu besar bulan ini",
+  });
+  check("owner menolak permintaan kedua", bigPurchase2.status === 202 && rejectReq.status === 200);
+  stockPending = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  check(
+    "penolakan tidak mengubah stok (tetap 14)",
+    stockPending.json?.levels?.find((l) => l.sku === "BRG-002" && l.warehouseId === whUtama.id)?.qty === 14,
+  );
+  const tbAfterApprovals = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah alur persetujuan", tbAfterApprovals.json?.balanced === true);
+
   // Tutup buku sampai 10 Juli — transaksi ≤ tanggal itu harus ditolak.
   const closeByViewer = await viewer("POST", `/api/tenants/${tenantId}/close-books`, { date: "2026-07-10" });
   check("viewer/admin DITOLAK menutup buku (403)", closeByViewer.status === 403);
@@ -868,7 +961,7 @@ try {
 
   const stockAfterLock = await owner("GET", `/api/tenants/${tenantId}/stock`);
   const levelAfterLock = stockAfterLock.json?.levels?.find((l) => l.sku === "BRG-002" && l.warehouseId === whUtama.id);
-  check("stok TIDAK berubah oleh faktur yang ditolak (tetap 2 setelah POS)", levelAfterLock?.qty === 2);
+  check("stok TIDAK berubah oleh faktur yang ditolak (tetap 14)", levelAfterLock?.qty === 14);
 
   const openJournal = await owner("POST", `/api/tenants/${tenantId}/journal-entries`, {
     entryDate: "2026-07-15",

@@ -133,11 +133,30 @@ export const api = {
     ),
   purchases: (tenantId: string) => request<{ docs: ApiCommerceDoc[] }>("GET", `/api/tenants/${tenantId}/purchases`),
   createPurchase: (tenantId: string, input: CreateInvoiceInput) =>
-    request<{ ok: true; id: string; docNo: string; total: number }>(
+    request<{ ok: true; id?: string; docNo?: string; total: number; pendingApproval?: boolean; requestNo?: string }>(
       "POST",
       `/api/tenants/${tenantId}/purchases`,
       input,
     ),
+  approvals: (tenantId: string) =>
+    request<{
+      requests: {
+        id: string;
+        request_no: string;
+        type: string;
+        summary: string | null;
+        total: number;
+        status: "pending" | "approved" | "rejected";
+        requested_at: string;
+        decision_note: string | null;
+      }[];
+    }>("GET", `/api/tenants/${tenantId}/approvals`),
+  approveRequest: (tenantId: string, id: string) =>
+    request<{ ok: true; docNo: string; total: number }>("POST", `/api/tenants/${tenantId}/approvals/${id}/approve`),
+  rejectRequest: (tenantId: string, id: string, note?: string) =>
+    request<{ ok: true }>("POST", `/api/tenants/${tenantId}/approvals/${id}/reject`, { note }),
+  setApprovalThreshold: (tenantId: string, amount: number) =>
+    request<{ ok: true; amount: number }>("POST", `/api/tenants/${tenantId}/approval-threshold`, { amount }),
   createReturn: (
     tenantId: string,
     input: {
