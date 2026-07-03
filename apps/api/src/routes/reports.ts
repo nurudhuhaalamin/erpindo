@@ -236,10 +236,10 @@ export const reportRoutes = new Hono<AppEnv>()
 
     const { results } = await db
       .prepare(
-        `SELECT d.contact_id, k.name AS contact_name, d.total - d.paid_amount AS outstanding,
+        `SELECT d.contact_id, k.name AS contact_name, d.total - d.paid_amount - d.returned_amount AS outstanding,
                 COALESCE(d.due_date, d.${dateCol}) AS due
          FROM ${table} d JOIN contacts k ON k.id = d.contact_id
-         WHERE d.status != 'paid' AND d.total > d.paid_amount`,
+         WHERE d.status != 'paid' AND d.total > d.paid_amount + d.returned_amount`,
       )
       .all<{ contact_id: string; contact_name: string; outstanding: number; due: string }>();
 
@@ -289,10 +289,10 @@ export const reportRoutes = new Hono<AppEnv>()
         .bind(`${monthPrefix}%`)
         .all<{ total: number; n: number }>(),
       db
-        .prepare(`SELECT COALESCE(SUM(total - paid_amount), 0) AS outstanding FROM invoices WHERE status != 'paid'`)
+        .prepare(`SELECT COALESCE(SUM(total - paid_amount - returned_amount), 0) AS outstanding FROM invoices WHERE status != 'paid'`)
         .all<{ outstanding: number }>(),
       db
-        .prepare(`SELECT COALESCE(SUM(total - paid_amount), 0) AS outstanding FROM purchases WHERE status != 'paid'`)
+        .prepare(`SELECT COALESCE(SUM(total - paid_amount - returned_amount), 0) AS outstanding FROM purchases WHERE status != 'paid'`)
         .all<{ outstanding: number }>(),
       db.prepare(`SELECT COALESCE(SUM(qty * avg_cost), 0) AS value FROM stock_levels`).all<{ value: number }>(),
     ]);

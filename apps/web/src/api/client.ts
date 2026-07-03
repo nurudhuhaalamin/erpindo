@@ -137,6 +137,22 @@ export const api = {
       `/api/tenants/${tenantId}/purchases`,
       input,
     ),
+  createReturn: (
+    tenantId: string,
+    input: {
+      refType: "invoice" | "purchase";
+      refId: string;
+      warehouseId: string;
+      returnDate: string;
+      memo?: string;
+      lines: { productId: string; qty: number }[];
+    },
+  ) =>
+    request<{ ok: true; returnNo: string; total: number; journalNo: string }>(
+      "POST",
+      `/api/tenants/${tenantId}/returns`,
+      input,
+    ),
   createPayment: (tenantId: string, input: CreatePaymentInput) =>
     request<{ ok: true; paymentNo: string; paidAmount: number; settled: boolean }>(
       "POST",

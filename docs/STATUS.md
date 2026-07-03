@@ -19,7 +19,8 @@
 | Fase 2b-1 — Fondasi langganan & arus kas | Paket & batasnya, siklus trial otomatis, mode baca-saja saat menunggak, laporan arus kas | ✅ Selesai |
 | Fase 2c — Keamanan 2FA & landing page | Verifikasi dua langkah (authenticator) + halaman depan siap jualan | ✅ Selesai |
 | Fase 2d — Impor CSV | Impor produk & kontak dari Excel/CSV dengan laporan per baris | ✅ Selesai |
-| **Fase 2e — Opname & audit log** | Penyesuaian stok berjurnal otomatis + riwayat aktivitas untuk Owner | ✅ **Selesai** |
+| Fase 2e — Opname & audit log | Penyesuaian stok berjurnal otomatis + riwayat aktivitas untuk Owner | ✅ Selesai |
+| **Fase 2f — Retur jual/beli** | Nota kredit/debit dengan jurnal pembalik & stok otomatis | ✅ **Selesai** |
 | Fase 2b-2 — Pembayaran langganan | Checkout Midtrans/Xendit, aktivasi otomatis | ⏸ **Menunggu akun gateway dari Anda** |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
 | Fase 3+ | POS, HR & Payroll, dan modul lanjutan | Belum |
@@ -50,9 +51,10 @@
 22. **Halaman depan siap jualan** *(Fase 2c)*: hero, fitur unggulan, dan daftar harga paket.
 23. **Impor dari Excel/CSV** *(Fase 2d)*: pindahkan daftar produk & kontak lama sekaligus — unduh template, isi, unggah; baris bermasalah dilaporkan satu per satu tanpa menggagalkan sisanya.
 24. **Stok opname** *(baru — Fase 2e)*: hitung fisik gudang, masukkan angkanya — sistem menyamakan stok dan otomatis membukukan nilai selisihnya (barang hilang/rusak menjadi beban).
-25. **Riwayat aktivitas** *(baru — Fase 2e)*: Owner bisa melihat 100 aktivitas terakhir — siapa melakukan apa dan kapan.
+25. **Riwayat aktivitas** *(Fase 2e)*: Owner bisa melihat 100 aktivitas terakhir — siapa melakukan apa dan kapan.
+26. **Retur penjualan & pembelian** *(baru — Fase 2f)*: barang dikembalikan? Klik Retur pada fakturnya — pembukuan terbalik otomatis (termasuk PPN proporsional), stok kembali bergerak, dan sisa tagihan langsung menyesuaikan.
 
-Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (99 skenario ujian end-to-end + 20 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
+Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (110 skenario ujian end-to-end + 20 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
 
 ## Apakah sudah bisa diakses di internet?
 

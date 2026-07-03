@@ -290,6 +290,39 @@ export const TENANT_MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    id: "0004_returns",
+    statements: [
+      // Retur penjualan (nota kredit) & pembelian (nota debit), terikat dokumen asal.
+      `CREATE TABLE returns (
+        id TEXT PRIMARY KEY,
+        return_no TEXT NOT NULL UNIQUE,
+        ref_type TEXT NOT NULL CHECK (ref_type IN ('invoice','purchase')),
+        ref_id TEXT NOT NULL,
+        return_date TEXT NOT NULL,
+        memo TEXT,
+        subtotal INTEGER NOT NULL,
+        tax_amount INTEGER NOT NULL DEFAULT 0,
+        total INTEGER NOT NULL,
+        journal_entry_id TEXT NOT NULL REFERENCES journal_entries(id),
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE TABLE return_lines (
+        id TEXT PRIMARY KEY,
+        return_id TEXT NOT NULL REFERENCES returns(id),
+        product_id TEXT NOT NULL REFERENCES products(id),
+        qty INTEGER NOT NULL CHECK (qty > 0),
+        unit_price INTEGER NOT NULL CHECK (unit_price >= 0),
+        amount INTEGER NOT NULL
+      )`,
+      `CREATE INDEX return_lines_return ON return_lines (return_id)`,
+      `CREATE INDEX returns_ref ON returns (ref_type, ref_id)`,
+      // Sisa tagihan efektif = total - paid_amount - returned_amount.
+      `ALTER TABLE invoices ADD COLUMN returned_amount INTEGER NOT NULL DEFAULT 0`,
+      `ALTER TABLE purchases ADD COLUMN returned_amount INTEGER NOT NULL DEFAULT 0`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */
