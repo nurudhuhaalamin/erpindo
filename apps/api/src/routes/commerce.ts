@@ -2,6 +2,7 @@ import {
   createInvoiceSchema,
   createPaymentSchema,
   createPurchaseSchema,
+  stockAdjustmentSchema,
   type ApiCommerceDoc,
   type ApiCommerceLine,
   type ApiStockLevel,
@@ -493,6 +494,97 @@ export const commerceRoutes = new Hono<AppEnv>()
       ip: clientIp(c),
     });
     return c.json({ ok: true, paymentNo, paidAmount: newPaid, settled: newPaid >= doc.total }, 201);
+  })
+
+  // -------------------------------------------------------------------------
+  // Penyesuaian stok (opname): samakan sistem dengan hasil hitung fisik.
+  // Selisih nilai dijurnal ke Beban Operasional Lain ↔ Persediaan.
+  // -------------------------------------------------------------------------
+  .post("/:tenantId/stock-adjustments", requireAuth, requireTenantRole("admin"), async (c) => {
+    const parsed = stockAdjustmentSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) {
+      return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
+    }
+    const tenant = c.get("tenant");
+    const db = getTenantDb(c.env, tenant.dbRef);
+    const input = parsed.data;
+    const today = new Date().toISOString().slice(0, 10);
+
+    const lockError = await checkPeriodOpen(db, today);
+    if (lockError) return c.json({ error: lockError }, 400);
+
+    const { results: products } = await db
+      .prepare(`SELECT sku, name FROM products WHERE id = ? AND is_archived = 0`)
+      .bind(input.productId)
+      .all<{ sku: string; name: string }>();
+    const product = products[0];
+    if (!product) return c.json({ error: "Produk tidak ditemukan." }, 400);
+
+    const { results: levels } = await db
+      .prepare(`SELECT qty, avg_cost FROM stock_levels WHERE product_id = ? AND warehouse_id = ?`)
+      .bind(input.productId, input.warehouseId)
+      .all<{ qty: number; avg_cost: number }>();
+    const currentQty = levels[0]?.qty ?? 0;
+    const avgCost = levels[0]?.avg_cost ?? 0;
+
+    const delta = input.physicalQty - currentQty;
+    if (delta === 0) return c.json({ error: "Tidak ada selisih — stok sistem sudah sama dengan fisik." }, 400);
+
+    const adjustmentId = crypto.randomUUID();
+    let value: number;
+    if (delta > 0) {
+      await stockIn(db, {
+        productId: input.productId,
+        warehouseId: input.warehouseId,
+        qty: delta,
+        unitCost: avgCost,
+        refType: "adjustment",
+        refId: adjustmentId,
+      });
+      value = delta * avgCost;
+    } else {
+      value = await stockOut(db, {
+        productId: input.productId,
+        warehouseId: input.warehouseId,
+        qty: -delta,
+        refType: "adjustment",
+        refId: adjustmentId,
+      });
+    }
+
+    let entryNo: string | null = null;
+    if (value > 0) {
+      const [persediaan, bebanLain] = await Promise.all([
+        accountIdByCode(db, SYS_ACCOUNTS.PERSEDIAAN),
+        accountIdByCode(db, "5-4000"),
+      ]);
+      const memo = `Penyesuaian stok ${product.sku}: ${currentQty} → ${input.physicalQty}${input.note ? ` (${input.note})` : ""}`;
+      const journal = await postJournal(db, {
+        entryDate: today,
+        memo,
+        createdBy: c.get("user").id,
+        lines:
+          delta < 0
+            ? [
+                { accountId: bebanLain, description: memo, debit: value, credit: 0 },
+                { accountId: persediaan, description: memo, debit: 0, credit: value },
+              ]
+            : [
+                { accountId: persediaan, description: memo, debit: value, credit: 0 },
+                { accountId: bebanLain, description: memo, debit: 0, credit: value },
+              ],
+      });
+      entryNo = journal.entryNo;
+    }
+
+    await audit(c.env, {
+      action: "inventory.adjusted",
+      userId: c.get("user").id,
+      tenantId: tenant.id,
+      detail: { sku: product.sku, from: currentQty, to: input.physicalQty, value, note: input.note },
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true, delta, value, entryNo }, 201);
   })
 
   // -------------------------------------------------------------------------

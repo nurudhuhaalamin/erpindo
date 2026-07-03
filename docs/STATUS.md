@@ -18,7 +18,8 @@
 | Fase 2a — PWA & cetak faktur | Aplikasi bisa di-install & offline; faktur bisa dicetak/PDF | ✅ Selesai |
 | Fase 2b-1 — Fondasi langganan & arus kas | Paket & batasnya, siklus trial otomatis, mode baca-saja saat menunggak, laporan arus kas | ✅ Selesai |
 | Fase 2c — Keamanan 2FA & landing page | Verifikasi dua langkah (authenticator) + halaman depan siap jualan | ✅ Selesai |
-| **Fase 2d — Impor CSV** | Impor produk & kontak dari Excel/CSV dengan laporan per baris | ✅ **Selesai** |
+| Fase 2d — Impor CSV | Impor produk & kontak dari Excel/CSV dengan laporan per baris | ✅ Selesai |
+| **Fase 2e — Opname & audit log** | Penyesuaian stok berjurnal otomatis + riwayat aktivitas untuk Owner | ✅ **Selesai** |
 | Fase 2b-2 — Pembayaran langganan | Checkout Midtrans/Xendit, aktivasi otomatis | ⏸ **Menunggu akun gateway dari Anda** |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
 | Fase 3+ | POS, HR & Payroll, dan modul lanjutan | Belum |
@@ -47,9 +48,11 @@
 20. **Siklus langganan otomatis** *(Fase 2b-1)*: paket dengan batas pengguna yang ditegakkan sistem; trial 14 hari dengan banner pengingat; saat trial habis akun otomatis menjadi baca-saja (data aman, tidak hilang) sampai langganan diaktifkan.
 21. **Verifikasi dua langkah (2FA)** *(baru — Fase 2c)*: aktifkan di Pengaturan → Keamanan; login lalu membutuhkan kode 6 digit dari aplikasi authenticator di HP Anda — standar keamanan yang sama dengan internet banking.
 22. **Halaman depan siap jualan** *(Fase 2c)*: hero, fitur unggulan, dan daftar harga paket.
-23. **Impor dari Excel/CSV** *(baru — Fase 2d)*: pindahkan daftar produk & kontak lama sekaligus — unduh template, isi, unggah; baris bermasalah dilaporkan satu per satu tanpa menggagalkan sisanya.
+23. **Impor dari Excel/CSV** *(Fase 2d)*: pindahkan daftar produk & kontak lama sekaligus — unduh template, isi, unggah; baris bermasalah dilaporkan satu per satu tanpa menggagalkan sisanya.
+24. **Stok opname** *(baru — Fase 2e)*: hitung fisik gudang, masukkan angkanya — sistem menyamakan stok dan otomatis membukukan nilai selisihnya (barang hilang/rusak menjadi beban).
+25. **Riwayat aktivitas** *(baru — Fase 2e)*: Owner bisa melihat 100 aktivitas terakhir — siapa melakukan apa dan kapan.
 
-Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (91 skenario ujian end-to-end + 20 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
+Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (99 skenario ujian end-to-end + 20 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
 
 ## Apakah sudah bisa diakses di internet?
 

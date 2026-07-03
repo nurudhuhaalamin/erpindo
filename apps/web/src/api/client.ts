@@ -1,6 +1,7 @@
 import type {
   ApiAccount,
   ApiAgingRow,
+  ApiAuditLog,
   ApiBalanceSheet,
   ApiCashFlow,
   ApiCommerceDoc,
@@ -144,6 +145,13 @@ export const api = {
     ),
   stock: (tenantId: string) =>
     request<{ levels: ApiStockLevel[]; totalValue: number }>("GET", `/api/tenants/${tenantId}/stock`),
+  adjustStock: (tenantId: string, input: { productId: string; warehouseId: string; physicalQty: number; note?: string }) =>
+    request<{ ok: true; delta: number; value: number; entryNo: string | null }>(
+      "POST",
+      `/api/tenants/${tenantId}/stock-adjustments`,
+      input,
+    ),
+  auditLogs: (tenantId: string) => request<{ logs: ApiAuditLog[] }>("GET", `/api/tenants/${tenantId}/audit-logs`),
 
   // --- Master data --------------------------------------------------------------
   listItems: <T = Record<string, unknown>>(tenantId: string, entity: "products" | "contacts" | "warehouses") =>

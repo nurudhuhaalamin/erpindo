@@ -292,7 +292,67 @@ export function SettingsPage() {
       <CompanySettingsCard tenantId={tenant.tenantId} readOnly={!isAdmin} />
       {isAdmin ? <MembersCard tenantId={tenant.tenantId} /> : null}
       {tenant.role === "owner" ? <CloseBooksCard tenantId={tenant.tenantId} /> : null}
+      {tenant.role === "owner" ? <AuditLogCard tenantId={tenant.tenantId} /> : null}
     </div>
+  );
+}
+
+const AUDIT_ACTION_LABELS: Record<string, string> = {
+  "auth.register": "Registrasi perusahaan",
+  "auth.login": "Login",
+  "auth.login_failed": "Login gagal",
+  "auth.email_verified": "Email diverifikasi",
+  "auth.password_reset": "Password direset",
+  "auth.totp_enabled": "2FA diaktifkan",
+  "auth.totp_disabled": "2FA dinonaktifkan",
+  "tenant.invite_sent": "Undangan dikirim",
+  "tenant.invite_accepted": "Undangan diterima",
+  "tenant.settings_updated": "Pengaturan diubah",
+  "accounting.account_created": "Akun COA dibuat",
+  "accounting.account_archived": "Akun COA diarsipkan",
+  "accounting.journal_posted": "Jurnal diposting",
+  "accounting.books_closed": "Tutup buku",
+  "sales.invoice_posted": "Faktur penjualan",
+  "purchase.posted": "Faktur pembelian",
+  "payment.recorded": "Pembayaran dicatat",
+  "inventory.adjusted": "Penyesuaian stok",
+  "billing.trial_expired": "Trial berakhir",
+};
+
+function AuditLogCard({ tenantId }: { tenantId: string }) {
+  const query = useQuery({ queryKey: ["audit-logs", tenantId], queryFn: () => api.auditLogs(tenantId) });
+
+  return (
+    <Card>
+      <CardHeader
+        title="Riwayat aktivitas (audit log)"
+        description="100 aktivitas terakhir di perusahaan ini — siapa melakukan apa dan kapan."
+      />
+      <CardBody>
+        {query.isLoading ? (
+          <Spinner />
+        ) : (
+          <div className="max-h-96 overflow-y-auto">
+            <table className="w-full text-sm">
+              <tbody>
+                {(query.data?.logs ?? []).map((log) => (
+                  <tr key={log.id} className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
+                    <td className="whitespace-nowrap py-2 pr-4 text-xs text-slate-500 dark:text-slate-400">
+                      {log.createdAt.slice(0, 16).replace("T", " ")}
+                    </td>
+                    <td className="py-2 pr-4">{AUDIT_ACTION_LABELS[log.action] ?? log.action}</td>
+                    <td className="py-2 pr-4 text-slate-500 dark:text-slate-400">{log.userName ?? "sistem"}</td>
+                    <td className="max-w-64 truncate py-2 font-mono text-xs text-slate-400" title={log.detail ?? ""}>
+                      {log.detail ?? ""}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardBody>
+    </Card>
   );
 }
 

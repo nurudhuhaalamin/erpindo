@@ -457,6 +457,23 @@ export type ApiAgingRow = {
   total: number;
 };
 
+export const stockAdjustmentSchema = z.object({
+  productId: z.string().min(1, "Produk wajib dipilih"),
+  warehouseId: z.string().min(1, "Gudang wajib dipilih"),
+  /** Jumlah fisik hasil hitung opname. */
+  physicalQty: z.number().int("Qty harus bilangan bulat").min(0).max(1_000_000_000),
+  note: z.string().trim().max(200).optional(),
+});
+export type StockAdjustmentInput = z.infer<typeof stockAdjustmentSchema>;
+
+export type ApiAuditLog = {
+  id: string;
+  action: string;
+  userName: string | null;
+  detail: string | null;
+  createdAt: string;
+};
+
 export const closeBooksSchema = z.object({
   /** Semua transaksi bertanggal ≤ tanggal ini dikunci. */
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid (YYYY-MM-DD)"),
