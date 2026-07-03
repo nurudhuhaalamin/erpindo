@@ -271,6 +271,87 @@ export type ApiTrialBalanceRow = {
   credit: number;
 };
 
+// ---------------------------------------------------------------------------
+// Penjualan & Pembelian (Fase 1b)
+// ---------------------------------------------------------------------------
+
+/** Tarif PPN yang didukung (persen bulat). 0 = tidak kena pajak. */
+export const TAX_RATES = [0, 11, 12] as const;
+
+const commerceAmountSchema = z.number().int().min(0).max(1_000_000_000_000);
+
+export const commerceLineSchema = z.object({
+  productId: z.string().min(1, "Produk wajib dipilih"),
+  description: z.string().trim().max(200).optional(),
+  qty: z.number().int("Qty harus bilangan bulat").min(1, "Qty minimal 1").max(1_000_000),
+  unitPrice: commerceAmountSchema,
+});
+
+export const createInvoiceSchema = z.object({
+  contactId: z.string().min(1, "Pelanggan wajib dipilih"),
+  invoiceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  taxRate: z
+    .number()
+    .int()
+    .refine((v): v is (typeof TAX_RATES)[number] => (TAX_RATES as readonly number[]).includes(v), "Tarif pajak tidak dikenal")
+    .default(0),
+  warehouseId: z.string().min(1, "Gudang wajib dipilih"),
+  lines: z.array(commerceLineSchema).min(1, "Minimal 1 baris barang"),
+});
+export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>;
+
+/** Skema pembelian identik dengan penjualan (pihak = pemasok). */
+export const createPurchaseSchema = createInvoiceSchema;
+export type CreatePurchaseInput = z.infer<typeof createPurchaseSchema>;
+
+export const createPaymentSchema = z.object({
+  refType: z.enum(["invoice", "purchase"]),
+  refId: z.string().min(1),
+  accountId: z.string().min(1, "Akun kas/bank wajib dipilih"),
+  amount: z.number().int().min(1, "Nominal minimal Rp 1"),
+  paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+});
+export type CreatePaymentInput = z.infer<typeof createPaymentSchema>;
+
+export type ApiCommerceLine = {
+  id: string;
+  productId: string;
+  productName: string;
+  description: string | null;
+  qty: number;
+  unitPrice: number;
+  amount: number;
+};
+
+export type ApiCommerceDoc = {
+  id: string;
+  docNo: string;
+  contactId: string;
+  contactName: string;
+  date: string;
+  dueDate: string | null;
+  status: "posted" | "paid";
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
+  total: number;
+  paidAmount: number;
+  lines: ApiCommerceLine[];
+};
+
+export type ApiStockLevel = {
+  productId: string;
+  sku: string;
+  productName: string;
+  unit: string;
+  warehouseId: string;
+  warehouseName: string;
+  qty: number;
+  avgCost: number;
+  value: number;
+};
+
 /** Ubah nama perusahaan menjadi slug subdomain yang aman. */
 export function toSlug(name: string): string {
   return (

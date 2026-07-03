@@ -9,6 +9,7 @@ import {
 } from "@erpindo/shared";
 import { Hono } from "hono";
 import type { AppEnv } from "../env";
+import { postJournal } from "../lib/accounting";
 import { audit } from "../lib/audit";
 import { getTenantDb } from "../lib/tenantDb";
 import { requireAuth, requireTenantRole } from "../middleware/auth";
@@ -193,29 +194,17 @@ export const accountingRoutes = new Hono<AppEnv>()
       return c.json({ error: "Ada akun yang tidak ditemukan atau sudah diarsipkan." }, 400);
     }
 
-    // Nomor jurnal berurutan per tenant: JRN-00001, JRN-00002, ...
-    const { results: countRows } = await db
-      .prepare(`SELECT COUNT(*) AS n FROM journal_entries`)
-      .all<{ n: number }>();
-    const entryNo = `JRN-${String((countRows[0]?.n ?? 0) + 1).padStart(5, "0")}`;
-
-    const entryId = crypto.randomUUID();
-    await db
-      .prepare(
-        `INSERT INTO journal_entries (id, entry_no, entry_date, memo, status, created_by)
-         VALUES (?, ?, ?, ?, 'posted', ?)`,
-      )
-      .bind(entryId, entryNo, input.entryDate, input.memo ?? null, c.get("user").id)
-      .run();
-    for (const line of input.lines) {
-      await db
-        .prepare(
-          `INSERT INTO journal_lines (id, entry_id, account_id, description, debit, credit)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-        )
-        .bind(crypto.randomUUID(), entryId, line.accountId, line.description ?? null, line.debit, line.credit)
-        .run();
-    }
+    const { id: entryId, entryNo } = await postJournal(db, {
+      entryDate: input.entryDate,
+      memo: input.memo,
+      createdBy: c.get("user").id,
+      lines: input.lines.map((l) => ({
+        accountId: l.accountId,
+        description: l.description,
+        debit: l.debit,
+        credit: l.credit,
+      })),
+    });
 
     await audit(c.env, {
       action: "accounting.journal_posted",
