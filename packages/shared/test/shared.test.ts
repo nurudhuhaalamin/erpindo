@@ -1,10 +1,84 @@
 import { describe, expect, it } from "vitest";
 import {
+  createJournalEntrySchema,
   loginSchema,
   registerSchema,
   ROLE_LEVEL,
   toSlug,
 } from "../src/index";
+
+describe("createJournalEntrySchema (double-entry)", () => {
+  const base = { entryDate: "2026-07-02", memo: "tes" };
+
+  it("menerima jurnal seimbang", () => {
+    const res = createJournalEntrySchema.safeParse({
+      ...base,
+      lines: [
+        { accountId: "a", debit: 100_000, credit: 0 },
+        { accountId: "b", debit: 0, credit: 100_000 },
+      ],
+    });
+    expect(res.success).toBe(true);
+  });
+
+  it("menolak jurnal tidak seimbang", () => {
+    const res = createJournalEntrySchema.safeParse({
+      ...base,
+      lines: [
+        { accountId: "a", debit: 100_000, credit: 0 },
+        { accountId: "b", debit: 0, credit: 90_000 },
+      ],
+    });
+    expect(res.success).toBe(false);
+  });
+
+  it("menolak baris debit dan kredit sekaligus", () => {
+    const res = createJournalEntrySchema.safeParse({
+      ...base,
+      lines: [
+        { accountId: "a", debit: 50_000, credit: 50_000 },
+        { accountId: "b", debit: 0, credit: 0 },
+      ],
+    });
+    expect(res.success).toBe(false);
+  });
+
+  it("menolak jurnal bernilai nol dan kurang dari 2 baris", () => {
+    expect(
+      createJournalEntrySchema.safeParse({
+        ...base,
+        lines: [
+          { accountId: "a", debit: 0, credit: 0 },
+          { accountId: "b", debit: 0, credit: 0 },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      createJournalEntrySchema.safeParse({ ...base, lines: [{ accountId: "a", debit: 1, credit: 0 }] }).success,
+    ).toBe(false);
+  });
+
+  it("menolak nominal desimal dan negatif", () => {
+    expect(
+      createJournalEntrySchema.safeParse({
+        ...base,
+        lines: [
+          { accountId: "a", debit: 100.5, credit: 0 },
+          { accountId: "b", debit: 0, credit: 100.5 },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      createJournalEntrySchema.safeParse({
+        ...base,
+        lines: [
+          { accountId: "a", debit: -5, credit: 0 },
+          { accountId: "b", debit: 0, credit: -5 },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+});
 
 describe("registerSchema", () => {
   it("menerima input valid dan menormalkan email", () => {

@@ -13,7 +13,8 @@ export type Env = {
   TENANT_DB_5?: D1Database;
 
   TENANT_DB_MODE: "local" | "cloudflare";
-  APP_URL: string;
+  /** Opsional: override URL publik aplikasi; default origin request. */
+  APP_URL?: string;
 
   // Secret opsional (produksi).
   RESEND_API_KEY?: string;

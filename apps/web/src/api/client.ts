@@ -1,4 +1,15 @@
-import type { ApiMember, MeResponse } from "@erpindo/shared";
+import type {
+  ApiAccount,
+  ApiJournalEntry,
+  ApiMember,
+  ApiTrialBalanceRow,
+  ContactInput,
+  CreateAccountInput,
+  CreateJournalEntryInput,
+  MeResponse,
+  ProductInput,
+  WarehouseInput,
+} from "@erpindo/shared";
 
 export class ApiRequestError extends Error {
   constructor(
@@ -47,4 +58,51 @@ export const api = {
     request<{ settings: Record<string, string> }>("GET", `/api/tenants/${tenantId}/settings`),
   updateSettings: (tenantId: string, input: { displayName?: string; address?: string; npwp?: string }) =>
     request<{ ok: true }>("PATCH", `/api/tenants/${tenantId}/settings`, input),
+
+  // --- Keuangan --------------------------------------------------------------
+  accounts: (tenantId: string) => request<{ accounts: ApiAccount[] }>("GET", `/api/tenants/${tenantId}/accounts`),
+  createAccount: (tenantId: string, input: CreateAccountInput) =>
+    request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/accounts`, input),
+  archiveAccount: (tenantId: string, accountId: string) =>
+    request<{ ok: true }>("POST", `/api/tenants/${tenantId}/accounts/${accountId}/archive`),
+  journalEntries: (tenantId: string) =>
+    request<{ entries: ApiJournalEntry[] }>("GET", `/api/tenants/${tenantId}/journal-entries`),
+  createJournalEntry: (tenantId: string, input: CreateJournalEntryInput) =>
+    request<{ ok: true; id: string; entryNo: string }>("POST", `/api/tenants/${tenantId}/journal-entries`, input),
+  ledger: (tenantId: string, accountId: string) =>
+    request<{
+      account: ApiAccount;
+      entries: {
+        entryNo: string;
+        entryDate: string;
+        description: string | null;
+        debit: number;
+        credit: number;
+        balance: number;
+      }[];
+      balance: number;
+    }>("GET", `/api/tenants/${tenantId}/ledger/${accountId}`),
+  trialBalance: (tenantId: string) =>
+    request<{ rows: ApiTrialBalanceRow[]; totalDebit: number; totalCredit: number; balanced: boolean }>(
+      "GET",
+      `/api/tenants/${tenantId}/trial-balance`,
+    ),
+
+  // --- Master data --------------------------------------------------------------
+  listItems: <T = Record<string, unknown>>(tenantId: string, entity: "products" | "contacts" | "warehouses") =>
+    request<{ items: T[] }>("GET", `/api/tenants/${tenantId}/${entity}`),
+  createItem: (
+    tenantId: string,
+    entity: "products" | "contacts" | "warehouses",
+    input: ProductInput | ContactInput | WarehouseInput,
+  ) => request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/${entity}`, input),
+  archiveItem: (tenantId: string, entity: "products" | "contacts" | "warehouses", id: string) =>
+    request<{ ok: true }>("POST", `/api/tenants/${tenantId}/${entity}/${id}/archive`),
 };
+
+/** Format rupiah tanpa desimal: 1500000 → "Rp 1.500.000" */
+export function formatIDR(value: number): string {
+  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(
+    value,
+  );
+}

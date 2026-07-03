@@ -25,7 +25,7 @@ import {
 type Workspace = { me: MeResponse; tenant: ApiMembership };
 const WorkspaceContext = createContext<Workspace | null>(null);
 
-function useWorkspace(): Workspace {
+export function useWorkspace(): Workspace {
   const ws = useContext(WorkspaceContext);
   if (!ws) throw new Error("WorkspaceContext belum tersedia");
   return ws;
@@ -35,10 +35,17 @@ function useWorkspace(): Workspace {
 // Shell aplikasi: sidebar (desktop) / menu atas (mobile)
 // ---------------------------------------------------------------------------
 
-const NAV_ITEMS = [
+const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string }[] = [
   { to: "/app", label: "Dashboard", exact: true },
-  { to: "/app/pengaturan", label: "Pengaturan", exact: false },
-] as const;
+  { to: "/app/keuangan/akun", label: "Bagan Akun", exact: false, section: "Keuangan" },
+  { to: "/app/keuangan/jurnal", label: "Jurnal Umum", exact: false, section: "Keuangan" },
+  { to: "/app/keuangan/buku-besar", label: "Buku Besar", exact: false, section: "Keuangan" },
+  { to: "/app/keuangan/neraca-saldo", label: "Neraca Saldo", exact: false, section: "Keuangan" },
+  { to: "/app/master/produk", label: "Produk", exact: false, section: "Master Data" },
+  { to: "/app/master/kontak", label: "Kontak", exact: false, section: "Master Data" },
+  { to: "/app/master/gudang", label: "Gudang", exact: false, section: "Master Data" },
+  { to: "/app/pengaturan", label: "Pengaturan", exact: false, section: "Lainnya" },
+];
 
 export function AppShell() {
   const navigate = useNavigate();
@@ -83,18 +90,28 @@ export function AppShell() {
 
   const nav = (
     <nav className="flex flex-col gap-1 p-3">
-      {NAV_ITEMS.map((item) => (
-        <Link
-          key={item.to}
-          to={item.to}
-          activeOptions={{ exact: item.exact }}
-          activeProps={{ className: "bg-brand-50 font-medium text-brand-800 dark:bg-brand-900/40 dark:text-brand-200" }}
-          inactiveProps={{ className: "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" }}
-          className="rounded-lg px-3 py-2 text-sm"
-          onClick={() => setMenuOpen(false)}
-        >
-          {item.label}
-        </Link>
+      {NAV_ITEMS.map((item, i) => (
+        <div key={item.to}>
+          {item.section && NAV_ITEMS[i - 1]?.section !== item.section ? (
+            <div className="mb-1 mt-3 px-3 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+              {item.section}
+            </div>
+          ) : null}
+          <Link
+            to={item.to}
+            activeOptions={{ exact: item.exact }}
+            activeProps={{
+              className: "bg-brand-50 font-medium text-brand-800 dark:bg-brand-900/40 dark:text-brand-200",
+            }}
+            inactiveProps={{
+              className: "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
+            }}
+            className="block rounded-lg px-3 py-2 text-sm"
+            onClick={() => setMenuOpen(false)}
+          >
+            {item.label}
+          </Link>
+        </div>
       ))}
     </nav>
   );

@@ -38,6 +38,11 @@ function clientIp(c: { req: { header(name: string): string | undefined } }): str
   return c.req.header("cf-connecting-ip") ?? c.req.header("x-forwarded-for") ?? "unknown";
 }
 
+/** URL publik aplikasi: var APP_URL bila diset, selain itu origin request. */
+function appOrigin(c: { env: Env; req: { url: string } }): string {
+  return c.env.APP_URL ?? new URL(c.req.url).origin;
+}
+
 async function createSession(env: Env, userId: string): Promise<string> {
   const raw = generateToken();
   await env.DB.prepare(`INSERT INTO sessions (id, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`)
@@ -159,7 +164,7 @@ export const authRoutes = new Hono<AppEnv>()
     await getMailer(c.env).send({
       to: email,
       subject: "Verifikasi email erpindo Anda",
-      text: `Halo ${name},\n\nSelamat datang di erpindo! Klik tautan berikut untuk memverifikasi email Anda:\n${c.env.APP_URL}/verifikasi?token=${verifyToken}\n\nTautan berlaku ${TOKEN_HOURS} jam.`,
+      text: `Halo ${name},\n\nSelamat datang di erpindo! Klik tautan berikut untuk memverifikasi email Anda:\n${appOrigin(c)}/verifikasi?token=${verifyToken}\n\nTautan berlaku ${TOKEN_HOURS} jam.`,
     });
 
     await audit(c.env, {
@@ -171,7 +176,7 @@ export const authRoutes = new Hono<AppEnv>()
     });
 
     const session = await createSession(c.env, userId);
-    setSessionCookie(c, session, c.env.APP_URL);
+    setSessionCookie(c, session, appOrigin(c));
     return c.json({ ok: true, tenantId, slug }, 201);
   })
 
@@ -196,7 +201,7 @@ export const authRoutes = new Hono<AppEnv>()
     }
 
     const session = await createSession(c.env, user.id);
-    setSessionCookie(c, session, c.env.APP_URL);
+    setSessionCookie(c, session, appOrigin(c));
     await audit(c.env, { action: "auth.login", userId: user.id, ip: clientIp(c) });
     return c.json({ ok: true });
   })
@@ -259,7 +264,7 @@ export const authRoutes = new Hono<AppEnv>()
       await getMailer(c.env).send({
         to: parsed.data.email,
         subject: "Reset password erpindo",
-        text: `Halo ${user.name},\n\nKlik tautan berikut untuk mengatur ulang password Anda:\n${c.env.APP_URL}/reset-password?token=${token}\n\nAbaikan email ini bila Anda tidak meminta reset.`,
+        text: `Halo ${user.name},\n\nKlik tautan berikut untuk mengatur ulang password Anda:\n${appOrigin(c)}/reset-password?token=${token}\n\nAbaikan email ini bila Anda tidak meminta reset.`,
       });
     }
     return c.json({ ok: true });
@@ -286,4 +291,4 @@ export const authRoutes = new Hono<AppEnv>()
     return c.json({ ok: true });
   });
 
-export { createEmailToken, consumeToken, clientIp };
+export { createEmailToken, consumeToken, clientIp, appOrigin };

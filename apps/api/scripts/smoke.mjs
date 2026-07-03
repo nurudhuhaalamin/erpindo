@@ -31,7 +31,18 @@ function check(name, cond, extra = "") {
 const logs = [];
 const child = spawn(
   "pnpm",
-  ["exec", "wrangler", "dev", "--port", String(PORT), "--persist-to", persistDir, "--show-interactive-dev-session=false"],
+  [
+    "exec",
+    "wrangler",
+    "dev",
+    "-c",
+    "../../wrangler.jsonc",
+    "--port",
+    String(PORT),
+    "--persist-to",
+    persistDir,
+    "--show-interactive-dev-session=false",
+  ],
   { cwd: apiDir, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, CI: "1" } },
 );
 child.stdout.on("data", (d) => logs.push(d.toString()));
@@ -190,8 +201,127 @@ try {
   const crossTenant = await outsider("GET", `/api/tenants/${tenantId}/settings`);
   check("NON-anggota DITOLAK akses tenant lain (403) — isolasi tenant", crossTenant.status === 403);
 
+  // --- Modul Keuangan & Master Data (Fase 1a) ---------------------------------
+  console.log("6. Bagan Akun (COA)");
+  const accountsRes = await owner("GET", `/api/tenants/${tenantId}/accounts`);
+  const accounts = accountsRes.json?.accounts ?? [];
+  check("COA template Indonesia tersemai (18 akun)", accountsRes.status === 200 && accounts.length === 18);
+  const kas = accounts.find((a) => a.code === "1-1000");
+  const modal = accounts.find((a) => a.code === "3-1000");
+  const penjualan = accounts.find((a) => a.code === "4-1000");
+  check("akun Kas/Modal/Pendapatan ada", Boolean(kas && modal && penjualan));
+
+  const newAcc = await owner("POST", `/api/tenants/${tenantId}/accounts`, {
+    code: "1-1600",
+    name: "Piutang Karyawan",
+    type: "asset",
+  });
+  check("tambah akun kustom 201", newAcc.status === 201);
+  const dupAcc = await owner("POST", `/api/tenants/${tenantId}/accounts`, {
+    code: "1-1600",
+    name: "Duplikat",
+    type: "asset",
+  });
+  check("kode akun ganda ditolak 409", dupAcc.status === 409);
+
+  console.log("7. Jurnal double-entry");
+  const goodJournal = await owner("POST", `/api/tenants/${tenantId}/journal-entries`, {
+    entryDate: "2026-07-02",
+    memo: "Setoran modal awal",
+    lines: [
+      { accountId: kas.id, description: "Setoran tunai", debit: 50_000_000, credit: 0 },
+      { accountId: modal.id, debit: 0, credit: 50_000_000 },
+    ],
+  });
+  check("jurnal seimbang diposting 201", goodJournal.status === 201, `→ ${JSON.stringify(goodJournal.json)}`);
+  check("nomor jurnal berurutan JRN-00001", goodJournal.json?.entryNo === "JRN-00001");
+
+  const badJournal = await owner("POST", `/api/tenants/${tenantId}/journal-entries`, {
+    entryDate: "2026-07-02",
+    lines: [
+      { accountId: kas.id, debit: 10_000, credit: 0 },
+      { accountId: modal.id, debit: 0, credit: 9_000 },
+    ],
+  });
+  check("jurnal TIDAK seimbang DITOLAK 400", badJournal.status === 400);
+
+  await owner("POST", `/api/tenants/${tenantId}/journal-entries`, {
+    entryDate: "2026-07-03",
+    memo: "Penjualan tunai",
+    lines: [
+      { accountId: kas.id, debit: 2_500_000, credit: 0 },
+      { accountId: penjualan.id, debit: 0, credit: 2_500_000 },
+    ],
+  });
+
+  const ledger = await owner("GET", `/api/tenants/${tenantId}/ledger/${kas.id}`);
+  check(
+    "buku besar Kas: 2 mutasi, saldo 52.500.000",
+    ledger.status === 200 && ledger.json?.entries?.length === 2 && ledger.json?.balance === 52_500_000,
+    `→ ${JSON.stringify(ledger.json?.balance)}`,
+  );
+
+  const tb = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check(
+    "neraca saldo SEIMBANG (debit = kredit = 52.500.000)",
+    tb.status === 200 && tb.json?.balanced === true && tb.json?.totalDebit === 52_500_000,
+    `→ ${JSON.stringify(tb.json)}`,
+  );
+
+  const viewerJournal = await viewer("POST", `/api/tenants/${tenantId}/journal-entries`, {
+    entryDate: "2026-07-02",
+    lines: [
+      { accountId: kas.id, debit: 1000, credit: 0 },
+      { accountId: modal.id, debit: 0, credit: 1000 },
+    ],
+  });
+  check("viewer DITOLAK memposting jurnal (403)", viewerJournal.status === 403);
+  const viewerTb = await viewer("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("viewer boleh melihat neraca saldo", viewerTb.status === 200);
+
+  console.log("8. Master data");
+  const product = await owner("POST", `/api/tenants/${tenantId}/products`, {
+    sku: "BRG-001",
+    name: "Kopi Arabika 1kg",
+    unit: "pcs",
+    sellPrice: 150_000,
+    buyPrice: 100_000,
+  });
+  check("tambah produk 201", product.status === 201);
+  const dupProduct = await owner("POST", `/api/tenants/${tenantId}/products`, {
+    sku: "BRG-001",
+    name: "Duplikat",
+    unit: "pcs",
+    sellPrice: 0,
+    buyPrice: 0,
+  });
+  check("SKU ganda ditolak 409", dupProduct.status === 409);
+
+  const contact = await owner("POST", `/api/tenants/${tenantId}/contacts`, {
+    type: "customer",
+    name: "PT Pelanggan Setia",
+    email: "info@pelanggansetia.co.id",
+  });
+  check("tambah kontak 201", contact.status === 201);
+
+  const warehouses = await owner("GET", `/api/tenants/${tenantId}/warehouses`);
+  check(
+    "Gudang Utama otomatis tersedia",
+    warehouses.status === 200 && warehouses.json?.items?.some((w) => w.code === "UTAMA"),
+  );
+
+  const products = await owner("GET", `/api/tenants/${tenantId}/products`);
+  check("daftar produk berisi 1 item", products.json?.items?.length === 1);
+  const archiveProduct = await owner("POST", `/api/tenants/${tenantId}/products/${product.json.id}/archive`);
+  const productsAfter = await owner("GET", `/api/tenants/${tenantId}/products`);
+  check("arsip produk menyembunyikan dari daftar", archiveProduct.status === 200 && productsAfter.json?.items?.length === 0);
+
+  // Isolasi tenant untuk data akuntansi: tenant lain tidak melihat jurnal ini.
+  const outsiderTb = await outsider("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("non-anggota DITOLAK membaca neraca saldo tenant lain (403)", outsiderTb.status === 403);
+
   // --- Logout -----------------------------------------------------------------
-  console.log("6. Logout");
+  console.log("9. Logout");
   const out = await owner("POST", "/api/auth/logout");
   check("logout 200", out.status === 200);
   const afterLogout = await owner("GET", "/api/auth/me");

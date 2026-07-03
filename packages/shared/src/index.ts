@@ -118,6 +118,159 @@ export type ApiMember = {
 
 export type ApiError = { error: string; issues?: Record<string, string[]> };
 
+// ---------------------------------------------------------------------------
+// Modul Keuangan & Master Data (Fase 1)
+// ---------------------------------------------------------------------------
+
+export const ACCOUNT_TYPES = ["asset", "liability", "equity", "income", "expense"] as const;
+export type AccountType = (typeof ACCOUNT_TYPES)[number];
+
+export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
+  asset: "Aset",
+  liability: "Kewajiban",
+  equity: "Ekuitas",
+  income: "Pendapatan",
+  expense: "Beban",
+};
+
+/** Saldo normal debit? (aset & beban bertambah di sisi debit) */
+export const DEBIT_NORMAL: Record<AccountType, boolean> = {
+  asset: true,
+  expense: true,
+  liability: false,
+  equity: false,
+  income: false,
+};
+
+export const createAccountSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .min(1, "Kode wajib diisi")
+    .max(20)
+    .regex(/^[0-9][0-9-]*$/, "Kode akun berupa angka dan tanda hubung, mis. 1-1600"),
+  name: z.string().trim().min(2, "Nama akun minimal 2 karakter").max(100),
+  type: z.enum(ACCOUNT_TYPES),
+});
+export type CreateAccountInput = z.infer<typeof createAccountSchema>;
+
+/** Nominal rupiah bulat non-negatif (IDR tanpa sen), maksimal 1 triliun. */
+const amountSchema = z.number().int("Nominal harus bilangan bulat").min(0).max(1_000_000_000_000);
+
+export const journalLineSchema = z.object({
+  accountId: z.string().min(1, "Akun wajib dipilih"),
+  description: z.string().trim().max(200).optional(),
+  debit: amountSchema.default(0),
+  credit: amountSchema.default(0),
+});
+
+export const createJournalEntrySchema = z
+  .object({
+    entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid (YYYY-MM-DD)"),
+    memo: z.string().trim().max(500).optional(),
+    lines: z.array(journalLineSchema).min(2, "Jurnal minimal 2 baris"),
+  })
+  .superRefine((val, ctx) => {
+    let debit = 0;
+    let credit = 0;
+    for (const [i, line] of val.lines.entries()) {
+      if (line.debit === 0 && line.credit === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["lines", i],
+          message: "Baris harus punya nilai debit atau kredit",
+        });
+      }
+      if (line.debit > 0 && line.credit > 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["lines", i],
+          message: "Satu baris tidak boleh debit dan kredit sekaligus",
+        });
+      }
+      debit += line.debit;
+      credit += line.credit;
+    }
+    if (debit !== credit) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["lines"],
+        message: `Jurnal tidak seimbang: total debit ${debit} ≠ total kredit ${credit}`,
+      });
+    }
+    if (debit === 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["lines"], message: "Total jurnal tidak boleh nol" });
+    }
+  });
+export type CreateJournalEntryInput = z.infer<typeof createJournalEntrySchema>;
+
+export const CONTACT_TYPES = ["customer", "supplier", "both"] as const;
+export type ContactType = (typeof CONTACT_TYPES)[number];
+
+export const contactSchema = z.object({
+  type: z.enum(CONTACT_TYPES),
+  name: z.string().trim().min(2, "Nama minimal 2 karakter").max(150),
+  email: z.union([emailSchema, z.literal("")]).optional(),
+  phone: z.string().trim().max(30).optional(),
+  address: z.string().trim().max(500).optional(),
+  npwp: z.string().trim().max(30).optional(),
+});
+export type ContactInput = z.infer<typeof contactSchema>;
+
+export const productSchema = z.object({
+  sku: z.string().trim().min(1, "SKU wajib diisi").max(50),
+  name: z.string().trim().min(2, "Nama minimal 2 karakter").max(150),
+  unit: z.string().trim().min(1).max(20).default("pcs"),
+  sellPrice: amountSchema.default(0),
+  buyPrice: amountSchema.default(0),
+});
+export type ProductInput = z.infer<typeof productSchema>;
+
+export const warehouseSchema = z.object({
+  code: z.string().trim().min(1, "Kode wajib diisi").max(20).toUpperCase(),
+  name: z.string().trim().min(2, "Nama minimal 2 karakter").max(100),
+  address: z.string().trim().max(500).optional(),
+});
+export type WarehouseInput = z.infer<typeof warehouseSchema>;
+
+// Bentuk respons API modul (kontrak frontend)
+export type ApiAccount = {
+  id: string;
+  code: string;
+  name: string;
+  type: AccountType;
+  isSystem: boolean;
+  isArchived: boolean;
+};
+
+export type ApiJournalLine = {
+  id: string;
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  description: string | null;
+  debit: number;
+  credit: number;
+};
+
+export type ApiJournalEntry = {
+  id: string;
+  entryNo: string;
+  entryDate: string;
+  memo: string | null;
+  status: "posted" | "void";
+  lines: ApiJournalLine[];
+};
+
+export type ApiTrialBalanceRow = {
+  accountId: string;
+  code: string;
+  name: string;
+  type: AccountType;
+  debit: number;
+  credit: number;
+};
+
 /** Ubah nama perusahaan menjadi slug subdomain yang aman. */
 export function toSlug(name: string): string {
   return (

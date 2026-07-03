@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "wrangler dev -c ../../wrangler.jsonc",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "build": "true",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy -c ../../wrangler.jsonc"
   },
   "dependencies": {
     "@erpindo/db": "workspace:*",

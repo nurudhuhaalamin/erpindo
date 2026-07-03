@@ -10,6 +10,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ToastProvider } from "./components/ui";
 import { AppShell, DashboardPage, SettingsPage } from "./pages/app";
+import { AccountsPage, JournalPage, LedgerPage, TrialBalancePage } from "./pages/finance";
+import { ContactsPage, ProductsPage, WarehousesPage } from "./pages/masterdata";
 import {
   ForgotPasswordPage,
   InvitePage,
@@ -34,10 +36,19 @@ const routes = [
 ];
 
 const appRoute = createRoute({ getParentRoute: () => rootRoute, path: "/app", component: AppShell });
-const appIndexRoute = createRoute({ getParentRoute: () => appRoute, path: "/", component: DashboardPage });
-const appSettingsRoute = createRoute({ getParentRoute: () => appRoute, path: "/pengaturan", component: SettingsPage });
+const appChildren = [
+  createRoute({ getParentRoute: () => appRoute, path: "/", component: DashboardPage }),
+  createRoute({ getParentRoute: () => appRoute, path: "/pengaturan", component: SettingsPage }),
+  createRoute({ getParentRoute: () => appRoute, path: "/keuangan/akun", component: AccountsPage }),
+  createRoute({ getParentRoute: () => appRoute, path: "/keuangan/jurnal", component: JournalPage }),
+  createRoute({ getParentRoute: () => appRoute, path: "/keuangan/buku-besar", component: LedgerPage }),
+  createRoute({ getParentRoute: () => appRoute, path: "/keuangan/neraca-saldo", component: TrialBalancePage }),
+  createRoute({ getParentRoute: () => appRoute, path: "/master/produk", component: ProductsPage }),
+  createRoute({ getParentRoute: () => appRoute, path: "/master/kontak", component: ContactsPage }),
+  createRoute({ getParentRoute: () => appRoute, path: "/master/gudang", component: WarehousesPage }),
+];
 
-const routeTree = rootRoute.addChildren([...routes, appRoute.addChildren([appIndexRoute, appSettingsRoute])]);
+const routeTree = rootRoute.addChildren([...routes, appRoute.addChildren(appChildren)]);
 
 const router = createRouter({ routeTree });
 

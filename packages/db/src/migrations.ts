@@ -81,6 +81,32 @@ export const CONTROL_PLANE_MIGRATIONS: Migration[] = [
  * Tabel-tabel modul bisnis (COA, jurnal, produk, dst.) ditambahkan sebagai
  * migrasi baru pada Fase 1.
  */
+/**
+ * Template Bagan Akun (COA) standar UMKM Indonesia. Disemai lewat migrasi
+ * sehingga tenant baru maupun lama mendapatkannya. Akun sistem (is_system=1)
+ * tidak dapat diarsipkan dan menjadi sasaran jurnal otomatis modul lain.
+ */
+const COA_SEED: [code: string, name: string, type: string][] = [
+  ["1-1000", "Kas", "asset"],
+  ["1-1100", "Bank", "asset"],
+  ["1-1200", "Piutang Usaha", "asset"],
+  ["1-1300", "Persediaan Barang", "asset"],
+  ["1-1400", "PPN Masukan", "asset"],
+  ["1-1500", "Aset Tetap", "asset"],
+  ["1-1510", "Akumulasi Penyusutan", "asset"],
+  ["2-1000", "Hutang Usaha", "liability"],
+  ["2-1100", "PPN Keluaran", "liability"],
+  ["2-1200", "Hutang Gaji", "liability"],
+  ["3-1000", "Modal Pemilik", "equity"],
+  ["3-2000", "Laba Ditahan", "equity"],
+  ["4-1000", "Pendapatan Penjualan", "income"],
+  ["4-2000", "Pendapatan Lain-lain", "income"],
+  ["5-1000", "Harga Pokok Penjualan", "expense"],
+  ["5-2000", "Beban Gaji", "expense"],
+  ["5-3000", "Beban Sewa", "expense"],
+  ["5-4000", "Beban Operasional Lain", "expense"],
+];
+
 export const TENANT_MIGRATIONS: Migration[] = [
   {
     id: "0001_init",
@@ -90,6 +116,79 @@ export const TENANT_MIGRATIONS: Migration[] = [
         value TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )`,
+    ],
+  },
+  {
+    id: "0002_accounting_masterdata",
+    statements: [
+      // --- Bagan Akun -----------------------------------------------------
+      `CREATE TABLE accounts (
+        id TEXT PRIMARY KEY,
+        code TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL CHECK (type IN ('asset','liability','equity','income','expense')),
+        is_system INTEGER NOT NULL DEFAULT 0,
+        is_archived INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      // --- Jurnal double-entry ---------------------------------------------
+      // Nominal disimpan sebagai INTEGER rupiah (IDR tidak memakai sen).
+      `CREATE TABLE journal_entries (
+        id TEXT PRIMARY KEY,
+        entry_no TEXT NOT NULL UNIQUE,
+        entry_date TEXT NOT NULL,
+        memo TEXT,
+        status TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted','void')),
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE TABLE journal_lines (
+        id TEXT PRIMARY KEY,
+        entry_id TEXT NOT NULL REFERENCES journal_entries(id),
+        account_id TEXT NOT NULL REFERENCES accounts(id),
+        description TEXT,
+        debit INTEGER NOT NULL DEFAULT 0 CHECK (debit >= 0),
+        credit INTEGER NOT NULL DEFAULT 0 CHECK (credit >= 0),
+        CHECK (NOT (debit > 0 AND credit > 0))
+      )`,
+      `CREATE INDEX journal_lines_entry ON journal_lines (entry_id)`,
+      `CREATE INDEX journal_lines_account ON journal_lines (account_id)`,
+      // --- Master data ------------------------------------------------------
+      `CREATE TABLE contacts (
+        id TEXT PRIMARY KEY,
+        type TEXT NOT NULL CHECK (type IN ('customer','supplier','both')),
+        name TEXT NOT NULL,
+        email TEXT,
+        phone TEXT,
+        address TEXT,
+        npwp TEXT,
+        is_archived INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE TABLE products (
+        id TEXT PRIMARY KEY,
+        sku TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        unit TEXT NOT NULL DEFAULT 'pcs',
+        sell_price INTEGER NOT NULL DEFAULT 0,
+        buy_price INTEGER NOT NULL DEFAULT 0,
+        is_archived INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE TABLE warehouses (
+        id TEXT PRIMARY KEY,
+        code TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        address TEXT,
+        is_archived INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      // --- Seed COA + gudang utama -----------------------------------------
+      ...COA_SEED.map(
+        ([code, name, type]) =>
+          `INSERT INTO accounts (id, code, name, type, is_system) VALUES ('acc-${code}', '${code}', '${name}', '${type}', 1)`,
+      ),
+      `INSERT INTO warehouses (id, code, name) VALUES ('wh-utama', 'UTAMA', 'Gudang Utama')`,
     ],
   },
 ];
