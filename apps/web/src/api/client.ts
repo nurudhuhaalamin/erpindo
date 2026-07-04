@@ -3,6 +3,8 @@ import type {
   ApiAgingRow,
   ApiAuditLog,
   ApiBudgetReport,
+  ApiEmployee,
+  ApiPayrollRun,
   ApiPosShift,
   ApiBalanceSheet,
   ApiCashFlow,
@@ -137,6 +139,31 @@ export const api = {
     request<ApiBudgetReport>("GET", `/api/tenants/${tenantId}/budgets/${period}`),
   setBudget: (tenantId: string, input: { accountId: string; period: string; amount: number }) =>
     request<{ ok: true }>("PUT", `/api/tenants/${tenantId}/budgets`, input),
+
+  // --- HR & Payroll --------------------------------------------------------------
+  employees: (tenantId: string) => request<{ employees: ApiEmployee[] }>("GET", `/api/tenants/${tenantId}/employees`),
+  createEmployee: (
+    tenantId: string,
+    input: {
+      name: string;
+      position?: string;
+      ptkpStatus: string;
+      baseSalary: number;
+      allowances: number;
+      bankAccount?: string;
+      joinDate?: string;
+    },
+  ) => request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/employees`, input),
+  updateEmployee: (tenantId: string, id: string, input: Record<string, unknown>) =>
+    request<{ ok: true }>("PATCH", `/api/tenants/${tenantId}/employees/${id}`, input),
+  payrollRuns: (tenantId: string) =>
+    request<{ runs: ApiPayrollRun[] }>("GET", `/api/tenants/${tenantId}/payroll-runs`),
+  runPayroll: (tenantId: string, input: { period: string; cashAccountId: string; paymentDate: string }) =>
+    request<{ ok: true; runNo: string; totalGross: number; totalNet: number; employees: number }>(
+      "POST",
+      `/api/tenants/${tenantId}/payroll-runs`,
+      input,
+    ),
 
   // --- Penjualan & Pembelian -----------------------------------------------------
   invoices: (tenantId: string) => request<{ docs: ApiCommerceDoc[] }>("GET", `/api/tenants/${tenantId}/invoices`),

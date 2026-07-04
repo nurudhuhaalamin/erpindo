@@ -27,6 +27,7 @@ import {
   Store,
   Sun,
   Target,
+  UsersRound,
   Users,
   Wallet,
   Warehouse,
@@ -87,6 +88,7 @@ const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; 
   { to: "/app/master/produk", label: "Produk", exact: false, section: "Master Data", icon: Package },
   { to: "/app/master/kontak", label: "Kontak", exact: false, section: "Master Data", icon: Contact },
   { to: "/app/master/gudang", label: "Gudang", exact: false, section: "Master Data", icon: Warehouse },
+  { to: "/app/hr/penggajian", label: "Penggajian", exact: false, section: "HR", icon: UsersRound },
   { to: "/app/persetujuan", label: "Persetujuan", exact: false, section: "Lainnya", icon: CheckSquare },
   { to: "/app/pengaturan", label: "Pengaturan", exact: false, section: "Lainnya", icon: Settings },
 ];

@@ -1252,6 +1252,63 @@ try {
   const badPeriod = await owner("GET", `/api/tenants/${tenantId}/budgets/2026-7`);
   check("periode salah format DITOLAK 400", badPeriod.status === 400);
 
+  // --- HR & Payroll (Fase 2o) -----------------------------------------------------
+  // Digaji di Agustus (setelah tanggal kunci 2026-07-10 & di luar jendela arus kas Juli).
+  console.log("11i. HR & Payroll (PPh 21 TER + BPJS)");
+
+  const empA = await owner("POST", `/api/tenants/${tenantId}/employees`, {
+    name: "Andi Karyawan",
+    position: "Staf",
+    ptkpStatus: "TK/0",
+    baseSalary: 5_000_000,
+    allowances: 0,
+  });
+  check("tambah karyawan 201", empA.status === 201);
+  await owner("POST", `/api/tenants/${tenantId}/employees`, {
+    name: "Bunga Manajer",
+    position: "Manajer",
+    ptkpStatus: "TK/0",
+    baseSalary: 10_000_000,
+    allowances: 0,
+  });
+
+  const viewerEmp = await viewer("POST", `/api/tenants/${tenantId}/employees`, { name: "X", ptkpStatus: "TK/0", baseSalary: 1 });
+  check("viewer DITOLAK menambah karyawan (403)", viewerEmp.status === 403);
+
+  const emps = await owner("GET", `/api/tenants/${tenantId}/employees`);
+  check("daftar karyawan berisi 2 aktif", emps.status === 200 && emps.json?.employees?.length === 2);
+
+  // Jalankan penggajian Agustus.
+  const runRes = await owner("POST", `/api/tenants/${tenantId}/payroll-runs`, {
+    period: "2026-08",
+    cashAccountId: kas.id,
+    paymentDate: "2026-08-15",
+  });
+  check(
+    "jalankan penggajian 201 (bruto 15jt, netto 14,2jt, 2 karyawan)",
+    runRes.status === 201 && runRes.json?.totalGross === 15_000_000 && runRes.json?.totalNet === 14_200_000 && runRes.json?.employees === 2,
+    `→ ${JSON.stringify(runRes.json)}`,
+  );
+
+  const runs = await owner("GET", `/api/tenants/${tenantId}/payroll-runs`);
+  const run1 = runs.json?.runs?.[0];
+  const slipB = run1?.payslips?.find((p) => p.employeeName === "Bunga Manajer");
+  check("slip manajer: PPh21 200rb (TER A 2%), potongan 600rb, netto 9,4jt", slipB?.pph21 === 200_000 && slipB?.totalDeductions === 600_000 && slipB?.net === 9_400_000, `→ ${JSON.stringify(slipB)}`);
+  const slipA = run1?.payslips?.find((p) => p.employeeName === "Andi Karyawan");
+  check("slip staf (bruto 5jt < ambang): PPh21 0, BPJS 200rb, netto 4,8jt", slipA?.pph21 === 0 && slipA?.net === 4_800_000);
+
+  const dupRun = await owner("POST", `/api/tenants/${tenantId}/payroll-runs`, { period: "2026-08", cashAccountId: kas.id, paymentDate: "2026-08-15" });
+  check("penggajian ganda periode sama DITOLAK 409", dupRun.status === 409);
+
+  const viewerRun = await viewer("POST", `/api/tenants/${tenantId}/payroll-runs`, { period: "2026-09", cashAccountId: kas.id, paymentDate: "2026-09-15" });
+  check("viewer DITOLAK menjalankan penggajian (403)", viewerRun.status === 403);
+
+  const badAccRun = await owner("POST", `/api/tenants/${tenantId}/payroll-runs`, { period: "2026-09", cashAccountId: modal.id, paymentDate: "2026-09-15" });
+  check("penggajian dengan akun non-kas DITOLAK 400", badAccRun.status === 400);
+
+  const tbAfterPayroll = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah penggajian", tbAfterPayroll.json?.balanced === true);
+
   // --- Arus kas (Fase 2b-1) -------------------------------------------------------
   console.log("12. Arus kas");
   // Konteks: modal 50jt (2/7) + penjualan tunai 2,5jt (3/7) + terima pembayaran 499,5rb (5/7)
