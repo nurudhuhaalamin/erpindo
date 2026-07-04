@@ -1081,6 +1081,126 @@ try {
   const rollback = await owner("POST", `/api/tenants/${tenantId}/close-books`, { date: "2026-07-01" });
   check("tanggal kunci mundur DITOLAK 400", rollback.status === 400);
 
+  // --- CRM Pipeline (Fase 2l) -----------------------------------------------------
+  console.log("11g. CRM Pipeline (lead, funnel, aktivitas, penawaran, konversi)");
+
+  const lead = await owner("POST", `/api/tenants/${tenantId}/leads`, {
+    name: "PT Calon Pelanggan",
+    contactPerson: "Ibu Sari",
+    phone: "0811-2222-3333",
+    estValue: 5_000_000,
+  });
+  check("buat lead 201", lead.status === 201, `→ ${JSON.stringify(lead.json)}`);
+  const leadId = lead.json?.id;
+
+  const leadsList = await owner("GET", `/api/tenants/${tenantId}/leads`);
+  check(
+    "daftar lead berisi 1 (tahap 'new')",
+    leadsList.status === 200 && leadsList.json?.leads?.length === 1 && leadsList.json.leads[0].stage === "new",
+  );
+
+  const viewerLead = await viewer("POST", `/api/tenants/${tenantId}/leads`, { name: "Coba Viewer" });
+  check("viewer DITOLAK membuat lead (403)", viewerLead.status === 403);
+  const outsiderLeads = await outsider("GET", `/api/tenants/${tenantId}/leads`);
+  check("non-anggota DITOLAK akses CRM tenant lain (403)", outsiderLeads.status === 403);
+
+  const act = await owner("POST", `/api/tenants/${tenantId}/leads/${leadId}/activities`, {
+    type: "call",
+    note: "Telepon perkenalan, tertarik produk.",
+    activityDate: "2026-07-15",
+  });
+  check("catat aktivitas lead 201", act.status === 201);
+  const acts = await owner("GET", `/api/tenants/${tenantId}/leads/${leadId}/activities`);
+  check("daftar aktivitas berisi 1", acts.status === 200 && acts.json?.activities?.length === 1);
+
+  const moveStage = await owner("PATCH", `/api/tenants/${tenantId}/leads/${leadId}`, { stage: "qualified" });
+  check("pindah tahap lead 200", moveStage.status === 200);
+
+  const contactsBefore = await owner("GET", `/api/tenants/${tenantId}/contacts`);
+  const nContactsBefore = contactsBefore.json?.items?.length ?? 0;
+  const convertLead = await owner("POST", `/api/tenants/${tenantId}/leads/${leadId}/convert`);
+  check("konversi lead → pelanggan 201", convertLead.status === 201 && Boolean(convertLead.json?.contactId));
+  const contactsAfter = await owner("GET", `/api/tenants/${tenantId}/contacts`);
+  const newCust = contactsAfter.json?.items?.find((k) => k.name === "PT Calon Pelanggan" && k.type === "customer");
+  check(
+    "kontak pelanggan baru terbentuk dari lead",
+    (contactsAfter.json?.items?.length ?? 0) === nContactsBefore + 1 && Boolean(newCust),
+  );
+
+  const reconvert = await owner("POST", `/api/tenants/${tenantId}/leads/${leadId}/convert`);
+  check("konversi lead kedua kali DITOLAK 400", reconvert.status === 400);
+
+  // Penawaran (quotation) — 2 baris, PPN 11%: 300rb + 33rb = 333rb.
+  const quote = await owner("POST", `/api/tenants/${tenantId}/quotations`, {
+    contactId: newCust.id,
+    quoteDate: "2026-07-20",
+    taxRate: 11,
+    lines: [
+      { productId: prodBarang.json.id, qty: 2, unitPrice: 100_000 },
+      { productId: prodBarang.json.id, qty: 1, unitPrice: 100_000 },
+    ],
+  });
+  check(
+    "buat penawaran 201, total = 300rb + PPN 33rb = 333rb",
+    quote.status === 201 && quote.json?.total === 333_000,
+    `→ ${JSON.stringify(quote.json)}`,
+  );
+  const quoteId = quote.json?.id;
+
+  const convertEarly = await owner("POST", `/api/tenants/${tenantId}/quotations/${quoteId}/convert`, {
+    warehouseId: whUtama.id,
+    invoiceDate: "2026-07-20",
+  });
+  check("konversi penawaran belum 'diterima' DITOLAK 400", convertEarly.status === 400);
+
+  const acceptQuote = await owner("PATCH", `/api/tenants/${tenantId}/quotations/${quoteId}/status`, { status: "accepted" });
+  check("tandai penawaran 'diterima' 200", acceptQuote.status === 200);
+
+  const stockBeforeConv = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  const qtyBeforeConv =
+    stockBeforeConv.json?.levels?.find((l) => l.sku === "BRG-002" && l.warehouseId === whUtama.id)?.qty ?? 0;
+
+  const convertQuote = await owner("POST", `/api/tenants/${tenantId}/quotations/${quoteId}/convert`, {
+    warehouseId: whUtama.id,
+    invoiceDate: "2026-07-20",
+  });
+  check(
+    "konversi penawaran → faktur 201",
+    convertQuote.status === 201 && Boolean(convertQuote.json?.docNo),
+    `→ ${JSON.stringify(convertQuote.json)}`,
+  );
+
+  const quotesAfter = await owner("GET", `/api/tenants/${tenantId}/quotations`);
+  const convertedQuote = quotesAfter.json?.quotations?.find((q) => q.id === quoteId);
+  check(
+    "penawaran menjadi 'converted' + tertaut ke faktur",
+    convertedQuote?.status === "converted" && Boolean(convertedQuote?.resultInvoiceId),
+  );
+
+  const invoicesAfterConv = await owner("GET", `/api/tenants/${tenantId}/invoices`);
+  check(
+    "faktur hasil konversi muncul di daftar penjualan",
+    invoicesAfterConv.json?.docs?.some((d) => d.docNo === convertQuote.json.docNo),
+  );
+
+  const stockAfterConv = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  const qtyAfterConv =
+    stockAfterConv.json?.levels?.find((l) => l.sku === "BRG-002" && l.warehouseId === whUtama.id)?.qty ?? 0;
+  check(
+    "stok BRG-002 berkurang 3 setelah konversi penawaran",
+    qtyAfterConv === qtyBeforeConv - 3,
+    `→ ${qtyBeforeConv} → ${qtyAfterConv}`,
+  );
+
+  const reconvertQuote = await owner("POST", `/api/tenants/${tenantId}/quotations/${quoteId}/convert`, {
+    warehouseId: whUtama.id,
+    invoiceDate: "2026-07-20",
+  });
+  check("konversi penawaran kedua kali DITOLAK 400", reconvertQuote.status === 400);
+
+  const tbAfterCrm = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah alur CRM", tbAfterCrm.json?.balanced === true);
+
   // --- Arus kas (Fase 2b-1) -------------------------------------------------------
   console.log("12. Arus kas");
   // Konteks: modal 50jt (2/7) + penjualan tunai 2,5jt (3/7) + terima pembayaran 499,5rb (5/7)

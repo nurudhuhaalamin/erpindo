@@ -11,6 +11,7 @@ import { createRoot } from "react-dom/client";
 import { ToastProvider } from "./components/ui";
 import { AppShell, DashboardPage, SettingsPage } from "./pages/app";
 import { PurchasesPage, SalesPage, StockPage } from "./pages/commerce";
+import { LeadsPage, QuotationsPage } from "./pages/crm";
 import { AccountsPage, JournalPage, LedgerPage, TrialBalancePage } from "./pages/finance";
 import { AgingPage, BalanceSheetPage, CashFlowPage, IncomeStatementPage } from "./pages/reports";
 import { ContactsPage, ProductsPage, WarehousesPage } from "./pages/masterdata";
@@ -50,6 +51,8 @@ const appChildren = [
   createRoute({ getParentRoute: () => appRoute, path: "/penjualan", component: SalesPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/pembelian", component: PurchasesPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/stok", component: StockPage }),
+  createRoute({ getParentRoute: () => appRoute, path: "/crm/leads", component: LeadsPage }),
+  createRoute({ getParentRoute: () => appRoute, path: "/crm/penawaran", component: QuotationsPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/keuangan/akun", component: AccountsPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/keuangan/jurnal", component: JournalPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/keuangan/buku-besar", component: LedgerPage }),

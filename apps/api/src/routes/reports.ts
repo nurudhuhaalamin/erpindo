@@ -274,7 +274,7 @@ export const reportRoutes = new Hono<AppEnv>()
     const db = getTenantDb(c.env, c.get("tenant").dbRef);
     const monthPrefix = new Date().toISOString().slice(0, 7); // YYYY-MM
 
-    const [cashRows, salesRows, arRows, apRows, stockRows] = await Promise.all([
+    const [cashRows, salesRows, arRows, apRows, stockRows, leadRows] = await Promise.all([
       db
         .prepare(
           `SELECT COALESCE(SUM(l.debit - l.credit), 0) AS balance
@@ -295,6 +295,7 @@ export const reportRoutes = new Hono<AppEnv>()
         .prepare(`SELECT COALESCE(SUM(total - paid_amount - returned_amount), 0) AS outstanding FROM purchases WHERE status != 'paid'`)
         .all<{ outstanding: number }>(),
       db.prepare(`SELECT COALESCE(SUM(qty * avg_cost), 0) AS value FROM stock_levels`).all<{ value: number }>(),
+      db.prepare(`SELECT COUNT(*) AS n FROM leads WHERE status = 'open'`).all<{ n: number }>(),
     ]);
 
     const body: ApiDashboard = {
@@ -304,6 +305,7 @@ export const reportRoutes = new Hono<AppEnv>()
       receivableOutstanding: arRows.results[0]?.outstanding ?? 0,
       payableOutstanding: apRows.results[0]?.outstanding ?? 0,
       inventoryValue: stockRows.results[0]?.value ?? 0,
+      openLeadsCount: leadRows.results[0]?.n ?? 0,
     };
     return c.json(body);
   });

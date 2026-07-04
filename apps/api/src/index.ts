@@ -6,6 +6,7 @@ import { getMailer } from "./lib/mailer";
 import { accountingRoutes } from "./routes/accounting";
 import { authRoutes } from "./routes/auth";
 import { commerceRoutes } from "./routes/commerce";
+import { crmRoutes } from "./routes/crm";
 import { reportRoutes } from "./routes/reports";
 import { posRoutes } from "./routes/pos";
 import { returnRoutes } from "./routes/returns";
@@ -45,6 +46,7 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", reportRoutes)
   .route("/api/tenants", returnRoutes)
   .route("/api/tenants", posRoutes)
+  .route("/api/tenants", crmRoutes)
   .route("/api/invites", inviteRoutes)
   .notFound((c) =>
     c.req.path.startsWith("/api/")

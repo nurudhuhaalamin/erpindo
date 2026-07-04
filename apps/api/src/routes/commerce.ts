@@ -5,6 +5,7 @@ import {
   stockAdjustmentSchema,
   stockTransferSchema,
   type ApiCommerceDoc,
+  type CreateInvoiceInput,
   type CreatePurchaseInput,
   type ApiCommerceLine,
   type ApiStockLevel,
@@ -258,6 +259,111 @@ async function executePurchase(
   return { purchaseId, docNo, total };
 }
 
+/**
+ * Posting faktur penjualan (stok keluar + jurnal + baris). Dipakai jalur
+ * langsung `POST /invoices` maupun konversi penawaran (CRM) — satu implementasi
+ * sehingga akuntansi & pergerakan stok terjadi tepat sekali dan konsisten.
+ */
+export async function executeInvoice(
+  db: SqlExecutor,
+  input: CreateInvoiceInput,
+  userId: string,
+): Promise<{ invoiceId: string; docNo: string; total: number } | { error: string }> {
+  const refError = await validateRefs(db, INVOICE_CFG, input);
+  if (refError) return { error: refError };
+  const lockError = await checkPeriodOpen(db, input.invoiceDate);
+  if (lockError) return { error: lockError };
+
+  const subtotal = input.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
+  const taxAmount = Math.round((subtotal * input.taxRate) / 100);
+  const total = subtotal + taxAmount;
+  if (total === 0) return { error: "Total faktur tidak boleh nol." };
+
+  const invoiceId = crypto.randomUUID();
+
+  // Stok keluar dulu (bisa gagal karena stok kurang) — sebelum jurnal dibuat.
+  let totalCogs = 0;
+  try {
+    for (const line of input.lines) {
+      totalCogs += await stockOut(db, {
+        productId: line.productId,
+        warehouseId: input.warehouseId,
+        qty: line.qty,
+        refType: "sale",
+        refId: invoiceId,
+      });
+    }
+  } catch (err) {
+    if (err instanceof InsufficientStockError) return { error: err.message };
+    throw err;
+  }
+
+  const [piutang, pendapatan, ppnKeluaran, hpp, persediaan] = await Promise.all([
+    accountIdByCode(db, SYS_ACCOUNTS.PIUTANG),
+    accountIdByCode(db, SYS_ACCOUNTS.PENDAPATAN),
+    accountIdByCode(db, SYS_ACCOUNTS.PPN_KELUARAN),
+    accountIdByCode(db, SYS_ACCOUNTS.HPP),
+    accountIdByCode(db, SYS_ACCOUNTS.PERSEDIAAN),
+  ]);
+
+  const docNo = await nextDocNo(db, "invoices", "INV");
+  const journal = await postJournal(db, {
+    entryDate: input.invoiceDate,
+    memo: `Faktur penjualan ${docNo}`,
+    createdBy: userId,
+    lines: [
+      { accountId: piutang, description: docNo, debit: total, credit: 0 },
+      { accountId: pendapatan, description: docNo, debit: 0, credit: subtotal },
+      ...(taxAmount > 0 ? [{ accountId: ppnKeluaran, description: `PPN ${docNo}`, debit: 0, credit: taxAmount }] : []),
+      ...(totalCogs > 0
+        ? [
+            { accountId: hpp, description: `HPP ${docNo}`, debit: totalCogs, credit: 0 },
+            { accountId: persediaan, description: `HPP ${docNo}`, debit: 0, credit: totalCogs },
+          ]
+        : []),
+    ],
+  });
+
+  await db
+    .prepare(
+      `INSERT INTO invoices (id, invoice_no, contact_id, invoice_date, due_date, status, subtotal,
+                             tax_rate, tax_amount, total, paid_amount, journal_entry_id, created_by)
+       VALUES (?, ?, ?, ?, ?, 'posted', ?, ?, ?, ?, 0, ?, ?)`,
+    )
+    .bind(
+      invoiceId,
+      docNo,
+      input.contactId,
+      input.invoiceDate,
+      input.dueDate ?? null,
+      subtotal,
+      input.taxRate,
+      taxAmount,
+      total,
+      journal.id,
+      userId,
+    )
+    .run();
+  for (const line of input.lines) {
+    await db
+      .prepare(
+        `INSERT INTO invoice_lines (id, invoice_id, product_id, description, qty, unit_price, amount)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        crypto.randomUUID(),
+        invoiceId,
+        line.productId,
+        line.description ?? null,
+        line.qty,
+        line.unitPrice,
+        line.qty * line.unitPrice,
+      )
+      .run();
+  }
+  return { invoiceId, docNo, total };
+}
+
 /** Validasi rujukan bersama: kontak (jenis sesuai), gudang, produk aktif. */
 async function validateRefs(
   db: SqlExecutor,
@@ -307,109 +413,18 @@ export const commerceRoutes = new Hono<AppEnv>()
     }
     const tenant = c.get("tenant");
     const db = getTenantDb(c.env, tenant.dbRef);
-    const input = parsed.data;
 
-    const refError = await validateRefs(db, INVOICE_CFG, input);
-    if (refError) return c.json({ error: refError }, 400);
-    const lockError = await checkPeriodOpen(db, input.invoiceDate);
-    if (lockError) return c.json({ error: lockError }, 400);
-
-    const subtotal = input.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
-    const taxAmount = Math.round((subtotal * input.taxRate) / 100);
-    const total = subtotal + taxAmount;
-    if (total === 0) return c.json({ error: "Total faktur tidak boleh nol." }, 400);
-
-    const invoiceId = crypto.randomUUID();
-
-    // Stok keluar dulu (bisa gagal karena stok kurang) — sebelum jurnal dibuat.
-    let totalCogs = 0;
-    try {
-      for (const line of input.lines) {
-        totalCogs += await stockOut(db, {
-          productId: line.productId,
-          warehouseId: input.warehouseId,
-          qty: line.qty,
-          refType: "sale",
-          refId: invoiceId,
-        });
-      }
-    } catch (err) {
-      if (err instanceof InsufficientStockError) return c.json({ error: err.message }, 400);
-      throw err;
-    }
-
-    const [piutang, pendapatan, ppnKeluaran, hpp, persediaan] = await Promise.all([
-      accountIdByCode(db, SYS_ACCOUNTS.PIUTANG),
-      accountIdByCode(db, SYS_ACCOUNTS.PENDAPATAN),
-      accountIdByCode(db, SYS_ACCOUNTS.PPN_KELUARAN),
-      accountIdByCode(db, SYS_ACCOUNTS.HPP),
-      accountIdByCode(db, SYS_ACCOUNTS.PERSEDIAAN),
-    ]);
-
-    const docNo = await nextDocNo(db, "invoices", "INV");
-    const journal = await postJournal(db, {
-      entryDate: input.invoiceDate,
-      memo: `Faktur penjualan ${docNo}`,
-      createdBy: c.get("user").id,
-      lines: [
-        { accountId: piutang, description: docNo, debit: total, credit: 0 },
-        { accountId: pendapatan, description: docNo, debit: 0, credit: subtotal },
-        ...(taxAmount > 0 ? [{ accountId: ppnKeluaran, description: `PPN ${docNo}`, debit: 0, credit: taxAmount }] : []),
-        ...(totalCogs > 0
-          ? [
-              { accountId: hpp, description: `HPP ${docNo}`, debit: totalCogs, credit: 0 },
-              { accountId: persediaan, description: `HPP ${docNo}`, debit: 0, credit: totalCogs },
-            ]
-          : []),
-      ],
-    });
-
-    await db
-      .prepare(
-        `INSERT INTO invoices (id, invoice_no, contact_id, invoice_date, due_date, status, subtotal,
-                               tax_rate, tax_amount, total, paid_amount, journal_entry_id, created_by)
-         VALUES (?, ?, ?, ?, ?, 'posted', ?, ?, ?, ?, 0, ?, ?)`,
-      )
-      .bind(
-        invoiceId,
-        docNo,
-        input.contactId,
-        input.invoiceDate,
-        input.dueDate ?? null,
-        subtotal,
-        input.taxRate,
-        taxAmount,
-        total,
-        journal.id,
-        c.get("user").id,
-      )
-      .run();
-    for (const line of input.lines) {
-      await db
-        .prepare(
-          `INSERT INTO invoice_lines (id, invoice_id, product_id, description, qty, unit_price, amount)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .bind(
-          crypto.randomUUID(),
-          invoiceId,
-          line.productId,
-          line.description ?? null,
-          line.qty,
-          line.unitPrice,
-          line.qty * line.unitPrice,
-        )
-        .run();
-    }
+    const result = await executeInvoice(db, parsed.data, c.get("user").id);
+    if ("error" in result) return c.json({ error: result.error }, 400);
 
     await audit(c.env, {
       action: "sales.invoice_posted",
       userId: c.get("user").id,
       tenantId: tenant.id,
-      detail: { docNo, total },
+      detail: { docNo: result.docNo, total: result.total },
       ip: clientIp(c),
     });
-    return c.json({ ok: true, id: invoiceId, docNo, total }, 201);
+    return c.json({ ok: true, id: result.invoiceId, docNo: result.docNo, total: result.total }, 201);
   })
 
   // -------------------------------------------------------------------------
