@@ -642,6 +642,54 @@ export type ApiPayrollRun = {
 };
 
 // ---------------------------------------------------------------------------
+// Aset Tetap (Fase 2p): register aset, penyusutan garis lurus, pelepasan
+// ---------------------------------------------------------------------------
+
+export const fixedAssetSchema = z
+  .object({
+    name: z.string().trim().min(2, "Nama minimal 2 karakter").max(150),
+    category: z.string().trim().max(100).optional(),
+    acquisitionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+    acquisitionCost: z.number().int().min(1, "Nilai perolehan minimal Rp 1").max(1_000_000_000_000),
+    usefulLifeMonths: z.number().int().min(1, "Masa manfaat minimal 1 bulan").max(600),
+    residualValue: amountSchema.default(0),
+    cashAccountId: z.string().min(1, "Akun kas/bank wajib dipilih"),
+  })
+  .refine((v) => v.residualValue < v.acquisitionCost, {
+    message: "Nilai residu harus lebih kecil dari nilai perolehan",
+    path: ["residualValue"],
+  });
+export type FixedAssetInput = z.infer<typeof fixedAssetSchema>;
+
+export const runDepreciationSchema = z.object({
+  period: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Periode harus berformat YYYY-MM"),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+});
+export type RunDepreciationInput = z.infer<typeof runDepreciationSchema>;
+
+export const disposeAssetSchema = z.object({
+  disposalDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+  proceeds: amountSchema.default(0),
+  cashAccountId: z.string().min(1, "Akun kas/bank wajib dipilih"),
+});
+export type DisposeAssetInput = z.infer<typeof disposeAssetSchema>;
+
+export type ApiFixedAsset = {
+  id: string;
+  name: string;
+  category: string | null;
+  acquisitionDate: string;
+  acquisitionCost: number;
+  usefulLifeMonths: number;
+  residualValue: number;
+  accumulatedDepreciation: number;
+  bookValue: number;
+  monthlyDepreciation: number;
+  status: "active" | "disposed";
+  disposedDate: string | null;
+};
+
+// ---------------------------------------------------------------------------
 // Laporan keuangan & dashboard (Fase 1c)
 // ---------------------------------------------------------------------------
 

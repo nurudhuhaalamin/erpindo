@@ -3,7 +3,9 @@ import { Hono } from "hono";
 import { secureHeaders } from "hono/secure-headers";
 import type { AppEnv, Env } from "./env";
 import { getMailer } from "./lib/mailer";
+import { getTenantDb } from "./lib/tenantDb";
 import { accountingRoutes } from "./routes/accounting";
+import { assetRoutes, runDepreciation } from "./routes/assets";
 import { authRoutes } from "./routes/auth";
 import { budgetRoutes } from "./routes/budgets";
 import { commerceRoutes } from "./routes/commerce";
@@ -51,6 +53,7 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", crmRoutes)
   .route("/api/tenants", budgetRoutes)
   .route("/api/tenants", payrollRoutes)
+  .route("/api/tenants", assetRoutes)
   .route("/api/invites", inviteRoutes)
   .notFound((c) =>
     c.req.path.startsWith("/api/")
@@ -131,6 +134,38 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
       });
     }
     await env.RATE_KV.put(kvKey, "1", { expirationTtl: 4 * 86_400 });
+  }
+
+  // 3) Penyusutan aset tetap — jalankan sekali di awal bulan untuk bulan lalu.
+  //    Idempotent (unik per aset+periode), aman bila cron terpicu berulang.
+  const now = new Date();
+  if (now.getUTCDate() === 1) {
+    const prev = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+    const period = prev.toISOString().slice(0, 7); // YYYY-MM bulan lalu
+    const date = nowIso.slice(0, 10); // dijalankan hari ini (periode berjalan sudah terbuka)
+    const { results: tenants } = await env.DB.prepare(
+      `SELECT id, db_ref FROM tenants WHERE status IN ('active', 'trial')`,
+    ).all<{ id: string; db_ref: string }>();
+
+    let depTenants = 0;
+    for (const t of tenants) {
+      try {
+        const db = getTenantDb(env, t.db_ref);
+        const res = await runDepreciation(db, period, date, "system");
+        if ("count" in res && res.count > 0) {
+          depTenants++;
+          await env.DB.prepare(
+            `INSERT INTO audit_logs (id, tenant_id, user_id, action, detail, ip, created_at)
+             VALUES (?, ?, NULL, 'asset.depreciated', ?, NULL, ?)`,
+          )
+            .bind(crypto.randomUUID(), t.id, JSON.stringify({ period, count: res.count, total: res.total }), nowIso)
+            .run();
+        }
+      } catch (err) {
+        console.error(`[cron] penyusutan tenant ${t.id} gagal:`, err);
+      }
+    }
+    if (depTenants > 0) console.log(`[cron] penyusutan ${period} diposting untuk ${depTenants} tenant`);
   }
 }
 
