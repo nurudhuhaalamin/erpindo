@@ -239,7 +239,7 @@ try {
   console.log("6. Bagan Akun (COA)");
   const accountsRes = await owner("GET", `/api/tenants/${tenantId}/accounts`);
   const accounts = accountsRes.json?.accounts ?? [];
-  check("COA template Indonesia tersemai (18 akun)", accountsRes.status === 200 && accounts.length === 18);
+  check("COA template Indonesia tersemai (19 akun)", accountsRes.status === 200 && accounts.length === 19);
   const kas = accounts.find((a) => a.code === "1-1000");
   const modal = accounts.find((a) => a.code === "3-1000");
   const penjualan = accounts.find((a) => a.code === "4-1000");
@@ -1308,6 +1308,75 @@ try {
 
   const tbAfterPayroll = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah penggajian", tbAfterPayroll.json?.balanced === true);
+
+  // --- Aset Tetap (Fase 2p) -------------------------------------------------------
+  // Beroperasi di Agustus (di luar jendela arus kas Juli & tanggal kunci).
+  console.log("11j. Aset Tetap (penyusutan garis lurus + pelepasan)");
+
+  const viewerAsset = await viewer("POST", `/api/tenants/${tenantId}/assets`, {
+    name: "X",
+    acquisitionDate: "2026-08-01",
+    acquisitionCost: 1_000_000,
+    usefulLifeMonths: 12,
+    cashAccountId: kas.id,
+  });
+  check("viewer DITOLAK mendaftarkan aset (403)", viewerAsset.status === 403);
+
+  const asset = await owner("POST", `/api/tenants/${tenantId}/assets`, {
+    name: "Mobil Operasional",
+    category: "Kendaraan",
+    acquisitionDate: "2026-08-01",
+    acquisitionCost: 48_000_000,
+    usefulLifeMonths: 48,
+    residualValue: 0,
+    cashAccountId: kas.id,
+  });
+  check("daftarkan aset 201 (jurnal perolehan otomatis)", asset.status === 201, `→ ${JSON.stringify(asset.json)}`);
+
+  const badResidual = await owner("POST", `/api/tenants/${tenantId}/assets`, {
+    name: "Salah",
+    acquisitionDate: "2026-08-01",
+    acquisitionCost: 10_000_000,
+    usefulLifeMonths: 12,
+    residualValue: 20_000_000,
+    cashAccountId: kas.id,
+  });
+  check("nilai residu ≥ perolehan DITOLAK 400", badResidual.status === 400);
+
+  const assets1 = await owner("GET", `/api/tenants/${tenantId}/assets`);
+  const a1 = assets1.json?.assets?.find((x) => x.id === asset.json.id);
+  check("aset tampil: nilai buku 48jt, penyusutan 1jt/bln", a1?.bookValue === 48_000_000 && a1?.monthlyDepreciation === 1_000_000);
+
+  const dep1 = await owner("POST", `/api/tenants/${tenantId}/assets/depreciation`, { period: "2026-08", date: "2026-08-31" });
+  check("jalankan penyusutan Agustus: 1 aset, total 1jt", dep1.status === 200 && dep1.json?.count === 1 && dep1.json?.total === 1_000_000, `→ ${JSON.stringify(dep1.json)}`);
+
+  const dep2 = await owner("POST", `/api/tenants/${tenantId}/assets/depreciation`, { period: "2026-08", date: "2026-08-31" });
+  check("penyusutan periode sama idempotent (0 aset)", dep2.json?.count === 0);
+
+  const assets2 = await owner("GET", `/api/tenants/${tenantId}/assets`);
+  const a2 = assets2.json?.assets?.find((x) => x.id === asset.json.id);
+  check("setelah susut: akumulasi 1jt, nilai buku 47jt", a2?.accumulatedDepreciation === 1_000_000 && a2?.bookValue === 47_000_000);
+
+  // Lepas dengan hasil 50jt → laba pelepasan 3jt (50 − nilai buku 47).
+  const disp = await owner("POST", `/api/tenants/${tenantId}/assets/${asset.json.id}/dispose`, {
+    disposalDate: "2026-08-31",
+    proceeds: 50_000_000,
+    cashAccountId: kas.id,
+  });
+  check("lepas aset: nilai buku 47jt, laba pelepasan 3jt", disp.status === 201 && disp.json?.bookValue === 47_000_000 && disp.json?.gain === 3_000_000, `→ ${JSON.stringify(disp.json)}`);
+
+  const assets3 = await owner("GET", `/api/tenants/${tenantId}/assets`);
+  check("aset berstatus dilepas", assets3.json?.assets?.find((x) => x.id === asset.json.id)?.status === "disposed");
+
+  const dispAgain = await owner("POST", `/api/tenants/${tenantId}/assets/${asset.json.id}/dispose`, {
+    disposalDate: "2026-08-31",
+    proceeds: 0,
+    cashAccountId: kas.id,
+  });
+  check("lepas aset yang sudah dilepas DITOLAK 400", dispAgain.status === 400);
+
+  const tbAfterAssets = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah penyusutan & pelepasan", tbAfterAssets.json?.balanced === true);
 
   // --- Arus kas (Fase 2b-1) -------------------------------------------------------
   console.log("12. Arus kas");

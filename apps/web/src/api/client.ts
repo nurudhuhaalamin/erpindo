@@ -4,6 +4,7 @@ import type {
   ApiAuditLog,
   ApiBudgetReport,
   ApiEmployee,
+  ApiFixedAsset,
   ApiPayrollRun,
   ApiPosShift,
   ApiBalanceSheet,
@@ -162,6 +163,29 @@ export const api = {
     request<{ ok: true; runNo: string; totalGross: number; totalNet: number; employees: number }>(
       "POST",
       `/api/tenants/${tenantId}/payroll-runs`,
+      input,
+    ),
+
+  // --- Aset Tetap ----------------------------------------------------------------
+  assets: (tenantId: string) => request<{ assets: ApiFixedAsset[] }>("GET", `/api/tenants/${tenantId}/assets`),
+  createAsset: (
+    tenantId: string,
+    input: {
+      name: string;
+      category?: string;
+      acquisitionDate: string;
+      acquisitionCost: number;
+      usefulLifeMonths: number;
+      residualValue: number;
+      cashAccountId: string;
+    },
+  ) => request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/assets`, input),
+  runDepreciation: (tenantId: string, input: { period: string; date: string }) =>
+    request<{ ok: true; count: number; total: number }>("POST", `/api/tenants/${tenantId}/assets/depreciation`, input),
+  disposeAsset: (tenantId: string, id: string, input: { disposalDate: string; proceeds: number; cashAccountId: string }) =>
+    request<{ ok: true; bookValue: number; gain: number; journalNo: string }>(
+      "POST",
+      `/api/tenants/${tenantId}/assets/${id}/dispose`,
       input,
     ),
 

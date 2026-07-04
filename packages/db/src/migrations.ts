@@ -512,6 +512,37 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `CREATE INDEX payslips_run ON payslips (run_id)`,
     ],
   },
+  {
+    id: "0011_fixed_assets",
+    statements: [
+      // Akun beban penyusutan (Aset Tetap 1-1500 & Akumulasi 1-1510 sudah ada di COA).
+      `INSERT INTO accounts (id, code, name, type, is_system) VALUES ('acc-5-5000', '5-5000', 'Beban Penyusutan', 'expense', 1)`,
+      `CREATE TABLE fixed_assets (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        category TEXT,
+        acquisition_date TEXT NOT NULL,
+        acquisition_cost INTEGER NOT NULL,
+        useful_life_months INTEGER NOT NULL,
+        residual_value INTEGER NOT NULL DEFAULT 0,
+        accumulated_depreciation INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','disposed')),
+        disposed_date TEXT,
+        journal_entry_id TEXT REFERENCES journal_entries(id),
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE TABLE depreciation_entries (
+        id TEXT PRIMARY KEY,
+        asset_id TEXT NOT NULL REFERENCES fixed_assets(id),
+        period TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        journal_entry_id TEXT REFERENCES journal_entries(id),
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE (asset_id, period)
+      )`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */
