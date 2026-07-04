@@ -317,7 +317,8 @@ Estimasi durasi mengasumsikan 1–2 developer full-time (atau setara, dengan ban
 Urutan di dalam fase ini fleksibel — ikuti permintaan pelanggan berbayar. Usulan urutan awal:
 
 - [x] **POS** lebih dulu (permintaan pasar tertinggi, pintu masuk pelanggan retail/F&B) + Workflow/Approval Engine (fondasi yang dipakai modul lain).
-- [x] **CRM Pipeline** (lead, tahap funnel, aktivitas follow-up, konversi lead→pelanggan + quotation→faktur) — ✅ 4 Jul 2026 ([log Fase 2l](./log/2026-07-04-fase-2l-crm.md)). Berikutnya: Anggaran → HR & Payroll (PPh 21 TER, BPJS) → Aset Tetap (penyusutan Cron) → Proyek.
+- [x] **CRM Pipeline** (lead, tahap funnel, aktivitas follow-up, konversi lead→pelanggan + quotation→faktur) — ✅ 4 Jul 2026 ([log Fase 2l](./log/2026-07-04-fase-2l-crm.md)).
+- [x] **Anggaran** (target pendapatan/beban per akun per bulan + laporan budget vs realisasi dari jurnal) — ✅ 4 Jul 2026 ([log Fase 2n](./log/2026-07-04-fase-2n-anggaran.md)). Berikutnya: HR & Payroll (PPh 21 TER, BPJS) → Aset Tetap (penyusutan Cron) → Proyek.
 - [x] Inventori lanjutan (batch/lot, kedaluwarsa, FEFO) — ✅ 3 Jul 2026. Manajemen Dokumen (lampiran R2) ⏸ menunggu R2 diaktifkan di akun Cloudflare pemilik.
 - [ ] Impor rekening koran & rekonsiliasi; API publik + webhook; multi-cabang.
 

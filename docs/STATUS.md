@@ -26,7 +26,8 @@
 | Fase 2i — Persetujuan pembelian | Pembelian besar oleh Admin wajib disetujui Owner dulu | ✅ Selesai |
 | Fase 2j — Lot & kedaluwarsa (FEFO) | Lacak lot/exp per produk, keluar otomatis yang paling dekat kedaluwarsa, peringatan ≤ 30 hari | ✅ Selesai |
 | Fase 2k — Tampilan baru ala SaaS modern | Sidebar gelap berikon, kartu statistik berwarna, avatar, badge status konsisten, landing lebih meyakinkan | ✅ Selesai |
-| **Fase 2l — CRM Pipeline** | Catat calon pelanggan (lead), tahap funnel, aktivitas follow-up, konversi jadi pelanggan + penawaran (quotation) sekali klik ke faktur | ✅ **Selesai** |
+| Fase 2l — CRM Pipeline | Catat calon pelanggan (lead), tahap funnel, aktivitas follow-up, konversi jadi pelanggan + penawaran (quotation) sekali klik ke faktur | ✅ Selesai |
+| **Fase 2n — Anggaran** | Tetapkan target pendapatan & beban per akun per bulan; realisasi otomatis dari jurnal; laporan selisih (varians) berwarna | ✅ **Selesai** |
 | Fase 2m — Manajemen dokumen (lampiran file) | Lampiran di faktur/kontak/jurnal (penyimpanan Cloudflare R2) | ⏸ **Menunggu Anda mengaktifkan R2 di dashboard Cloudflare** |
 | Fase 2b-2 — Pembayaran langganan | Checkout Midtrans/Xendit, aktivasi otomatis | ⏸ **Menunggu akun gateway dari Anda** |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
@@ -68,9 +69,10 @@
 32. **Persetujuan pembelian** *(Fase 2i)*: tetapkan ambang (mis. Rp 5 juta) — pembelian Admin di atas itu menunggu persetujuan Anda dan baru diproses (stok & pembukuan) setelah disetujui; bisa ditolak dengan catatan.
 33. **Lot & tanggal kedaluwarsa (FEFO)** *(Fase 2j)*: centang "lacak kedaluwarsa" pada produk (cocok untuk F&B/farmasi) — pembelian wajib mengisi tanggal exp per baris, penjualan otomatis mengambil lot yang paling dekat kedaluwarsa lebih dulu, dan halaman Stok menandai lot yang lewat (merah) atau ≤ 30 hari lagi (kuning).
 34. **Tampilan baru ala SaaS modern** *(Fase 2k)*: sidebar gelap dengan ikon per menu, avatar pengguna, kartu statistik dashboard berikon warna, badge status konsisten (hijau lunas / kuning menunggu / merah lewat), skeleton saat memuat, dan landing page dengan ikon fitur + paket "Terpopuler" yang menonjol.
-35. **CRM Pipeline** *(baru — Fase 2l)*: catat calon pelanggan (lead) beserta perkiraan nilainya, gerakkan lewat tahap funnel (baru → dihubungi → terkualifikasi → penawaran → menang/kalah), catat setiap aktivitas follow-up (telepon/WA/email/pertemuan), lalu **konversi lead menjadi pelanggan** sekali klik. Buat **penawaran harga (quotation)** — belum menyentuh stok/pembukuan — dan saat pelanggan setuju, **konversi menjadi faktur penjualan** sekali klik (stok & jurnal otomatis, lewat mesin faktur yang sama). Dashboard menampilkan jumlah lead terbuka.
+35. **CRM Pipeline** *(Fase 2l)*: catat calon pelanggan (lead) beserta perkiraan nilainya, gerakkan lewat tahap funnel (baru → dihubungi → terkualifikasi → penawaran → menang/kalah), catat setiap aktivitas follow-up (telepon/WA/email/pertemuan), lalu **konversi lead menjadi pelanggan** sekali klik. Buat **penawaran harga (quotation)** — belum menyentuh stok/pembukuan — dan saat pelanggan setuju, **konversi menjadi faktur penjualan** sekali klik (stok & jurnal otomatis, lewat mesin faktur yang sama). Dashboard menampilkan jumlah lead terbuka.
+36. **Anggaran** *(baru — Fase 2n)*: tetapkan target pendapatan & beban per akun untuk tiap bulan, lalu bandingkan dengan **realisasi yang dihitung otomatis dari jurnal**. Selisih ditandai warna (hijau bila menguntungkan — pendapatan di atas target atau beban di bawah target; merah bila sebaliknya), lengkap dengan ringkasan laba/rugi anggaran vs realisasi dan ekspor CSV.
 
-Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (168 skenario ujian end-to-end + 20 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
+Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (176 skenario ujian end-to-end + 20 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
 
 ## Apakah sudah bisa diakses di internet?
 
