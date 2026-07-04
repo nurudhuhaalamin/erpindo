@@ -10,6 +10,7 @@ import {
   Building2,
   CheckSquare,
   Contact,
+  FileText,
   Hourglass,
   LayoutDashboard,
   LineChart,
@@ -24,6 +25,7 @@ import {
   ShoppingCart,
   Store,
   Sun,
+  Target,
   Users,
   Wallet,
   Warehouse,
@@ -70,6 +72,8 @@ const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; 
   { to: "/app/penjualan", label: "Penjualan", exact: false, section: "Transaksi", icon: Receipt },
   { to: "/app/pembelian", label: "Pembelian", exact: false, section: "Transaksi", icon: ShoppingCart },
   { to: "/app/stok", label: "Stok", exact: false, section: "Transaksi", icon: Boxes },
+  { to: "/app/crm/leads", label: "Pipeline", exact: false, section: "CRM", icon: Target },
+  { to: "/app/crm/penawaran", label: "Penawaran", exact: false, section: "CRM", icon: FileText },
   { to: "/app/keuangan/akun", label: "Bagan Akun", exact: false, section: "Keuangan", icon: ListTree },
   { to: "/app/keuangan/jurnal", label: "Jurnal Umum", exact: false, section: "Keuangan", icon: BookText },
   { to: "/app/keuangan/buku-besar", label: "Buku Besar", exact: false, section: "Keuangan", icon: BookOpen },
@@ -305,7 +309,7 @@ export function DashboardPage() {
   const fmt = (n: number) =>
     new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
 
-  const stats: { label: string; value?: number; hint?: string; icon: LucideIcon; chip: string }[] = [
+  const stats: { label: string; value?: number; hint?: string; icon: LucideIcon; chip: string; currency?: boolean }[] = [
     {
       label: "Kas & Bank",
       value: dash.data?.cashAndBank,
@@ -336,6 +340,13 @@ export function DashboardPage() {
       value: dash.data?.inventoryValue,
       icon: Boxes,
       chip: "bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300",
+    },
+    {
+      label: "Lead Terbuka",
+      value: dash.data?.openLeadsCount,
+      currency: false,
+      icon: Target,
+      chip: "bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300",
     },
   ];
 
@@ -368,7 +379,9 @@ export function DashboardPage() {
               {stat.value === undefined ? (
                 <Skeleton className="mt-2 h-6 w-28" />
               ) : (
-                <div className="mt-1 text-xl font-semibold tabular-nums">{fmt(stat.value)}</div>
+                <div className="mt-1 text-xl font-semibold tabular-nums">
+                  {stat.currency === false ? stat.value.toLocaleString("id-ID") : fmt(stat.value)}
+                </div>
               )}
               {stat.hint ? <div className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{stat.hint}</div> : null}
             </CardBody>

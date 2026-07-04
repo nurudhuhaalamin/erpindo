@@ -8,6 +8,9 @@ import type {
   ApiCommerceDoc,
   ApiDashboard,
   ApiIncomeStatement,
+  ApiLead,
+  ApiLeadActivity,
+  ApiQuotation,
   ApiStockCardRow,
   ApiStockLot,
   ApiJournalEntry,
@@ -15,12 +18,18 @@ import type {
   ApiStockLevel,
   ApiTrialBalanceRow,
   ContactInput,
+  ConvertQuotationInput,
   CreateAccountInput,
   CreateInvoiceInput,
   CreateJournalEntryInput,
   CreatePaymentInput,
+  CreateQuotationInput,
+  LeadActivityInput,
+  LeadInput,
   MeResponse,
   ProductInput,
+  QuotationStatusInput,
+  UpdateLeadInput,
   WarehouseInput,
 } from "@erpindo/shared";
 
@@ -237,6 +246,39 @@ export const api = {
       "POST",
       `/api/tenants/${tenantId}/${entity}/import`,
       { rows },
+    ),
+
+  // --- CRM Pipeline --------------------------------------------------------------
+  leads: (tenantId: string, stage?: string) =>
+    request<{ leads: ApiLead[] }>(
+      "GET",
+      `/api/tenants/${tenantId}/leads${stage ? `?stage=${stage}` : ""}`,
+    ),
+  createLead: (tenantId: string, input: LeadInput) =>
+    request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/leads`, input),
+  updateLead: (tenantId: string, id: string, input: UpdateLeadInput) =>
+    request<{ ok: true }>("PATCH", `/api/tenants/${tenantId}/leads/${id}`, input),
+  convertLead: (tenantId: string, id: string) =>
+    request<{ ok: true; contactId: string }>("POST", `/api/tenants/${tenantId}/leads/${id}/convert`),
+  leadActivities: (tenantId: string, id: string) =>
+    request<{ activities: ApiLeadActivity[] }>("GET", `/api/tenants/${tenantId}/leads/${id}/activities`),
+  addLeadActivity: (tenantId: string, id: string, input: LeadActivityInput) =>
+    request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/leads/${id}/activities`, input),
+  quotations: (tenantId: string) =>
+    request<{ quotations: ApiQuotation[] }>("GET", `/api/tenants/${tenantId}/quotations`),
+  createQuotation: (tenantId: string, input: CreateQuotationInput) =>
+    request<{ ok: true; id: string; quoteNo: string; total: number }>(
+      "POST",
+      `/api/tenants/${tenantId}/quotations`,
+      input,
+    ),
+  setQuotationStatus: (tenantId: string, id: string, input: QuotationStatusInput) =>
+    request<{ ok: true; status: string }>("PATCH", `/api/tenants/${tenantId}/quotations/${id}/status`, input),
+  convertQuotation: (tenantId: string, id: string, input: ConvertQuotationInput) =>
+    request<{ ok: true; invoiceId: string; docNo: string; total: number }>(
+      "POST",
+      `/api/tenants/${tenantId}/quotations/${id}/convert`,
+      input,
     ),
 };
 

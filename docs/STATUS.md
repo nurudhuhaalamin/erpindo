@@ -3,7 +3,7 @@
 > Halaman ini ditulis untuk pemilik produk (non-teknis). Selalu diperbarui setiap ada kemajuan.
 > Log teknis per fase ada di folder [docs/log/](./log/).
 
-**Terakhir diperbarui:** 3 Juli 2026
+**Terakhir diperbarui:** 4 Juli 2026
 
 ## Di mana kita sekarang?
 
@@ -25,7 +25,9 @@
 | Fase 2h — POS / Kasir | Layar kasir cepat, shift + rekap kas berjurnal, struk | ✅ Selesai |
 | Fase 2i — Persetujuan pembelian | Pembelian besar oleh Admin wajib disetujui Owner dulu | ✅ Selesai |
 | Fase 2j — Lot & kedaluwarsa (FEFO) | Lacak lot/exp per produk, keluar otomatis yang paling dekat kedaluwarsa, peringatan ≤ 30 hari | ✅ Selesai |
-| **Fase 2k — Tampilan baru ala SaaS modern** | Sidebar gelap berikon, kartu statistik berwarna, avatar, badge status konsisten, landing lebih meyakinkan | ✅ **Selesai** |
+| Fase 2k — Tampilan baru ala SaaS modern | Sidebar gelap berikon, kartu statistik berwarna, avatar, badge status konsisten, landing lebih meyakinkan | ✅ Selesai |
+| **Fase 2l — CRM Pipeline** | Catat calon pelanggan (lead), tahap funnel, aktivitas follow-up, konversi jadi pelanggan + penawaran (quotation) sekali klik ke faktur | ✅ **Selesai** |
+| Fase 2m — Manajemen dokumen (lampiran file) | Lampiran di faktur/kontak/jurnal (penyimpanan Cloudflare R2) | ⏸ **Menunggu Anda mengaktifkan R2 di dashboard Cloudflare** |
 | Fase 2b-2 — Pembayaran langganan | Checkout Midtrans/Xendit, aktivasi otomatis | ⏸ **Menunggu akun gateway dari Anda** |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
 | Fase 3+ | POS, HR & Payroll, dan modul lanjutan | Belum |
@@ -65,9 +67,10 @@
 31. **Kasir (POS)** *(Fase 2h)*: layar kasir cepat untuk toko/kafe — klik produk, terima tunai, kembalian dihitung, struk tercetak; buka/tutup shift dengan hitung kas fisik dan selisihnya otomatis masuk pembukuan.
 32. **Persetujuan pembelian** *(Fase 2i)*: tetapkan ambang (mis. Rp 5 juta) — pembelian Admin di atas itu menunggu persetujuan Anda dan baru diproses (stok & pembukuan) setelah disetujui; bisa ditolak dengan catatan.
 33. **Lot & tanggal kedaluwarsa (FEFO)** *(Fase 2j)*: centang "lacak kedaluwarsa" pada produk (cocok untuk F&B/farmasi) — pembelian wajib mengisi tanggal exp per baris, penjualan otomatis mengambil lot yang paling dekat kedaluwarsa lebih dulu, dan halaman Stok menandai lot yang lewat (merah) atau ≤ 30 hari lagi (kuning).
-34. **Tampilan baru ala SaaS modern** *(baru — Fase 2k)*: sidebar gelap dengan ikon per menu, avatar pengguna, kartu statistik dashboard berikon warna, badge status konsisten (hijau lunas / kuning menunggu / merah lewat), skeleton saat memuat, dan landing page dengan ikon fitur + paket "Terpopuler" yang menonjol.
+34. **Tampilan baru ala SaaS modern** *(Fase 2k)*: sidebar gelap dengan ikon per menu, avatar pengguna, kartu statistik dashboard berikon warna, badge status konsisten (hijau lunas / kuning menunggu / merah lewat), skeleton saat memuat, dan landing page dengan ikon fitur + paket "Terpopuler" yang menonjol.
+35. **CRM Pipeline** *(baru — Fase 2l)*: catat calon pelanggan (lead) beserta perkiraan nilainya, gerakkan lewat tahap funnel (baru → dihubungi → terkualifikasi → penawaran → menang/kalah), catat setiap aktivitas follow-up (telepon/WA/email/pertemuan), lalu **konversi lead menjadi pelanggan** sekali klik. Buat **penawaran harga (quotation)** — belum menyentuh stok/pembukuan — dan saat pelanggan setuju, **konversi menjadi faktur penjualan** sekali klik (stok & jurnal otomatis, lewat mesin faktur yang sama). Dashboard menampilkan jumlah lead terbuka.
 
-Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (149 skenario ujian end-to-end + 20 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
+Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (168 skenario ujian end-to-end + 20 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
 
 ## Apakah sudah bisa diakses di internet?
 
@@ -83,4 +86,8 @@ Seluruh mekanik langganan sudah jadi — tinggal pembayarannya. **Yang dibutuhka
 2. Setelah masuk dashboard, buka **Settings → Access Keys**, salin **Server Key** yang berlabel *Sandbox*.
 3. Kabari di sesi pengembangan — kunci akan disimpan sebagai *secret* terenkripsi (tidak pernah masuk ke kode), lalu seluruh alur checkout (QRIS/VA/e-wallet), webhook, dan aktivasi paket otomatis dibangun & diuji di mode sandbox dulu.
 
-Sementara menunggu, pengembangan berlanjut ke hal-hal yang tidak butuh akun tersebut (notifikasi email, polising tampilan, keamanan 2FA).
+Sementara menunggu, pengembangan berlanjut ke hal-hal yang tidak butuh akun tersebut (notifikasi email, polising tampilan, keamanan 2FA, dan modul back-office seperti CRM).
+
+### Untuk fitur Lampiran Dokumen (Fase 2m) — ±2 menit dari Anda
+
+Fitur melampirkan file (foto/PDF) ke faktur, kontak, dan jurnal membutuhkan penyimpanan file **Cloudflare R2**, yang belum aktif di akun Anda. Mengaktifkannya: buka https://dash.cloudflare.com → menu **R2** → klik **Enable/Purchase R2** (ada kuota gratis 10 GB; Cloudflare hanya meminta kartu untuk verifikasi, tidak menagih selama di bawah kuota). Setelah aktif, kabari di sesi pengembangan — bucket dibuat otomatis dan fitur lampiran dibangun. Fase ini sengaja dilewati dulu agar pengembangan tidak berhenti; CRM (Fase 2l) dikerjakan lebih dulu.

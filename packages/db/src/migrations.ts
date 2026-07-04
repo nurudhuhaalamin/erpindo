@@ -385,6 +385,68 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `CREATE INDEX stock_lots_fefo ON stock_lots (product_id, warehouse_id, expiry_date)`,
     ],
   },
+  {
+    id: "0008_crm",
+    statements: [
+      // CRM: corong pra-penjualan. Lead bergerak lewat tahap funnel, dicatat
+      // aktivitas follow-up, lalu dikonversi menjadi kontak pelanggan.
+      `CREATE TABLE leads (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        contact_person TEXT,
+        email TEXT,
+        phone TEXT,
+        source TEXT,
+        stage TEXT NOT NULL DEFAULT 'new' CHECK (stage IN ('new','contacted','qualified','proposal','won','lost')),
+        est_value INTEGER NOT NULL DEFAULT 0,
+        notes TEXT,
+        status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','won','lost')),
+        converted_contact_id TEXT REFERENCES contacts(id),
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX leads_stage ON leads (status, stage, created_at)`,
+      `CREATE TABLE lead_activities (
+        id TEXT PRIMARY KEY,
+        lead_id TEXT NOT NULL REFERENCES leads(id),
+        type TEXT NOT NULL CHECK (type IN ('call','email','meeting','whatsapp','note')),
+        note TEXT NOT NULL,
+        activity_date TEXT NOT NULL,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX lead_activities_lead ON lead_activities (lead_id, activity_date)`,
+      // Penawaran (quotation) — sengaja dilepas dari akuntansi: tak berjurnal &
+      // tak menggerakkan stok. Stok/jurnal baru bergerak saat dikonversi ke faktur.
+      `CREATE TABLE quotations (
+        id TEXT PRIMARY KEY,
+        quote_no TEXT NOT NULL UNIQUE,
+        contact_id TEXT NOT NULL REFERENCES contacts(id),
+        lead_id TEXT REFERENCES leads(id),
+        quote_date TEXT NOT NULL,
+        valid_until TEXT,
+        status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','sent','accepted','rejected','converted')),
+        subtotal INTEGER NOT NULL,
+        tax_rate INTEGER NOT NULL DEFAULT 0,
+        tax_amount INTEGER NOT NULL DEFAULT 0,
+        total INTEGER NOT NULL,
+        notes TEXT,
+        result_invoice_id TEXT,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE TABLE quotation_lines (
+        id TEXT PRIMARY KEY,
+        quotation_id TEXT NOT NULL REFERENCES quotations(id),
+        product_id TEXT NOT NULL REFERENCES products(id),
+        description TEXT,
+        qty INTEGER NOT NULL CHECK (qty > 0),
+        unit_price INTEGER NOT NULL CHECK (unit_price >= 0),
+        amount INTEGER NOT NULL
+      )`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */
