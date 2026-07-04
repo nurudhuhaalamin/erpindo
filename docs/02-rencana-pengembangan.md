@@ -320,7 +320,8 @@ Urutan di dalam fase ini fleksibel — ikuti permintaan pelanggan berbayar. Usul
 - [x] **CRM Pipeline** (lead, tahap funnel, aktivitas follow-up, konversi lead→pelanggan + quotation→faktur) — ✅ 4 Jul 2026 ([log Fase 2l](./log/2026-07-04-fase-2l-crm.md)).
 - [x] **Anggaran** (target pendapatan/beban per akun per bulan + laporan budget vs realisasi dari jurnal) — ✅ 4 Jul 2026 ([log Fase 2n](./log/2026-07-04-fase-2n-anggaran.md)).
 - [x] **HR & Payroll** (karyawan, penggajian bulanan PPh 21 metode TER + BPJS, slip gaji, jurnal beban gaji otomatis) — ✅ 4 Jul 2026 ([log Fase 2o](./log/2026-07-04-fase-2o-payroll.md)).
-- [x] **Aset Tetap** (register, penyusutan garis lurus otomatis bulanan via Cron + jurnal, pelepasan dengan laba/rugi) — ✅ 4 Jul 2026 ([log Fase 2p](./log/2026-07-04-fase-2p-aset-tetap.md)). Berikutnya: Proyek (item terakhir Gelombang B).
+- [x] **Aset Tetap** (register, penyusutan garis lurus otomatis bulanan via Cron + jurnal, pelepasan dengan laba/rugi) — ✅ 4 Jul 2026 ([log Fase 2p](./log/2026-07-04-fase-2p-aset-tetap.md)).
+- [x] **Proyek** (proyek & tugas, tag pendapatan/biaya per proyek dari faktur & jurnal, laporan profitabilitas) — ✅ 4 Jul 2026 ([log Fase 2q](./log/2026-07-04-fase-2q-proyek.md)). **Gelombang B (back-office V2) tuntas.** Berikutnya: Gelombang C (Manufaktur+QC, Maintenance, multi mata uang, dst.).
 - [x] Inventori lanjutan (batch/lot, kedaluwarsa, FEFO) — ✅ 3 Jul 2026. Manajemen Dokumen (lampiran R2) ⏸ menunggu R2 diaktifkan di akun Cloudflare pemilik.
 - [ ] Impor rekening koran & rekonsiliasi; API publik + webhook; multi-cabang.
 

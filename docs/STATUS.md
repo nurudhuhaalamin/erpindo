@@ -29,7 +29,8 @@
 | Fase 2l — CRM Pipeline | Catat calon pelanggan (lead), tahap funnel, aktivitas follow-up, konversi jadi pelanggan + penawaran (quotation) sekali klik ke faktur | ✅ Selesai |
 | Fase 2n — Anggaran | Tetapkan target pendapatan & beban per akun per bulan; realisasi otomatis dari jurnal; laporan selisih (varians) berwarna | ✅ Selesai |
 | Fase 2o — HR & Payroll | Data karyawan, penggajian bulanan dengan PPh 21 (metode TER) & BPJS otomatis, slip gaji, jurnal beban gaji otomatis | ✅ Selesai |
-| **Fase 2p — Aset Tetap** | Register aset, penyusutan garis lurus otomatis tiap bulan (jurnal), pelepasan aset dengan laba/rugi | ✅ **Selesai** |
+| Fase 2p — Aset Tetap | Register aset, penyusutan garis lurus otomatis tiap bulan (jurnal), pelepasan aset dengan laba/rugi | ✅ Selesai |
+| **Fase 2q — Proyek** | Proyek & tugas, tag pendapatan/biaya per proyek (faktur & jurnal), laporan profitabilitas | ✅ **Selesai** |
 | Fase 2m — Manajemen dokumen (lampiran file) | Lampiran di faktur/kontak/jurnal (penyimpanan Cloudflare R2) | ⏸ **Menunggu Anda mengaktifkan R2 di dashboard Cloudflare** |
 | Fase 2b-2 — Pembayaran langganan | Checkout Midtrans/Xendit, aktivasi otomatis | ⏸ **Menunggu akun gateway dari Anda** |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
@@ -74,9 +75,10 @@
 35. **CRM Pipeline** *(Fase 2l)*: catat calon pelanggan (lead) beserta perkiraan nilainya, gerakkan lewat tahap funnel (baru → dihubungi → terkualifikasi → penawaran → menang/kalah), catat setiap aktivitas follow-up (telepon/WA/email/pertemuan), lalu **konversi lead menjadi pelanggan** sekali klik. Buat **penawaran harga (quotation)** — belum menyentuh stok/pembukuan — dan saat pelanggan setuju, **konversi menjadi faktur penjualan** sekali klik (stok & jurnal otomatis, lewat mesin faktur yang sama). Dashboard menampilkan jumlah lead terbuka.
 36. **Anggaran** *(Fase 2n)*: tetapkan target pendapatan & beban per akun untuk tiap bulan, lalu bandingkan dengan **realisasi yang dihitung otomatis dari jurnal**. Selisih ditandai warna (hijau bila menguntungkan — pendapatan di atas target atau beban di bawah target; merah bila sebaliknya), lengkap dengan ringkasan laba/rugi anggaran vs realisasi dan ekspor CSV.
 37. **HR & Penggajian** *(Fase 2o)*: catat karyawan (jabatan, status PTKP, gaji pokok + tunjangan), lalu **jalankan penggajian bulanan sekali klik** — sistem menghitung **PPh 21 metode TER** dan **potongan BPJS** (Kesehatan, JHT, JP dengan batas upah) tiap karyawan, menyusun slip gaji, dan otomatis membukukan jurnal beban gaji (netto ke kas, potongan pajak & iuran jadi hutang untuk disetor). *Catatan: tarif pajak/BPJS mengikuti ketentuan 2024 dan diberi tanda agar diverifikasi sebelum penggajian resmi.*
-38. **Aset Tetap** *(baru — Fase 2p)*: daftarkan aset (kendaraan, mesin, peralatan) beserta nilai perolehan, masa manfaat, dan nilai residu — sistem membuat jurnal perolehan dan **menyusutkan garis lurus otomatis tiap awal bulan** (beban penyusutan dibukukan sendiri). Saat aset dijual/dibuang, **pelepasan sekali klik** menghapusnya dari buku dan mencatat laba/rugi pelepasan. Halaman menampilkan nilai buku berjalan & persentase tersusut.
+38. **Aset Tetap** *(Fase 2p)*: daftarkan aset (kendaraan, mesin, peralatan) beserta nilai perolehan, masa manfaat, dan nilai residu — sistem membuat jurnal perolehan dan **menyusutkan garis lurus otomatis tiap awal bulan** (beban penyusutan dibukukan sendiri). Saat aset dijual/dibuang, **pelepasan sekali klik** menghapusnya dari buku dan mencatat laba/rugi pelepasan. Halaman menampilkan nilai buku berjalan & persentase tersusut.
+39. **Proyek** *(baru — Fase 2q)*: buat proyek (mis. per klien/pekerjaan) dan **tandai faktur, pembelian, atau jurnal ke proyek** — sistem menghitung **profitabilitas per proyek** (pendapatan − biaya = laba, lengkap dengan margin) langsung dari jurnal, jadi konsisten dengan pembukuan. Kelola juga daftar tugas per proyek. Menutup rangkaian modul back-office (Gelombang B).
 
-Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (197 skenario ujian end-to-end + 24 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
+Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (207 skenario ujian end-to-end + 24 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
 
 ## Apakah sudah bisa diakses di internet?
 

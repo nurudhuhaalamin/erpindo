@@ -1378,6 +1378,76 @@ try {
   const tbAfterAssets = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah penyusutan & pelepasan", tbAfterAssets.json?.balanced === true);
 
+  // --- Proyek (Fase 2q) -----------------------------------------------------------
+  // Jurnal ber-tag bertanggal Agustus (di luar jendela arus kas Juli).
+  console.log("11k. Proyek (tagging biaya/pendapatan + profitabilitas)");
+
+  const viewerProject = await viewer("POST", `/api/tenants/${tenantId}/projects`, { code: "X", name: "Coba" });
+  check("viewer DITOLAK membuat proyek (403)", viewerProject.status === 403);
+
+  const project = await owner("POST", `/api/tenants/${tenantId}/projects`, {
+    code: "prj-01",
+    name: "Renovasi Kantor Klien A",
+    budget: 8_000_000,
+  });
+  check("buat proyek 201 (kode di-uppercase)", project.status === 201);
+  const projectId = project.json?.id;
+
+  const dupProject = await owner("POST", `/api/tenants/${tenantId}/projects`, { code: "PRJ-01", name: "Lain" });
+  check("kode proyek ganda DITOLAK 409", dupProject.status === 409);
+
+  // Tag pendapatan 10jt & biaya 4jt ke proyek lewat jurnal manual.
+  await owner("POST", `/api/tenants/${tenantId}/journal-entries`, {
+    entryDate: "2026-08-05",
+    memo: "Termin proyek A",
+    projectId,
+    lines: [
+      { accountId: kas.id, debit: 10_000_000, credit: 0 },
+      { accountId: penjualan.id, debit: 0, credit: 10_000_000 },
+    ],
+  });
+  await owner("POST", `/api/tenants/${tenantId}/journal-entries`, {
+    entryDate: "2026-08-06",
+    memo: "Biaya material proyek A",
+    projectId,
+    lines: [
+      { accountId: expenseAcc.id, debit: 4_000_000, credit: 0 },
+      { accountId: kas.id, debit: 0, credit: 4_000_000 },
+    ],
+  });
+
+  const badProjJournal = await owner("POST", `/api/tenants/${tenantId}/journal-entries`, {
+    entryDate: "2026-08-05",
+    projectId: "proyek-tidak-ada",
+    lines: [
+      { accountId: kas.id, debit: 1000, credit: 0 },
+      { accountId: penjualan.id, debit: 0, credit: 1000 },
+    ],
+  });
+  check("jurnal dengan proyek tak dikenal DITOLAK 400", badProjJournal.status === 400);
+
+  const projList = await owner("GET", `/api/tenants/${tenantId}/projects`);
+  const p1 = projList.json?.projects?.find((x) => x.id === projectId);
+  check(
+    "profitabilitas proyek: pendapatan 10jt, biaya 4jt, laba 6jt",
+    p1?.revenue === 10_000_000 && p1?.cost === 4_000_000 && p1?.profit === 6_000_000,
+    `→ ${JSON.stringify(p1 && { r: p1.revenue, c: p1.cost, p: p1.profit })}`,
+  );
+
+  // Tugas proyek.
+  const task = await owner("POST", `/api/tenants/${tenantId}/projects/${projectId}/tasks`, { name: "Pasang plafon" });
+  check("tambah tugas proyek 201", task.status === 201);
+  const detail = await owner("GET", `/api/tenants/${tenantId}/projects/${projectId}`);
+  check("detail proyek: 1 tugas + 2 entri jurnal ber-tag", detail.json?.tasks?.length === 1 && detail.json?.entries?.length === 2);
+  const setTask = await owner("PATCH", `/api/tenants/${tenantId}/projects/${projectId}/tasks/${task.json.id}`, { status: "done" });
+  check("ubah status tugas 200", setTask.status === 200 && setTask.json?.status === "done");
+
+  const setProjStatus = await owner("PATCH", `/api/tenants/${tenantId}/projects/${projectId}/status`, { status: "completed" });
+  check("ubah status proyek jadi selesai 200", setProjStatus.status === 200);
+
+  const tbAfterProject = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah jurnal proyek", tbAfterProject.json?.balanced === true);
+
   // --- Arus kas (Fase 2b-1) -------------------------------------------------------
   console.log("12. Arus kas");
   // Konteks: modal 50jt (2/7) + penjualan tunai 2,5jt (3/7) + terima pembayaran 499,5rb (5/7)

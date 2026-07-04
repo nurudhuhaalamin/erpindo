@@ -543,6 +543,36 @@ export const TENANT_MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    id: "0012_projects",
+    statements: [
+      // Proyek: tagging biaya/pendapatan lewat project_id di jurnal → laporan
+      // profitabilitas dihitung dari jurnal terposting yang ber-tag.
+      `CREATE TABLE projects (
+        id TEXT PRIMARY KEY,
+        code TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        contact_id TEXT REFERENCES contacts(id),
+        status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','completed','on_hold')),
+        budget INTEGER NOT NULL DEFAULT 0,
+        start_date TEXT,
+        end_date TEXT,
+        notes TEXT,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE TABLE project_tasks (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id),
+        name TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'todo' CHECK (status IN ('todo','in_progress','done')),
+        due_date TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `ALTER TABLE journal_entries ADD COLUMN project_id TEXT REFERENCES projects(id)`,
+      `CREATE INDEX journal_entries_project ON journal_entries (project_id)`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

@@ -160,9 +160,15 @@ export function JournalPage() {
     queryKey: ["journal", tenant.tenantId],
     queryFn: () => api.journalEntries(tenant.tenantId),
   });
+  const projectsQuery = useQuery({
+    queryKey: ["projects", tenant.tenantId],
+    queryFn: () => api.projects(tenant.tenantId),
+  });
+  const activeProjects = (projectsQuery.data?.projects ?? []).filter((p) => p.status !== "completed");
 
   const [entryDate, setEntryDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [memo, setMemo] = useState("");
+  const [projectId, setProjectId] = useState("");
   const [lines, setLines] = useState<DraftLine[]>([emptyLine(), emptyLine()]);
   const [error, setError] = useState<string | null>(null);
 
@@ -192,6 +198,7 @@ export function JournalPage() {
     create.mutate({
       entryDate,
       memo: memo || undefined,
+      ...(projectId ? { projectId } : {}),
       lines: lines
         .filter((l) => l.accountId)
         .map((l) => ({
@@ -231,6 +238,19 @@ export function JournalPage() {
                   placeholder="Setoran modal awal"
                 />
               </div>
+              {activeProjects.length > 0 ? (
+                <div className="sm:w-52">
+                  <Label htmlFor="jr-project">Proyek (opsional)</Label>
+                  <Select id="jr-project" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+                    <option value="">— tanpa proyek —</option>
+                    {activeProjects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.code} · {p.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              ) : null}
             </div>
 
             <div className="space-y-2">
