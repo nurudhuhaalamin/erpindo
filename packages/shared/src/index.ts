@@ -540,6 +540,39 @@ export type ApiQuotation = {
 };
 
 // ---------------------------------------------------------------------------
+// Anggaran (Fase 2n): target pendapatan/beban per akun per bulan
+// ---------------------------------------------------------------------------
+
+const PERIOD_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+export const setBudgetSchema = z.object({
+  accountId: z.string().min(1, "Akun wajib dipilih"),
+  period: z.string().regex(PERIOD_RE, "Periode harus berformat YYYY-MM"),
+  amount: amountSchema.default(0),
+});
+export type SetBudgetInput = z.infer<typeof setBudgetSchema>;
+
+export type ApiBudgetRow = {
+  accountId: string;
+  code: string;
+  name: string;
+  type: "income" | "expense";
+  budget: number;
+  actual: number;
+  /** Selisih favorable: pendapatan actual>budget atau beban actual<budget. */
+  variance: number;
+};
+
+export type ApiBudgetReport = {
+  period: string;
+  rows: ApiBudgetRow[];
+  totalBudgetIncome: number;
+  totalActualIncome: number;
+  totalBudgetExpense: number;
+  totalActualExpense: number;
+};
+
+// ---------------------------------------------------------------------------
 // Laporan keuangan & dashboard (Fase 1c)
 // ---------------------------------------------------------------------------
 

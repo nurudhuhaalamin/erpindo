@@ -2,6 +2,7 @@ import type {
   ApiAccount,
   ApiAgingRow,
   ApiAuditLog,
+  ApiBudgetReport,
   ApiPosShift,
   ApiBalanceSheet,
   ApiCashFlow,
@@ -132,6 +133,10 @@ export const api = {
     ),
   closeBooks: (tenantId: string, date: string) =>
     request<{ ok: true; lockedBefore: string }>("POST", `/api/tenants/${tenantId}/close-books`, { date }),
+  budgets: (tenantId: string, period: string) =>
+    request<ApiBudgetReport>("GET", `/api/tenants/${tenantId}/budgets/${period}`),
+  setBudget: (tenantId: string, input: { accountId: string; period: string; amount: number }) =>
+    request<{ ok: true }>("PUT", `/api/tenants/${tenantId}/budgets`, input),
 
   // --- Penjualan & Pembelian -----------------------------------------------------
   invoices: (tenantId: string) => request<{ docs: ApiCommerceDoc[] }>("GET", `/api/tenants/${tenantId}/invoices`),

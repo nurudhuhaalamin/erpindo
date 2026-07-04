@@ -12,6 +12,7 @@ import { ToastProvider } from "./components/ui";
 import { AppShell, DashboardPage, SettingsPage } from "./pages/app";
 import { PurchasesPage, SalesPage, StockPage } from "./pages/commerce";
 import { LeadsPage, QuotationsPage } from "./pages/crm";
+import { BudgetPage } from "./pages/budget";
 import { AccountsPage, JournalPage, LedgerPage, TrialBalancePage } from "./pages/finance";
 import { AgingPage, BalanceSheetPage, CashFlowPage, IncomeStatementPage } from "./pages/reports";
 import { ContactsPage, ProductsPage, WarehousesPage } from "./pages/masterdata";
@@ -61,6 +62,7 @@ const appChildren = [
   createRoute({ getParentRoute: () => appRoute, path: "/keuangan/neraca", component: BalanceSheetPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/keuangan/umur-tagihan", component: AgingPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/keuangan/arus-kas", component: CashFlowPage }),
+  createRoute({ getParentRoute: () => appRoute, path: "/keuangan/anggaran", component: BudgetPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/master/produk", component: ProductsPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/master/kontak", component: ContactsPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/master/gudang", component: WarehousesPage }),

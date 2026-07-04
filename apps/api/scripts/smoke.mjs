@@ -1201,6 +1201,57 @@ try {
   const tbAfterCrm = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah alur CRM", tbAfterCrm.json?.balanced === true);
 
+  // --- Anggaran (Fase 2n) ---------------------------------------------------------
+  console.log("11h. Anggaran (budget vs realisasi)");
+  const expenseAcc = accounts.find((a) => a.type === "expense");
+
+  const setBudget = await owner("PUT", `/api/tenants/${tenantId}/budgets`, {
+    accountId: penjualan.id,
+    period: "2026-07",
+    amount: 10_000_000,
+  });
+  check("tetapkan anggaran pendapatan 200", setBudget.status === 200);
+  await owner("PUT", `/api/tenants/${tenantId}/budgets`, { accountId: expenseAcc.id, period: "2026-07", amount: 2_000_000 });
+
+  const budgetRep = await owner("GET", `/api/tenants/${tenantId}/budgets/2026-07`);
+  const penjRow = budgetRep.json?.rows?.find((r) => r.accountId === penjualan.id);
+  check("laporan anggaran memuat baris pendapatan dengan anggaran 10jt", budgetRep.status === 200 && penjRow?.budget === 10_000_000);
+
+  // Realisasi harus cocok dengan Laba Rugi bulan itu (satu sumber = jurnal).
+  const isJul = await owner("GET", `/api/tenants/${tenantId}/reports/income-statement?from=2026-07-01&to=2026-07-31`);
+  const penjIsActual = isJul.json?.income?.find((l) => l.accountId === penjualan.id)?.amount ?? 0;
+  check(
+    "realisasi anggaran = angka Laba Rugi bulan yang sama",
+    penjRow?.actual === penjIsActual,
+    `→ budget=${penjRow?.actual} vs IS=${penjIsActual}`,
+  );
+  check("selisih pendapatan = realisasi − anggaran", penjRow?.variance === penjRow.actual - 10_000_000);
+
+  // Upsert: ubah anggaran akun yang sama → nilai ter-update, bukan ganda.
+  await owner("PUT", `/api/tenants/${tenantId}/budgets`, { accountId: penjualan.id, period: "2026-07", amount: 12_000_000 });
+  const budgetRep2 = await owner("GET", `/api/tenants/${tenantId}/budgets/2026-07`);
+  check(
+    "ubah anggaran meng-upsert (tetap satu baris, nilai 12jt)",
+    budgetRep2.json?.rows?.find((r) => r.accountId === penjualan.id)?.budget === 12_000_000,
+  );
+
+  const viewerBudget = await viewer("PUT", `/api/tenants/${tenantId}/budgets`, {
+    accountId: penjualan.id,
+    period: "2026-07",
+    amount: 1,
+  });
+  check("viewer DITOLAK menetapkan anggaran (403)", viewerBudget.status === 403);
+
+  const budgetOnAsset = await owner("PUT", `/api/tenants/${tenantId}/budgets`, {
+    accountId: kas.id,
+    period: "2026-07",
+    amount: 1000,
+  });
+  check("anggaran pada akun non-pendapatan/beban DITOLAK 400", budgetOnAsset.status === 400);
+
+  const badPeriod = await owner("GET", `/api/tenants/${tenantId}/budgets/2026-7`);
+  check("periode salah format DITOLAK 400", badPeriod.status === 400);
+
   // --- Arus kas (Fase 2b-1) -------------------------------------------------------
   console.log("12. Arus kas");
   // Konteks: modal 50jt (2/7) + penjualan tunai 2,5jt (3/7) + terima pembayaran 499,5rb (5/7)

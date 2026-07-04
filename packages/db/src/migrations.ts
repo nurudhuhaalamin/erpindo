@@ -447,6 +447,23 @@ export const TENANT_MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    id: "0009_budgets",
+    statements: [
+      // Anggaran per akun (pendapatan/beban) per bulan (period = 'YYYY-MM').
+      // Realisasi tetap dihitung dari jurnal — tabel ini hanya menyimpan target.
+      `CREATE TABLE budgets (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id),
+        period TEXT NOT NULL,
+        amount INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE (account_id, period)
+      )`,
+      `CREATE INDEX budgets_period ON budgets (period)`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */
