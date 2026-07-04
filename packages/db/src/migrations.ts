@@ -464,6 +464,54 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `CREATE INDEX budgets_period ON budgets (period)`,
     ],
   },
+  {
+    id: "0010_payroll",
+    statements: [
+      // HR & Payroll: karyawan + penggajian bulanan (PPh 21 TER + BPJS).
+      `CREATE TABLE employees (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        position TEXT,
+        ptkp_status TEXT NOT NULL DEFAULT 'TK/0',
+        base_salary INTEGER NOT NULL DEFAULT 0,
+        allowances INTEGER NOT NULL DEFAULT 0,
+        bank_account TEXT,
+        join_date TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE TABLE payroll_runs (
+        id TEXT PRIMARY KEY,
+        run_no TEXT NOT NULL UNIQUE,
+        period TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'posted',
+        total_gross INTEGER NOT NULL,
+        total_deductions INTEGER NOT NULL,
+        total_net INTEGER NOT NULL,
+        journal_entry_id TEXT REFERENCES journal_entries(id),
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE (period)
+      )`,
+      `CREATE TABLE payslips (
+        id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL REFERENCES payroll_runs(id),
+        employee_id TEXT NOT NULL REFERENCES employees(id),
+        base_salary INTEGER NOT NULL,
+        allowances INTEGER NOT NULL,
+        gross INTEGER NOT NULL,
+        bpjs_health_employee INTEGER NOT NULL DEFAULT 0,
+        bpjs_jht_employee INTEGER NOT NULL DEFAULT 0,
+        bpjs_jp_employee INTEGER NOT NULL DEFAULT 0,
+        ter_category TEXT NOT NULL,
+        ter_rate REAL NOT NULL,
+        pph21 INTEGER NOT NULL DEFAULT 0,
+        total_deductions INTEGER NOT NULL DEFAULT 0,
+        net INTEGER NOT NULL
+      )`,
+      `CREATE INDEX payslips_run ON payslips (run_id)`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

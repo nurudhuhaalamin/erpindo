@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+export * from "./payroll";
+import { PTKP_STATUSES, type PtkpStatus } from "./payroll";
+
 // ---------------------------------------------------------------------------
 // Peran & status — konstanta lintas frontend/backend
 // ---------------------------------------------------------------------------
@@ -570,6 +573,72 @@ export type ApiBudgetReport = {
   totalActualIncome: number;
   totalBudgetExpense: number;
   totalActualExpense: number;
+};
+
+// ---------------------------------------------------------------------------
+// HR & Payroll (Fase 2o): karyawan, penggajian bulanan (PPh 21 TER + BPJS)
+// ---------------------------------------------------------------------------
+
+export const employeeSchema = z.object({
+  name: z.string().trim().min(2, "Nama minimal 2 karakter").max(150),
+  position: z.string().trim().max(100).optional(),
+  ptkpStatus: z.enum(PTKP_STATUSES),
+  baseSalary: amountSchema.default(0),
+  allowances: amountSchema.default(0),
+  bankAccount: z.string().trim().max(50).optional(),
+  joinDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+export type EmployeeInput = z.infer<typeof employeeSchema>;
+
+/** Jalankan penggajian: satu bulan + akun kas pembayar. */
+export const runPayrollSchema = z.object({
+  period: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Periode harus berformat YYYY-MM"),
+  cashAccountId: z.string().min(1, "Akun kas/bank wajib dipilih"),
+  paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+});
+export type RunPayrollInput = z.infer<typeof runPayrollSchema>;
+
+export type ApiEmployee = {
+  id: string;
+  name: string;
+  position: string | null;
+  ptkpStatus: PtkpStatus;
+  baseSalary: number;
+  allowances: number;
+  bankAccount: string | null;
+  joinDate: string | null;
+  isActive: boolean;
+};
+
+export type ApiPayslip = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  position: string | null;
+  baseSalary: number;
+  allowances: number;
+  gross: number;
+  bpjsHealthEmployee: number;
+  bpjsJhtEmployee: number;
+  bpjsJpEmployee: number;
+  terCategory: string;
+  terRate: number;
+  pph21: number;
+  totalDeductions: number;
+  net: number;
+};
+
+export type ApiPayrollRun = {
+  id: string;
+  runNo: string;
+  period: string;
+  status: "posted";
+  totalGross: number;
+  totalDeductions: number;
+  totalNet: number;
+  journalNo: string | null;
+  createdAt: string;
+  payslips: ApiPayslip[];
 };
 
 // ---------------------------------------------------------------------------

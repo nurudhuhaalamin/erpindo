@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  calculatePayslip,
   createJournalEntrySchema,
   loginSchema,
   registerSchema,
   ROLE_LEVEL,
+  terCategory,
+  terRate,
   toSlug,
 } from "../src/index";
 
@@ -117,5 +120,39 @@ describe("ROLE_LEVEL", () => {
   it("owner lebih tinggi dari admin dan viewer", () => {
     expect(ROLE_LEVEL.owner).toBeGreaterThan(ROLE_LEVEL.admin);
     expect(ROLE_LEVEL.admin).toBeGreaterThan(ROLE_LEVEL.viewer);
+  });
+});
+
+describe("payroll (PPh 21 TER + BPJS)", () => {
+  it("memetakan status PTKP ke kategori TER", () => {
+    expect(terCategory("TK/0")).toBe("A");
+    expect(terCategory("K/0")).toBe("A");
+    expect(terCategory("K/1")).toBe("B");
+    expect(terCategory("K/3")).toBe("C");
+  });
+
+  it("PPh 21 = 0 untuk bruto di bawah ambang TER (kategori A ≤ 5,4jt)", () => {
+    expect(terRate("A", 5_000_000)).toBe(0);
+    const slip = calculatePayslip({ baseSalary: 5_000_000, allowances: 0, ptkpStatus: "TK/0" });
+    expect(slip.pph21).toBe(0);
+  });
+
+  it("menghitung BPJS pekerja & netto konsisten (bruto = netto + potongan)", () => {
+    const slip = calculatePayslip({ baseSalary: 10_000_000, allowances: 0, ptkpStatus: "TK/0" });
+    // Kesehatan 1% = 100.000, JHT 2% = 200.000, JP 1% = 100.000.
+    expect(slip.bpjsHealthEmployee).toBe(100_000);
+    expect(slip.bpjsJhtEmployee).toBe(200_000);
+    expect(slip.bpjsJpEmployee).toBe(100_000);
+    // TER kategori A untuk 10jt = 2% → PPh21 200.000.
+    expect(slip.pph21).toBe(200_000);
+    expect(slip.totalDeductions).toBe(600_000);
+    expect(slip.gross).toBe(slip.net + slip.totalDeductions);
+  });
+
+  it("menerapkan batas upah BPJS Kesehatan (12jt) & JP (10.547.400)", () => {
+    const slip = calculatePayslip({ baseSalary: 20_000_000, allowances: 0, ptkpStatus: "TK/0" });
+    expect(slip.bpjsHealthEmployee).toBe(120_000); // 1% × 12jt (cap)
+    expect(slip.bpjsJpEmployee).toBe(105_474); // 1% × 10.547.400 (cap)
+    expect(slip.bpjsJhtEmployee).toBe(400_000); // 2% × 20jt (tanpa cap)
   });
 });
