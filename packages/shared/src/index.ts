@@ -198,6 +198,7 @@ export const createJournalEntrySchema = z
   .object({
     entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid (YYYY-MM-DD)"),
     memo: z.string().trim().max(500).optional(),
+    projectId: z.string().optional(),
     lines: z.array(journalLineSchema).min(2, "Jurnal minimal 2 baris"),
   })
   .superRefine((val, ctx) => {
@@ -335,6 +336,7 @@ export const createInvoiceSchema = z.object({
     .refine((v): v is (typeof TAX_RATES)[number] => (TAX_RATES as readonly number[]).includes(v), "Tarif pajak tidak dikenal")
     .default(0),
   warehouseId: z.string().min(1, "Gudang wajib dipilih"),
+  projectId: z.string().optional(),
   lines: z.array(commerceLineSchema).min(1, "Minimal 1 baris barang"),
 });
 export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>;
@@ -687,6 +689,67 @@ export type ApiFixedAsset = {
   monthlyDepreciation: number;
   status: "active" | "disposed";
   disposedDate: string | null;
+};
+
+// ---------------------------------------------------------------------------
+// Proyek (Fase 2q): proyek & tugas, tagging biaya/pendapatan, profitabilitas
+// ---------------------------------------------------------------------------
+
+export const PROJECT_STATUSES = ["active", "completed", "on_hold"] as const;
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+
+export const projectSchema = z.object({
+  code: z.string().trim().min(1, "Kode wajib diisi").max(30).toUpperCase(),
+  name: z.string().trim().min(2, "Nama minimal 2 karakter").max(150),
+  contactId: z.string().optional(),
+  budget: amountSchema.default(0),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  notes: z.string().trim().max(500).optional(),
+});
+export type ProjectInput = z.infer<typeof projectSchema>;
+
+export const updateProjectStatusSchema = z.object({ status: z.enum(PROJECT_STATUSES) });
+
+export const PROJECT_TASK_STATUSES = ["todo", "in_progress", "done"] as const;
+export type ProjectTaskStatus = (typeof PROJECT_TASK_STATUSES)[number];
+
+export const projectTaskSchema = z.object({
+  name: z.string().trim().min(1, "Nama tugas wajib diisi").max(200),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+export type ProjectTaskInput = z.infer<typeof projectTaskSchema>;
+
+export const projectTaskStatusSchema = z.object({ status: z.enum(PROJECT_TASK_STATUSES) });
+
+export type ApiProject = {
+  id: string;
+  code: string;
+  name: string;
+  contactId: string | null;
+  contactName: string | null;
+  status: ProjectStatus;
+  budget: number;
+  startDate: string | null;
+  endDate: string | null;
+  notes: string | null;
+  revenue: number;
+  cost: number;
+  profit: number;
+  taskCount: number;
+  doneCount: number;
+};
+
+export type ApiProjectTask = {
+  id: string;
+  name: string;
+  status: ProjectTaskStatus;
+  dueDate: string | null;
+};
+
+export type ApiProjectDetail = ApiProject & {
+  tasks: ApiProjectTask[];
+  entries: { entryNo: string; entryDate: string; memo: string | null; revenue: number; cost: number }[];
 };
 
 // ---------------------------------------------------------------------------

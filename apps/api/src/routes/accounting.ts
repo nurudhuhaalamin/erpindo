@@ -194,6 +194,11 @@ export const accountingRoutes = new Hono<AppEnv>()
       return c.json({ error: "Ada akun yang tidak ditemukan atau sudah diarsipkan." }, 400);
     }
 
+    if (input.projectId) {
+      const { results } = await db.prepare(`SELECT id FROM projects WHERE id = ?`).bind(input.projectId).all();
+      if (!results[0]) return c.json({ error: "Proyek tidak ditemukan." }, 400);
+    }
+
     let entryId: string;
     let entryNo: string;
     try {
@@ -201,6 +206,7 @@ export const accountingRoutes = new Hono<AppEnv>()
         entryDate: input.entryDate,
         memo: input.memo,
         createdBy: c.get("user").id,
+        projectId: input.projectId,
         lines: input.lines.map((l) => ({
           accountId: l.accountId,
           description: l.description,

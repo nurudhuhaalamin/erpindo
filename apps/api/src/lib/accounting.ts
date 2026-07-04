@@ -54,7 +54,14 @@ export async function getLockedBefore(db: SqlExecutor): Promise<string | null> {
 
 export async function postJournal(
   db: SqlExecutor,
-  input: { entryDate: string; memo?: string | null; createdBy: string; lines: JournalLineInput[] },
+  input: {
+    entryDate: string;
+    memo?: string | null;
+    createdBy: string;
+    lines: JournalLineInput[];
+    /** Opsional: tag ke proyek untuk laporan profitabilitas (Fase 2q). */
+    projectId?: string | null;
+  },
 ): Promise<{ id: string; entryNo: string }> {
   const debit = input.lines.reduce((s, l) => s + l.debit, 0);
   const credit = input.lines.reduce((s, l) => s + l.credit, 0);
@@ -75,10 +82,10 @@ export async function postJournal(
   const id = crypto.randomUUID();
   await db
     .prepare(
-      `INSERT INTO journal_entries (id, entry_no, entry_date, memo, status, created_by)
-       VALUES (?, ?, ?, ?, 'posted', ?)`,
+      `INSERT INTO journal_entries (id, entry_no, entry_date, memo, status, created_by, project_id)
+       VALUES (?, ?, ?, ?, 'posted', ?, ?)`,
     )
-    .bind(id, entryNo, input.entryDate, input.memo ?? null, input.createdBy)
+    .bind(id, entryNo, input.entryDate, input.memo ?? null, input.createdBy, input.projectId ?? null)
     .run();
   for (const line of input.lines) {
     await db

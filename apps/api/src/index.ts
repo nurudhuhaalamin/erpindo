@@ -15,6 +15,7 @@ import { posRoutes } from "./routes/pos";
 import { returnRoutes } from "./routes/returns";
 import { masterDataRoutes } from "./routes/masterdata";
 import { payrollRoutes } from "./routes/payroll";
+import { projectRoutes } from "./routes/projects";
 import { inviteRoutes, tenantRoutes } from "./routes/tenants";
 
 /**
@@ -54,6 +55,7 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", budgetRoutes)
   .route("/api/tenants", payrollRoutes)
   .route("/api/tenants", assetRoutes)
+  .route("/api/tenants", projectRoutes)
   .route("/api/invites", inviteRoutes)
   .notFound((c) =>
     c.req.path.startsWith("/api/")

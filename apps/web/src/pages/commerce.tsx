@@ -74,11 +74,17 @@ export function CommercePage({ mode }: { mode: Mode }) {
     queryKey: ["warehouses", tenant.tenantId],
     queryFn: () => api.listItems<WarehouseRow>(tenant.tenantId, "warehouses"),
   });
+  const projectsQuery = useQuery({
+    queryKey: ["projects", tenant.tenantId],
+    queryFn: () => api.projects(tenant.tenantId),
+  });
+  const activeProjects = (projectsQuery.data?.projects ?? []).filter((p) => p.status !== "completed");
 
   const [contactId, setContactId] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [taxRate, setTaxRate] = useState<0 | 11 | 12>(11);
+  const [projectId, setProjectId] = useState("");
   const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
   const [error, setError] = useState<string | null>(null);
 
@@ -130,6 +136,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
       invoiceDate: date,
       taxRate,
       warehouseId: warehouseId || warehouses[0]?.id || "",
+      ...(projectId ? { projectId } : {}),
       lines: lines
         .filter((l) => l.productId)
         .map((l) => ({
@@ -189,6 +196,19 @@ export function CommercePage({ mode }: { mode: Mode }) {
                   <option value="12">PPN 12%</option>
                 </Select>
               </div>
+              {activeProjects.length > 0 ? (
+                <div>
+                  <Label htmlFor="doc-project">Proyek (opsional)</Label>
+                  <Select id="doc-project" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+                    <option value="">— tanpa proyek —</option>
+                    {activeProjects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.code} · {p.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              ) : null}
             </div>
 
             <div className="space-y-2">

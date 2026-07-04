@@ -140,6 +140,13 @@ async function listDocs(db: SqlExecutor, cfg: DocTable): Promise<ApiCommerceDoc[
   }));
 }
 
+/** Bila dokumen ditag ke proyek, pastikan proyeknya ada. */
+async function checkProject(db: SqlExecutor, projectId?: string): Promise<string | null> {
+  if (!projectId) return null;
+  const { results } = await db.prepare(`SELECT id FROM projects WHERE id = ?`).bind(projectId).all();
+  return results[0] ? null : "Proyek tidak ditemukan.";
+}
+
 /** Tolak dokumen bertanggal pada periode yang sudah ditutup buku. */
 async function checkPeriodOpen(db: SqlExecutor, date: string): Promise<string | null> {
   const lockedBefore = await getLockedBefore(db);
@@ -166,7 +173,7 @@ async function executePurchase(
   input: CreatePurchaseInput,
   userId: string,
 ): Promise<{ purchaseId: string; docNo: string; total: number } | { error: string }> {
-  const refError = await validateRefs(db, PURCHASE_CFG, input);
+  const refError = (await validateRefs(db, PURCHASE_CFG, input)) ?? (await checkProject(db, input.projectId));
   if (refError) return { error: refError };
   const lockError = await checkPeriodOpen(db, input.invoiceDate);
   if (lockError) return { error: lockError };
@@ -203,6 +210,7 @@ async function executePurchase(
     entryDate: input.invoiceDate,
     memo: `Faktur pembelian ${docNo}`,
     createdBy: userId,
+    projectId: input.projectId,
     lines: [
       { accountId: persediaan, description: docNo, debit: subtotal, credit: 0 },
       ...(taxAmount > 0 ? [{ accountId: ppnMasukan, description: `PPN ${docNo}`, debit: taxAmount, credit: 0 }] : []),
@@ -269,7 +277,7 @@ export async function executeInvoice(
   input: CreateInvoiceInput,
   userId: string,
 ): Promise<{ invoiceId: string; docNo: string; total: number } | { error: string }> {
-  const refError = await validateRefs(db, INVOICE_CFG, input);
+  const refError = (await validateRefs(db, INVOICE_CFG, input)) ?? (await checkProject(db, input.projectId));
   if (refError) return { error: refError };
   const lockError = await checkPeriodOpen(db, input.invoiceDate);
   if (lockError) return { error: lockError };
@@ -311,6 +319,7 @@ export async function executeInvoice(
     entryDate: input.invoiceDate,
     memo: `Faktur penjualan ${docNo}`,
     createdBy: userId,
+    projectId: input.projectId,
     lines: [
       { accountId: piutang, description: docNo, debit: total, credit: 0 },
       { accountId: pendapatan, description: docNo, debit: 0, credit: subtotal },

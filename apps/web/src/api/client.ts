@@ -6,6 +6,8 @@ import type {
   ApiEmployee,
   ApiFixedAsset,
   ApiPayrollRun,
+  ApiProject,
+  ApiProjectDetail,
   ApiPosShift,
   ApiBalanceSheet,
   ApiCashFlow,
@@ -188,6 +190,20 @@ export const api = {
       `/api/tenants/${tenantId}/assets/${id}/dispose`,
       input,
     ),
+
+  // --- Proyek --------------------------------------------------------------------
+  projects: (tenantId: string) => request<{ projects: ApiProject[] }>("GET", `/api/tenants/${tenantId}/projects`),
+  project: (tenantId: string, id: string) => request<ApiProjectDetail>("GET", `/api/tenants/${tenantId}/projects/${id}`),
+  createProject: (
+    tenantId: string,
+    input: { code: string; name: string; contactId?: string; budget: number; startDate?: string; endDate?: string; notes?: string },
+  ) => request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/projects`, input),
+  setProjectStatus: (tenantId: string, id: string, status: string) =>
+    request<{ ok: true; status: string }>("PATCH", `/api/tenants/${tenantId}/projects/${id}/status`, { status }),
+  addProjectTask: (tenantId: string, id: string, input: { name: string; dueDate?: string }) =>
+    request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/projects/${id}/tasks`, input),
+  setTaskStatus: (tenantId: string, id: string, taskId: string, status: string) =>
+    request<{ ok: true; status: string }>("PATCH", `/api/tenants/${tenantId}/projects/${id}/tasks/${taskId}`, { status }),
 
   // --- Penjualan & Pembelian -----------------------------------------------------
   invoices: (tenantId: string) => request<{ docs: ApiCommerceDoc[] }>("GET", `/api/tenants/${tenantId}/invoices`),
