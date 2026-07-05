@@ -12,6 +12,9 @@ import type {
   ApiBalanceSheet,
   ApiCashFlow,
   ApiCommerceDoc,
+  ApiConsolidatedBalanceSheet,
+  ApiConsolidatedIncomeStatement,
+  ApiConsolidationCompany,
   ApiContract,
   ApiCurrency,
   ApiDashboard,
@@ -73,6 +76,8 @@ export const api = {
 
   register: (input: { companyName: string; name: string; email: string; password: string }) =>
     request<{ ok: true; tenantId: string; slug: string }>("POST", "/api/auth/register", input),
+  createCompany: (input: { companyName: string }) =>
+    request<{ ok: true; tenantId: string; slug: string }>("POST", "/api/auth/companies", input),
   login: (input: { email: string; password: string; totpCode?: string }) =>
     request<{ ok: true }>("POST", "/api/auth/login", input),
   totpSetup: () => request<{ secret: string; otpauthUrl: string }>("POST", "/api/auth/2fa/setup"),
@@ -144,6 +149,24 @@ export const api = {
     request<ApiBudgetReport>("GET", `/api/tenants/${tenantId}/budgets/${period}`),
   setBudget: (tenantId: string, input: { accountId: string; period: string; amount: number }) =>
     request<{ ok: true }>("PUT", `/api/tenants/${tenantId}/budgets`, input),
+
+  // --- Konsolidasi multi-perusahaan ----------------------------------------
+  consolidationCompanies: () =>
+    request<{ companies: ApiConsolidationCompany[] }>("GET", "/api/consolidation/companies"),
+  consolidatedIncomeStatement: (from: string, to: string, companyIds?: string[]) =>
+    request<ApiConsolidatedIncomeStatement>(
+      "GET",
+      `/api/consolidation/income-statement?from=${from}&to=${to}${
+        companyIds && companyIds.length ? `&companies=${companyIds.join(",")}` : ""
+      }`,
+    ),
+  consolidatedBalanceSheet: (asOf: string, companyIds?: string[]) =>
+    request<ApiConsolidatedBalanceSheet>(
+      "GET",
+      `/api/consolidation/balance-sheet?asOf=${asOf}${
+        companyIds && companyIds.length ? `&companies=${companyIds.join(",")}` : ""
+      }`,
+    ),
 
   // --- HR & Payroll --------------------------------------------------------------
   employees: (tenantId: string) => request<{ employees: ApiEmployee[] }>("GET", `/api/tenants/${tenantId}/employees`),

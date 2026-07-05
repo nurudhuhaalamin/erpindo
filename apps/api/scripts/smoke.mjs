@@ -1579,6 +1579,121 @@ try {
   const tbAfterContract = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah tagihan kontrak", tbAfterContract.json?.balanced === true);
 
+  // --- Konsolidasi multi-perusahaan (Fase 2t) ------------------------------------
+  console.log("11n. Konsolidasi multi-perusahaan (laporan gabungan lintas tenant)");
+
+  // Owner "budi" membuat perusahaan kedua di bawah akun yang sama.
+  const co2 = await owner("POST", "/api/auth/companies", { companyName: "PT Anak Usaha" });
+  check("buat perusahaan kedua 201", co2.status === 201, `→ ${co2.status} ${JSON.stringify(co2.json)}`);
+  const tenant2 = co2.json?.tenantId;
+
+  const meMulti = await owner("GET", "/api/auth/me");
+  check("owner kini memiliki 2 keanggotaan", (meMulti.json?.memberships?.length ?? 0) === 2);
+
+  // Isolasi: perusahaan kedua punya bagan akun bersih & pembukuan terpisah.
+  const acc2 = (await owner("GET", `/api/tenants/${tenant2}/accounts`)).json?.accounts ?? [];
+  const kas2 = acc2.find((a) => a.code === "1-1000");
+  const modal2 = acc2.find((a) => a.code === "3-1000");
+  const pend2 = acc2.find((a) => a.code === "4-1000");
+  const beban2 = acc2.find((a) => a.code === "5-2000");
+  check("perusahaan kedua tersemai COA (21 akun)", acc2.length === 21 && Boolean(kas2 && modal2 && pend2 && beban2));
+
+  // Pembukuan perusahaan kedua (tanpa tutup buku): modal 30jt, pendapatan 20jt, beban 8jt.
+  await owner("POST", `/api/tenants/${tenant2}/journal-entries`, {
+    entryDate: "2026-07-01",
+    memo: "Setoran modal PT Anak Usaha",
+    lines: [
+      { accountId: kas2.id, debit: 30_000_000, credit: 0 },
+      { accountId: modal2.id, debit: 0, credit: 30_000_000 },
+    ],
+  });
+  await owner("POST", `/api/tenants/${tenant2}/journal-entries`, {
+    entryDate: "2026-07-05",
+    memo: "Pendapatan jasa",
+    lines: [
+      { accountId: kas2.id, debit: 20_000_000, credit: 0 },
+      { accountId: pend2.id, debit: 0, credit: 20_000_000 },
+    ],
+  });
+  await owner("POST", `/api/tenants/${tenant2}/journal-entries`, {
+    entryDate: "2026-07-06",
+    memo: "Beban gaji",
+    lines: [
+      { accountId: beban2.id, debit: 8_000_000, credit: 0 },
+      { accountId: kas2.id, debit: 0, credit: 8_000_000 },
+    ],
+  });
+
+  const companiesRes = await owner("GET", "/api/consolidation/companies");
+  check(
+    "daftar perusahaan konsolidasi berisi 2 milik owner",
+    companiesRes.status === 200 &&
+      companiesRes.json?.companies?.length === 2 &&
+      companiesRes.json.companies.some((c) => c.tenantId === tenantId) &&
+      companiesRes.json.companies.some((c) => c.tenantId === tenant2),
+  );
+
+  // Isolasi: user lain (viewer) hanya melihat perusahaan yang IA miliki, bukan milik owner.
+  const viewerCompanies = await viewer("GET", "/api/consolidation/companies");
+  check(
+    "user lain tidak melihat perusahaan owner (isolasi kepemilikan)",
+    viewerCompanies.status === 200 &&
+      viewerCompanies.json?.companies?.length === 1 &&
+      !viewerCompanies.json.companies.some((c) => c.tenantId === tenantId || c.tenantId === tenant2),
+  );
+
+  const consAnonClient = makeClient();
+  const consAnon = await consAnonClient("GET", "/api/consolidation/companies");
+  check("konsolidasi tanpa sesi DITOLAK 401", consAnon.status === 401);
+
+  // Laba Rugi konsolidasi = jumlah laporan tunggal tiap perusahaan (invariant).
+  const win = "from=2026-07-01&to=2026-07-31";
+  const is1 = (await owner("GET", `/api/tenants/${tenantId}/reports/income-statement?${win}`)).json;
+  const is2 = (await owner("GET", `/api/tenants/${tenant2}/reports/income-statement?${win}`)).json;
+  const consIS = await owner("GET", `/api/consolidation/income-statement?${win}`);
+  check(
+    "laba rugi konsolidasi = penjumlahan laporan tiap perusahaan",
+    consIS.status === 200 &&
+      consIS.json?.companies?.length === 2 &&
+      consIS.json.totalIncome === is1.totalIncome + is2.totalIncome &&
+      consIS.json.totalExpense === is1.totalExpense + is2.totalExpense &&
+      consIS.json.netProfit === is1.netProfit + is2.netProfit,
+    `→ ${JSON.stringify({ c: consIS.json?.netProfit, a: is1?.netProfit, b: is2?.netProfit })}`,
+  );
+  check(
+    "perusahaan kedua: pendapatan 20jt, beban 8jt, laba 12jt (rincian per perusahaan)",
+    consIS.json?.totalIncomeByCompany?.[tenant2] === 20_000_000 &&
+      consIS.json?.totalExpenseByCompany?.[tenant2] === 8_000_000 &&
+      consIS.json?.netProfitByCompany?.[tenant2] === 12_000_000,
+    `→ ${JSON.stringify(consIS.json?.netProfitByCompany)}`,
+  );
+  const pendRow = consIS.json?.income?.find((r) => r.code === "4-1000");
+  check(
+    "baris Pendapatan Penjualan menyimpan nilai per perusahaan",
+    pendRow?.amounts?.[tenant2] === 20_000_000,
+  );
+
+  // Filter perusahaan: hanya perusahaan kedua → laporan tunggalnya.
+  const consFiltered = await owner("GET", `/api/consolidation/income-statement?${win}&companies=${tenant2}`);
+  check(
+    "filter companies=tenant2 → hanya 1 perusahaan, laba 12jt",
+    consFiltered.json?.companies?.length === 1 && consFiltered.json?.netProfit === 12_000_000,
+  );
+
+  // Neraca konsolidasi = jumlah neraca tiap perusahaan, tetap seimbang.
+  const bs1 = (await owner("GET", `/api/tenants/${tenantId}/reports/balance-sheet?asOf=2026-07-31`)).json;
+  const bs2 = (await owner("GET", `/api/tenants/${tenant2}/reports/balance-sheet?asOf=2026-07-31`)).json;
+  const consBS = await owner("GET", "/api/consolidation/balance-sheet?asOf=2026-07-31");
+  check(
+    "neraca konsolidasi seimbang & total = penjumlahan (aset 42jt utk perusahaan kedua)",
+    consBS.status === 200 &&
+      consBS.json?.balanced === true &&
+      consBS.json.totalAssets === bs1.totalAssets + bs2.totalAssets &&
+      consBS.json.totalEquity === bs1.totalEquity + bs2.totalEquity &&
+      consBS.json.totalAssetsByCompany?.[tenant2] === 42_000_000,
+    `→ ${JSON.stringify({ ta: consBS.json?.totalAssets, a2: consBS.json?.totalAssetsByCompany?.[tenant2] })}`,
+  );
+
   // --- Arus kas (Fase 2b-1) -------------------------------------------------------
   console.log("12. Arus kas");
   // Konteks: modal 50jt (2/7) + penjualan tunai 2,5jt (3/7) + terima pembayaran 499,5rb (5/7)
