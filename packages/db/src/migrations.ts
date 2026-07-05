@@ -573,6 +573,33 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `CREATE INDEX journal_entries_project ON journal_entries (project_id)`,
     ],
   },
+  {
+    id: "0013_multicurrency",
+    statements: [
+      // Akun laba/rugi selisih kurs.
+      `INSERT INTO accounts (id, code, name, type, is_system) VALUES ('acc-4-3000', '4-3000', 'Laba Selisih Kurs', 'income', 1)`,
+      `INSERT INTO accounts (id, code, name, type, is_system) VALUES ('acc-5-6000', '5-6000', 'Rugi Selisih Kurs', 'expense', 1)`,
+      // Master mata uang. rate = IDR per 1 unit valas (REAL). IDR = basis (rate 1).
+      `CREATE TABLE currencies (
+        code TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        rate REAL NOT NULL DEFAULT 1,
+        is_base INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `INSERT INTO currencies (code, name, rate, is_base) VALUES ('IDR', 'Rupiah', 1, 1)`,
+      // Faktur/pembayaran valas: nilai buku tetap IDR; kolom valas untuk jejak & selisih kurs.
+      `ALTER TABLE invoices ADD COLUMN currency TEXT NOT NULL DEFAULT 'IDR'`,
+      `ALTER TABLE invoices ADD COLUMN exchange_rate REAL NOT NULL DEFAULT 1`,
+      `ALTER TABLE invoices ADD COLUMN foreign_total INTEGER NOT NULL DEFAULT 0`,
+      `ALTER TABLE purchases ADD COLUMN currency TEXT NOT NULL DEFAULT 'IDR'`,
+      `ALTER TABLE purchases ADD COLUMN exchange_rate REAL NOT NULL DEFAULT 1`,
+      `ALTER TABLE purchases ADD COLUMN foreign_total INTEGER NOT NULL DEFAULT 0`,
+      `ALTER TABLE payments ADD COLUMN currency TEXT NOT NULL DEFAULT 'IDR'`,
+      `ALTER TABLE payments ADD COLUMN exchange_rate REAL NOT NULL DEFAULT 1`,
+      `ALTER TABLE payments ADD COLUMN foreign_amount INTEGER NOT NULL DEFAULT 0`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

@@ -79,14 +79,22 @@ export function CommercePage({ mode }: { mode: Mode }) {
     queryFn: () => api.projects(tenant.tenantId),
   });
   const activeProjects = (projectsQuery.data?.projects ?? []).filter((p) => p.status !== "completed");
+  const currenciesQuery = useQuery({
+    queryKey: ["currencies", tenant.tenantId],
+    queryFn: () => api.currencies(tenant.tenantId),
+  });
+  const currencies = currenciesQuery.data?.currencies ?? [];
 
   const [contactId, setContactId] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [taxRate, setTaxRate] = useState<0 | 11 | 12>(11);
   const [projectId, setProjectId] = useState("");
+  const [currency, setCurrency] = useState("IDR");
+  const [exchangeRate, setExchangeRate] = useState("");
   const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
   const [error, setError] = useState<string | null>(null);
+  const isForeign = currency !== "IDR";
 
   const create = useMutation({
     mutationFn: async (
@@ -137,6 +145,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
       taxRate,
       warehouseId: warehouseId || warehouses[0]?.id || "",
       ...(projectId ? { projectId } : {}),
+      ...(isForeign ? { currency, exchangeRate: Number(exchangeRate) || 0 } : {}),
       lines: lines
         .filter((l) => l.productId)
         .map((l) => ({
@@ -207,6 +216,31 @@ export function CommercePage({ mode }: { mode: Mode }) {
                       </option>
                     ))}
                   </Select>
+                </div>
+              ) : null}
+              {currencies.length > 1 ? (
+                <div>
+                  <Label htmlFor="doc-currency">Mata uang</Label>
+                  <Select id="doc-currency" value={currency} onChange={(e) => setCurrency(e.target.value)}>
+                    {currencies.map((cur) => (
+                      <option key={cur.code} value={cur.code}>
+                        {cur.code}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              ) : null}
+              {isForeign ? (
+                <div>
+                  <Label htmlFor="doc-rate">Kurs (IDR/{currency})</Label>
+                  <Input
+                    id="doc-rate"
+                    type="number"
+                    min={0}
+                    placeholder={String(currencies.find((cur) => cur.code === currency)?.rate ?? "")}
+                    value={exchangeRate}
+                    onChange={(e) => setExchangeRate(e.target.value)}
+                  />
                 </div>
               ) : null}
             </div>
@@ -285,14 +319,30 @@ export function CommercePage({ mode }: { mode: Mode }) {
                 + Tambah barang
               </Button>
               <div className="text-sm">
-                Subtotal <strong className="tabular-nums">{formatIDR(subtotal)}</strong>
-                {taxRate > 0 ? (
+                {isForeign ? (
                   <>
-                    {" "}
-                    · PPN <strong className="tabular-nums">{formatIDR(taxAmount)}</strong>
+                    Total{" "}
+                    <strong className="tabular-nums">
+                      {currency} {(subtotal + taxAmount).toLocaleString("id-ID")}
+                    </strong>
+                    {Number(exchangeRate) > 0 ? (
+                      <span className="text-slate-500 dark:text-slate-400">
+                        {" "}
+                        ≈ {formatIDR(Math.round((subtotal + taxAmount) * Number(exchangeRate)))}
+                      </span>
+                    ) : null}
                   </>
-                ) : null}{" "}
-                · Total <strong className="tabular-nums">{formatIDR(subtotal + taxAmount)}</strong>
+                ) : (
+                  <>
+                    Subtotal <strong className="tabular-nums">{formatIDR(subtotal)}</strong>
+                    {taxRate > 0 ? (
+                      <>
+                        {" "}· PPN <strong className="tabular-nums">{formatIDR(taxAmount)}</strong>
+                      </>
+                    ) : null}{" "}
+                    · Total <strong className="tabular-nums">{formatIDR(subtotal + taxAmount)}</strong>
+                  </>
+                )}
               </div>
               <Button onClick={submit} disabled={create.isPending || !contactId || subtotal === 0}>
                 {create.isPending ? <Spinner /> : null} Posting Faktur
@@ -371,8 +421,11 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
     (a) => !a.isArchived && a.type === "asset" && (a.code.startsWith("1-10") || a.code.startsWith("1-11")),
   );
 
+  const isForeign = doc.currency !== "IDR";
+  const remainingForeign = doc.exchangeRate > 0 ? Math.round(remaining / doc.exchangeRate) : 0;
   const [payAccount, setPayAccount] = useState("");
-  const [payAmount, setPayAmount] = useState(String(remaining));
+  const [payAmount, setPayAmount] = useState(String(isForeign ? remainingForeign : remaining));
+  const [payRate, setPayRate] = useState(String(doc.exchangeRate));
   const [payDate, setPayDate] = useState(() => new Date().toISOString().slice(0, 10));
 
   const pay = useMutation({
@@ -381,11 +434,17 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
         refType: mode === "sale" ? "invoice" : "purchase",
         refId: doc.id,
         accountId: payAccount,
-        amount: Number(payAmount) || 0,
         paymentDate: payDate,
+        ...(isForeign
+          ? { foreignAmount: Number(payAmount) || 0, exchangeRate: Number(payRate) || 0 }
+          : { amount: Number(payAmount) || 0 }),
       }),
     onSuccess: (res) => {
-      toast("success", res.settled ? `${doc.docNo} lunas.` : `Pembayaran ${res.paymentNo} dicatat.`);
+      const forex =
+        res.forexGain && res.forexGain !== 0
+          ? ` (selisih kurs ${res.forexGain > 0 ? "laba" : "rugi"} ${formatIDR(Math.abs(res.forexGain))})`
+          : "";
+      toast("success", (res.settled ? `${doc.docNo} lunas.` : `Pembayaran ${res.paymentNo} dicatat.`) + forex);
       setPayOpen(false);
       queryClient.invalidateQueries({ queryKey: [mode === "sale" ? "invoices" : "purchases", tenant.tenantId] });
     },
@@ -400,9 +459,12 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
           <span className="text-slate-500 dark:text-slate-400">{doc.date}</span>
           <span>{doc.contactName}</span>
           {doc.status === "paid" ? <Badge tone="green">lunas</Badge> : <Badge tone="amber">belum lunas</Badge>}
+          {isForeign ? <Badge tone="brand">{doc.currency} @ {doc.exchangeRate.toLocaleString("id-ID")}</Badge> : null}
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <span className="font-semibold tabular-nums">{formatIDR(doc.total)}</span>
+          <span className="font-semibold tabular-nums">
+            {isForeign ? `${doc.currency} ${doc.foreignTotal.toLocaleString("id-ID")}` : formatIDR(doc.total)}
+          </span>
           {mode === "sale" ? (
             <a
               href={`/cetak/faktur?tenant=${tenant.tenantId}&id=${doc.id}`}
@@ -487,36 +549,49 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
       ) : null}
 
       {payOpen ? (
-        <div className="mt-3 grid gap-2 rounded-lg bg-slate-50 p-3 sm:grid-cols-[1fr_10rem_10rem_auto] sm:items-end dark:bg-slate-800/50">
-          <div>
-            <Label htmlFor={`pay-acc-${doc.id}`}>Masuk/keluar dari akun</Label>
-            <Select id={`pay-acc-${doc.id}`} value={payAccount} onChange={(e) => setPayAccount(e.target.value)}>
-              <option value="">— pilih kas/bank —</option>
-              {cashAccounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.code} · {a.name}
-                </option>
-              ))}
-            </Select>
+        <div className="mt-3 space-y-2 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
+          <div className="grid gap-2 sm:grid-cols-[1fr_10rem_10rem_auto] sm:items-end">
+            <div>
+              <Label htmlFor={`pay-acc-${doc.id}`}>Masuk/keluar dari akun</Label>
+              <Select id={`pay-acc-${doc.id}`} value={payAccount} onChange={(e) => setPayAccount(e.target.value)}>
+                <option value="">— pilih kas/bank —</option>
+                {cashAccounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.code} · {a.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor={`pay-amt-${doc.id}`}>{isForeign ? `Jumlah (${doc.currency})` : "Nominal"}</Label>
+              <Input
+                id={`pay-amt-${doc.id}`}
+                type="number"
+                min={1}
+                value={payAmount}
+                onChange={(e) => setPayAmount(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor={`pay-date-${doc.id}`}>Tanggal</Label>
+              <Input id={`pay-date-${doc.id}`} type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
+            </div>
+            <Button onClick={() => pay.mutate()} disabled={pay.isPending || !payAccount}>
+              {pay.isPending ? <Spinner /> : null} Catat
+            </Button>
           </div>
-          <div>
-            <Label htmlFor={`pay-amt-${doc.id}`}>Nominal</Label>
-            <Input
-              id={`pay-amt-${doc.id}`}
-              type="number"
-              min={1}
-              max={remaining}
-              value={payAmount}
-              onChange={(e) => setPayAmount(e.target.value)}
-            />
-          </div>
-          <div>
-            <Label htmlFor={`pay-date-${doc.id}`}>Tanggal</Label>
-            <Input id={`pay-date-${doc.id}`} type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
-          </div>
-          <Button onClick={() => pay.mutate()} disabled={pay.isPending || !payAccount}>
-            {pay.isPending ? <Spinner /> : null} Catat
-          </Button>
+          {isForeign ? (
+            <div className="grid gap-2 sm:grid-cols-[10rem_1fr] sm:items-end">
+              <div>
+                <Label htmlFor={`pay-rate-${doc.id}`}>Kurs saat bayar (IDR/{doc.currency})</Label>
+                <Input id={`pay-rate-${doc.id}`} type="number" min={0} value={payRate} onChange={(e) => setPayRate(e.target.value)} />
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Faktur pada kurs {doc.exchangeRate.toLocaleString("id-ID")}. Selisih dengan kurs bayar otomatis dijurnal
+                sebagai laba/rugi selisih kurs.
+              </p>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>

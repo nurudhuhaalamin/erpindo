@@ -12,6 +12,7 @@ import type {
   ApiBalanceSheet,
   ApiCashFlow,
   ApiCommerceDoc,
+  ApiCurrency,
   ApiDashboard,
   ApiIncomeStatement,
   ApiLead,
@@ -256,11 +257,14 @@ export const api = {
       input,
     ),
   createPayment: (tenantId: string, input: CreatePaymentInput) =>
-    request<{ ok: true; paymentNo: string; paidAmount: number; settled: boolean }>(
+    request<{ ok: true; paymentNo: string; paidAmount: number; settled: boolean; forexGain: number }>(
       "POST",
       `/api/tenants/${tenantId}/payments`,
       input,
     ),
+  currencies: (tenantId: string) => request<{ currencies: ApiCurrency[] }>("GET", `/api/tenants/${tenantId}/currencies`),
+  setCurrency: (tenantId: string, input: { code: string; name: string; rate: number }) =>
+    request<{ ok: true }>("PUT", `/api/tenants/${tenantId}/currencies`, input),
   stock: (tenantId: string) =>
     request<{ levels: ApiStockLevel[]; totalValue: number }>("GET", `/api/tenants/${tenantId}/stock`),
   stockLots: (tenantId: string) =>
