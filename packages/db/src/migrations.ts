@@ -671,6 +671,43 @@ export const TENANT_MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    id: "0016_maintenance",
+    statements: [
+      // Akun beban servis/pemeliharaan aset.
+      `INSERT INTO accounts (id, code, name, type, is_system) VALUES ('acc-5-7000', '5-7000', 'Beban Pemeliharaan', 'expense', 1)`,
+      // Jadwal servis berkala per aset tetap. Cron menerbitkan work order saat
+      // jatuh tempo lalu memajukan tanggal servis berikutnya.
+      `CREATE TABLE maintenance_schedules (
+        id TEXT PRIMARY KEY,
+        asset_id TEXT NOT NULL REFERENCES fixed_assets(id),
+        name TEXT NOT NULL,
+        interval_months INTEGER NOT NULL CHECK (interval_months > 0),
+        next_due_date TEXT NOT NULL,
+        active INTEGER NOT NULL DEFAULT 1,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX maintenance_due ON maintenance_schedules (active, next_due_date)`,
+      // Work order: pekerjaan servis (dari jadwal atau ad-hoc). Saat selesai
+      // dengan biaya, memposting jurnal Beban Pemeliharaan / Kas-Bank.
+      `CREATE TABLE work_orders (
+        id TEXT PRIMARY KEY,
+        order_no TEXT NOT NULL UNIQUE,
+        asset_id TEXT NOT NULL REFERENCES fixed_assets(id),
+        schedule_id TEXT REFERENCES maintenance_schedules(id),
+        title TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','done')),
+        scheduled_date TEXT NOT NULL,
+        completed_date TEXT,
+        cost INTEGER NOT NULL DEFAULT 0,
+        notes TEXT,
+        journal_entry_id TEXT,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

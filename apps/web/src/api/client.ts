@@ -22,7 +22,9 @@ import type {
   ApiIncomeStatement,
   ApiLead,
   ApiLeadActivity,
+  ApiMaintenanceSchedule,
   ApiProductionOrder,
+  ApiWorkOrder,
   ApiQuotation,
   ApiStockCardRow,
   ApiStockLot,
@@ -330,6 +332,38 @@ export const api = {
     ),
   qcInspect: (tenantId: string, id: string, input: { result: "passed" | "quarantined"; warehouseId?: string }) =>
     request<{ ok: true; result: string }>("POST", `/api/tenants/${tenantId}/production-orders/${id}/qc`, input),
+
+  // --- Maintenance / servis aset -------------------------------------------------
+  maintenanceSchedules: (tenantId: string) =>
+    request<{ schedules: ApiMaintenanceSchedule[] }>("GET", `/api/tenants/${tenantId}/maintenance/schedules`),
+  createMaintenanceSchedule: (
+    tenantId: string,
+    input: { assetId: string; name: string; intervalMonths: number; startDate: string },
+  ) => request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/maintenance/schedules`, input),
+  setScheduleStatus: (tenantId: string, id: string, active: boolean) =>
+    request<{ ok: true; active: boolean }>("PATCH", `/api/tenants/${tenantId}/maintenance/schedules/${id}/status`, {
+      active,
+    }),
+  runMaintenance: (tenantId: string) =>
+    request<{ ok: true; generated: number }>("POST", `/api/tenants/${tenantId}/maintenance/run`),
+  workOrders: (tenantId: string) =>
+    request<{ workOrders: ApiWorkOrder[] }>("GET", `/api/tenants/${tenantId}/maintenance/work-orders`),
+  createWorkOrder: (tenantId: string, input: { assetId: string; title: string; scheduledDate: string }) =>
+    request<{ ok: true; id: string; orderNo: string }>(
+      "POST",
+      `/api/tenants/${tenantId}/maintenance/work-orders`,
+      input,
+    ),
+  completeWorkOrder: (
+    tenantId: string,
+    id: string,
+    input: { completedDate: string; cost: number; cashAccountId?: string; notes?: string },
+  ) =>
+    request<{ ok: true; cost: number }>(
+      "POST",
+      `/api/tenants/${tenantId}/maintenance/work-orders/${id}/complete`,
+      input,
+    ),
 
   stock: (tenantId: string) =>
     request<{ levels: ApiStockLevel[]; totalValue: number }>("GET", `/api/tenants/${tenantId}/stock`),

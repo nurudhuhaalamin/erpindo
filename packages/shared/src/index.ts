@@ -928,6 +928,63 @@ export type ApiProductionOrder = {
 };
 
 // ---------------------------------------------------------------------------
+// Maintenance / servis aset (Fase 2v)
+// ---------------------------------------------------------------------------
+
+export const createMaintenanceScheduleSchema = z.object({
+  assetId: z.string().min(1),
+  name: z.string().trim().min(2, "Nama servis minimal 2 karakter").max(120),
+  intervalMonths: z.number().int().min(1).max(120),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal harus YYYY-MM-DD"),
+});
+export type CreateMaintenanceScheduleInput = z.infer<typeof createMaintenanceScheduleSchema>;
+
+export const maintenanceScheduleStatusSchema = z.object({ active: z.boolean() });
+
+export const createWorkOrderSchema = z.object({
+  assetId: z.string().min(1),
+  title: z.string().trim().min(2, "Judul minimal 2 karakter").max(200),
+  scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal harus YYYY-MM-DD"),
+});
+export type CreateWorkOrderInput = z.infer<typeof createWorkOrderSchema>;
+
+export const completeWorkOrderSchema = z.object({
+  completedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal harus YYYY-MM-DD"),
+  cost: z.number().int().min(0),
+  cashAccountId: z.string().optional(),
+  notes: z.string().trim().max(500).optional(),
+});
+export type CompleteWorkOrderInput = z.infer<typeof completeWorkOrderSchema>;
+
+export type ApiMaintenanceSchedule = {
+  id: string;
+  assetId: string;
+  assetName: string;
+  name: string;
+  intervalMonths: number;
+  nextDueDate: string;
+  active: boolean;
+};
+
+export const WORK_ORDER_STATUSES = ["open", "done"] as const;
+export type WorkOrderStatus = (typeof WORK_ORDER_STATUSES)[number];
+
+export type ApiWorkOrder = {
+  id: string;
+  orderNo: string;
+  assetId: string;
+  assetName: string;
+  scheduleId: string | null;
+  title: string;
+  status: WorkOrderStatus;
+  scheduledDate: string;
+  completedDate: string | null;
+  cost: number;
+  notes: string | null;
+  createdAt: string;
+};
+
+// ---------------------------------------------------------------------------
 // Laporan keuangan & dashboard (Fase 1c)
 // ---------------------------------------------------------------------------
 
