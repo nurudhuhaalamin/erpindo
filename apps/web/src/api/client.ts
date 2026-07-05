@@ -10,6 +10,7 @@ import type {
   ApiProjectDetail,
   ApiPosShift,
   ApiBalanceSheet,
+  ApiBom,
   ApiCashFlow,
   ApiCommerceDoc,
   ApiConsolidatedBalanceSheet,
@@ -21,6 +22,7 @@ import type {
   ApiIncomeStatement,
   ApiLead,
   ApiLeadActivity,
+  ApiProductionOrder,
   ApiQuotation,
   ApiStockCardRow,
   ApiStockLot,
@@ -310,6 +312,25 @@ export const api = {
     request<{ ok: true; status: string }>("PATCH", `/api/tenants/${tenantId}/contracts/${id}/status`, { status }),
   runBilling: (tenantId: string) =>
     request<{ ok: true; issued: number; total: number }>("POST", `/api/tenants/${tenantId}/contracts/run-billing`),
+
+  // --- Manufaktur + QC -----------------------------------------------------------
+  boms: (tenantId: string) => request<{ boms: ApiBom[] }>("GET", `/api/tenants/${tenantId}/boms`),
+  setBom: (
+    tenantId: string,
+    input: { productId: string; outputQty: number; notes?: string; lines: { componentId: string; qty: number }[] },
+  ) => request<{ ok: true; id: string }>("PUT", `/api/tenants/${tenantId}/boms`, input),
+  productionOrders: (tenantId: string) =>
+    request<{ orders: ApiProductionOrder[] }>("GET", `/api/tenants/${tenantId}/production-orders`),
+  createProductionOrder: (tenantId: string, input: { productId: string; warehouseId: string; qty: number }) =>
+    request<{ ok: true; id: string; orderNo: string }>("POST", `/api/tenants/${tenantId}/production-orders`, input),
+  completeProduction: (tenantId: string, id: string) =>
+    request<{ ok: true; qty: number; unitCost: number; totalCost: number }>(
+      "POST",
+      `/api/tenants/${tenantId}/production-orders/${id}/complete`,
+    ),
+  qcInspect: (tenantId: string, id: string, input: { result: "passed" | "quarantined"; warehouseId?: string }) =>
+    request<{ ok: true; result: string }>("POST", `/api/tenants/${tenantId}/production-orders/${id}/qc`, input),
+
   stock: (tenantId: string) =>
     request<{ levels: ApiStockLevel[]; totalValue: number }>("GET", `/api/tenants/${tenantId}/stock`),
   stockLots: (tenantId: string) =>
