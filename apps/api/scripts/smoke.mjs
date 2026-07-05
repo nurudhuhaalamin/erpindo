@@ -239,7 +239,7 @@ try {
   console.log("6. Bagan Akun (COA)");
   const accountsRes = await owner("GET", `/api/tenants/${tenantId}/accounts`);
   const accounts = accountsRes.json?.accounts ?? [];
-  check("COA template Indonesia tersemai (21 akun)", accountsRes.status === 200 && accounts.length === 21);
+  check("COA template Indonesia tersemai (22 akun)", accountsRes.status === 200 && accounts.length === 22);
   const kas = accounts.find((a) => a.code === "1-1000");
   const modal = accounts.find((a) => a.code === "3-1000");
   const penjualan = accounts.find((a) => a.code === "4-1000");
@@ -1596,7 +1596,7 @@ try {
   const modal2 = acc2.find((a) => a.code === "3-1000");
   const pend2 = acc2.find((a) => a.code === "4-1000");
   const beban2 = acc2.find((a) => a.code === "5-2000");
-  check("perusahaan kedua tersemai COA (21 akun)", acc2.length === 21 && Boolean(kas2 && modal2 && pend2 && beban2));
+  check("perusahaan kedua tersemai COA (22 akun)", acc2.length === 22 && Boolean(kas2 && modal2 && pend2 && beban2));
 
   // Pembukuan perusahaan kedua (tanpa tutup buku): modal 30jt, pendapatan 20jt, beban 8jt.
   await owner("POST", `/api/tenants/${tenant2}/journal-entries`, {
@@ -1770,6 +1770,53 @@ try {
 
   const tbAfterQc = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah karantina QC", tbAfterQc.json?.balanced === true);
+
+  // --- Maintenance / servis aset (Fase 2v) ---------------------------------------
+  // Aset & jurnal bertanggal Agustus (di luar jendela arus kas Juli, setelah kunci 10 Jul).
+  console.log("11p. Maintenance / servis aset (jadwal, work order, biaya)");
+
+  const genset = await owner("POST", `/api/tenants/${tenantId}/assets`, { name: "Genset Pabrik", category: "Mesin", acquisitionDate: "2026-08-01", acquisitionCost: 24_000_000, usefulLifeMonths: 48, residualValue: 0, cashAccountId: kas.id });
+  check("daftarkan aset untuk servis 201", genset.status === 201);
+
+  const viewerSch = await viewer("POST", `/api/tenants/${tenantId}/maintenance/schedules`, { assetId: genset.json.id, name: "x servis", intervalMonths: 1, startDate: "2026-08-05" });
+  check("viewer DITOLAK membuat jadwal servis (403)", viewerSch.status === 403);
+
+  const sch = await owner("POST", `/api/tenants/${tenantId}/maintenance/schedules`, { assetId: genset.json.id, name: "Servis rutin bulanan", intervalMonths: 1, startDate: "2026-08-05" });
+  check("buat jadwal servis 201", sch.status === 201, `→ ${JSON.stringify(sch.json)}`);
+
+  const gen1 = await owner("POST", `/api/tenants/${tenantId}/maintenance/run`, { date: "2026-08-05" });
+  check("terbitkan servis jatuh tempo 5 Agu: 1 work order", gen1.status === 200 && gen1.json?.generated === 1, `→ ${JSON.stringify(gen1.json)}`);
+
+  const gen1b = await owner("POST", `/api/tenants/${tenantId}/maintenance/run`, { date: "2026-08-05" });
+  check("terbitkan ulang tanggal sama: 0 work order (belum jatuh tempo)", gen1b.json?.generated === 0);
+
+  const schList = await owner("GET", `/api/tenants/${tenantId}/maintenance/schedules`);
+  check("tanggal servis berikutnya maju ke 2026-09-05", schList.json?.schedules?.find((s) => s.id === sch.json.id)?.nextDueDate === "2026-09-05");
+
+  const woList1 = await owner("GET", `/api/tenants/${tenantId}/maintenance/work-orders`);
+  const wo1 = woList1.json?.workOrders?.find((w) => w.assetId === genset.json.id && w.status === "open");
+  check("work order otomatis terbit dari jadwal (terbuka)", Boolean(wo1) && wo1.title === "Servis rutin bulanan");
+
+  const woNoAcc = await owner("POST", `/api/tenants/${tenantId}/maintenance/work-orders/${wo1.id}/complete`, { completedDate: "2026-08-20", cost: 500_000 });
+  check("selesaikan work order berbiaya tanpa akun DITOLAK 400", woNoAcc.status === 400);
+
+  const woDone = await owner("POST", `/api/tenants/${tenantId}/maintenance/work-orders/${wo1.id}/complete`, { completedDate: "2026-08-20", cost: 500_000, cashAccountId: kas.id, notes: "Ganti oli & filter" });
+  check("selesaikan work order (biaya 500rb, jurnal beban) 200", woDone.status === 200 && woDone.json?.cost === 500_000);
+
+  const woReDone = await owner("POST", `/api/tenants/${tenantId}/maintenance/work-orders/${wo1.id}/complete`, { completedDate: "2026-08-20", cost: 0 });
+  check("menyelesaikan work order yang sudah selesai DITOLAK 409", woReDone.status === 409);
+
+  const adhoc = await owner("POST", `/api/tenants/${tenantId}/maintenance/work-orders`, { assetId: genset.json.id, title: "Perbaikan mendadak", scheduledDate: "2026-08-25" });
+  check("buat work order ad-hoc 201", adhoc.status === 201);
+  const adhocDone = await owner("POST", `/api/tenants/${tenantId}/maintenance/work-orders/${adhoc.json.id}/complete`, { completedDate: "2026-08-26", cost: 0 });
+  check("selesaikan work order tanpa biaya (tanpa jurnal) 200", adhocDone.status === 200);
+
+  const accForBeban = (await owner("GET", `/api/tenants/${tenantId}/accounts`)).json?.accounts?.find((a) => a.code === "5-7000");
+  const bebanLedger = await owner("GET", `/api/tenants/${tenantId}/ledger/${accForBeban.id}`);
+  check("Beban Pemeliharaan tercatat 500rb di buku besar", bebanLedger.json?.balance === 500_000, `→ ${bebanLedger.json?.balance}`);
+
+  const tbAfterMaint = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah servis aset", tbAfterMaint.json?.balanced === true);
 
   // --- Arus kas (Fase 2b-1) -------------------------------------------------------
   console.log("12. Arus kas");

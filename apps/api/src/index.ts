@@ -13,6 +13,7 @@ import { consolidationRoutes } from "./routes/consolidation";
 import { contractRoutes, runBilling } from "./routes/contracts";
 import { crmRoutes } from "./routes/crm";
 import { currencyRoutes } from "./routes/currencies";
+import { maintenanceRoutes, runMaintenance } from "./routes/maintenance";
 import { manufacturingRoutes } from "./routes/manufacturing";
 import { reportRoutes } from "./routes/reports";
 import { posRoutes } from "./routes/pos";
@@ -63,6 +64,7 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", currencyRoutes)
   .route("/api/tenants", contractRoutes)
   .route("/api/tenants", manufacturingRoutes)
+  .route("/api/tenants", maintenanceRoutes)
   .route("/api/consolidation", consolidationRoutes)
   .route("/api/invites", inviteRoutes)
   .notFound((c) =>
@@ -202,6 +204,27 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
     }
   }
   if (billed > 0) console.log(`[cron] ${billed} faktur kontrak diterbitkan`);
+
+  // 5) Servis aset — terbitkan work order untuk jadwal servis yang jatuh tempo.
+  let woGenerated = 0;
+  for (const t of billTenants) {
+    try {
+      const db = getTenantDb(env, t.db_ref);
+      const res = await runMaintenance(db, todayDate, "system");
+      if (res.generated > 0) {
+        woGenerated += res.generated;
+        await env.DB.prepare(
+          `INSERT INTO audit_logs (id, tenant_id, user_id, action, detail, ip, created_at)
+           VALUES (?, ?, NULL, 'maintenance.generated', ?, NULL, ?)`,
+        )
+          .bind(crypto.randomUUID(), t.id, JSON.stringify(res), nowIso)
+          .run();
+      }
+    } catch (err) {
+      console.error(`[cron] servis aset tenant ${t.id} gagal:`, err);
+    }
+  }
+  if (woGenerated > 0) console.log(`[cron] ${woGenerated} work order servis diterbitkan`);
 }
 
 export default { fetch: app.fetch, scheduled };
