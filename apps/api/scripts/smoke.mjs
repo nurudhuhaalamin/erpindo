@@ -1860,6 +1860,35 @@ try {
   const viewerReadTk = await viewer("GET", `/api/tenants/${tenantId}/tickets`);
   check("viewer boleh membaca daftar tiket (200)", viewerReadTk.status === 200);
 
+  // --- Ekspor e-Faktur (Fase 2x) -------------------------------------------------
+  // Faktur ber-PPN bertanggal setelah kunci 10 Jul; produk jasa (tanpa stok).
+  console.log("11r. Ekspor e-Faktur (faktur keluaran ber-PPN)");
+
+  const buyerPkp = await owner("POST", `/api/tenants/${tenantId}/contacts`, { type: "customer", name: "PT Kena Pajak", npwp: "0011223344556000" });
+  check("buat pelanggan ber-NPWP 201", buyerPkp.status === 201);
+
+  const efInv = await owner("POST", `/api/tenants/${tenantId}/invoices`, { contactId: buyerPkp.json.id, invoiceDate: "2026-07-16", taxRate: 11, warehouseId: whUtama.id, lines: [{ productId: svc.json.id, qty: 2, unitPrice: 1_000_000 }] });
+  check("faktur ber-PPN 11% diposting (total 2.220.000)", efInv.status === 201 && efInv.json?.total === 2_220_000, `→ ${JSON.stringify(efInv.json)}`);
+
+  const badEf = await owner("GET", `/api/tenants/${tenantId}/reports/efaktur?from=x&to=2026-07-31`);
+  check("parameter tanggal salah DITOLAK 400", badEf.status === 400);
+
+  const viewerEf = await viewer("GET", `/api/tenants/${tenantId}/reports/efaktur?from=2026-07-01&to=2026-07-31`);
+  check("viewer boleh membaca ekspor e-Faktur (200)", viewerEf.status === 200);
+
+  const ef = await owner("GET", `/api/tenants/${tenantId}/reports/efaktur?from=2026-07-01&to=2026-07-31`);
+  const efRow = ef.json?.rows?.find((r) => r.invoiceNo === efInv.json.docNo);
+  check("baris e-Faktur: DPP 2jt, PPN 220rb, NPWP & nama pembeli benar",
+    efRow?.dpp === 2_000_000 && efRow?.ppn === 220_000 && efRow?.buyerNpwp === "0011223344556000" && efRow?.buyerName === "PT Kena Pajak",
+    `→ ${JSON.stringify(efRow)}`);
+  check("hanya faktur ber-PPN yang diekspor (semua PPN > 0)", ef.json?.rows?.length > 0 && ef.json.rows.every((r) => r.ppn > 0 && r.dpp > 0));
+  check("total e-Faktur = penjumlahan baris (invariant)",
+    ef.json?.totalDpp === ef.json.rows.reduce((s, r) => s + r.dpp, 0) &&
+    ef.json?.totalPpn === ef.json.rows.reduce((s, r) => s + r.ppn, 0));
+
+  const efEmpty = await owner("GET", `/api/tenants/${tenantId}/reports/efaktur?from=2027-01-01&to=2027-01-31`);
+  check("periode tanpa faktur ber-PPN: kosong", efEmpty.json?.rows?.length === 0 && efEmpty.json?.totalPpn === 0);
+
   // --- Arus kas (Fase 2b-1) -------------------------------------------------------
   console.log("12. Arus kas");
   // Konteks: modal 50jt (2/7) + penjualan tunai 2,5jt (3/7) + terima pembayaran 499,5rb (5/7)

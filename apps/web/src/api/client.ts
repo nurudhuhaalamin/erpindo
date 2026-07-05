@@ -19,6 +19,7 @@ import type {
   ApiContract,
   ApiCurrency,
   ApiDashboard,
+  ApiEfakturReport,
   ApiIncomeStatement,
   ApiLead,
   ApiLeadActivity,
@@ -144,6 +145,8 @@ export const api = {
     request<ApiCashFlow>("GET", `/api/tenants/${tenantId}/reports/cash-flow?from=${from}&to=${to}`),
   aging: (tenantId: string, type: "receivable" | "payable") =>
     request<{ rows: ApiAgingRow[]; grandTotal: number }>("GET", `/api/tenants/${tenantId}/reports/aging?type=${type}`),
+  efaktur: (tenantId: string, from: string, to: string) =>
+    request<ApiEfakturReport>("GET", `/api/tenants/${tenantId}/reports/efaktur?from=${from}&to=${to}`),
   stockCard: (tenantId: string, productId: string, warehouseId: string) =>
     request<{ rows: ApiStockCardRow[]; balance: number }>(
       "GET",

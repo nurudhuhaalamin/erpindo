@@ -4,6 +4,8 @@ import {
   type ApiAgingRow,
   type ApiCashFlow,
   type ApiDashboard,
+  type ApiEfakturReport,
+  type ApiEfakturRow,
   type ApiStockCardRow,
 } from "@erpindo/shared";
 import { Hono } from "hono";
@@ -99,6 +101,56 @@ export const reportRoutes = new Hono<AppEnv>()
       totalOut,
       netChange: totalIn - totalOut,
       closingBalance: openingBalance + totalIn - totalOut,
+    };
+    return c.json(body);
+  })
+
+  // -------------------------------------------------------------------------
+  // Ekspor e-Faktur: faktur keluaran ber-PPN dalam periode (untuk impor DJP).
+  // Nilai DPP/PPN dalam Rupiah (faktur valas sudah dikonversi saat posting).
+  // -------------------------------------------------------------------------
+  .get("/:tenantId/reports/efaktur", requireAuth, requireTenantRole("viewer"), async (c) => {
+    const from = c.req.query("from") ?? "";
+    const to = c.req.query("to") ?? "";
+    if (!DATE_RE.test(from) || !DATE_RE.test(to)) {
+      return c.json({ error: "Parameter from/to wajib berformat YYYY-MM-DD." }, 400);
+    }
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+
+    const { results } = await db
+      .prepare(
+        `SELECT i.invoice_no, i.invoice_date, i.subtotal, i.tax_amount, i.total,
+                k.name AS buyer_name, k.npwp AS buyer_npwp
+         FROM invoices i JOIN contacts k ON k.id = i.contact_id
+         WHERE i.tax_amount > 0 AND i.invoice_date >= ? AND i.invoice_date <= ?
+         ORDER BY i.invoice_date, i.invoice_no`,
+      )
+      .bind(from, to)
+      .all<{
+        invoice_no: string;
+        invoice_date: string;
+        subtotal: number;
+        tax_amount: number;
+        total: number;
+        buyer_name: string;
+        buyer_npwp: string | null;
+      }>();
+
+    const rows: ApiEfakturRow[] = results.map((r) => ({
+      invoiceNo: r.invoice_no,
+      invoiceDate: r.invoice_date,
+      buyerNpwp: r.buyer_npwp,
+      buyerName: r.buyer_name,
+      dpp: r.subtotal,
+      ppn: r.tax_amount,
+      total: r.total,
+    }));
+    const body: ApiEfakturReport = {
+      from,
+      to,
+      rows,
+      totalDpp: rows.reduce((s, r) => s + r.dpp, 0),
+      totalPpn: rows.reduce((s, r) => s + r.ppn, 0),
     };
     return c.json(body);
   })
