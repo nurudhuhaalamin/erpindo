@@ -1818,6 +1818,48 @@ try {
   const tbAfterMaint = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah servis aset", tbAfterMaint.json?.balanced === true);
 
+  // --- Helpdesk / tiket dukungan (Fase 2w) ---------------------------------------
+  console.log("11q. Helpdesk (tiket, prioritas/status, penugasan, balasan)");
+
+  const viewerTicket = await viewer("POST", `/api/tenants/${tenantId}/tickets`, { contactId: customer.json.id, subject: "coba tiket", priority: "low" });
+  check("viewer DITOLAK membuat tiket (403)", viewerTicket.status === 403);
+
+  const badPrio = await owner("POST", `/api/tenants/${tenantId}/tickets`, { contactId: customer.json.id, subject: "Prioritas salah", priority: "kritis" });
+  check("prioritas tidak dikenal DITOLAK 400", badPrio.status === 400);
+
+  const ticket = await owner("POST", `/api/tenants/${tenantId}/tickets`, { contactId: customer.json.id, subject: "Aplikasi error saat cetak faktur", description: "Muncul layar putih saat klik cetak.", priority: "high" });
+  check("buat tiket 201 (TKT-00001, status open)", ticket.status === 201 && ticket.json?.ticketNo === "TKT-00001", `→ ${JSON.stringify(ticket.json)}`);
+
+  const tkList = await owner("GET", `/api/tenants/${tenantId}/tickets`);
+  const tk1 = tkList.json?.tickets?.find((t) => t.id === ticket.json.id);
+  check("tiket tampil di daftar (open, high, 0 balasan)", tk1?.status === "open" && tk1?.priority === "high" && tk1?.replyCount === 0);
+
+  await owner("POST", `/api/tenants/${tenantId}/tickets/${ticket.json.id}/replies`, { body: "Terima kasih, kami sedang periksa.", internal: false });
+  const noteRes = await owner("POST", `/api/tenants/${tenantId}/tickets/${ticket.json.id}/replies`, { body: "Reproduksi di Chrome versi lama.", internal: true });
+  check("tambah balasan & catatan internal 201", noteRes.status === 201);
+
+  const emptyReply = await owner("POST", `/api/tenants/${tenantId}/tickets/${ticket.json.id}/replies`, { body: "  " });
+  check("balasan kosong DITOLAK 400", emptyReply.status === 400);
+
+  const assignBad = await owner("PATCH", `/api/tenants/${tenantId}/tickets/${ticket.json.id}`, { assignedTo: "bukan-anggota-xyz" });
+  check("tugaskan ke non-anggota DITOLAK 400", assignBad.status === 400);
+
+  const assignOk = await owner("PATCH", `/api/tenants/${tenantId}/tickets/${ticket.json.id}`, { assignedTo: me.json.user.id });
+  check("tugaskan ke anggota 200 (nama tersimpan)", assignOk.status === 200 && Boolean(assignOk.json?.ticket?.assignedName));
+
+  await owner("PATCH", `/api/tenants/${tenantId}/tickets/${ticket.json.id}`, { status: "in_progress" });
+  const resolveRes = await owner("PATCH", `/api/tenants/${tenantId}/tickets/${ticket.json.id}`, { status: "resolved" });
+  check("ubah status ke selesai 200 (resolvedAt terisi)", resolveRes.status === 200 && Boolean(resolveRes.json?.ticket?.resolvedAt));
+
+  const emptyUpdate = await owner("PATCH", `/api/tenants/${tenantId}/tickets/${ticket.json.id}`, {});
+  check("update tanpa perubahan DITOLAK 400", emptyUpdate.status === 400);
+
+  const tkDetail = await owner("GET", `/api/tenants/${tenantId}/tickets/${ticket.json.id}`);
+  check("detail tiket: 2 balasan (1 internal), status selesai", tkDetail.json?.replies?.length === 2 && tkDetail.json?.replies?.some((r) => r.internal === true) && tkDetail.json?.status === "resolved");
+
+  const viewerReadTk = await viewer("GET", `/api/tenants/${tenantId}/tickets`);
+  check("viewer boleh membaca daftar tiket (200)", viewerReadTk.status === 200);
+
   // --- Arus kas (Fase 2b-1) -------------------------------------------------------
   console.log("12. Arus kas");
   // Konteks: modal 50jt (2/7) + penjualan tunai 2,5jt (3/7) + terima pembayaran 499,5rb (5/7)

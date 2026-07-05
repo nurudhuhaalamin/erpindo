@@ -326,7 +326,8 @@ Urutan di dalam fase ini fleksibel — ikuti permintaan pelanggan berbayar. Usul
 - [x] **Kontrak & tagihan berulang** (kontrak langganan, Cron menerbitkan faktur otomatis tiap periode; + produk jasa tanpa stok) — ✅ 5 Jul 2026 ([log Fase 2s](./log/2026-07-05-fase-2s-kontrak-berulang.md)).
 - [x] **Konsolidasi multi-perusahaan** (buat perusahaan tambahan dari satu akun; Laba Rugi & Neraca gabungan lintas perusahaan milik pemilik yang sama, rincian per perusahaan) — ✅ 5 Jul 2026 ([log Fase 2t](./log/2026-07-05-fase-2t-konsolidasi.md)).
 - [x] **Manufaktur + QC** (resep/BoM, perintah produksi konsumsi bahan → produk jadi biaya gabungan, inspeksi QC lulus/karantina; netral nilai persediaan) — ✅ 5 Jul 2026 ([log Fase 2u](./log/2026-07-05-fase-2u-manufaktur.md)).
-- [x] **Maintenance** (jadwal servis berkala per aset, Cron menerbitkan work order otomatis, work order ad-hoc, biaya servis dijurnal Beban Pemeliharaan, riwayat & total biaya) — ✅ 5 Jul 2026 ([log Fase 2v](./log/2026-07-05-fase-2v-maintenance.md)). Berikutnya: Helpdesk, e-Faktur.
+- [x] **Maintenance** (jadwal servis berkala per aset, Cron menerbitkan work order otomatis, work order ad-hoc, biaya servis dijurnal Beban Pemeliharaan, riwayat & total biaya) — ✅ 5 Jul 2026 ([log Fase 2v](./log/2026-07-05-fase-2v-maintenance.md)).
+- [x] **Helpdesk** (tiket dukungan pelanggan, prioritas & status, penugasan ke tim, balasan + catatan internal, terhubung kontak) — ✅ 5 Jul 2026 ([log Fase 2w](./log/2026-07-05-fase-2w-helpdesk.md)). Berikutnya: Ekspor e-Faktur.
 - [x] Inventori lanjutan (batch/lot, kedaluwarsa, FEFO) — ✅ 3 Jul 2026. Manajemen Dokumen (lampiran R2) ⏸ menunggu R2 diaktifkan di akun Cloudflare pemilik.
 - [ ] Impor rekening koran & rekonsiliasi; API publik + webhook; multi-cabang.
 

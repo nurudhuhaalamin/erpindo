@@ -13,6 +13,7 @@ import { consolidationRoutes } from "./routes/consolidation";
 import { contractRoutes, runBilling } from "./routes/contracts";
 import { crmRoutes } from "./routes/crm";
 import { currencyRoutes } from "./routes/currencies";
+import { helpdeskRoutes } from "./routes/helpdesk";
 import { maintenanceRoutes, runMaintenance } from "./routes/maintenance";
 import { manufacturingRoutes } from "./routes/manufacturing";
 import { reportRoutes } from "./routes/reports";
@@ -65,6 +66,7 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", contractRoutes)
   .route("/api/tenants", manufacturingRoutes)
   .route("/api/tenants", maintenanceRoutes)
+  .route("/api/tenants", helpdeskRoutes)
   .route("/api/consolidation", consolidationRoutes)
   .route("/api/invites", inviteRoutes)
   .notFound((c) =>
