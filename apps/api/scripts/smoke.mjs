@@ -239,7 +239,7 @@ try {
   console.log("6. Bagan Akun (COA)");
   const accountsRes = await owner("GET", `/api/tenants/${tenantId}/accounts`);
   const accounts = accountsRes.json?.accounts ?? [];
-  check("COA template Indonesia tersemai (19 akun)", accountsRes.status === 200 && accounts.length === 19);
+  check("COA template Indonesia tersemai (21 akun)", accountsRes.status === 200 && accounts.length === 21);
   const kas = accounts.find((a) => a.code === "1-1000");
   const modal = accounts.find((a) => a.code === "3-1000");
   const penjualan = accounts.find((a) => a.code === "4-1000");
@@ -1447,6 +1447,86 @@ try {
 
   const tbAfterProject = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah jurnal proyek", tbAfterProject.json?.balanced === true);
+
+  // --- Multi mata uang (Fase 2r) --------------------------------------------------
+  // Beroperasi di Agustus (di luar jendela arus kas Juli & tanggal kunci).
+  console.log("11l. Multi mata uang (faktur valas + selisih kurs)");
+
+  const viewerCur = await viewer("PUT", `/api/tenants/${tenantId}/currencies`, { code: "USD", name: "Dolar", rate: 16000 });
+  check("viewer DITOLAK menetapkan kurs (403)", viewerCur.status === 403);
+
+  const editIdr = await owner("PUT", `/api/tenants/${tenantId}/currencies`, { code: "IDR", name: "Rupiah", rate: 2 });
+  check("mengubah kurs IDR (basis) DITOLAK 400", editIdr.status === 400);
+
+  const setUsd = await owner("PUT", `/api/tenants/${tenantId}/currencies`, { code: "USD", name: "Dolar AS", rate: 16000 });
+  check("tetapkan kurs USD 200", setUsd.status === 200);
+  const curList = await owner("GET", `/api/tenants/${tenantId}/currencies`);
+  check("daftar mata uang berisi IDR (basis) + USD", curList.json?.currencies?.length === 2 && curList.json.currencies.some((c) => c.code === "USD" && c.rate === 16000));
+
+  // Stok untuk dijual dalam USD.
+  const prodUsd = await owner("POST", `/api/tenants/${tenantId}/products`, { sku: "BRG-USD", name: "Barang Ekspor", unit: "pcs", sellPrice: 0, buyPrice: 100_000 });
+  await owner("POST", `/api/tenants/${tenantId}/purchases`, {
+    contactId: supplier.json.id,
+    invoiceDate: "2026-08-01",
+    taxRate: 0,
+    warehouseId: whUtama.id,
+    lines: [{ productId: prodUsd.json.id, qty: 10, unitPrice: 100_000 }],
+  });
+
+  const noRate = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id,
+    invoiceDate: "2026-08-10",
+    taxRate: 0,
+    warehouseId: whUtama.id,
+    currency: "USD",
+    lines: [{ productId: prodUsd.json.id, qty: 1, unitPrice: 1000 }],
+  });
+  check("faktur valas tanpa kurs DITOLAK 400", noRate.status === 400);
+
+  const eurInv = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id,
+    invoiceDate: "2026-08-10",
+    taxRate: 0,
+    warehouseId: whUtama.id,
+    currency: "EUR",
+    exchangeRate: 17000,
+    lines: [{ productId: prodUsd.json.id, qty: 1, unitPrice: 1000 }],
+  });
+  check("faktur mata uang tak terdaftar DITOLAK 400", eurInv.status === 400);
+
+  // Faktur 1000 USD @ 16.000 → 16.000.000 IDR di buku.
+  const usdInv = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id,
+    invoiceDate: "2026-08-10",
+    taxRate: 0,
+    warehouseId: whUtama.id,
+    currency: "USD",
+    exchangeRate: 16000,
+    lines: [{ productId: prodUsd.json.id, qty: 1, unitPrice: 1000 }],
+  });
+  check("faktur USD 1000 @16.000 → total 16jt IDR", usdInv.status === 201 && usdInv.json?.total === 16_000_000, `→ ${JSON.stringify(usdInv.json)}`);
+
+  const usdDocs = await owner("GET", `/api/tenants/${tenantId}/invoices`);
+  const usdDoc = usdDocs.json?.docs?.find((d) => d.id === usdInv.json.id);
+  check("faktur menyimpan valas (USD, foreignTotal 1000, kurs 16.000)", usdDoc?.currency === "USD" && usdDoc?.foreignTotal === 1000 && usdDoc?.exchangeRate === 16000);
+
+  // Terima 1000 USD saat kurs naik ke 16.500 → selisih kurs laba 500rb.
+  const usdPay = await owner("POST", `/api/tenants/${tenantId}/payments`, {
+    refType: "invoice",
+    refId: usdInv.json.id,
+    accountId: kas.id,
+    foreignAmount: 1000,
+    exchangeRate: 16500,
+    paymentDate: "2026-08-15",
+  });
+  check(
+    "pelunasan USD @16.500 → lunas + selisih kurs laba 500rb",
+    usdPay.status === 201 && usdPay.json?.settled === true && usdPay.json?.forexGain === 500_000,
+    `→ ${JSON.stringify(usdPay.json)}`,
+  );
+
+  const tbAfterFx = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah faktur & pelunasan valas", tbAfterFx.json?.balanced === true);
 
   // --- Arus kas (Fase 2b-1) -------------------------------------------------------
   console.log("12. Arus kas");

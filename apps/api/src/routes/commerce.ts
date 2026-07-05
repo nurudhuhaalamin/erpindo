@@ -70,7 +70,7 @@ async function listDocs(db: SqlExecutor, cfg: DocTable): Promise<ApiCommerceDoc[
     .prepare(
       `SELECT d.id, d.${cfg.noColumn} AS doc_no, d.contact_id, c.name AS contact_name,
               d.${cfg.dateColumn} AS date, d.due_date, d.status, d.subtotal, d.tax_rate,
-              d.tax_amount, d.total, d.paid_amount, d.returned_amount
+              d.tax_amount, d.total, d.paid_amount, d.returned_amount, d.currency, d.exchange_rate, d.foreign_total
        FROM ${cfg.table} d JOIN contacts c ON c.id = d.contact_id
        ORDER BY d.created_at DESC LIMIT 200`,
     )
@@ -88,6 +88,9 @@ async function listDocs(db: SqlExecutor, cfg: DocTable): Promise<ApiCommerceDoc[
       total: number;
       paid_amount: number;
       returned_amount: number;
+      currency: string;
+      exchange_rate: number;
+      foreign_total: number;
     }>();
 
   const { results: lines } = await db
@@ -136,6 +139,9 @@ async function listDocs(db: SqlExecutor, cfg: DocTable): Promise<ApiCommerceDoc[
     total: d.total,
     paidAmount: d.paid_amount,
     returnedAmount: d.returned_amount,
+    currency: d.currency,
+    exchangeRate: d.exchange_rate,
+    foreignTotal: d.foreign_total,
     lines: byDoc.get(d.id) ?? [],
   }));
 }
@@ -145,6 +151,23 @@ async function checkProject(db: SqlExecutor, projectId?: string): Promise<string
   if (!projectId) return null;
   const { results } = await db.prepare(`SELECT id FROM projects WHERE id = ?`).bind(projectId).all();
   return results[0] ? null : "Proyek tidak ditemukan.";
+}
+
+/**
+ * Resolusi mata uang & kurs faktur. IDR (atau kosong) → kurs 1. Valas → wajib
+ * kurs > 0 dan mata uang terdaftar. Mengembalikan {currency, rate} atau error.
+ */
+async function resolveCurrency(
+  db: SqlExecutor,
+  currency?: string,
+  exchangeRate?: number,
+): Promise<{ currency: string; rate: number } | { error: string }> {
+  const code = (currency ?? "IDR").toUpperCase();
+  if (code === "IDR") return { currency: "IDR", rate: 1 };
+  if (!exchangeRate || exchangeRate <= 0) return { error: "Kurs wajib diisi untuk faktur valas." };
+  const { results } = await db.prepare(`SELECT code FROM currencies WHERE code = ?`).bind(code).all();
+  if (!results[0]) return { error: `Mata uang ${code} belum terdaftar.` };
+  return { currency: code, rate: exchangeRate };
 }
 
 /** Tolak dokumen bertanggal pada periode yang sudah ditutup buku. */
@@ -193,7 +216,16 @@ async function executePurchase(
     }
   }
 
-  const subtotal = input.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
+  const cur = await resolveCurrency(db, input.currency, input.exchangeRate);
+  if ("error" in cur) return { error: cur.error };
+
+  const idrLines = input.lines.map((l) => {
+    const unitIdr = Math.round(l.unitPrice * cur.rate);
+    return { ...l, unitIdr, amountIdr: l.qty * unitIdr };
+  });
+  const foreignSubtotal = input.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
+  const foreignTotal = foreignSubtotal + Math.round((foreignSubtotal * input.taxRate) / 100);
+  const subtotal = idrLines.reduce((s, l) => s + l.amountIdr, 0);
   const taxAmount = Math.round((subtotal * input.taxRate) / 100);
   const total = subtotal + taxAmount;
   if (total === 0) return { error: "Total faktur tidak boleh nol." };
@@ -221,8 +253,9 @@ async function executePurchase(
   await db
     .prepare(
       `INSERT INTO purchases (id, purchase_no, contact_id, purchase_date, due_date, status, subtotal,
-                              tax_rate, tax_amount, total, paid_amount, journal_entry_id, created_by)
-       VALUES (?, ?, ?, ?, ?, 'posted', ?, ?, ?, ?, 0, ?, ?)`,
+                              tax_rate, tax_amount, total, paid_amount, journal_entry_id, created_by,
+                              currency, exchange_rate, foreign_total)
+       VALUES (?, ?, ?, ?, ?, 'posted', ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
     )
     .bind(
       purchaseId,
@@ -236,9 +269,12 @@ async function executePurchase(
       total,
       journal.id,
       userId,
+      cur.currency,
+      cur.rate,
+      foreignTotal,
     )
     .run();
-  for (const line of input.lines) {
+  for (const line of idrLines) {
     await db
       .prepare(
         `INSERT INTO purchase_lines (id, purchase_id, product_id, description, qty, unit_price, amount)
@@ -282,7 +318,18 @@ export async function executeInvoice(
   const lockError = await checkPeriodOpen(db, input.invoiceDate);
   if (lockError) return { error: lockError };
 
-  const subtotal = input.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
+  const cur = await resolveCurrency(db, input.currency, input.exchangeRate);
+  if ("error" in cur) return { error: cur.error };
+
+  // Nilai baris dikonversi ke IDR pada kurs posting (buku selalu IDR).
+  // foreign_total menyimpan total dalam mata uang faktur untuk jejak & selisih kurs.
+  const idrLines = input.lines.map((l) => {
+    const unitIdr = Math.round(l.unitPrice * cur.rate);
+    return { ...l, unitIdr, amountIdr: l.qty * unitIdr };
+  });
+  const foreignSubtotal = input.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
+  const foreignTotal = foreignSubtotal + Math.round((foreignSubtotal * input.taxRate) / 100);
+  const subtotal = idrLines.reduce((s, l) => s + l.amountIdr, 0);
   const taxAmount = Math.round((subtotal * input.taxRate) / 100);
   const total = subtotal + taxAmount;
   if (total === 0) return { error: "Total faktur tidak boleh nol." };
@@ -336,8 +383,9 @@ export async function executeInvoice(
   await db
     .prepare(
       `INSERT INTO invoices (id, invoice_no, contact_id, invoice_date, due_date, status, subtotal,
-                             tax_rate, tax_amount, total, paid_amount, journal_entry_id, created_by)
-       VALUES (?, ?, ?, ?, ?, 'posted', ?, ?, ?, ?, 0, ?, ?)`,
+                             tax_rate, tax_amount, total, paid_amount, journal_entry_id, created_by,
+                             currency, exchange_rate, foreign_total)
+       VALUES (?, ?, ?, ?, ?, 'posted', ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
     )
     .bind(
       invoiceId,
@@ -351,9 +399,12 @@ export async function executeInvoice(
       total,
       journal.id,
       userId,
+      cur.currency,
+      cur.rate,
+      foreignTotal,
     )
     .run();
-  for (const line of input.lines) {
+  for (const line of idrLines) {
     await db
       .prepare(
         `INSERT INTO invoice_lines (id, invoice_id, product_id, description, qty, unit_price, amount)
@@ -365,8 +416,8 @@ export async function executeInvoice(
         line.productId,
         line.description ?? null,
         line.qty,
-        line.unitPrice,
-        line.qty * line.unitPrice,
+        line.unitIdr,
+        line.amountIdr,
       )
       .run();
   }
@@ -613,16 +664,42 @@ export const commerceRoutes = new Hono<AppEnv>()
     const cfg = input.refType === "invoice" ? INVOICE_CFG : PURCHASE_CFG;
 
     const { results: docs } = await db
-      .prepare(`SELECT ${cfg.noColumn} AS doc_no, total, paid_amount, returned_amount FROM ${cfg.table} WHERE id = ?`)
+      .prepare(
+        `SELECT ${cfg.noColumn} AS doc_no, total, paid_amount, returned_amount, currency, exchange_rate
+         FROM ${cfg.table} WHERE id = ?`,
+      )
       .bind(input.refId)
-      .all<{ doc_no: string; total: number; paid_amount: number; returned_amount: number }>();
+      .all<{ doc_no: string; total: number; paid_amount: number; returned_amount: number; currency: string; exchange_rate: number }>();
     const doc = docs[0];
     if (!doc) return c.json({ error: "Dokumen tidak ditemukan." }, 404);
     const lockError = await checkPeriodOpen(db, input.paymentDate);
     if (lockError) return c.json({ error: lockError }, 400);
 
+    // Faktur valas: bayar dalam valas + kurs saat bayar → selisih kurs dijurnal.
+    // Faktur IDR: pakai `amount` (IDR) seperti biasa (kurs 1, tanpa selisih).
+    const isForeign = doc.currency !== "IDR";
+    let counterCleared: number; // IDR yang mengurangi piutang/hutang (pada kurs faktur)
+    let cashIdr: number; // IDR kas yang benar-benar berpindah (pada kurs bayar)
+    let foreignAmt: number;
+    let payRate: number;
+    if (isForeign) {
+      if (!input.foreignAmount || !input.exchangeRate) {
+        return c.json({ error: `Faktur dalam ${doc.currency} — isi jumlah valas & kurs saat pembayaran.` }, 400);
+      }
+      foreignAmt = input.foreignAmount;
+      payRate = input.exchangeRate;
+      counterCleared = Math.round(foreignAmt * doc.exchange_rate);
+      cashIdr = Math.round(foreignAmt * payRate);
+    } else {
+      if (!input.amount) return c.json({ error: "Nominal pembayaran wajib diisi." }, 400);
+      foreignAmt = input.amount;
+      payRate = 1;
+      counterCleared = input.amount;
+      cashIdr = input.amount;
+    }
+
     const remaining = doc.total - doc.paid_amount - doc.returned_amount;
-    if (input.amount > remaining) {
+    if (counterCleared > remaining) {
       return c.json({ error: `Nominal melebihi sisa tagihan (sisa Rp ${remaining.toLocaleString("id-ID")}).` }, 400);
     }
 
@@ -635,35 +712,45 @@ export const commerceRoutes = new Hono<AppEnv>()
       return c.json({ error: "Akun pembayaran harus akun kas/bank (tipe aset)." }, 400);
     }
 
-    const counterCode = input.refType === "invoice" ? SYS_ACCOUNTS.PIUTANG : SYS_ACCOUNTS.HUTANG;
-    const counterId = await accountIdByCode(db, counterCode);
+    const direction = input.refType === "invoice" ? "receive" : "pay";
+    const counterId = await accountIdByCode(db, direction === "receive" ? SYS_ACCOUNTS.PIUTANG : SYS_ACCOUNTS.HUTANG);
 
     const paymentNo = await nextDocNo(db, "payments", "PAY");
-    const direction = input.refType === "invoice" ? "receive" : "pay";
     const memo =
       direction === "receive" ? `Penerimaan ${doc.doc_no} (${paymentNo})` : `Pembayaran ${doc.doc_no} (${paymentNo})`;
+
+    // Selisih kurs favorable (laba): terima IDR > piutang, atau bayar IDR < hutang.
+    const forexGain = direction === "receive" ? cashIdr - counterCleared : counterCleared - cashIdr;
+    const forexLine =
+      forexGain === 0
+        ? []
+        : forexGain > 0
+          ? [{ accountId: await accountIdByCode(db, "4-3000"), description: `Selisih kurs ${doc.doc_no}`, debit: 0, credit: forexGain }]
+          : [{ accountId: await accountIdByCode(db, "5-6000"), description: `Selisih kurs ${doc.doc_no}`, debit: -forexGain, credit: 0 }];
+
+    const baseLines =
+      direction === "receive"
+        ? [
+            { accountId: input.accountId, description: memo, debit: cashIdr, credit: 0 },
+            { accountId: counterId, description: memo, debit: 0, credit: counterCleared },
+          ]
+        : [
+            { accountId: counterId, description: memo, debit: counterCleared, credit: 0 },
+            { accountId: input.accountId, description: memo, debit: 0, credit: cashIdr },
+          ];
 
     const journal = await postJournal(db, {
       entryDate: input.paymentDate,
       memo,
       createdBy: c.get("user").id,
-      lines:
-        direction === "receive"
-          ? [
-              { accountId: input.accountId, description: memo, debit: input.amount, credit: 0 },
-              { accountId: counterId, description: memo, debit: 0, credit: input.amount },
-            ]
-          : [
-              { accountId: counterId, description: memo, debit: input.amount, credit: 0 },
-              { accountId: input.accountId, description: memo, debit: 0, credit: input.amount },
-            ],
+      lines: [...baseLines, ...forexLine],
     });
 
     await db
       .prepare(
         `INSERT INTO payments (id, payment_no, direction, ref_type, ref_id, account_id, amount,
-                               payment_date, journal_entry_id, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                               payment_date, journal_entry_id, created_by, currency, exchange_rate, foreign_amount)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         crypto.randomUUID(),
@@ -672,14 +759,17 @@ export const commerceRoutes = new Hono<AppEnv>()
         input.refType,
         input.refId,
         input.accountId,
-        input.amount,
+        counterCleared,
         input.paymentDate,
         journal.id,
         c.get("user").id,
+        doc.currency,
+        payRate,
+        foreignAmt,
       )
       .run();
 
-    const newPaid = doc.paid_amount + input.amount;
+    const newPaid = doc.paid_amount + counterCleared;
     await db
       .prepare(`UPDATE ${cfg.table} SET paid_amount = ?, status = ? WHERE id = ?`)
       .bind(newPaid, newPaid + doc.returned_amount >= doc.total ? "paid" : "posted", input.refId)
@@ -689,10 +779,13 @@ export const commerceRoutes = new Hono<AppEnv>()
       action: "payment.recorded",
       userId: c.get("user").id,
       tenantId: tenant.id,
-      detail: { paymentNo, refType: input.refType, docNo: doc.doc_no, amount: input.amount },
+      detail: { paymentNo, refType: input.refType, docNo: doc.doc_no, amount: counterCleared, forexGain },
       ip: clientIp(c),
     });
-    return c.json({ ok: true, paymentNo, paidAmount: newPaid, settled: newPaid + doc.returned_amount >= doc.total }, 201);
+    return c.json(
+      { ok: true, paymentNo, paidAmount: newPaid, settled: newPaid + doc.returned_amount >= doc.total, forexGain },
+      201,
+    );
   })
 
   // -------------------------------------------------------------------------

@@ -10,6 +10,7 @@ import { authRoutes } from "./routes/auth";
 import { budgetRoutes } from "./routes/budgets";
 import { commerceRoutes } from "./routes/commerce";
 import { crmRoutes } from "./routes/crm";
+import { currencyRoutes } from "./routes/currencies";
 import { reportRoutes } from "./routes/reports";
 import { posRoutes } from "./routes/pos";
 import { returnRoutes } from "./routes/returns";
@@ -56,6 +57,7 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", payrollRoutes)
   .route("/api/tenants", assetRoutes)
   .route("/api/tenants", projectRoutes)
+  .route("/api/tenants", currencyRoutes)
   .route("/api/invites", inviteRoutes)
   .notFound((c) =>
     c.req.path.startsWith("/api/")

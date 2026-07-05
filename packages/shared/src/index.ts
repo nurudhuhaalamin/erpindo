@@ -337,9 +337,22 @@ export const createInvoiceSchema = z.object({
     .default(0),
   warehouseId: z.string().min(1, "Gudang wajib dipilih"),
   projectId: z.string().optional(),
+  /** Mata uang faktur (default IDR). Bila valas, nilai baris dalam mata uang itu. */
+  currency: z.string().trim().length(3).toUpperCase().optional(),
+  /** Kurs ke IDR saat posting (IDR per 1 unit valas). Wajib > 0 bila valas. */
+  exchangeRate: z.number().positive().optional(),
   lines: z.array(commerceLineSchema).min(1, "Minimal 1 baris barang"),
 });
 export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>;
+
+export const currencySchema = z.object({
+  code: z.string().trim().length(3, "Kode mata uang 3 huruf").toUpperCase(),
+  name: z.string().trim().min(2).max(50),
+  rate: z.number().positive("Kurs harus lebih dari 0"),
+});
+export type CurrencyInput = z.infer<typeof currencySchema>;
+
+export type ApiCurrency = { code: string; name: string; rate: number; isBase: boolean };
 
 /** Skema pembelian identik dengan penjualan (pihak = pemasok). */
 export const createPurchaseSchema = createInvoiceSchema;
@@ -349,7 +362,12 @@ export const createPaymentSchema = z.object({
   refType: z.enum(["invoice", "purchase"]),
   refId: z.string().min(1),
   accountId: z.string().min(1, "Akun kas/bank wajib dipilih"),
-  amount: z.number().int().min(1, "Nominal minimal Rp 1"),
+  /** Nominal IDR (dokumen IDR). Untuk dokumen valas, isi foreignAmount + exchangeRate. */
+  amount: z.number().int().min(1, "Nominal minimal Rp 1").optional(),
+  /** Jumlah dibayar dalam mata uang faktur (dokumen valas). */
+  foreignAmount: z.number().int().min(1).optional(),
+  /** Kurs saat pembayaran (IDR per unit valas). */
+  exchangeRate: z.number().positive().optional(),
   paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
 });
 export type CreatePaymentInput = z.infer<typeof createPaymentSchema>;
@@ -378,6 +396,10 @@ export type ApiCommerceDoc = {
   total: number;
   paidAmount: number;
   returnedAmount: number;
+  /** Mata uang & kurs faktur (IDR bila lokal); foreignTotal = total dalam valas. */
+  currency: string;
+  exchangeRate: number;
+  foreignTotal: number;
   lines: ApiCommerceLine[];
 };
 
