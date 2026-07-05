@@ -8,6 +8,7 @@ import {
   BookText,
   Boxes,
   Building2,
+  CalendarClock,
   CheckSquare,
   Contact,
   FileText,
@@ -95,6 +96,7 @@ const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; 
   { to: "/app/master/gudang", label: "Gudang", exact: false, section: "Master Data", icon: Warehouse },
   { to: "/app/hr/penggajian", label: "Penggajian", exact: false, section: "HR", icon: UsersRound },
   { to: "/app/proyek", label: "Proyek", exact: false, section: "Lainnya", icon: FolderKanban },
+  { to: "/app/kontrak", label: "Kontrak Berulang", exact: false, section: "Lainnya", icon: CalendarClock },
   { to: "/app/persetujuan", label: "Persetujuan", exact: false, section: "Lainnya", icon: CheckSquare },
   { to: "/app/pengaturan", label: "Pengaturan", exact: false, section: "Lainnya", icon: Settings },
 ];

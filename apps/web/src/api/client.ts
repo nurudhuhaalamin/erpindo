@@ -12,6 +12,7 @@ import type {
   ApiBalanceSheet,
   ApiCashFlow,
   ApiCommerceDoc,
+  ApiContract,
   ApiCurrency,
   ApiDashboard,
   ApiIncomeStatement,
@@ -265,6 +266,27 @@ export const api = {
   currencies: (tenantId: string) => request<{ currencies: ApiCurrency[] }>("GET", `/api/tenants/${tenantId}/currencies`),
   setCurrency: (tenantId: string, input: { code: string; name: string; rate: number }) =>
     request<{ ok: true }>("PUT", `/api/tenants/${tenantId}/currencies`, input),
+
+  // --- Kontrak & tagihan berulang ------------------------------------------------
+  contracts: (tenantId: string) => request<{ contracts: ApiContract[] }>("GET", `/api/tenants/${tenantId}/contracts`),
+  createContract: (
+    tenantId: string,
+    input: {
+      code: string;
+      contactId: string;
+      name: string;
+      frequency: string;
+      taxRate: number;
+      warehouseId: string;
+      startDate: string;
+      endDate?: string;
+      lines: { productId: string; qty: number; unitPrice: number; description?: string }[];
+    },
+  ) => request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/contracts`, input),
+  setContractStatus: (tenantId: string, id: string, status: string) =>
+    request<{ ok: true; status: string }>("PATCH", `/api/tenants/${tenantId}/contracts/${id}/status`, { status }),
+  runBilling: (tenantId: string) =>
+    request<{ ok: true; issued: number; total: number }>("POST", `/api/tenants/${tenantId}/contracts/run-billing`),
   stock: (tenantId: string) =>
     request<{ levels: ApiStockLevel[]; totalValue: number }>("GET", `/api/tenants/${tenantId}/stock`),
   stockLots: (tenantId: string) =>

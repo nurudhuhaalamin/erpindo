@@ -1528,6 +1528,57 @@ try {
   const tbAfterFx = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah faktur & pelunasan valas", tbAfterFx.json?.balanced === true);
 
+  // --- Kontrak & tagihan berulang (Fase 2s) --------------------------------------
+  // Tanggal setelah kunci 2026-07-10; faktur = piutang (tak sentuh arus kas Juli).
+  console.log("11m. Kontrak & tagihan berulang (produk jasa)");
+
+  // Produk jasa: faktur tak butuh stok.
+  const svc = await owner("POST", `/api/tenants/${tenantId}/products`, { sku: "JASA-01", name: "Jasa Maintenance Bulanan", unit: "bln", sellPrice: 500_000, isService: true });
+  check("tambah produk jasa 201", svc.status === 201);
+
+  const viewerContract = await viewer("POST", `/api/tenants/${tenantId}/contracts`, { code: "X", contactId: customer.json.id, name: "x", frequency: "monthly", warehouseId: whUtama.id, startDate: "2026-07-15", lines: [{ productId: svc.json.id, qty: 1, unitPrice: 1 }] });
+  check("viewer DITOLAK membuat kontrak (403)", viewerContract.status === 403);
+
+  const contract = await owner("POST", `/api/tenants/${tenantId}/contracts`, {
+    code: "lgn-01",
+    contactId: customer.json.id,
+    name: "Langganan Maintenance",
+    frequency: "monthly",
+    taxRate: 0,
+    warehouseId: whUtama.id,
+    startDate: "2026-07-15",
+    lines: [{ productId: svc.json.id, qty: 1, unitPrice: 500_000 }],
+  });
+  check("buat kontrak bulanan 201", contract.status === 201, `→ ${JSON.stringify(contract.json)}`);
+
+  const dupContract = await owner("POST", `/api/tenants/${tenantId}/contracts`, { code: "LGN-01", contactId: customer.json.id, name: "Duplikat", frequency: "monthly", warehouseId: whUtama.id, startDate: "2026-07-15", lines: [{ productId: svc.json.id, qty: 1, unitPrice: 1 }] });
+  check("kode kontrak ganda DITOLAK 409", dupContract.status === 409);
+
+  const invCountBeforeBill = (await owner("GET", `/api/tenants/${tenantId}/invoices`)).json?.docs?.length ?? 0;
+
+  const bill1 = await owner("POST", `/api/tenants/${tenantId}/contracts/run-billing`, { date: "2026-07-15" });
+  check("tagihan 15 Jul: 1 faktur (500rb) terbit", bill1.status === 200 && bill1.json?.issued === 1 && bill1.json?.total === 500_000, `→ ${JSON.stringify(bill1.json)}`);
+
+  const invCountAfterBill = (await owner("GET", `/api/tenants/${tenantId}/invoices`)).json?.docs?.length ?? 0;
+  check("faktur baru muncul di daftar penjualan", invCountAfterBill === invCountBeforeBill + 1);
+
+  const ctList = await owner("GET", `/api/tenants/${tenantId}/contracts`);
+  const ct1 = ctList.json?.contracts?.find((c) => c.id === contract.json.id);
+  check("tanggal tagih maju ke 2026-08-15, 1 faktur terbit", ct1?.nextInvoiceDate === "2026-08-15" && ct1?.invoiceCount === 1);
+
+  const bill1b = await owner("POST", `/api/tenants/${tenantId}/contracts/run-billing`, { date: "2026-07-15" });
+  check("menagih ulang tanggal sama: 0 faktur (belum jatuh tempo)", bill1b.json?.issued === 0);
+
+  const bill2 = await owner("POST", `/api/tenants/${tenantId}/contracts/run-billing`, { date: "2026-08-15" });
+  check("tagihan 15 Agu: 1 faktur lagi terbit", bill2.json?.issued === 1);
+
+  // Produk jasa tak menggerakkan stok — pastikan tak ada baris stok untuk JASA-01.
+  const stockSvc = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  check("produk jasa tidak muncul di level stok", !stockSvc.json?.levels?.some((l) => l.sku === "JASA-01"));
+
+  const tbAfterContract = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah tagihan kontrak", tbAfterContract.json?.balanced === true);
+
   // --- Arus kas (Fase 2b-1) -------------------------------------------------------
   console.log("12. Arus kas");
   // Konteks: modal 50jt (2/7) + penjualan tunai 2,5jt (3/7) + terima pembayaran 499,5rb (5/7)

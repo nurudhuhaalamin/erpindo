@@ -9,6 +9,7 @@ import { assetRoutes, runDepreciation } from "./routes/assets";
 import { authRoutes } from "./routes/auth";
 import { budgetRoutes } from "./routes/budgets";
 import { commerceRoutes } from "./routes/commerce";
+import { contractRoutes, runBilling } from "./routes/contracts";
 import { crmRoutes } from "./routes/crm";
 import { currencyRoutes } from "./routes/currencies";
 import { reportRoutes } from "./routes/reports";
@@ -58,6 +59,7 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", assetRoutes)
   .route("/api/tenants", projectRoutes)
   .route("/api/tenants", currencyRoutes)
+  .route("/api/tenants", contractRoutes)
   .route("/api/invites", inviteRoutes)
   .notFound((c) =>
     c.req.path.startsWith("/api/")
@@ -171,6 +173,31 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
     }
     if (depTenants > 0) console.log(`[cron] penyusutan ${period} diposting untuk ${depTenants} tenant`);
   }
+
+  // 4) Tagihan berulang — setiap hari terbitkan faktur kontrak yang jatuh tempo.
+  const todayDate = nowIso.slice(0, 10);
+  const { results: billTenants } = await env.DB.prepare(
+    `SELECT id, db_ref FROM tenants WHERE status IN ('active', 'trial')`,
+  ).all<{ id: string; db_ref: string }>();
+  let billed = 0;
+  for (const t of billTenants) {
+    try {
+      const db = getTenantDb(env, t.db_ref);
+      const res = await runBilling(db, todayDate, "system");
+      if (res.issued > 0) {
+        billed += res.issued;
+        await env.DB.prepare(
+          `INSERT INTO audit_logs (id, tenant_id, user_id, action, detail, ip, created_at)
+           VALUES (?, ?, NULL, 'contract.billed', ?, NULL, ?)`,
+        )
+          .bind(crypto.randomUUID(), t.id, JSON.stringify(res), nowIso)
+          .run();
+      }
+    } catch (err) {
+      console.error(`[cron] tagihan berulang tenant ${t.id} gagal:`, err);
+    }
+  }
+  if (billed > 0) console.log(`[cron] ${billed} faktur kontrak diterbitkan`);
 }
 
 export default { fetch: app.fetch, scheduled };
