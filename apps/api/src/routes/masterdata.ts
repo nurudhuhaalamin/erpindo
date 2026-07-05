@@ -188,6 +188,7 @@ export const masterDataRoutes = new Hono<AppEnv>()
         sell_price: p.sellPrice,
         buy_price: p.buyPrice,
         track_expiry: p.trackExpiry ? 1 : 0,
+        is_service: p.isService ? 1 : 0,
       }),
     }),
   )

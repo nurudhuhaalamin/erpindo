@@ -152,6 +152,7 @@ export function ProductsPage() {
       sellPrice: Number(raw.sellPrice) || 0,
       buyPrice: Number(raw.buyPrice) || 0,
       trackExpiry: raw.trackExpiry === "on",
+      isService: raw.isService === "on",
     });
     if (!parsed.success) {
       setIssues(parsed.error.flatten().fieldErrors as Record<string, string[]>);
@@ -211,6 +212,10 @@ export function ProductsPage() {
                 <input type="checkbox" name="trackExpiry" className="h-4 w-4 rounded border-slate-300" />
                 Lacak lot &amp; tanggal kedaluwarsa (F&amp;B/farmasi) — wajib isi tgl exp saat pembelian, keluar otomatis
                 FEFO
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-600 sm:col-span-3 dark:text-slate-300">
+                <input type="checkbox" name="isService" className="h-4 w-4 rounded border-slate-300" />
+                Jasa (tanpa stok) — faktur tidak menggerakkan stok/HPP; cocok untuk layanan, sewa, langganan
               </label>
             </form>
           </CardBody>

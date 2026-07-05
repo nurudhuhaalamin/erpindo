@@ -600,6 +600,39 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `ALTER TABLE payments ADD COLUMN foreign_amount INTEGER NOT NULL DEFAULT 0`,
     ],
   },
+  {
+    id: "0014_contracts",
+    statements: [
+      // Produk jasa: tidak melacak stok (faktur tak menggerakkan stok/HPP).
+      `ALTER TABLE products ADD COLUMN is_service INTEGER NOT NULL DEFAULT 0`,
+      // Kontrak tagihan berulang: Cron menerbitkan faktur saat jatuh tempo.
+      `CREATE TABLE contracts (
+        id TEXT PRIMARY KEY,
+        code TEXT NOT NULL UNIQUE,
+        contact_id TEXT NOT NULL REFERENCES contacts(id),
+        name TEXT NOT NULL,
+        frequency TEXT NOT NULL CHECK (frequency IN ('monthly','quarterly','yearly')),
+        tax_rate INTEGER NOT NULL DEFAULT 0,
+        warehouse_id TEXT NOT NULL REFERENCES warehouses(id),
+        next_invoice_date TEXT NOT NULL,
+        end_date TEXT,
+        status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','paused','ended')),
+        last_invoice_id TEXT,
+        invoice_count INTEGER NOT NULL DEFAULT 0,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX contracts_due ON contracts (status, next_invoice_date)`,
+      `CREATE TABLE contract_lines (
+        id TEXT PRIMARY KEY,
+        contract_id TEXT NOT NULL REFERENCES contracts(id),
+        product_id TEXT NOT NULL REFERENCES products(id),
+        description TEXT,
+        qty INTEGER NOT NULL CHECK (qty > 0),
+        unit_price INTEGER NOT NULL CHECK (unit_price >= 0)
+      )`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

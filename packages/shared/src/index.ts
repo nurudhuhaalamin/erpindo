@@ -256,6 +256,8 @@ export const productSchema = z.object({
   buyPrice: amountSchema.default(0),
   /** Wajib mencatat lot & tanggal kedaluwarsa saat pembelian (F&B/farmasi). */
   trackExpiry: z.boolean().default(false),
+  /** Jasa: tidak melacak stok — faktur tak menggerakkan stok/HPP. */
+  isService: z.boolean().default(false),
 });
 export type ProductInput = z.infer<typeof productSchema>;
 
@@ -772,6 +774,75 @@ export type ApiProjectTask = {
 export type ApiProjectDetail = ApiProject & {
   tasks: ApiProjectTask[];
   entries: { entryNo: string; entryDate: string; memo: string | null; revenue: number; cost: number }[];
+};
+
+// ---------------------------------------------------------------------------
+// Kontrak & tagihan berulang (Fase 2s)
+// ---------------------------------------------------------------------------
+
+export const CONTRACT_FREQUENCIES = ["monthly", "quarterly", "yearly"] as const;
+export type ContractFrequency = (typeof CONTRACT_FREQUENCIES)[number];
+
+export const CONTRACT_FREQUENCY_LABELS: Record<ContractFrequency, string> = {
+  monthly: "Bulanan",
+  quarterly: "Triwulanan",
+  yearly: "Tahunan",
+};
+
+export const createContractSchema = z.object({
+  code: z.string().trim().min(1, "Kode wajib diisi").max(30).toUpperCase(),
+  contactId: z.string().min(1, "Pelanggan wajib dipilih"),
+  name: z.string().trim().min(2, "Nama minimal 2 karakter").max(150),
+  frequency: z.enum(CONTRACT_FREQUENCIES),
+  taxRate: z
+    .number()
+    .int()
+    .refine((v): v is (typeof TAX_RATES)[number] => (TAX_RATES as readonly number[]).includes(v), "Tarif pajak tidak dikenal")
+    .default(0),
+  warehouseId: z.string().min(1, "Gudang wajib dipilih"),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  lines: z
+    .array(
+      z.object({
+        productId: z.string().min(1, "Produk wajib dipilih"),
+        description: z.string().trim().max(200).optional(),
+        qty: z.number().int().min(1).max(1_000_000),
+        unitPrice: z.number().int().min(0).max(1_000_000_000_000),
+      }),
+    )
+    .min(1, "Minimal 1 baris"),
+});
+export type CreateContractInput = z.infer<typeof createContractSchema>;
+
+export const CONTRACT_STATUSES = ["active", "paused", "ended"] as const;
+export type ContractStatus = (typeof CONTRACT_STATUSES)[number];
+export const contractStatusSchema = z.object({ status: z.enum(CONTRACT_STATUSES) });
+
+export type ApiContractLine = {
+  id: string;
+  productId: string;
+  productName: string;
+  description: string | null;
+  qty: number;
+  unitPrice: number;
+  amount: number;
+};
+
+export type ApiContract = {
+  id: string;
+  code: string;
+  contactId: string;
+  contactName: string;
+  name: string;
+  frequency: ContractFrequency;
+  taxRate: number;
+  nextInvoiceDate: string;
+  endDate: string | null;
+  status: ContractStatus;
+  invoiceCount: number;
+  total: number;
+  lines: ApiContractLine[];
 };
 
 // ---------------------------------------------------------------------------

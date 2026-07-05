@@ -336,10 +336,19 @@ export async function executeInvoice(
 
   const invoiceId = crypto.randomUUID();
 
+  // Produk jasa tidak menggerakkan stok/HPP. Ambil daftar produk jasa dulu.
+  const lineProductIds = [...new Set(input.lines.map((l) => l.productId))];
+  const { results: svc } = await db
+    .prepare(`SELECT id FROM products WHERE is_service = 1 AND id IN (${lineProductIds.map(() => "?").join(",")})`)
+    .bind(...lineProductIds)
+    .all<{ id: string }>();
+  const serviceIds = new Set(svc.map((s) => s.id));
+
   // Stok keluar dulu (bisa gagal karena stok kurang) — sebelum jurnal dibuat.
   let totalCogs = 0;
   try {
     for (const line of input.lines) {
+      if (serviceIds.has(line.productId)) continue;
       totalCogs += await stockOut(db, {
         productId: line.productId,
         warehouseId: input.warehouseId,
