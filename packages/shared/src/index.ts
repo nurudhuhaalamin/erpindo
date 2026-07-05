@@ -852,6 +852,82 @@ export type ApiContract = {
 };
 
 // ---------------------------------------------------------------------------
+// Manufaktur + QC (Fase 2u)
+// ---------------------------------------------------------------------------
+
+/** Simpan/perbarui Bill of Materials (resep) satu produk jadi. */
+export const setBomSchema = z.object({
+  productId: z.string().min(1),
+  outputQty: z.number().int().positive().default(1),
+  notes: z.string().trim().max(500).optional(),
+  lines: z
+    .array(
+      z.object({
+        componentId: z.string().min(1),
+        qty: z.number().int().positive(),
+      }),
+    )
+    .min(1, "Minimal 1 komponen"),
+});
+export type SetBomInput = z.infer<typeof setBomSchema>;
+
+export const createProductionOrderSchema = z.object({
+  productId: z.string().min(1),
+  warehouseId: z.string().min(1),
+  qty: z.number().int().positive(),
+});
+export type CreateProductionOrderInput = z.infer<typeof createProductionOrderSchema>;
+
+export const QC_RESULTS = ["passed", "quarantined"] as const;
+export type QcResult = (typeof QC_RESULTS)[number];
+/** Inspeksi QC: lulus, atau karantina (butuh gudang karantina tujuan). */
+export const qcInspectSchema = z.object({
+  result: z.enum(QC_RESULTS),
+  warehouseId: z.string().min(1).optional(),
+});
+export type QcInspectInput = z.infer<typeof qcInspectSchema>;
+
+export type ApiBomLine = {
+  componentId: string;
+  sku: string;
+  name: string;
+  unit: string;
+  qty: number;
+};
+
+export type ApiBom = {
+  id: string;
+  productId: string;
+  productSku: string;
+  productName: string;
+  outputQty: number;
+  notes: string | null;
+  lines: ApiBomLine[];
+};
+
+export const PRODUCTION_STATUSES = ["draft", "produced"] as const;
+export type ProductionStatus = (typeof PRODUCTION_STATUSES)[number];
+export const QC_STATUSES = ["none", "pending", "passed", "quarantined"] as const;
+export type QcStatus = (typeof QC_STATUSES)[number];
+
+export type ApiProductionOrder = {
+  id: string;
+  orderNo: string;
+  productId: string;
+  productName: string;
+  warehouseId: string;
+  warehouseName: string;
+  qty: number;
+  status: ProductionStatus;
+  qcStatus: QcStatus;
+  unitCost: number;
+  totalCost: number;
+  qcWarehouseName: string | null;
+  createdAt: string;
+  producedAt: string | null;
+};
+
+// ---------------------------------------------------------------------------
 // Laporan keuangan & dashboard (Fase 1c)
 // ---------------------------------------------------------------------------
 

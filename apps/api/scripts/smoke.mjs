@@ -1694,6 +1694,83 @@ try {
     `→ ${JSON.stringify({ ta: consBS.json?.totalAssets, a2: consBS.json?.totalAssetsByCompany?.[tenant2] })}`,
   );
 
+  // --- Manufaktur + QC (Fase 2u) -------------------------------------------------
+  console.log("11o. Manufaktur + QC (BoM, produksi biaya gabungan, inspeksi QC)");
+
+  const kayu = await owner("POST", `/api/tenants/${tenantId}/products`, { sku: "BHN-KAYU", name: "Kayu Jati", unit: "batang", sellPrice: 60_000 });
+  const paku = await owner("POST", `/api/tenants/${tenantId}/products`, { sku: "BHN-PAKU", name: "Paku", unit: "pcs", sellPrice: 1_500 });
+  const meja = await owner("POST", `/api/tenants/${tenantId}/products`, { sku: "JADI-MEJA", name: "Meja Kerja", unit: "unit", sellPrice: 500_000 });
+  check("tambah produk bahan & produk jadi 201", kayu.status === 201 && paku.status === 201 && meja.status === 201);
+
+  // Beli bahan secara kredit (tanpa PPN) — tak menyentuh kas (jaga asersi arus kas).
+  await owner("POST", `/api/tenants/${tenantId}/purchases`, { contactId: supplier.json.id, invoiceDate: "2026-07-15", taxRate: 0, warehouseId: whUtama.id, lines: [{ productId: kayu.json.id, qty: 20, unitPrice: 50_000 }] });
+  await owner("POST", `/api/tenants/${tenantId}/purchases`, { contactId: supplier.json.id, invoiceDate: "2026-07-15", taxRate: 0, warehouseId: whUtama.id, lines: [{ productId: paku.json.id, qty: 100, unitPrice: 1_000 }] });
+  const stockRaw = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  const kayuLvl = stockRaw.json?.levels?.find((l) => l.sku === "BHN-KAYU");
+  const pakuLvl = stockRaw.json?.levels?.find((l) => l.sku === "BHN-PAKU");
+  check("stok bahan masuk (kayu 20@50k, paku 100@1k)", kayuLvl?.qty === 20 && kayuLvl?.avgCost === 50_000 && pakuLvl?.qty === 100 && pakuLvl?.avgCost === 1_000);
+
+  // RBAC: viewer tak boleh mengubah BoM.
+  const viewerBom = await viewer("PUT", `/api/tenants/${tenantId}/boms`, { productId: meja.json.id, outputQty: 2, lines: [{ componentId: kayu.json.id, qty: 4 }] });
+  check("viewer DITOLAK menyimpan BoM (403)", viewerBom.status === 403);
+
+  // BoM: 4 kayu + 20 paku menghasilkan 2 meja.
+  const bom = await owner("PUT", `/api/tenants/${tenantId}/boms`, { productId: meja.json.id, outputQty: 2, lines: [{ componentId: kayu.json.id, qty: 4 }, { componentId: paku.json.id, qty: 20 }] });
+  check("simpan BoM Meja 201", bom.status === 201, `→ ${JSON.stringify(bom.json)}`);
+
+  const bomService = await owner("PUT", `/api/tenants/${tenantId}/boms`, { productId: svc.json.id, outputQty: 1, lines: [{ componentId: kayu.json.id, qty: 1 }] });
+  check("BoM untuk produk jasa DITOLAK 400", bomService.status === 400);
+
+  const bomSelf = await owner("PUT", `/api/tenants/${tenantId}/boms`, { productId: meja.json.id, outputQty: 1, lines: [{ componentId: meja.json.id, qty: 1 }] });
+  check("BoM komponen = produk jadi DITOLAK 400", bomSelf.status === 400);
+
+  const ordBad = await owner("POST", `/api/tenants/${tenantId}/production-orders`, { productId: meja.json.id, warehouseId: whUtama.id, qty: 3 });
+  check("jumlah produksi bukan kelipatan hasil resep DITOLAK 400", ordBad.status === 400);
+
+  const viewerOrder = await viewer("POST", `/api/tenants/${tenantId}/production-orders`, { productId: meja.json.id, warehouseId: whUtama.id, qty: 2 });
+  check("viewer DITOLAK membuat perintah produksi (403)", viewerOrder.status === 403);
+
+  const ord1 = await owner("POST", `/api/tenants/${tenantId}/production-orders`, { productId: meja.json.id, warehouseId: whUtama.id, qty: 4 });
+  check("buat perintah produksi 4 unit 201", ord1.status === 201);
+
+  const done1 = await owner("POST", `/api/tenants/${tenantId}/production-orders/${ord1.json.id}/complete`);
+  check("produksi selesai: biaya total 440rb, biaya/unit 110rb", done1.status === 200 && done1.json?.totalCost === 440_000 && done1.json?.unitCost === 110_000, `→ ${JSON.stringify(done1.json)}`);
+
+  const stockProd = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  const kayuAfter = stockProd.json?.levels?.find((l) => l.sku === "BHN-KAYU");
+  const pakuAfter = stockProd.json?.levels?.find((l) => l.sku === "BHN-PAKU");
+  const mejaUtama = stockProd.json?.levels?.find((l) => l.sku === "JADI-MEJA" && l.warehouseId === whUtama.id);
+  check("bahan berkurang (kayu 12, paku 60), meja +4 @110k (nilai 440rb)", kayuAfter?.qty === 12 && pakuAfter?.qty === 60 && mejaUtama?.qty === 4 && mejaUtama?.value === 440_000, `→ ${JSON.stringify({ k: kayuAfter?.qty, p: pakuAfter?.qty, m: mejaUtama?.qty, v: mejaUtama?.value })}`);
+
+  const tbAfterProd = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah produksi (netral nilai)", tbAfterProd.json?.balanced === true);
+
+  const qcPass = await owner("POST", `/api/tenants/${tenantId}/production-orders/${ord1.json.id}/qc`, { result: "passed" });
+  check("QC luluskan hasil produksi 200", qcPass.status === 200);
+  const ordListA = await owner("GET", `/api/tenants/${tenantId}/production-orders`);
+  check("status QC menjadi lulus", ordListA.json?.orders?.find((o) => o.id === ord1.json.id)?.qcStatus === "passed");
+
+  // Stok bahan tak cukup untuk 20 unit (butuh 40 kayu, tersedia 12).
+  const ordBig = await owner("POST", `/api/tenants/${tenantId}/production-orders`, { productId: meja.json.id, warehouseId: whUtama.id, qty: 20 });
+  const doneBig = await owner("POST", `/api/tenants/${tenantId}/production-orders/${ordBig.json.id}/complete`);
+  check("produksi melebihi stok bahan DITOLAK 400", doneBig.status === 400);
+
+  // Produksi lagi 2 unit lalu karantina ke gudang kedua.
+  const ord2 = await owner("POST", `/api/tenants/${tenantId}/production-orders`, { productId: meja.json.id, warehouseId: whUtama.id, qty: 2 });
+  const done2 = await owner("POST", `/api/tenants/${tenantId}/production-orders/${ord2.json.id}/complete`);
+  check("produksi 2 unit selesai (biaya 220rb)", done2.status === 200 && done2.json?.totalCost === 220_000);
+
+  const qcQuar = await owner("POST", `/api/tenants/${tenantId}/production-orders/${ord2.json.id}/qc`, { result: "quarantined", warehouseId: wh2.json.id });
+  check("QC karantina memindahkan hasil ke gudang kedua 200", qcQuar.status === 200);
+
+  const stockQc = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  const mejaUtama2 = stockQc.json?.levels?.find((l) => l.sku === "JADI-MEJA" && l.warehouseId === whUtama.id);
+  const mejaWh2 = stockQc.json?.levels?.find((l) => l.sku === "JADI-MEJA" && l.warehouseId === wh2.json.id);
+  check("karantina: meja gudang utama 4, gudang karantina 2", mejaUtama2?.qty === 4 && mejaWh2?.qty === 2, `→ ${JSON.stringify({ u: mejaUtama2?.qty, q: mejaWh2?.qty })}`);
+
+  const tbAfterQc = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah karantina QC", tbAfterQc.json?.balanced === true);
+
   // --- Arus kas (Fase 2b-1) -------------------------------------------------------
   console.log("12. Arus kas");
   // Konteks: modal 50jt (2/7) + penjualan tunai 2,5jt (3/7) + terima pembayaran 499,5rb (5/7)

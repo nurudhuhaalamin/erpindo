@@ -633,6 +633,44 @@ export const TENANT_MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    id: "0015_manufacturing",
+    statements: [
+      // Bill of Materials: resep satu produk jadi. `output_qty` = jumlah unit
+      // produk jadi yang dihasilkan dari komponen yang terdaftar.
+      `CREATE TABLE boms (
+        id TEXT PRIMARY KEY,
+        product_id TEXT NOT NULL UNIQUE REFERENCES products(id),
+        output_qty INTEGER NOT NULL CHECK (output_qty > 0),
+        notes TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE TABLE bom_lines (
+        id TEXT PRIMARY KEY,
+        bom_id TEXT NOT NULL REFERENCES boms(id),
+        component_id TEXT NOT NULL REFERENCES products(id),
+        qty INTEGER NOT NULL CHECK (qty > 0)
+      )`,
+      // Perintah produksi: mengonsumsi bahan (stok keluar) → produk jadi (stok
+      // masuk) dengan biaya gabungan. Netral terhadap nilai persediaan (bahan &
+      // produk jadi sama-sama di akun Persediaan) sehingga tanpa jurnal.
+      `CREATE TABLE production_orders (
+        id TEXT PRIMARY KEY,
+        order_no TEXT NOT NULL UNIQUE,
+        product_id TEXT NOT NULL REFERENCES products(id),
+        warehouse_id TEXT NOT NULL REFERENCES warehouses(id),
+        qty INTEGER NOT NULL CHECK (qty > 0),
+        status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','produced')),
+        qc_status TEXT NOT NULL DEFAULT 'none' CHECK (qc_status IN ('none','pending','passed','quarantined')),
+        unit_cost INTEGER NOT NULL DEFAULT 0,
+        total_cost INTEGER NOT NULL DEFAULT 0,
+        qc_warehouse_id TEXT REFERENCES warehouses(id),
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        produced_at TEXT
+      )`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */
