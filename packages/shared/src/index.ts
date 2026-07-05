@@ -985,6 +985,78 @@ export type ApiWorkOrder = {
 };
 
 // ---------------------------------------------------------------------------
+// Helpdesk / tiket dukungan (Fase 2w)
+// ---------------------------------------------------------------------------
+
+export const TICKET_PRIORITIES = ["low", "medium", "high", "urgent"] as const;
+export type TicketPriority = (typeof TICKET_PRIORITIES)[number];
+export const TICKET_PRIORITY_LABELS: Record<TicketPriority, string> = {
+  low: "Rendah",
+  medium: "Sedang",
+  high: "Tinggi",
+  urgent: "Mendesak",
+};
+
+export const TICKET_STATUSES = ["open", "in_progress", "resolved", "closed"] as const;
+export type TicketStatus = (typeof TICKET_STATUSES)[number];
+export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
+  open: "Terbuka",
+  in_progress: "Diproses",
+  resolved: "Selesai",
+  closed: "Ditutup",
+};
+
+export const createTicketSchema = z.object({
+  contactId: z.string().min(1, "Kontak wajib dipilih"),
+  subject: z.string().trim().min(3, "Subjek minimal 3 karakter").max(200),
+  description: z.string().trim().max(5000).optional(),
+  priority: z.enum(TICKET_PRIORITIES).default("medium"),
+});
+export type CreateTicketInput = z.infer<typeof createTicketSchema>;
+
+export const updateTicketSchema = z
+  .object({
+    status: z.enum(TICKET_STATUSES).optional(),
+    assignedTo: z.string().nullable().optional(),
+  })
+  .refine((v) => v.status !== undefined || v.assignedTo !== undefined, {
+    message: "Tidak ada perubahan",
+  });
+export type UpdateTicketInput = z.infer<typeof updateTicketSchema>;
+
+export const ticketReplySchema = z.object({
+  body: z.string().trim().min(1, "Balasan tidak boleh kosong").max(5000),
+  internal: z.boolean().default(false),
+});
+export type TicketReplyInput = z.infer<typeof ticketReplySchema>;
+
+export type ApiTicket = {
+  id: string;
+  ticketNo: string;
+  contactId: string;
+  contactName: string;
+  subject: string;
+  description: string | null;
+  priority: TicketPriority;
+  status: TicketStatus;
+  assignedTo: string | null;
+  assignedName: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+  replyCount: number;
+};
+
+export type ApiTicketReply = {
+  id: string;
+  body: string;
+  authorName: string;
+  internal: boolean;
+  createdAt: string;
+};
+
+export type ApiTicketDetail = ApiTicket & { replies: ApiTicketReply[] };
+
+// ---------------------------------------------------------------------------
 // Laporan keuangan & dashboard (Fase 1c)
 // ---------------------------------------------------------------------------
 

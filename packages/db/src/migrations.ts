@@ -708,6 +708,37 @@ export const TENANT_MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    id: "0017_helpdesk",
+    statements: [
+      // Tiket dukungan pelanggan: prioritas, status, penugasan, terhubung kontak.
+      `CREATE TABLE tickets (
+        id TEXT PRIMARY KEY,
+        ticket_no TEXT NOT NULL UNIQUE,
+        contact_id TEXT NOT NULL REFERENCES contacts(id),
+        subject TEXT NOT NULL,
+        description TEXT,
+        priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low','medium','high','urgent')),
+        status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','in_progress','resolved','closed')),
+        assigned_to TEXT,
+        assigned_name TEXT,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        resolved_at TEXT
+      )`,
+      `CREATE INDEX tickets_status ON tickets (status, created_at)`,
+      // Balasan/komentar pada tiket (internal = catatan tim, bukan untuk pelanggan).
+      `CREATE TABLE ticket_replies (
+        id TEXT PRIMARY KEY,
+        ticket_id TEXT NOT NULL REFERENCES tickets(id),
+        body TEXT NOT NULL,
+        author_user_id TEXT NOT NULL,
+        author_name TEXT NOT NULL,
+        internal INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

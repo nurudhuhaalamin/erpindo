@@ -28,6 +28,8 @@ import type {
   ApiQuotation,
   ApiStockCardRow,
   ApiStockLot,
+  ApiTicket,
+  ApiTicketDetail,
   ApiJournalEntry,
   ApiMember,
   ApiStockLevel,
@@ -364,6 +366,18 @@ export const api = {
       `/api/tenants/${tenantId}/maintenance/work-orders/${id}/complete`,
       input,
     ),
+
+  // --- Helpdesk / tiket ----------------------------------------------------------
+  tickets: (tenantId: string) => request<{ tickets: ApiTicket[] }>("GET", `/api/tenants/${tenantId}/tickets`),
+  ticket: (tenantId: string, id: string) => request<ApiTicketDetail>("GET", `/api/tenants/${tenantId}/tickets/${id}`),
+  createTicket: (
+    tenantId: string,
+    input: { contactId: string; subject: string; description?: string; priority: string },
+  ) => request<{ ok: true; id: string; ticketNo: string }>("POST", `/api/tenants/${tenantId}/tickets`, input),
+  replyTicket: (tenantId: string, id: string, input: { body: string; internal: boolean }) =>
+    request<{ ok: true }>("POST", `/api/tenants/${tenantId}/tickets/${id}/replies`, input),
+  updateTicket: (tenantId: string, id: string, input: { status?: string; assignedTo?: string | null }) =>
+    request<{ ok: true; ticket: ApiTicket | null }>("PATCH", `/api/tenants/${tenantId}/tickets/${id}`, input),
 
   stock: (tenantId: string) =>
     request<{ levels: ApiStockLevel[]; totalValue: number }>("GET", `/api/tenants/${tenantId}/stock`),

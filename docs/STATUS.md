@@ -35,7 +35,8 @@
 | Fase 2s — Kontrak & tagihan berulang | Kontrak langganan yang menerbitkan faktur otomatis tiap periode; produk jasa (tanpa stok) | ✅ Selesai |
 | Fase 2t — Konsolidasi multi-perusahaan | Buat perusahaan tambahan dari satu akun; laporan Laba Rugi & Neraca gabungan lintas perusahaan milik pemilik yang sama | ✅ Selesai |
 | Fase 2u — Manufaktur & QC | Resep produk (BoM), perintah produksi (bahan → produk jadi biaya gabungan), inspeksi QC (lulus/karantina) | ✅ Selesai |
-| **Fase 2v — Maintenance / servis aset** | Jadwal servis berkala per aset (Cron menerbitkan work order), work order ad-hoc, riwayat & biaya dijurnal | ✅ **Selesai** |
+| Fase 2v — Maintenance / servis aset | Jadwal servis berkala per aset (Cron menerbitkan work order), work order ad-hoc, riwayat & biaya dijurnal | ✅ Selesai |
+| **Fase 2w — Helpdesk** | Tiket dukungan pelanggan: prioritas & status, penugasan ke tim, balasan + catatan internal | ✅ **Selesai** |
 | Fase 2m — Manajemen dokumen (lampiran file) | Lampiran di faktur/kontak/jurnal (penyimpanan Cloudflare R2) | ⏸ **Menunggu Anda mengaktifkan R2 di dashboard Cloudflare** |
 | Fase 2b-2 — Pembayaran langganan | Checkout Midtrans/Xendit, aktivasi otomatis | ⏸ **Menunggu akun gateway dari Anda** |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
@@ -86,9 +87,10 @@
 41. **Kontrak & tagihan berulang** *(Fase 2s)*: buat **kontrak langganan** (bulanan/triwulan/tahunan) — sistem **menerbitkan faktur otomatis** tiap periode jatuh tempo (bisa juga dipicu manual). Dilengkapi **produk jasa** (tanpa stok) agar cocok untuk layanan, sewa, maintenance, dan retainer. Ideal untuk pendapatan berulang.
 42. **Konsolidasi multi-perusahaan** *(Fase 2t)*: kelola **beberapa badan usaha dari satu akun** (buat perusahaan baru langsung dari Pengaturan), lalu lihat **Laba Rugi & Neraca gabungan** seluruh perusahaan Anda dalam satu tabel — nilai tiap akun dijumlahkan lintas perusahaan dengan rincian per perusahaan di setiap kolom. Bisa memfilter perusahaan yang disertakan & ekspor CSV. Data tiap perusahaan tetap terpisah dan aman.
 43. **Manufaktur & QC** *(Fase 2u)*: buat **resep produk (BoM)** — komponen & jumlah untuk menghasilkan produk jadi — lalu jalankan **perintah produksi**: bahan otomatis keluar dari stok dan produk jadi masuk stok dengan **biaya gabungan** (biaya bahan dibagi jumlah hasil). **Inspeksi QC** menentukan hasil siap jual atau dikarantina ke gudang khusus. Cocok untuk mebel, makanan, konveksi, dan perakitan.
-44. **Maintenance / servis aset** *(baru — Fase 2v)*: buat **jadwal servis berkala** per aset (kendaraan, mesin) — sistem **menerbitkan work order otomatis** saat jatuh tempo. Bisa juga buat **work order ad-hoc** untuk perbaikan mendadak. Saat pekerjaan selesai, biaya servis dicatat dan **langsung dijurnal sebagai Beban Pemeliharaan**, lengkap dengan riwayat & total biaya per aset.
+44. **Maintenance / servis aset** *(Fase 2v)*: buat **jadwal servis berkala** per aset (kendaraan, mesin) — sistem **menerbitkan work order otomatis** saat jatuh tempo. Bisa juga buat **work order ad-hoc** untuk perbaikan mendadak. Saat pekerjaan selesai, biaya servis dicatat dan **langsung dijurnal sebagai Beban Pemeliharaan**, lengkap dengan riwayat & total biaya per aset.
+45. **Helpdesk** *(baru — Fase 2w)*: kelola **tiket dukungan pelanggan** — atur **prioritas** (rendah s.d. mendesak) dan **status** (terbuka → diproses → selesai), **tugaskan ke anggota tim**, dan balas lewat utas percakapan dengan opsi **catatan internal** yang tak terlihat pelanggan. Setiap tiket terhubung ke kontak.
 
-Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (272 skenario ujian end-to-end + 24 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
+Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (284 skenario ujian end-to-end + 24 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
 
 ## Apakah sudah bisa diakses di internet?
 
