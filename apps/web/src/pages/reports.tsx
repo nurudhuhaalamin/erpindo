@@ -305,6 +305,114 @@ export function AgingPage() {
 }
 
 // ---------------------------------------------------------------------------
+// Ekspor e-Faktur (faktur keluaran ber-PPN)
+// ---------------------------------------------------------------------------
+
+export function EfakturPage() {
+  const { tenant } = useWorkspace();
+  const [from, setFrom] = useState(monthStart);
+  const [to, setTo] = useState(today);
+
+  const query = useQuery({
+    queryKey: ["efaktur", tenant.tenantId, from, to],
+    queryFn: () => api.efaktur(tenant.tenantId, from, to),
+    enabled: Boolean(from && to),
+  });
+
+  const th = "pb-2 pr-4 text-left font-medium text-slate-500 dark:text-slate-400";
+  const td = "border-b border-slate-100 py-2 pr-4 dark:border-slate-800/60";
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Ekspor e-Faktur</h1>
+        {query.data && query.data.rows.length > 0 ? (
+          <ExportButton
+            onClick={() =>
+              downloadCsv(
+                `e-faktur-${from}-${to}.csv`,
+                ["Nomor Faktur", "Tanggal", "NPWP Pembeli", "Nama Pembeli", "DPP", "PPN", "Total"],
+                query.data!.rows.map((r) => [
+                  r.invoiceNo,
+                  r.invoiceDate,
+                  r.buyerNpwp ?? "000000000000000",
+                  r.buyerName,
+                  r.dpp,
+                  r.ppn,
+                  r.total,
+                ]),
+              )
+            }
+          />
+        ) : null}
+      </div>
+      <p className="text-sm text-slate-500 dark:text-slate-400">
+        Daftar faktur penjualan ber-PPN pada periode terpilih, siap diekspor CSV untuk diimpor ke aplikasi e-Faktur.
+        Pembeli tanpa NPWP diekspor sebagai <span className="font-mono">000000000000000</span>.
+      </p>
+
+      <Card>
+        <CardBody className="space-y-5">
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <Label htmlFor="ef-from">Dari</Label>
+              <Input id="ef-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="ef-to">Sampai</Label>
+              <Input id="ef-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            </div>
+          </div>
+
+          {query.isLoading ? (
+            <Spinner />
+          ) : (query.data?.rows.length ?? 0) === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400">Tidak ada faktur ber-PPN pada periode ini.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800">
+                    <th className={th}>Nomor</th>
+                    <th className={th}>Tanggal</th>
+                    <th className={th}>NPWP</th>
+                    <th className={th}>Pembeli</th>
+                    <th className={`${th} text-right`}>DPP</th>
+                    <th className={`${th} text-right`}>PPN</th>
+                    <th className={`${th} text-right`}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {query.data!.rows.map((r) => (
+                    <tr key={r.invoiceNo}>
+                      <td className={`${td} font-mono text-xs`}>{r.invoiceNo}</td>
+                      <td className={`${td} tabular-nums`}>{r.invoiceDate}</td>
+                      <td className={`${td} font-mono text-xs`}>{r.buyerNpwp ?? "000000000000000"}</td>
+                      <td className={td}>{r.buyerName}</td>
+                      <td className={`${td} text-right tabular-nums`}>{formatIDR(r.dpp)}</td>
+                      <td className={`${td} text-right tabular-nums`}>{formatIDR(r.ppn)}</td>
+                      <td className={`${td} text-right tabular-nums`}>{formatIDR(r.total)}</td>
+                    </tr>
+                  ))}
+                  <tr className="font-semibold">
+                    <td className="py-2 pr-4" colSpan={4}>
+                      Total ({query.data!.rows.length} faktur)
+                    </td>
+                    <td className="py-2 pr-4 text-right tabular-nums">{formatIDR(query.data!.totalDpp)}</td>
+                    <td className="py-2 pr-4 text-right tabular-nums">{formatIDR(query.data!.totalPpn)}</td>
+                    <td className="py-2 text-right tabular-nums">{formatIDR(query.data!.totalDpp + query.data!.totalPpn)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardBody>
+      </Card>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Neraca
 // ---------------------------------------------------------------------------
 

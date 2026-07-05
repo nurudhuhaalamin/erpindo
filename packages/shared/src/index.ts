@@ -1128,6 +1128,28 @@ export type ApiConsolidatedBalanceSheet = {
   balanced: boolean;
 };
 
+// ---------------------------------------------------------------------------
+// Ekspor e-Faktur (Fase 2x): baris faktur keluaran ber-PPN untuk impor e-Faktur.
+// ---------------------------------------------------------------------------
+
+export type ApiEfakturRow = {
+  invoiceNo: string;
+  invoiceDate: string;
+  buyerNpwp: string | null;
+  buyerName: string;
+  dpp: number;
+  ppn: number;
+  total: number;
+};
+
+export type ApiEfakturReport = {
+  from: string;
+  to: string;
+  rows: ApiEfakturRow[];
+  totalDpp: number;
+  totalPpn: number;
+};
+
 export type ApiCashFlow = {
   from: string;
   to: string;
