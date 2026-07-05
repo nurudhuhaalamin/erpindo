@@ -79,6 +79,12 @@ export const registerSchema = z.object({
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
 
+/** Buat perusahaan tambahan untuk pengguna yang sudah login (multi-perusahaan). */
+export const createCompanySchema = z.object({
+  companyName: z.string().trim().min(2, "Nama perusahaan minimal 2 karakter").max(100),
+});
+export type CreateCompanyInput = z.infer<typeof createCompanySchema>;
+
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, "Password wajib diisi"),
@@ -866,6 +872,51 @@ export type ApiBalanceSheet = {
   assets: ApiReportLine[];
   liabilities: ApiReportLine[];
   equity: ApiReportLine[];
+  totalAssets: number;
+  totalLiabilities: number;
+  totalEquity: number;
+  balanced: boolean;
+};
+
+// ---------------------------------------------------------------------------
+// Konsolidasi multi-perusahaan (Fase 2t): laporan gabungan lintas tenant yang
+// dimiliki (peran owner) oleh pengguna yang sama. Baris digabung per kode akun,
+// dengan rincian nilai per perusahaan + total konsolidasi.
+// ---------------------------------------------------------------------------
+
+export type ApiConsolidationCompany = { tenantId: string; name: string };
+
+export type ApiConsolidatedRow = {
+  code: string;
+  name: string;
+  /** tenantId -> nilai untuk perusahaan itu (0 bila tak muncul). */
+  amounts: Record<string, number>;
+  total: number;
+};
+
+export type ApiConsolidatedIncomeStatement = {
+  from: string;
+  to: string;
+  companies: ApiConsolidationCompany[];
+  income: ApiConsolidatedRow[];
+  expense: ApiConsolidatedRow[];
+  totalIncomeByCompany: Record<string, number>;
+  totalExpenseByCompany: Record<string, number>;
+  netProfitByCompany: Record<string, number>;
+  totalIncome: number;
+  totalExpense: number;
+  netProfit: number;
+};
+
+export type ApiConsolidatedBalanceSheet = {
+  asOf: string;
+  companies: ApiConsolidationCompany[];
+  assets: ApiConsolidatedRow[];
+  liabilities: ApiConsolidatedRow[];
+  equity: ApiConsolidatedRow[];
+  totalAssetsByCompany: Record<string, number>;
+  totalLiabilitiesByCompany: Record<string, number>;
+  totalEquityByCompany: Record<string, number>;
   totalAssets: number;
   totalLiabilities: number;
   totalEquity: number;

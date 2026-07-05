@@ -2,16 +2,13 @@ import {
   AGING_BUCKETS,
   type AgingBucket,
   type ApiAgingRow,
-  type ApiBalanceSheet,
   type ApiCashFlow,
   type ApiDashboard,
-  type ApiIncomeStatement,
   type ApiStockCardRow,
-  type AccountType,
 } from "@erpindo/shared";
 import { Hono } from "hono";
-import type { SqlExecutor } from "@erpindo/db";
 import type { AppEnv } from "../env";
+import { computeBalanceSheet, computeIncomeStatement } from "../lib/reports";
 import { getTenantDb } from "../lib/tenantDb";
 import { requireAuth, requireTenantRole } from "../middleware/auth";
 
@@ -21,36 +18,6 @@ import { requireAuth, requireTenantRole } from "../middleware/auth";
  */
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-type BalanceRow = { id: string; code: string; name: string; type: AccountType; debit: number; credit: number };
-
-async function accountBalances(
-  db: SqlExecutor,
-  opts: { from?: string; to: string; types: AccountType[] },
-): Promise<BalanceRow[]> {
-  const conds = [`a.type IN (${opts.types.map(() => "?").join(",")})`];
-  const params: unknown[] = [...opts.types];
-  if (opts.from) {
-    conds.push("e.entry_date >= ?");
-    params.push(opts.from);
-  }
-  conds.push("e.entry_date <= ?");
-  params.push(opts.to);
-
-  const { results } = await db
-    .prepare(
-      `SELECT a.id, a.code, a.name, a.type,
-              COALESCE(SUM(l.debit), 0) AS debit, COALESCE(SUM(l.credit), 0) AS credit
-       FROM accounts a
-       JOIN journal_lines l ON l.account_id = a.id
-       JOIN journal_entries e ON e.id = l.entry_id AND e.status = 'posted'
-       WHERE ${conds.join(" AND ")}
-       GROUP BY a.id ORDER BY a.code`,
-    )
-    .bind(...params)
-    .all<BalanceRow>();
-  return results;
-}
 
 export const reportRoutes = new Hono<AppEnv>()
 
@@ -64,28 +31,7 @@ export const reportRoutes = new Hono<AppEnv>()
       return c.json({ error: "Parameter from/to wajib berformat YYYY-MM-DD." }, 400);
     }
     const db = getTenantDb(c.env, c.get("tenant").dbRef);
-    const rows = await accountBalances(db, { from, to, types: ["income", "expense"] });
-
-    const income = rows
-      .filter((r) => r.type === "income")
-      .map((r) => ({ accountId: r.id, code: r.code, name: r.name, amount: r.credit - r.debit }));
-    const expense = rows
-      .filter((r) => r.type === "expense")
-      .map((r) => ({ accountId: r.id, code: r.code, name: r.name, amount: r.debit - r.credit }));
-
-    const totalIncome = income.reduce((s, r) => s + r.amount, 0);
-    const totalExpense = expense.reduce((s, r) => s + r.amount, 0);
-
-    const body: ApiIncomeStatement = {
-      from,
-      to,
-      income,
-      expense,
-      totalIncome,
-      totalExpense,
-      netProfit: totalIncome - totalExpense,
-    };
-    return c.json(body);
+    return c.json(await computeIncomeStatement(db, from, to));
   })
 
   // -------------------------------------------------------------------------
@@ -95,47 +41,7 @@ export const reportRoutes = new Hono<AppEnv>()
     const asOf = c.req.query("asOf") ?? "";
     if (!DATE_RE.test(asOf)) return c.json({ error: "Parameter asOf wajib berformat YYYY-MM-DD." }, 400);
     const db = getTenantDb(c.env, c.get("tenant").dbRef);
-
-    const rows = await accountBalances(db, { to: asOf, types: ["asset", "liability", "equity", "income", "expense"] });
-
-    const section = (type: AccountType, debitNormal: boolean) =>
-      rows
-        .filter((r) => r.type === type)
-        .map((r) => ({
-          accountId: r.id,
-          code: r.code,
-          name: r.name,
-          amount: debitNormal ? r.debit - r.credit : r.credit - r.debit,
-        }))
-        .filter((r) => r.amount !== 0);
-
-    const assets = section("asset", true);
-    const liabilities = section("liability", false);
-    const equity = section("equity", false);
-
-    // Laba berjalan (pendapatan - beban s.d. tanggal neraca) masuk ke ekuitas.
-    const totalIncome = rows.filter((r) => r.type === "income").reduce((s, r) => s + r.credit - r.debit, 0);
-    const totalExpense = rows.filter((r) => r.type === "expense").reduce((s, r) => s + r.debit - r.credit, 0);
-    const retainedEarnings = totalIncome - totalExpense;
-    if (retainedEarnings !== 0) {
-      equity.push({ accountId: "laba-berjalan", code: "—", name: "Laba (Rugi) Berjalan", amount: retainedEarnings });
-    }
-
-    const totalAssets = assets.reduce((s, r) => s + r.amount, 0);
-    const totalLiabilities = liabilities.reduce((s, r) => s + r.amount, 0);
-    const totalEquity = equity.reduce((s, r) => s + r.amount, 0);
-
-    const body: ApiBalanceSheet = {
-      asOf,
-      assets,
-      liabilities,
-      equity,
-      totalAssets,
-      totalLiabilities,
-      totalEquity,
-      balanced: totalAssets === totalLiabilities + totalEquity,
-    };
-    return c.json(body);
+    return c.json(await computeBalanceSheet(db, asOf));
   })
 
   // -------------------------------------------------------------------------

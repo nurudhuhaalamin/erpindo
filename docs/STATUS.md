@@ -32,7 +32,8 @@
 | Fase 2p — Aset Tetap | Register aset, penyusutan garis lurus otomatis tiap bulan (jurnal), pelepasan aset dengan laba/rugi | ✅ Selesai |
 | Fase 2q — Proyek | Proyek & tugas, tag pendapatan/biaya per proyek (faktur & jurnal), laporan profitabilitas | ✅ Selesai |
 | Fase 2r — Multi mata uang | Kurs valas, faktur mata uang asing (dikonversi ke IDR), laba/rugi selisih kurs otomatis saat pelunasan | ✅ Selesai |
-| **Fase 2s — Kontrak & tagihan berulang** | Kontrak langganan yang menerbitkan faktur otomatis tiap periode; produk jasa (tanpa stok) | ✅ **Selesai** |
+| Fase 2s — Kontrak & tagihan berulang | Kontrak langganan yang menerbitkan faktur otomatis tiap periode; produk jasa (tanpa stok) | ✅ Selesai |
+| **Fase 2t — Konsolidasi multi-perusahaan** | Buat perusahaan tambahan dari satu akun; laporan Laba Rugi & Neraca gabungan lintas perusahaan milik pemilik yang sama | ✅ **Selesai** |
 | Fase 2m — Manajemen dokumen (lampiran file) | Lampiran di faktur/kontak/jurnal (penyimpanan Cloudflare R2) | ⏸ **Menunggu Anda mengaktifkan R2 di dashboard Cloudflare** |
 | Fase 2b-2 — Pembayaran langganan | Checkout Midtrans/Xendit, aktivasi otomatis | ⏸ **Menunggu akun gateway dari Anda** |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
@@ -80,9 +81,10 @@
 38. **Aset Tetap** *(Fase 2p)*: daftarkan aset (kendaraan, mesin, peralatan) beserta nilai perolehan, masa manfaat, dan nilai residu — sistem membuat jurnal perolehan dan **menyusutkan garis lurus otomatis tiap awal bulan** (beban penyusutan dibukukan sendiri). Saat aset dijual/dibuang, **pelepasan sekali klik** menghapusnya dari buku dan mencatat laba/rugi pelepasan. Halaman menampilkan nilai buku berjalan & persentase tersusut.
 39. **Proyek** *(Fase 2q)*: buat proyek (mis. per klien/pekerjaan) dan **tandai faktur, pembelian, atau jurnal ke proyek** — sistem menghitung **profitabilitas per proyek** (pendapatan − biaya = laba, lengkap dengan margin) langsung dari jurnal, jadi konsisten dengan pembukuan. Kelola juga daftar tugas per proyek. Menutup rangkaian modul back-office (Gelombang B).
 40. **Multi mata uang** *(Fase 2r)*: tetapkan kurs mata uang asing, lalu **buat faktur dalam USD, SGD, dsb.** — sistem otomatis mengonversi ke Rupiah untuk pembukuan (semua laporan tetap dalam IDR). Saat pelanggan/pemasok melunasi pada kurs yang berbeda, **laba/rugi selisih kurs dijurnal otomatis**. Cocok untuk usaha ekspor/impor.
-41. **Kontrak & tagihan berulang** *(baru — Fase 2s)*: buat **kontrak langganan** (bulanan/triwulan/tahunan) — sistem **menerbitkan faktur otomatis** tiap periode jatuh tempo (bisa juga dipicu manual). Dilengkapi **produk jasa** (tanpa stok) agar cocok untuk layanan, sewa, maintenance, dan retainer. Ideal untuk pendapatan berulang.
+41. **Kontrak & tagihan berulang** *(Fase 2s)*: buat **kontrak langganan** (bulanan/triwulan/tahunan) — sistem **menerbitkan faktur otomatis** tiap periode jatuh tempo (bisa juga dipicu manual). Dilengkapi **produk jasa** (tanpa stok) agar cocok untuk layanan, sewa, maintenance, dan retainer. Ideal untuk pendapatan berulang.
+42. **Konsolidasi multi-perusahaan** *(baru — Fase 2t)*: kelola **beberapa badan usaha dari satu akun** (buat perusahaan baru langsung dari Pengaturan), lalu lihat **Laba Rugi & Neraca gabungan** seluruh perusahaan Anda dalam satu tabel — nilai tiap akun dijumlahkan lintas perusahaan dengan rincian per perusahaan di setiap kolom. Bisa memfilter perusahaan yang disertakan & ekspor CSV. Data tiap perusahaan tetap terpisah dan aman.
 
-Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (228 skenario ujian end-to-end + 24 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
+Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (239 skenario ujian end-to-end + 24 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
 
 ## Apakah sudah bisa diakses di internet?
 

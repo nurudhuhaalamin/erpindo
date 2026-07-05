@@ -323,7 +323,8 @@ Urutan di dalam fase ini fleksibel — ikuti permintaan pelanggan berbayar. Usul
 - [x] **Aset Tetap** (register, penyusutan garis lurus otomatis bulanan via Cron + jurnal, pelepasan dengan laba/rugi) — ✅ 4 Jul 2026 ([log Fase 2p](./log/2026-07-04-fase-2p-aset-tetap.md)).
 - [x] **Proyek** (proyek & tugas, tag pendapatan/biaya per proyek dari faktur & jurnal, laporan profitabilitas) — ✅ 4 Jul 2026 ([log Fase 2q](./log/2026-07-04-fase-2q-proyek.md)). **Gelombang B (back-office V2) tuntas.**
 - [x] **Multi mata uang** (kurs valas, faktur mata uang asing dikonversi ke IDR, laba/rugi selisih kurs saat pelunasan) — ✅ 5 Jul 2026 ([log Fase 2r](./log/2026-07-05-fase-2r-multi-mata-uang.md)). Gelombang C dimulai.
-- [x] **Kontrak & tagihan berulang** (kontrak langganan, Cron menerbitkan faktur otomatis tiap periode; + produk jasa tanpa stok) — ✅ 5 Jul 2026 ([log Fase 2s](./log/2026-07-05-fase-2s-kontrak-berulang.md)). Berikutnya: Konsolidasi multi-perusahaan, Manufaktur+QC, Maintenance, Helpdesk, e-Faktur.
+- [x] **Kontrak & tagihan berulang** (kontrak langganan, Cron menerbitkan faktur otomatis tiap periode; + produk jasa tanpa stok) — ✅ 5 Jul 2026 ([log Fase 2s](./log/2026-07-05-fase-2s-kontrak-berulang.md)).
+- [x] **Konsolidasi multi-perusahaan** (buat perusahaan tambahan dari satu akun; Laba Rugi & Neraca gabungan lintas perusahaan milik pemilik yang sama, rincian per perusahaan) — ✅ 5 Jul 2026 ([log Fase 2t](./log/2026-07-05-fase-2t-konsolidasi.md)). Berikutnya: Manufaktur+QC, Maintenance, Helpdesk, e-Faktur.
 - [x] Inventori lanjutan (batch/lot, kedaluwarsa, FEFO) — ✅ 3 Jul 2026. Manajemen Dokumen (lampiran R2) ⏸ menunggu R2 diaktifkan di akun Cloudflare pemilik.
 - [ ] Impor rekening koran & rekonsiliasi; API publik + webhook; multi-cabang.
 

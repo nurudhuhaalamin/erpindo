@@ -16,6 +16,7 @@ import {
   Coins,
   Hourglass,
   Landmark,
+  Layers,
   LayoutDashboard,
   LineChart,
   ListTree,
@@ -97,6 +98,7 @@ const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; 
   { to: "/app/hr/penggajian", label: "Penggajian", exact: false, section: "HR", icon: UsersRound },
   { to: "/app/proyek", label: "Proyek", exact: false, section: "Lainnya", icon: FolderKanban },
   { to: "/app/kontrak", label: "Kontrak Berulang", exact: false, section: "Lainnya", icon: CalendarClock },
+  { to: "/app/konsolidasi", label: "Konsolidasi", exact: false, section: "Lainnya", icon: Layers },
   { to: "/app/persetujuan", label: "Persetujuan", exact: false, section: "Lainnya", icon: CheckSquare },
   { to: "/app/pengaturan", label: "Pengaturan", exact: false, section: "Lainnya", icon: Settings },
 ];
@@ -441,6 +443,7 @@ export function SettingsPage() {
       <ProfileCard />
       <SecurityCard />
       <CompanySettingsCard tenantId={tenant.tenantId} readOnly={!isAdmin} />
+      {tenant.role === "owner" ? <NewCompanyCard /> : null}
       {isAdmin ? <MembersCard tenantId={tenant.tenantId} /> : null}
       {tenant.role === "owner" ? <ApprovalThresholdCard tenantId={tenant.tenantId} /> : null}
       {tenant.role === "owner" ? <CloseBooksCard tenantId={tenant.tenantId} /> : null}
@@ -865,6 +868,47 @@ function CompanySettingsCard({ tenantId, readOnly }: { tenantId: string; readOnl
             )}
           </form>
         )}
+      </CardBody>
+    </Card>
+  );
+}
+
+function NewCompanyCard() {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [companyName, setCompanyName] = useState("");
+
+  const create = useMutation({
+    mutationFn: () => api.createCompany({ companyName: companyName.trim() }),
+    onSuccess: (res) => {
+      toast("success", "Perusahaan baru dibuat. Beralih ke perusahaan tersebut…");
+      setCompanyName("");
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+      localStorage.setItem("erpindo-tenant", res.tenantId);
+      window.location.href = "/app";
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  return (
+    <Card>
+      <CardHeader
+        title="Perusahaan lain"
+        description="Kelola beberapa badan usaha dari satu akun. Setiap perusahaan punya pembukuan terpisah — laporan gabungannya tersedia di menu Konsolidasi."
+      />
+      <CardBody className="flex flex-wrap items-end gap-3">
+        <div className="flex-1 sm:max-w-xs">
+          <Label htmlFor="new-company">Nama perusahaan baru</Label>
+          <Input
+            id="new-company"
+            placeholder="mis. PT Cabang Kedua"
+            value={companyName}
+            onChange={(e) => setCompanyName(e.target.value)}
+          />
+        </div>
+        <Button onClick={() => create.mutate()} disabled={create.isPending || companyName.trim().length < 2}>
+          {create.isPending ? <Spinner /> : null} Tambah Perusahaan
+        </Button>
       </CardBody>
     </Card>
   );

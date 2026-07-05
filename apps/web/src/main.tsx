@@ -18,6 +18,7 @@ import { AssetsPage } from "./pages/assets";
 import { ProjectsPage } from "./pages/projects";
 import { CurrenciesPage } from "./pages/currencies";
 import { ContractsPage } from "./pages/contracts";
+import { ConsolidationPage } from "./pages/consolidation";
 import { AccountsPage, JournalPage, LedgerPage, TrialBalancePage } from "./pages/finance";
 import { AgingPage, BalanceSheetPage, CashFlowPage, IncomeStatementPage } from "./pages/reports";
 import { ContactsPage, ProductsPage, WarehousesPage } from "./pages/masterdata";
@@ -76,6 +77,7 @@ const appChildren = [
   createRoute({ getParentRoute: () => appRoute, path: "/keuangan/kurs", component: CurrenciesPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/proyek", component: ProjectsPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/kontrak", component: ContractsPage }),
+  createRoute({ getParentRoute: () => appRoute, path: "/konsolidasi", component: ConsolidationPage }),
 ];
 
 const routeTree = rootRoute.addChildren([...routes, appRoute.addChildren(appChildren)]);

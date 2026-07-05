@@ -1,5 +1,6 @@
 import {
   changePasswordSchema,
+  createCompanySchema,
   forgotPasswordSchema,
   loginSchema,
   registerSchema,
@@ -192,6 +193,70 @@ export const authRoutes = new Hono<AppEnv>()
 
     const session = await createSession(c.env, userId);
     setSessionCookie(c, session, appOrigin(c));
+    return c.json({ ok: true, tenantId, slug }, 201);
+  })
+
+  // -------------------------------------------------------------------------
+  // Perusahaan tambahan untuk pengguna yang sudah login (multi-perusahaan).
+  // Fondasi bagi pengalih workspace & laporan konsolidasi lintas perusahaan.
+  // -------------------------------------------------------------------------
+  .post("/companies", requireAuth, async (c) => {
+    const parsed = createCompanySchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) {
+      return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
+    }
+    const user = c.get("user");
+    const { companyName } = parsed.data;
+
+    const base = toSlug(companyName);
+    let slug = base;
+    for (let i = 2; ; i++) {
+      const taken = await c.env.DB.prepare(`SELECT id FROM tenants WHERE slug = ?`).bind(slug).first();
+      if (!taken) break;
+      slug = `${base}-${i}`;
+    }
+
+    const { results: refRows } = await c.env.DB.prepare(`SELECT db_ref FROM tenants`).all<{ db_ref: string }>();
+    const dbRef = await provisionTenantDb(
+      c.env,
+      slug,
+      refRows.map((r) => r.db_ref),
+    );
+
+    const tenantId = crypto.randomUUID();
+    const status: TenantStatus = "trial";
+    await c.env.DB.batch([
+      c.env.DB.prepare(
+        `INSERT INTO tenants (id, name, slug, db_ref, status, plan, trial_ends_at, schema_version, created_at)
+         VALUES (?, ?, ?, ?, ?, 'trial', ?, ?, ?)`,
+      ).bind(
+        tenantId,
+        companyName,
+        slug,
+        dbRef,
+        status,
+        inDays(c.env.TRIAL_DAYS_OVERRIDE !== undefined ? Number(c.env.TRIAL_DAYS_OVERRIDE) : TRIAL_DAYS),
+        TENANT_SCHEMA_VERSION,
+        now(),
+      ),
+      c.env.DB.prepare(
+        `INSERT INTO memberships (id, user_id, tenant_id, role, created_at) VALUES (?, ?, ?, 'owner', ?)`,
+      ).bind(crypto.randomUUID(), user.id, tenantId, now()),
+    ]);
+
+    const { getTenantDb } = await import("../lib/tenantDb");
+    await getTenantDb(c.env, dbRef)
+      .prepare(`INSERT INTO settings (key, value, updated_at) VALUES ('display_name', ?, ?)`)
+      .bind(companyName, now())
+      .run();
+
+    await audit(c.env, {
+      action: "tenant.company_created",
+      userId: user.id,
+      tenantId,
+      detail: { slug },
+      ip: clientIp(c),
+    });
     return c.json({ ok: true, tenantId, slug }, 201);
   })
 
