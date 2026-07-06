@@ -40,9 +40,10 @@ import {
   Users,
   Wallet,
   Warehouse,
+  X,
   type LucideIcon,
 } from "lucide-react";
-import { createContext, useContext, useState, type FormEvent } from "react";
+import { createContext, useContext, useEffect, useState, type FormEvent } from "react";
 import { api, ApiRequestError } from "../api/client";
 import {
   Alert,
@@ -137,6 +138,20 @@ export function AppShell() {
     onSuccess: () => navigate({ to: "/masuk" }),
   });
 
+  // Drawer mobile: tutup dengan Escape + kunci scroll body saat terbuka.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [menuOpen]);
+
   if (meQuery.isLoading) {
     return (
       <div className="flex min-h-full items-center justify-center">
@@ -172,15 +187,18 @@ export function AppShell() {
       {NAV_ITEMS.map((item, i) => (
         <div key={item.to}>
           {item.section && NAV_ITEMS[i - 1]?.section !== item.section ? (
-            <div className="mb-1 mt-4 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            <div className="mb-1 mt-4 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
               {item.section}
             </div>
           ) : null}
           <Link
             to={item.to}
             activeOptions={{ exact: item.exact }}
-            activeProps={{ className: "bg-brand-600/20 font-medium text-white" }}
-            inactiveProps={{ className: "text-slate-400 hover:bg-white/5 hover:text-slate-100" }}
+            activeProps={{ className: "bg-brand-50 font-medium text-brand-700 dark:bg-brand-600/20 dark:text-white" }}
+            inactiveProps={{
+              className:
+                "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-100",
+            }}
             className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors"
             onClick={() => setMenuOpen(false)}
           >
@@ -194,11 +212,11 @@ export function AppShell() {
 
   const workspacePicker =
     me.memberships.length > 1 ? (
-      <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-white/5 px-2 py-1.5">
+      <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-slate-100 px-2 py-1.5 dark:bg-white/5">
         <Building2 className="size-4 shrink-0 text-slate-400" aria-hidden />
         <select
           aria-label="Pilih perusahaan"
-          className="w-full bg-transparent text-sm text-slate-200 outline-none [&>option]:text-slate-900"
+          className="w-full bg-transparent text-sm text-slate-700 outline-none dark:text-slate-200 [&>option]:text-slate-900"
           value={tenant.tenantId}
           onChange={(e) => {
             localStorage.setItem("erpindo-tenant", e.target.value);
@@ -213,36 +231,43 @@ export function AppShell() {
         </select>
       </div>
     ) : (
-      <div className="mt-2 flex items-center gap-1.5 truncate px-1 text-sm text-slate-400">
+      <div className="mt-2 flex items-center gap-1.5 truncate px-1 text-sm text-slate-500 dark:text-slate-400">
         <Building2 className="size-4 shrink-0" aria-hidden />
         <span className="truncate">{tenant.tenantName}</span>
       </div>
     );
 
+  // Isi sidebar dipakai bersama desktop (aside) & mobile (drawer) agar tak duplikat.
+  const sidebarContent = (
+    <>
+      <div className="border-b border-slate-200 px-4 py-4 dark:border-white/10">
+        <div className="flex items-center gap-2">
+          <span className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-bold text-white">
+            e
+          </span>
+          <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">erpindo</span>
+        </div>
+        {workspacePicker}
+      </div>
+      <div className="flex-1 overflow-y-auto">{nav}</div>
+      <div className="border-t border-slate-200 p-3 dark:border-white/10">
+        <div className="flex items-center gap-2.5 px-1">
+          <Avatar name={me.user.name} />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{me.user.name}</div>
+            <div className="truncate text-xs text-slate-500">{me.user.email}</div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <WorkspaceContext.Provider value={{ me, tenant }}>
       <div className="flex min-h-full">
-        {/* Sidebar desktop — gelap kontras ala SaaS modern */}
-        <aside className="hidden w-60 shrink-0 flex-col bg-slate-950 md:flex">
-          <div className="border-b border-white/10 px-4 py-4">
-            <div className="flex items-center gap-2">
-              <span className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-bold text-white">
-                e
-              </span>
-              <span className="text-lg font-bold tracking-tight text-white">erpindo</span>
-            </div>
-            {workspacePicker}
-          </div>
-          <div className="flex-1 overflow-y-auto">{nav}</div>
-          <div className="border-t border-white/10 p-3">
-            <div className="flex items-center gap-2.5 px-1">
-              <Avatar name={me.user.name} />
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium text-slate-100">{me.user.name}</div>
-                <div className="truncate text-xs text-slate-500">{me.user.email}</div>
-              </div>
-            </div>
-          </div>
+        {/* Sidebar desktop — theme-aware (putih di terang, gelap di gelap) */}
+        <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-white md:flex dark:border-white/10 dark:bg-slate-950">
+          {sidebarContent}
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
@@ -280,8 +305,31 @@ export function AppShell() {
             </div>
           </header>
 
-          {/* Menu mobile — panel gelap yang sama dengan sidebar */}
-          {menuOpen ? <div className="bg-slate-950 md:hidden">{nav}</div> : null}
+          {/* Menu mobile — off-canvas drawer geser dari kiri + backdrop */}
+          <div
+            className={`fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
+              menuOpen ? "opacity-100" : "pointer-events-none opacity-0"
+            }`}
+            onClick={() => setMenuOpen(false)}
+            aria-hidden
+          />
+          <aside
+            className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[82vw] flex-col border-r border-slate-200 bg-white shadow-xl transition-transform duration-300 md:hidden dark:border-white/10 dark:bg-slate-950 ${
+              menuOpen ? "translate-x-0" : "-translate-x-full"
+            }`}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu navigasi"
+          >
+            <button
+              onClick={() => setMenuOpen(false)}
+              className="absolute right-3 top-4 z-10 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/5"
+              aria-label="Tutup menu"
+            >
+              <X className="size-5" aria-hidden />
+            </button>
+            {sidebarContent}
+          </aside>
 
           {!me.user.emailVerified ? (
             <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
@@ -495,7 +543,7 @@ function AuditLogCard({ tenantId }: { tenantId: string }) {
         {query.isLoading ? (
           <Spinner />
         ) : (
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-96 overflow-x-auto overflow-y-auto">
             <table className="w-full text-sm">
               <tbody>
                 {(query.data?.logs ?? []).map((log) => (

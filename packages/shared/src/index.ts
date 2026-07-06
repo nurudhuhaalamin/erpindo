@@ -39,15 +39,15 @@ export type Plan = (typeof PLANS)[number];
 export const PLAN_LABELS: Record<Plan, string> = {
   trial: "Trial",
   starter: "Starter",
-  business: "Business",
+  business: "Bisnis",
   enterprise: "Enterprise",
 };
 
 export const PLAN_LIMITS: Record<Plan, { maxUsers: number; pricePerMonth: number }> = {
   trial: { maxUsers: 3, pricePerMonth: 0 },
   starter: { maxUsers: 3, pricePerMonth: 149_000 },
-  business: { maxUsers: 15, pricePerMonth: 599_000 },
-  enterprise: { maxUsers: Number.MAX_SAFE_INTEGER, pricePerMonth: 0 },
+  business: { maxUsers: 10, pricePerMonth: 349_000 },
+  enterprise: { maxUsers: Number.MAX_SAFE_INTEGER, pricePerMonth: 799_000 },
 };
 
 // ---------------------------------------------------------------------------

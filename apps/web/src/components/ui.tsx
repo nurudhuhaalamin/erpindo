@@ -101,7 +101,7 @@ export function CardHeader({ title, description }: { title: string; description?
 }
 
 export function CardBody({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cx("px-5 py-4", className)}>{children}</div>;
+  return <div className={cx("px-4 py-4 sm:px-5", className)}>{children}</div>;
 }
 
 // --- Alert ----------------------------------------------------------------------
