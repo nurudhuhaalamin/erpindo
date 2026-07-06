@@ -31,12 +31,12 @@ import { InvoicePrintPage } from "./pages/print";
 import {
   ForgotPasswordPage,
   InvitePage,
-  LandingPage,
   LoginPage,
   RegisterPage,
   ResetPasswordPage,
   VerifyPage,
 } from "./pages/auth";
+import { LandingPage } from "./pages/landing";
 import "./styles.css";
 
 const rootRoute = createRootRoute({ component: () => <Outlet /> });

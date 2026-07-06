@@ -335,22 +335,24 @@ export function JournalPage() {
                     <span className="text-slate-500 dark:text-slate-400">{e.entryDate}</span>
                     {e.memo ? <span className="text-slate-600 dark:text-slate-300">— {e.memo}</span> : null}
                   </div>
-                  <table className="w-full text-sm">
-                    <tbody>
-                      {e.lines.map((l) => (
-                        <tr key={l.id}>
-                          <td className="py-1 pr-4 font-mono text-xs">{l.accountCode}</td>
-                          <td className="py-1 pr-4">{l.accountName}</td>
-                          <td className="py-1 pr-4 text-right">
-                            <Amount value={l.debit} />
-                          </td>
-                          <td className="py-1 text-right">
-                            <Amount value={l.credit} />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <tbody>
+                        {e.lines.map((l) => (
+                          <tr key={l.id}>
+                            <td className="py-1 pr-4 font-mono text-xs">{l.accountCode}</td>
+                            <td className="py-1 pr-4">{l.accountName}</td>
+                            <td className="py-1 pr-4 text-right">
+                              <Amount value={l.debit} />
+                            </td>
+                            <td className="py-1 text-right">
+                              <Amount value={l.credit} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               ))}
             </div>

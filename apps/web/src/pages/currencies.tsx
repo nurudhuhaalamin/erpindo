@@ -76,26 +76,28 @@ export function CurrenciesPage() {
           {query.isLoading ? (
             <Spinner />
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                  <th className="pb-2 pr-4 font-medium">Kode</th>
-                  <th className="pb-2 pr-4 font-medium">Nama</th>
-                  <th className="pb-2 text-right font-medium">Kurs (IDR)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currencies.map((cur) => (
-                  <tr key={cur.code} className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
-                    <td className="py-2 pr-4 font-mono">
-                      {cur.code} {cur.isBase ? <Badge tone="neutral">dasar</Badge> : null}
-                    </td>
-                    <td className="py-2 pr-4">{cur.name}</td>
-                    <td className="py-2 text-right tabular-nums">{cur.rate.toLocaleString("id-ID")}</td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                    <th className="pb-2 pr-4 font-medium">Kode</th>
+                    <th className="pb-2 pr-4 font-medium">Nama</th>
+                    <th className="pb-2 text-right font-medium">Kurs (IDR)</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {currencies.map((cur) => (
+                    <tr key={cur.code} className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
+                      <td className="py-2 pr-4 font-mono">
+                        {cur.code} {cur.isBase ? <Badge tone="neutral">dasar</Badge> : null}
+                      </td>
+                      <td className="py-2 pr-4">{cur.name}</td>
+                      <td className="py-2 text-right tabular-nums">{cur.rate.toLocaleString("id-ID")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </CardBody>
       </Card>

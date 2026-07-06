@@ -25,23 +25,25 @@ function ReportSection({ title, lines, total }: { title: string; lines: ApiRepor
   return (
     <div>
       <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{title}</h3>
-      <table className="w-full text-sm">
-        <tbody>
-          {lines.map((l) => (
-            <tr key={l.accountId}>
-              <td className="py-1 pr-4 font-mono text-xs">{l.code}</td>
-              <td className="py-1 pr-4">{l.name}</td>
-              <td className="py-1 text-right tabular-nums">{formatIDR(l.amount)}</td>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <tbody>
+            {lines.map((l) => (
+              <tr key={l.accountId}>
+                <td className="py-1 pr-4 font-mono text-xs">{l.code}</td>
+                <td className="py-1 pr-4">{l.name}</td>
+                <td className="py-1 text-right tabular-nums">{formatIDR(l.amount)}</td>
+              </tr>
+            ))}
+            <tr className="border-t border-slate-200 font-semibold dark:border-slate-800">
+              <td className="py-1.5 pr-4" colSpan={2}>
+                Total {title}
+              </td>
+              <td className="py-1.5 text-right tabular-nums">{formatIDR(total)}</td>
             </tr>
-          ))}
-          <tr className="border-t border-slate-200 font-semibold dark:border-slate-800">
-            <td className="py-1.5 pr-4" colSpan={2}>
-              Total {title}
-            </td>
-            <td className="py-1.5 text-right tabular-nums">{formatIDR(total)}</td>
-          </tr>
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -264,7 +266,7 @@ export function AgingPage() {
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[640px] text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-800">
                     <th className={th}>Kontak</th>
@@ -370,7 +372,7 @@ export function EfakturPage() {
             <p className="text-sm text-slate-500 dark:text-slate-400">Tidak ada faktur ber-PPN pada periode ini.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[720px] text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-800">
                     <th className={th}>Nomor</th>

@@ -39,7 +39,7 @@ function ConsolidatedTable({
     <div>
       <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{title}</h3>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[560px] text-sm">
           <thead>
             <tr className="border-b border-slate-200 dark:border-slate-800">
               <th className={th}>Akun</th>

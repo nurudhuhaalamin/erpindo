@@ -616,19 +616,21 @@ function QuoteRow({ quote, isAdmin }: { quote: ApiQuotation; isAdmin: boolean })
         <span className="ml-auto text-sm font-semibold tabular-nums">{formatIDR(quote.total)}</span>
       </div>
 
-      <table className="mt-2 w-full text-sm">
-        <tbody>
-          {quote.lines.map((l) => (
-            <tr key={l.id} className="text-slate-600 dark:text-slate-300">
-              <td className="py-0.5">{l.productName}</td>
-              <td className="py-0.5 text-right tabular-nums">
-                {l.qty} × {formatIDR(l.unitPrice)}
-              </td>
-              <td className="py-0.5 text-right tabular-nums">{formatIDR(l.amount)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="mt-2 overflow-x-auto">
+        <table className="w-full text-sm">
+          <tbody>
+            {quote.lines.map((l) => (
+              <tr key={l.id} className="text-slate-600 dark:text-slate-300">
+                <td className="py-0.5">{l.productName}</td>
+                <td className="py-0.5 text-right tabular-nums">
+                  {l.qty} × {formatIDR(l.unitPrice)}
+                </td>
+                <td className="py-0.5 text-right tabular-nums">{formatIDR(l.amount)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {isAdmin && quote.status !== "converted" ? (
         <div className="mt-3 flex flex-wrap items-center gap-2">

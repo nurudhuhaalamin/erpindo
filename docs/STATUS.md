@@ -37,7 +37,8 @@
 | Fase 2u — Manufaktur & QC | Resep produk (BoM), perintah produksi (bahan → produk jadi biaya gabungan), inspeksi QC (lulus/karantina) | ✅ Selesai |
 | Fase 2v — Maintenance / servis aset | Jadwal servis berkala per aset (Cron menerbitkan work order), work order ad-hoc, riwayat & biaya dijurnal | ✅ Selesai |
 | Fase 2w — Helpdesk | Tiket dukungan pelanggan: prioritas & status, penugasan ke tim, balasan + catatan internal | ✅ Selesai |
-| **Fase 2x — Ekspor e-Faktur** | Ekspor CSV faktur keluaran ber-PPN per periode (NPWP/DPP/PPN) untuk impor e-Faktur DJP | ✅ **Selesai** |
+| Fase 2x — Ekspor e-Faktur | Ekspor CSV faktur keluaran ber-PPN per periode (NPWP/DPP/PPN) untuk impor e-Faktur DJP | ✅ Selesai |
+| **Fase 2y — UI responsif + tema + landing** | Sidebar/menu ikut tema terang↔gelap, menu mobile jadi off-canvas drawer, tabel responsif, landing marketing penuh + harga baru | ✅ **Selesai** |
 | Fase 2m — Manajemen dokumen (lampiran file) | Lampiran di faktur/kontak/jurnal (penyimpanan Cloudflare R2) | ⏸ **Menunggu Anda mengaktifkan R2 di dashboard Cloudflare** |
 | Fase 2b-2 — Pembayaran langganan | Checkout Midtrans/Xendit, aktivasi otomatis | ⏸ **Menunggu akun gateway dari Anda** |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |

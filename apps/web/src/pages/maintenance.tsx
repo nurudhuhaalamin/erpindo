@@ -230,7 +230,7 @@ export function MaintenancePage() {
             <EmptyState icon={<Wrench className="size-6" aria-hidden />} title="Belum ada jadwal" description="Buat jadwal servis berkala per aset." />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[640px] text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-800 dark:text-slate-400">
                     <th className="pb-2 pr-4 font-medium">Aset</th>
@@ -276,7 +276,7 @@ export function MaintenancePage() {
             <EmptyState icon={<Wrench className="size-6" aria-hidden />} title="Belum ada work order" description="Work order servis akan muncul di sini." />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[640px] text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-800 dark:text-slate-400">
                     <th className="pb-2 pr-4 font-medium">No.</th>
