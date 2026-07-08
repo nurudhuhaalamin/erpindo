@@ -1,7 +1,7 @@
 import { AGING_BUCKETS, AGING_BUCKET_LABELS, type ApiReportLine } from "@erpindo/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, downloadCsv, formatIDR } from "../api/client";
+import { api, downloadCsv, formatDate, formatIDR } from "../api/client";
 import { Badge, Button, Card, CardBody, CardHeader, Input, Label, Select, Spinner } from "../components/ui";
 import { useWorkspace } from "./app";
 
@@ -388,7 +388,7 @@ export function EfakturPage() {
                   {query.data!.rows.map((r) => (
                     <tr key={r.invoiceNo}>
                       <td className={`${td} font-mono text-xs`}>{r.invoiceNo}</td>
-                      <td className={`${td} tabular-nums`}>{r.invoiceDate}</td>
+                      <td className={`${td} tabular-nums`}>{formatDate(r.invoiceDate)}</td>
                       <td className={`${td} font-mono text-xs`}>{r.buyerNpwp ?? "000000000000000"}</td>
                       <td className={td}>{r.buyerName}</td>
                       <td className={`${td} text-right tabular-nums`}>{formatIDR(r.dpp)}</td>

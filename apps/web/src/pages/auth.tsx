@@ -1,4 +1,4 @@
-import { registerSchema } from "@erpindo/shared";
+import { registerSchema, TRIAL_DAYS } from "@erpindo/shared";
 import { useMutation } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
@@ -84,7 +84,7 @@ export function RegisterPage() {
           <FieldError messages={issues.password} />
         </div>
         <Button type="submit" className="w-full" disabled={mutation.isPending}>
-          {mutation.isPending ? <Spinner /> : null} Daftar & Mulai Trial 14 Hari
+          {mutation.isPending ? <Spinner /> : null} Daftar & Mulai Gratis {TRIAL_DAYS} Hari
         </Button>
       </form>
     </AuthLayout>

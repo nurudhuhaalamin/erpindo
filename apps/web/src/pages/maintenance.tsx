@@ -2,7 +2,7 @@ import type { ApiFixedAsset, ApiMaintenanceSchedule, ApiWorkOrder } from "@erpin
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, Wrench } from "lucide-react";
 import { useState } from "react";
-import { api, formatIDR } from "../api/client";
+import { api, formatDate, formatIDR } from "../api/client";
 import {
   Alert,
   Badge,
@@ -247,7 +247,7 @@ export function MaintenancePage() {
                       <td className="py-2.5 pr-4">{s.assetName}</td>
                       <td className="py-2.5 pr-4">{s.name}</td>
                       <td className="py-2.5 pr-4">{s.intervalMonths} bln</td>
-                      <td className="py-2.5 pr-4 tabular-nums">{s.nextDueDate}</td>
+                      <td className="py-2.5 pr-4 tabular-nums">{formatDate(s.nextDueDate)}</td>
                       <td className="py-2.5 pr-4">
                         <Badge tone={s.active ? "green" : "neutral"}>{s.active ? "aktif" : "jeda"}</Badge>
                       </td>
@@ -295,7 +295,7 @@ export function MaintenancePage() {
                         {w.title}
                         <span className="block text-xs text-slate-400">{w.assetName}</span>
                       </td>
-                      <td className="py-2.5 pr-4 tabular-nums">{w.scheduledDate}</td>
+                      <td className="py-2.5 pr-4 tabular-nums">{formatDate(w.scheduledDate)}</td>
                       <td className="py-2.5 pr-4 text-right tabular-nums">{w.status === "done" ? formatIDR(w.cost) : "—"}</td>
                       <td className="py-2.5 pr-4">
                         <Badge tone={w.status === "done" ? "green" : "amber"}>{w.status === "done" ? "selesai" : "terbuka"}</Badge>

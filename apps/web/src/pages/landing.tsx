@@ -1,4 +1,4 @@
-import { PLAN_LABELS, PLAN_LIMITS, type Plan } from "@erpindo/shared";
+import { PLAN_LABELS, PLAN_LIMITS, TRIAL_DAYS, type Plan } from "@erpindo/shared";
 import { Link } from "@tanstack/react-router";
 import {
   BookOpenCheck,
@@ -63,7 +63,7 @@ const PLAN_CARDS: { plan: Exclude<Plan, "trial">; tagline: string; highlight?: b
 ];
 
 const FAQ = [
-  { q: "Apakah butuh kartu kredit untuk mencoba?", a: "Tidak. Uji coba 14 hari gratis dengan semua fitur — tanpa kartu kredit, siap dipakai dalam 1 menit." },
+  { q: "Apakah butuh kartu kredit untuk mencoba?", a: `Tidak. Uji coba ${TRIAL_DAYS} hari gratis dengan semua fitur — tanpa kartu kredit, siap dipakai dalam 1 menit.` },
   { q: "Apakah data saya aman dan terpisah?", a: "Ya. Setiap perusahaan punya database sendiri (terisolasi), dilengkapi peran & hak akses, verifikasi dua langkah (2FA), audit log, dan tutup buku." },
   { q: "Bisakah mengelola beberapa perusahaan?", a: "Bisa — dari satu akun Anda dapat membuat beberapa badan usaha, lalu melihat laporan Laba Rugi & Neraca konsolidasi lintas perusahaan." },
   { q: "Apakah mendukung PPN dan e-Faktur?", a: "Ya. PPN dihitung otomatis di faktur, dan Anda bisa mengekspor CSV faktur ber-PPN untuk diimpor ke aplikasi e-Faktur DJP. Payroll juga menghitung PPh 21 metode TER + BPJS." },
@@ -131,7 +131,7 @@ export function LandingPage() {
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Link to="/daftar">
-                <Button className="h-11 px-6">Coba Gratis 14 Hari</Button>
+                <Button className="h-11 px-6">Coba Gratis {TRIAL_DAYS} Hari</Button>
               </Link>
               <a href="#fitur">
                 <Button variant="secondary" className="h-11 px-6">
@@ -183,7 +183,7 @@ export function LandingPage() {
             <h2 className="text-center text-3xl font-bold tracking-tight">Harga sederhana, tanpa kejutan</h2>
             <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600 dark:text-slate-300">
               <span className="font-medium text-slate-900 dark:text-white">Semua fitur tersedia di setiap paket.</span> Anda
-              hanya memilih jumlah pengguna & tingkat dukungan. Mulai gratis 14 hari.
+              hanya memilih jumlah pengguna & tingkat dukungan. Mulai gratis {TRIAL_DAYS} hari.
             </p>
             <div className="mt-10 grid gap-6 lg:grid-cols-3">
               {PLAN_CARDS.map((card) => {
@@ -258,7 +258,7 @@ export function LandingPage() {
           <div className="mx-auto max-w-4xl rounded-3xl bg-gradient-to-br from-brand-600 to-brand-800 px-6 py-12 text-center text-white">
             <h2 className="text-3xl font-bold tracking-tight">Siap merapikan bisnis Anda?</h2>
             <p className="mx-auto mt-3 max-w-xl text-brand-50">
-              Coba semua fitur gratis 14 hari. Tanpa kartu kredit, tanpa ribet.
+              Coba semua fitur gratis {TRIAL_DAYS} hari. Tanpa kartu kredit, tanpa ribet.
             </p>
             <div className="mt-6">
               <Link to="/daftar">

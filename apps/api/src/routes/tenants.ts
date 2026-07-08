@@ -85,7 +85,7 @@ export const tenantRoutes = new Hono<AppEnv>()
     await getMailer(c.env).send({
       to: email,
       subject: `Undangan bergabung ke ${tenant.name} di erpindo`,
-      text: `${user.name} mengundang Anda bergabung ke ${tenant.name} sebagai ${role}.\n\nBuka tautan berikut untuk menerima undangan:\n${inviteUrl}`,
+      text: `${user.name} mengundang Anda bergabung ke ${tenant.name} sebagai ${role}.\n\nBuka tautan berikut untuk menerima undangan:\n${inviteUrl}\n\n— Tim erpindo`,
     });
 
     await audit(c.env, {

@@ -26,7 +26,7 @@ export const TENANT_STATUSES = [
 ] as const;
 export type TenantStatus = (typeof TENANT_STATUSES)[number];
 
-export const TRIAL_DAYS = 14;
+export const TRIAL_DAYS = 30;
 
 // ---------------------------------------------------------------------------
 // Paket langganan & batasnya (Fase 2b). Integrasi pembayaran menyusul —

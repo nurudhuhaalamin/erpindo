@@ -2,7 +2,7 @@ import type { ApiProject, ApiProjectTask } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FolderKanban, Plus } from "lucide-react";
 import { useState } from "react";
-import { api, formatIDR } from "../api/client";
+import { api, formatDate, formatIDR } from "../api/client";
 import {
   Alert,
   Badge,
@@ -261,7 +261,7 @@ function ProjectRow({ project, isAdmin }: { project: ApiProject; isAdmin: boolea
                     {detailQuery.data!.entries.map((e, i) => (
                       <tr key={i} className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
                         <td className="py-1 pr-3 font-mono text-xs">{e.entryNo}</td>
-                        <td className="py-1 pr-3 text-slate-400">{e.entryDate}</td>
+                        <td className="py-1 pr-3 text-slate-400">{formatDate(e.entryDate)}</td>
                         <td className="py-1 pr-3">{e.memo ?? "—"}</td>
                         <td className="py-1 pr-3 text-right tabular-nums">{e.revenue ? formatIDR(e.revenue) : "—"}</td>
                         <td className="py-1 text-right tabular-nums">{e.cost ? formatIDR(e.cost) : "—"}</td>
