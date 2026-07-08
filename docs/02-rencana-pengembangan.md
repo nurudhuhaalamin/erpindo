@@ -71,7 +71,7 @@ sequenceDiagram
     W->>CP: Buat record tenant (status: provisioning)
     W->>D1: Buat database D1 baru untuk tenant
     W->>D1: Jalankan migrasi skema + data awal (COA standar Indonesia, peran default)
-    W->>CP: Update status tenant = aktif (trial 14 hari)
+    W->>CP: Update status tenant = aktif (trial 30 hari)
     W-->>U: Email verifikasi → login → onboarding wizard
 ```
 
@@ -243,7 +243,7 @@ Agar fokus dan kualitas terjaga, beberapa domain **tidak** direncanakan: koperas
 
 | | **Trial** | **Starter** | **Business** | **Enterprise** |
 |---|---|---|---|---|
-| Harga/bulan | Gratis 14 hari | Rp 149.000 | Rp 599.000 | Custom |
+| Harga/bulan | Gratis 30 hari | Rp 149.000 | Rp 349.000 | Rp 799.000 |
 | Pengguna | 2 | 3 | 15 | Tak terbatas |
 | Modul | Semua (uji coba) | Inti (Keuangan, Jual, Beli, Stok) | + HR/Payroll, Aset, multi-gudang | + SLA, onboarding khusus, API |
 | Penyimpanan file | 100 MB | 1 GB | 10 GB | Custom |

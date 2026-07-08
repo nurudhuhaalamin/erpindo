@@ -117,11 +117,12 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
       .bind(crypto.randomUUID(), tenant.id, JSON.stringify({ name: tenant.name }), nowIso)
       .run();
 
+    const settingsUrl = env.APP_URL ? `\n\nAktifkan langganan untuk kembali mencatat transaksi:\n${env.APP_URL}/app/pengaturan` : "\n\nAktifkan langganan untuk kembali mencatat transaksi lewat menu Pengaturan.";
     for (const owner of await ownerEmails(env, tenant.id)) {
       await mailer.send({
         to: owner.email,
         subject: `Masa trial ${tenant.name} telah berakhir`,
-        text: `Halo ${owner.name},\n\nMasa trial ${tenant.name} di erpindo telah berakhir. Akun kini dalam mode baca-saja — seluruh data Anda tetap aman dan bisa dilihat.\n\nAktifkan langganan untuk kembali mencatat transaksi.`,
+        text: `Halo ${owner.name},\n\nMasa trial ${tenant.name} di erpindo telah berakhir. Akun kini dalam mode baca-saja — seluruh data Anda tetap aman dan bisa dilihat.${settingsUrl}\n\n— Tim erpindo`,
       });
     }
   }
@@ -144,7 +145,7 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
       await mailer.send({
         to: owner.email,
         subject: `Trial ${tenant.name} berakhir ${daysLeft} hari lagi`,
-        text: `Halo ${owner.name},\n\nMasa trial ${tenant.name} di erpindo akan berakhir dalam ${daysLeft} hari. Setelah itu akun menjadi baca-saja (data tetap aman).\n\nAktifkan langganan agar operasional tidak terputus.`,
+        text: `Halo ${owner.name},\n\nMasa trial ${tenant.name} di erpindo akan berakhir dalam ${daysLeft} hari. Setelah itu akun menjadi baca-saja (data tetap aman).\n\nAktifkan langganan agar operasional tidak terputus.\n\n— Tim erpindo`,
       });
     }
     await env.RATE_KV.put(kvKey, "1", { expirationTtl: 4 * 86_400 });

@@ -38,7 +38,8 @@
 | Fase 2v — Maintenance / servis aset | Jadwal servis berkala per aset (Cron menerbitkan work order), work order ad-hoc, riwayat & biaya dijurnal | ✅ Selesai |
 | Fase 2w — Helpdesk | Tiket dukungan pelanggan: prioritas & status, penugasan ke tim, balasan + catatan internal | ✅ Selesai |
 | Fase 2x — Ekspor e-Faktur | Ekspor CSV faktur keluaran ber-PPN per periode (NPWP/DPP/PPN) untuk impor e-Faktur DJP | ✅ Selesai |
-| **Fase 2y — UI responsif + tema + landing** | Sidebar/menu ikut tema terang↔gelap, menu mobile jadi off-canvas drawer, tabel responsif, landing marketing penuh + harga baru | ✅ **Selesai** |
+| Fase 2y — UI responsif + tema + landing | Sidebar/menu ikut tema terang↔gelap, menu mobile jadi off-canvas drawer, tabel responsif, landing marketing penuh + harga baru | ✅ Selesai |
+| **Fase 3a — Kepatuhan 2026 + trial 30 hari** | Trial 30 hari (teks diturunkan dari konstanta), batas upah JP BPJS Rp11.086.300 (Maret 2026), tanggal format Indonesia, email bertanda tangan | ✅ **Selesai** |
 | Fase 2m — Manajemen dokumen (lampiran file) | Lampiran di faktur/kontak/jurnal (penyimpanan Cloudflare R2) | ⏸ **Menunggu Anda mengaktifkan R2 di dashboard Cloudflare** |
 | Fase 2b-2 — Pembayaran langganan | Checkout Midtrans/Xendit, aktivasi otomatis | ⏸ **Menunggu akun gateway dari Anda** |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
@@ -65,7 +66,7 @@
 17. **Di-install seperti aplikasi native** *(baru — Fase 2a)*: buka aplikasi di HP/komputer → menu "Install"/"Add to Home Screen"; aplikasi tetap terbuka saat offline dan meng-update dirinya otomatis.
 18. **Cetak / simpan PDF faktur** *(Fase 2a)*: setiap faktur penjualan punya tampilan cetak profesional dengan kop perusahaan Anda.
 19. **Laporan arus kas** *(baru — Fase 2b-1)*: kas masuk/keluar per periode dengan saldo awal & akhir.
-20. **Siklus langganan otomatis** *(Fase 2b-1)*: paket dengan batas pengguna yang ditegakkan sistem; trial 14 hari dengan banner pengingat; saat trial habis akun otomatis menjadi baca-saja (data aman, tidak hilang) sampai langganan diaktifkan.
+20. **Siklus langganan otomatis** *(Fase 2b-1)*: paket dengan batas pengguna yang ditegakkan sistem; trial 30 hari dengan banner pengingat; saat trial habis akun otomatis menjadi baca-saja (data aman, tidak hilang) sampai langganan diaktifkan.
 21. **Verifikasi dua langkah (2FA)** *(baru — Fase 2c)*: aktifkan di Pengaturan → Keamanan; login lalu membutuhkan kode 6 digit dari aplikasi authenticator di HP Anda — standar keamanan yang sama dengan internet banking.
 22. **Halaman depan siap jualan** *(Fase 2c)*: hero, fitur unggulan, dan daftar harga paket.
 23. **Impor dari Excel/CSV** *(Fase 2d)*: pindahkan daftar produk & kontak lama sekaligus — unduh template, isi, unggah; baris bermasalah dilaporkan satu per satu tanpa menggagalkan sisanya.

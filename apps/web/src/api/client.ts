@@ -548,3 +548,12 @@ export function formatIDR(value: number): string {
     value,
   );
 }
+
+const DATE_FMT = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric" });
+
+/** Format tanggal ISO untuk tampilan: "2026-07-08" → "8 Jul 2026". Nilai bukan tanggal dikembalikan apa adanya. */
+export function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(`${iso.slice(0, 10)}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? iso : DATE_FMT.format(d);
+}

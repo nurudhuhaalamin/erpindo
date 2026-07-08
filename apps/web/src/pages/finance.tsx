@@ -6,7 +6,7 @@ import {
 } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { api, formatIDR } from "../api/client";
+import { api, formatDate, formatIDR } from "../api/client";
 import {
   Alert,
   Badge,
@@ -332,7 +332,7 @@ export function JournalPage() {
                 <div key={e.id} className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
                   <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
                     <span className="font-mono text-xs font-semibold">{e.entryNo}</span>
-                    <span className="text-slate-500 dark:text-slate-400">{e.entryDate}</span>
+                    <span className="text-slate-500 dark:text-slate-400">{formatDate(e.entryDate)}</span>
                     {e.memo ? <span className="text-slate-600 dark:text-slate-300">— {e.memo}</span> : null}
                   </div>
                   <div className="overflow-x-auto">

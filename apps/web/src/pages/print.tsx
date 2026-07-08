@@ -1,6 +1,6 @@
 import type { ApiCommerceDoc } from "@erpindo/shared";
 import { useQuery } from "@tanstack/react-query";
-import { api, formatIDR } from "../api/client";
+import { api, formatDate, formatIDR } from "../api/client";
 import { Spinner } from "../components/ui";
 
 /**
@@ -68,11 +68,11 @@ export function InvoicePrintPage() {
         </div>
         <div className="text-right">
           <div>
-            Tanggal: <span className="font-medium">{doc.date}</span>
+            Tanggal: <span className="font-medium">{formatDate(doc.date)}</span>
           </div>
           {doc.dueDate ? (
             <div>
-              Jatuh tempo: <span className="font-medium">{doc.dueDate}</span>
+              Jatuh tempo: <span className="font-medium">{formatDate(doc.dueDate)}</span>
             </div>
           ) : null}
           <div>

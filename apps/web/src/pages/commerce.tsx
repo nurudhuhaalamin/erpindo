@@ -2,7 +2,7 @@ import type { ApiCommerceDoc } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, PackageOpen, Printer } from "lucide-react";
 import { useState } from "react";
-import { api, formatIDR } from "../api/client";
+import { api, formatDate, formatIDR } from "../api/client";
 import {
   Alert,
   Badge,
@@ -456,7 +456,7 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="font-mono text-xs font-semibold">{doc.docNo}</span>
-          <span className="text-slate-500 dark:text-slate-400">{doc.date}</span>
+          <span className="text-slate-500 dark:text-slate-400">{formatDate(doc.date)}</span>
           <span>{doc.contactName}</span>
           {doc.status === "paid" ? <Badge tone="green">lunas</Badge> : <Badge tone="amber">belum lunas</Badge>}
           {isForeign ? <Badge tone="brand">{doc.currency} @ {doc.exchangeRate.toLocaleString("id-ID")}</Badge> : null}
@@ -644,7 +644,7 @@ function StockCard({ productId, warehouseId, title }: { productId: string; wareh
               <tbody>
                 {query.data?.rows.map((r, i) => (
                   <tr key={i}>
-                    <td className="border-b border-slate-100 py-2 pr-4 dark:border-slate-800/60">{r.date}</td>
+                    <td className="border-b border-slate-100 py-2 pr-4 dark:border-slate-800/60">{formatDate(r.date)}</td>
                     <td className="border-b border-slate-100 py-2 pr-4 dark:border-slate-800/60">
                       {REF_TYPE_LABELS[r.refType] ?? r.refType}
                     </td>
@@ -896,7 +896,7 @@ function LotsCard() {
                   <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">
                     {l.expiryDate ? (
                       <span className="inline-flex items-center gap-2">
-                        {l.expiryDate}
+                        {formatDate(l.expiryDate)}
                         {l.daysToExpiry !== null && l.daysToExpiry < 0 ? (
                           <Badge tone="red">kedaluwarsa</Badge>
                         ) : l.daysToExpiry !== null && l.daysToExpiry <= 30 ? (

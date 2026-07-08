@@ -149,10 +149,10 @@ describe("payroll (PPh 21 TER + BPJS)", () => {
     expect(slip.gross).toBe(slip.net + slip.totalDeductions);
   });
 
-  it("menerapkan batas upah BPJS Kesehatan (12jt) & JP (10.547.400)", () => {
+  it("menerapkan batas upah BPJS Kesehatan (12jt) & JP (11.086.300, per Maret 2026)", () => {
     const slip = calculatePayslip({ baseSalary: 20_000_000, allowances: 0, ptkpStatus: "TK/0" });
     expect(slip.bpjsHealthEmployee).toBe(120_000); // 1% × 12jt (cap)
-    expect(slip.bpjsJpEmployee).toBe(105_474); // 1% × 10.547.400 (cap)
+    expect(slip.bpjsJpEmployee).toBe(110_863); // 1% × 11.086.300 (cap)
     expect(slip.bpjsJhtEmployee).toBe(400_000); // 2% × 20jt (tanpa cap)
   });
 });

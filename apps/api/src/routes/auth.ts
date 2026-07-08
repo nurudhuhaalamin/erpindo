@@ -180,7 +180,7 @@ export const authRoutes = new Hono<AppEnv>()
     await getMailer(c.env).send({
       to: email,
       subject: "Verifikasi email erpindo Anda",
-      text: `Halo ${name},\n\nSelamat datang di erpindo! Klik tautan berikut untuk memverifikasi email Anda:\n${appOrigin(c)}/verifikasi?token=${verifyToken}\n\nTautan berlaku ${TOKEN_HOURS} jam.`,
+      text: `Halo ${name},\n\nSelamat datang di erpindo! Klik tautan berikut untuk memverifikasi email Anda:\n${appOrigin(c)}/verifikasi?token=${verifyToken}\n\nTautan berlaku ${TOKEN_HOURS} jam.\n\n— Tim erpindo`,
     });
 
     await audit(c.env, {
@@ -466,7 +466,7 @@ export const authRoutes = new Hono<AppEnv>()
       await getMailer(c.env).send({
         to: parsed.data.email,
         subject: "Reset password erpindo",
-        text: `Halo ${user.name},\n\nKlik tautan berikut untuk mengatur ulang password Anda:\n${appOrigin(c)}/reset-password?token=${token}\n\nAbaikan email ini bila Anda tidak meminta reset.`,
+        text: `Halo ${user.name},\n\nKlik tautan berikut untuk mengatur ulang password Anda:\n${appOrigin(c)}/reset-password?token=${token}\n\nAbaikan email ini bila Anda tidak meminta reset.\n\n— Tim erpindo`,
       });
     }
     return c.json({ ok: true });

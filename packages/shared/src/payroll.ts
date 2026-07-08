@@ -1,11 +1,12 @@
 /**
  * Mesin perhitungan gaji Indonesia (PPh 21 metode TER + BPJS).
  *
- * ⚠️ PENTING — VERIFIKASI TARIF PAJAK: Tabel TER & tarif BPJS di bawah mengikuti
- * PMK 168/2023 (berlaku 2024) dan ketentuan BPJS umum. Peraturan bisa berubah;
- * **verifikasi angka dengan konsultan pajak / peraturan terbaru sebelum dipakai
- * untuk penggajian resmi.** Semua parameter terkumpul di satu berkas ini agar
- * mudah diperbarui.
+ * ⚠️ PENTING — VERIFIKASI TARIF PAJAK: Tabel TER mengikuti PMK 168/2023
+ * (berlaku sejak 2024, masih berlaku 2026). Batas upah Jaminan Pensiun BPJS
+ * diperbarui per Maret 2026 (Rp11.086.300; naik tiap Maret mengikuti
+ * pertumbuhan PDB). Peraturan bisa berubah; **verifikasi angka dengan
+ * konsultan pajak / peraturan terbaru sebelum dipakai untuk penggajian
+ * resmi.** Semua parameter terkumpul di satu berkas ini agar mudah diperbarui.
  */
 
 /** Status PTKP (K = kawin, TK = tidak kawin; angka = jumlah tanggungan). */
@@ -102,10 +103,10 @@ export const BPJS_PARAMS = {
   /** JHT (Jaminan Hari Tua): pekerja 2%, tanpa batas upah. */
   jhtEmployeeRate: 2,
   jhtEmployerRate: 3.7,
-  /** JP (Jaminan Pensiun): pekerja 1%, batas upah 10.547.400 (2024). */
+  /** JP (Jaminan Pensiun): pekerja 1%, batas upah 11.086.300 (per Maret 2026). */
   jpEmployeeRate: 1,
   jpEmployerRate: 2,
-  jpCap: 10_547_400,
+  jpCap: 11_086_300,
 } as const;
 
 export type PayslipInput = {
