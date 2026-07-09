@@ -146,18 +146,41 @@ export const accountingRoutes = new Hono<AppEnv>()
   // -------------------------------------------------------------------------
   .get("/:tenantId/journal-entries", requireAuth, requireTenantRole("viewer"), async (c) => {
     const db = getTenantDb(c.env, c.get("tenant").dbRef);
-    const { results: entries } = await db
-      .prepare(
-        `SELECT id, entry_no, entry_date, memo, status FROM journal_entries
-         ORDER BY entry_date DESC, entry_no DESC LIMIT 200`,
-      )
-      .all<{ id: string; entry_no: string; entry_date: string; memo: string | null; status: "posted" | "void" }>();
+    const q = (c.req.query("q") ?? "").trim();
+    const limit = Math.min(Math.max(Number(c.req.query("limit")) || 100, 1), 500);
+    const offset = Math.max(Number(c.req.query("offset")) || 0, 0);
+
+    const binds: (string | number)[] = [];
+    let whereSql = "";
+    if (q) {
+      const like = `%${q.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+      whereSql = `WHERE (entry_no LIKE ? ESCAPE '\\' OR memo LIKE ? ESCAPE '\\')`;
+      binds.push(like, like);
+    }
+
+    const [{ results: entries }, { results: countRows }] = await Promise.all([
+      db
+        .prepare(
+          `SELECT id, entry_no, entry_date, memo, status FROM journal_entries
+           ${whereSql} ORDER BY entry_date DESC, entry_no DESC LIMIT ? OFFSET ?`,
+        )
+        .bind(...binds, limit, offset)
+        .all<{ id: string; entry_no: string; entry_date: string; memo: string | null; status: "posted" | "void" }>(),
+      db
+        .prepare(`SELECT COUNT(*) AS n FROM journal_entries ${whereSql}`)
+        .bind(...binds)
+        .all<{ n: number }>(),
+    ]);
+    const total = countRows[0]?.n ?? entries.length;
+    if (entries.length === 0) return c.json({ entries: [], total, limit, offset });
 
     const { results: lines } = await db
       .prepare(
         `SELECT l.id, l.entry_id, l.account_id, l.description, l.debit, l.credit, a.code, a.name
-         FROM journal_lines l JOIN accounts a ON a.id = l.account_id`,
+         FROM journal_lines l JOIN accounts a ON a.id = l.account_id
+         WHERE l.entry_id IN (${entries.map(() => "?").join(",")})`,
       )
+      .bind(...entries.map((e) => e.id))
       .all<{
         id: string;
         entry_id: string;
@@ -184,7 +207,7 @@ export const accountingRoutes = new Hono<AppEnv>()
       byEntry.set(l.entry_id, list);
     }
 
-    const body: { entries: ApiJournalEntry[] } = {
+    const body: { entries: ApiJournalEntry[]; total: number; limit: number; offset: number } = {
       entries: entries.map((e) => ({
         id: e.id,
         entryNo: e.entry_no,
@@ -193,6 +216,9 @@ export const accountingRoutes = new Hono<AppEnv>()
         status: e.status,
         lines: byEntry.get(e.id) ?? [],
       })),
+      total,
+      limit,
+      offset,
     };
     return c.json(body);
   })

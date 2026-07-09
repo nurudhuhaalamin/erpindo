@@ -1,7 +1,9 @@
 import { contactSchema, productSchema, warehouseSchema, type ContactType } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Search } from "lucide-react";
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { api, downloadCsv, formatIDR, parseCsv } from "../api/client";
+import { useDebounced } from "./commerce";
 import {
   Badge,
   Button,
@@ -103,10 +105,14 @@ function useEntityPage<Row extends { id: string }>(entity: "products" | "contact
   const [issues, setIssues] = useState<Record<string, string[]>>({});
   const [editing, setEditing] = useState<Row | null>(null);
   const [toArchive, setToArchive] = useState<Row | null>(null);
+  const [search, setSearch] = useState("");
+  const q = useDebounced(search);
+  const [limit, setLimit] = useState(100);
 
   const query = useQuery({
-    queryKey: [entity, tenant.tenantId],
-    queryFn: () => api.listItems(tenant.tenantId, entity),
+    queryKey: [entity, tenant.tenantId, q, limit],
+    queryFn: () => api.listItems(tenant.tenantId, entity, { q, limit }),
+    placeholderData: (prev) => prev,
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: [entity, tenant.tenantId] });
@@ -144,7 +150,58 @@ function useEntityPage<Row extends { id: string }>(entity: "products" | "contact
     },
   });
 
-  return { tenant, isAdmin, query, create, update, archive, issues, setIssues, editing, setEditing, toArchive, setToArchive };
+  return {
+    tenant,
+    isAdmin,
+    query,
+    create,
+    update,
+    archive,
+    issues,
+    setIssues,
+    editing,
+    setEditing,
+    toArchive,
+    setToArchive,
+    search,
+    setSearch,
+    q,
+    limit,
+    setLimit,
+  };
+}
+
+/** Kotak cari daftar master data (debounce lewat useEntityPage). */
+function SearchBox({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="relative sm:max-w-xs">
+      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
+      <Input aria-label={label} className="pl-9" placeholder={label} value={value} onChange={(e) => onChange(e.target.value)} />
+    </div>
+  );
+}
+
+/** Footer "Menampilkan X dari Y" + tombol muat lebih banyak. */
+function LoadMore({ shown, total, onMore }: { shown: number; total: number; onMore: () => void }) {
+  if (total <= shown) return null;
+  return (
+    <div className="flex items-center justify-center gap-3 pt-2">
+      <span className="text-xs text-slate-500 dark:text-slate-400">
+        Menampilkan {shown} dari {total}
+      </span>
+      <Button variant="secondary" className="h-8" onClick={onMore}>
+        Muat lebih banyak
+      </Button>
+    </div>
+  );
 }
 
 /** Tombol aksi baris (Ubah + Arsipkan) yang seragam di ketiga halaman. */
@@ -175,8 +232,10 @@ type ProductRow = {
 };
 
 export function ProductsPage() {
-  const { isAdmin, query, create, update, archive, issues, setIssues, editing, setEditing, toArchive, setToArchive } =
-    useEntityPage<ProductRow>("products");
+  const {
+    isAdmin, query, create, update, archive, issues, setIssues, editing, setEditing, toArchive, setToArchive,
+    search, setSearch, limit, setLimit,
+  } = useEntityPage<ProductRow>("products");
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -297,7 +356,8 @@ export function ProductsPage() {
       ) : null}
 
       <Card>
-        <CardBody>
+        <CardBody className="space-y-3">
+          <SearchBox label="Cari SKU / nama produk…" value={search} onChange={(v) => { setSearch(v); setLimit(100); }} />
           {query.isLoading ? (
             <Spinner />
           ) : (
@@ -332,6 +392,11 @@ export function ProductsPage() {
                   ))}
                 </tbody>
               </table>
+              <LoadMore
+                shown={query.data?.items.length ?? 0}
+                total={query.data?.total ?? 0}
+                onMore={() => setLimit((l) => Math.min(l + 100, 500))}
+              />
             </div>
           )}
         </CardBody>
@@ -372,8 +437,10 @@ const CONTACT_TYPE_LABELS: Record<ContactType, string> = {
 };
 
 export function ContactsPage() {
-  const { isAdmin, query, create, update, archive, issues, setIssues, editing, setEditing, toArchive, setToArchive } =
-    useEntityPage<ContactRow>("contacts");
+  const {
+    isAdmin, query, create, update, archive, issues, setIssues, editing, setEditing, toArchive, setToArchive,
+    search, setSearch, limit, setLimit,
+  } = useEntityPage<ContactRow>("contacts");
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -477,7 +544,8 @@ export function ContactsPage() {
       ) : null}
 
       <Card>
-        <CardBody>
+        <CardBody className="space-y-3">
+          <SearchBox label="Cari nama / email / telepon…" value={search} onChange={(v) => { setSearch(v); setLimit(100); }} />
           {query.isLoading ? (
             <Spinner />
           ) : (
@@ -510,6 +578,11 @@ export function ContactsPage() {
                   ))}
                 </tbody>
               </table>
+              <LoadMore
+                shown={query.data?.items.length ?? 0}
+                total={query.data?.total ?? 0}
+                onMore={() => setLimit((l) => Math.min(l + 100, 500))}
+              />
             </div>
           )}
         </CardBody>
@@ -534,8 +607,10 @@ export function ContactsPage() {
 type WarehouseRow = { id: string; code: string; name: string; address: string | null };
 
 export function WarehousesPage() {
-  const { isAdmin, query, create, update, archive, issues, setIssues, editing, setEditing, toArchive, setToArchive } =
-    useEntityPage<WarehouseRow>("warehouses");
+  const {
+    isAdmin, query, create, update, archive, issues, setIssues, editing, setEditing, toArchive, setToArchive,
+    search, setSearch, limit, setLimit,
+  } = useEntityPage<WarehouseRow>("warehouses");
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -601,7 +676,8 @@ export function WarehousesPage() {
       ) : null}
 
       <Card>
-        <CardBody>
+        <CardBody className="space-y-3">
+          <SearchBox label="Cari kode / nama gudang…" value={search} onChange={(v) => { setSearch(v); setLimit(100); }} />
           {query.isLoading ? (
             <Spinner />
           ) : (
@@ -630,6 +706,11 @@ export function WarehousesPage() {
                   ))}
                 </tbody>
               </table>
+              <LoadMore
+                shown={query.data?.items.length ?? 0}
+                total={query.data?.total ?? 0}
+                onMore={() => setLimit((l) => Math.min(l + 100, 500))}
+              />
             </div>
           )}
         </CardBody>

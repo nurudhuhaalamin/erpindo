@@ -66,42 +66,53 @@ const PURCHASE_CFG: DocTable = {
   contactTypes: ["supplier", "both"],
 };
 
-async function listDocs(db: SqlExecutor, cfg: DocTable): Promise<ApiCommerceDoc[]> {
-  const { results: docs } = await db
-    .prepare(
-      `SELECT d.id, d.${cfg.noColumn} AS doc_no, d.contact_id, c.name AS contact_name,
+async function listDocs(
+  db: SqlExecutor,
+  cfg: DocTable,
+  opts: { q?: string; limit?: number; offset?: number } = {},
+): Promise<{ docs: ApiCommerceDoc[]; total: number; limit: number; offset: number }> {
+  const q = (opts.q ?? "").trim();
+  const limit = Math.min(Math.max(opts.limit || 100, 1), 500);
+  const offset = Math.max(opts.offset || 0, 0);
+
+  // Cari pada nomor dokumen atau nama kontak; wildcard di-escape jadi literal.
+  const binds: (string | number)[] = [];
+  let whereSql = "";
+  if (q) {
+    const like = `%${q.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+    whereSql = `WHERE (d.${cfg.noColumn} LIKE ? ESCAPE '\\' OR c.name LIKE ? ESCAPE '\\')`;
+    binds.push(like, like);
+  }
+
+  const [{ results: docs }, { results: countRows }] = await Promise.all([
+    db
+      .prepare(
+        `SELECT d.id, d.${cfg.noColumn} AS doc_no, d.contact_id, c.name AS contact_name,
               d.${cfg.dateColumn} AS date, d.due_date, d.status, d.subtotal, d.tax_rate,
               d.tax_amount, d.total, d.paid_amount, d.returned_amount, d.currency, d.exchange_rate, d.foreign_total,
               d.voided_at
        FROM ${cfg.table} d JOIN contacts c ON c.id = d.contact_id
-       ORDER BY d.created_at DESC LIMIT 200`,
-    )
-    .all<{
-      id: string;
-      doc_no: string;
-      contact_id: string;
-      contact_name: string;
-      date: string;
-      due_date: string | null;
-      status: "posted" | "paid";
-      subtotal: number;
-      tax_rate: number;
-      tax_amount: number;
-      total: number;
-      paid_amount: number;
-      returned_amount: number;
-      currency: string;
-      exchange_rate: number;
-      foreign_total: number;
-      voided_at: string | null;
-    }>();
+       ${whereSql}
+       ORDER BY d.created_at DESC LIMIT ? OFFSET ?`,
+      )
+      .bind(...binds, limit, offset)
+      .all<DocListRow>(),
+    db
+      .prepare(`SELECT COUNT(*) AS n FROM ${cfg.table} d JOIN contacts c ON c.id = d.contact_id ${whereSql}`)
+      .bind(...binds)
+      .all<{ n: number }>(),
+  ]);
+  const total = countRows[0]?.n ?? docs.length;
+  if (docs.length === 0) return { docs: [], total, limit, offset };
 
   const { results: lines } = await db
     .prepare(
       `SELECT l.id, l.${cfg.fk} AS doc_id, l.product_id, p.name AS product_name,
               l.description, l.qty, l.unit_price, l.amount
-       FROM ${cfg.lineTable} l JOIN products p ON p.id = l.product_id`,
+       FROM ${cfg.lineTable} l JOIN products p ON p.id = l.product_id
+       WHERE l.${cfg.fk} IN (${docs.map(() => "?").join(",")})`,
     )
+    .bind(...docs.map((d) => d.id))
     .all<{
       id: string;
       doc_id: string;
@@ -128,27 +139,52 @@ async function listDocs(db: SqlExecutor, cfg: DocTable): Promise<ApiCommerceDoc[
     byDoc.set(l.doc_id, list);
   }
 
-  return docs.map((d) => ({
-    id: d.id,
-    docNo: d.doc_no,
-    contactId: d.contact_id,
-    contactName: d.contact_name,
-    date: d.date,
-    dueDate: d.due_date,
-    status: d.status,
-    subtotal: d.subtotal,
-    taxRate: d.tax_rate,
-    taxAmount: d.tax_amount,
-    total: d.total,
-    paidAmount: d.paid_amount,
-    returnedAmount: d.returned_amount,
-    currency: d.currency,
-    exchangeRate: d.exchange_rate,
-    foreignTotal: d.foreign_total,
-    voidedAt: d.voided_at,
-    lines: byDoc.get(d.id) ?? [],
-  }));
+  return {
+    docs: docs.map((d) => ({
+      id: d.id,
+      docNo: d.doc_no,
+      contactId: d.contact_id,
+      contactName: d.contact_name,
+      date: d.date,
+      dueDate: d.due_date,
+      status: d.status,
+      subtotal: d.subtotal,
+      taxRate: d.tax_rate,
+      taxAmount: d.tax_amount,
+      total: d.total,
+      paidAmount: d.paid_amount,
+      returnedAmount: d.returned_amount,
+      currency: d.currency,
+      exchangeRate: d.exchange_rate,
+      foreignTotal: d.foreign_total,
+      voidedAt: d.voided_at,
+      lines: byDoc.get(d.id) ?? [],
+    })),
+    total,
+    limit,
+    offset,
+  };
 }
+
+type DocListRow = {
+  id: string;
+  doc_no: string;
+  contact_id: string;
+  contact_name: string;
+  date: string;
+  due_date: string | null;
+  status: "posted" | "paid";
+  subtotal: number;
+  tax_rate: number;
+  tax_amount: number;
+  total: number;
+  paid_amount: number;
+  returned_amount: number;
+  currency: string;
+  exchange_rate: number;
+  foreign_total: number;
+  voided_at: string | null;
+};
 
 /** Bila dokumen ditag ke proyek, pastikan proyeknya ada. */
 async function checkProject(db: SqlExecutor, projectId?: string): Promise<string | null> {
@@ -628,7 +664,13 @@ export const commerceRoutes = new Hono<AppEnv>()
   // -------------------------------------------------------------------------
   .get("/:tenantId/invoices", requireAuth, requireTenantRole("viewer"), async (c) => {
     const db = getTenantDb(c.env, c.get("tenant").dbRef);
-    return c.json({ docs: await listDocs(db, INVOICE_CFG) });
+    return c.json(
+      await listDocs(db, INVOICE_CFG, {
+        q: c.req.query("q"),
+        limit: Number(c.req.query("limit")) || undefined,
+        offset: Number(c.req.query("offset")) || undefined,
+      }),
+    );
   })
 
   .post("/:tenantId/invoices", requireAuth, requireTenantRole("admin"), async (c) => {
@@ -672,7 +714,13 @@ export const commerceRoutes = new Hono<AppEnv>()
   // -------------------------------------------------------------------------
   .get("/:tenantId/purchases", requireAuth, requireTenantRole("viewer"), async (c) => {
     const db = getTenantDb(c.env, c.get("tenant").dbRef);
-    return c.json({ docs: await listDocs(db, PURCHASE_CFG) });
+    return c.json(
+      await listDocs(db, PURCHASE_CFG, {
+        q: c.req.query("q"),
+        limit: Number(c.req.query("limit")) || undefined,
+        offset: Number(c.req.query("offset")) || undefined,
+      }),
+    );
   })
 
   .post("/:tenantId/purchases", requireAuth, requireTenantRole("admin"), async (c) => {

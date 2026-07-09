@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { api, formatIDR } from "../api/client";
 import { Alert, Badge, Button, Card, CardBody, CardHeader, Input, Label, Select, Spinner, useToast } from "../components/ui";
 import { useWorkspace } from "./app";
+import { useDebounced } from "./commerce";
 
 type ProductRow = { id: string; sku: string; name: string; unit: string; sell_price: number };
 type WarehouseRow = { id: string; name: string };
@@ -56,16 +57,20 @@ export function PosPage() {
   const queryClient = useQueryClient();
 
   const shiftQuery = useQuery({ queryKey: ["pos-shift", tenant.tenantId], queryFn: () => api.posShift(tenant.tenantId) });
+  const [search, setSearch] = useState("");
+  const posQ = useDebounced(search);
+  // Pencarian di sisi server: grid hanya memuat 100 produk yang cocok,
+  // sehingga katalog ribuan produk tetap ringan.
   const productsQuery = useQuery({
-    queryKey: ["products", tenant.tenantId],
-    queryFn: () => api.listItems<ProductRow>(tenant.tenantId, "products"),
+    queryKey: ["products", tenant.tenantId, posQ],
+    queryFn: () => api.listItems<ProductRow>(tenant.tenantId, "products", { q: posQ, limit: 100 }),
+    placeholderData: (prev) => prev,
   });
   const warehousesQuery = useQuery({
     queryKey: ["warehouses", tenant.tenantId],
     queryFn: () => api.listItems<WarehouseRow>(tenant.tenantId, "warehouses"),
   });
 
-  const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [taxRate, setTaxRate] = useState(0);
   const [cashReceived, setCashReceived] = useState("");
@@ -133,12 +138,7 @@ export function PosPage() {
     onError: (err) => toast("error", (err as Error).message),
   });
 
-  const products = ((productsQuery.data?.items ?? []) as ProductRow[]).filter(
-    (p) =>
-      !search ||
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.sku.toLowerCase().includes(search.toLowerCase()),
-  );
+  const products = (productsQuery.data?.items ?? []) as ProductRow[];
 
   const subtotal = useMemo(() => cart.reduce((s, i) => s + i.qty * i.unitPrice, 0), [cart]);
   const taxAmount = Math.round((subtotal * taxRate) / 100);

@@ -78,6 +78,19 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return json as T;
 }
 
+/** Opsi list berhalaman: pencarian + limit/offset. */
+export type ListOpts = { q?: string; limit?: number; offset?: number };
+
+function listQs(opts?: ListOpts): string {
+  if (!opts) return "";
+  const p = new URLSearchParams();
+  if (opts.q) p.set("q", opts.q);
+  if (opts.limit) p.set("limit", String(opts.limit));
+  if (opts.offset) p.set("offset", String(opts.offset));
+  const s = p.toString();
+  return s ? `?${s}` : "";
+}
+
 export const api = {
   health: () => request<{ ok: boolean }>("GET", "/api/health"),
 
@@ -114,8 +127,11 @@ export const api = {
     request<{ ok: true }>("PATCH", `/api/tenants/${tenantId}/accounts/${accountId}`, { name }),
   archiveAccount: (tenantId: string, accountId: string) =>
     request<{ ok: true }>("POST", `/api/tenants/${tenantId}/accounts/${accountId}/archive`),
-  journalEntries: (tenantId: string) =>
-    request<{ entries: ApiJournalEntry[] }>("GET", `/api/tenants/${tenantId}/journal-entries`),
+  journalEntries: (tenantId: string, opts?: ListOpts) =>
+    request<{ entries: ApiJournalEntry[]; total: number }>(
+      "GET",
+      `/api/tenants/${tenantId}/journal-entries${listQs(opts)}`,
+    ),
   createJournalEntry: (tenantId: string, input: CreateJournalEntryInput) =>
     request<{ ok: true; id: string; entryNo: string }>("POST", `/api/tenants/${tenantId}/journal-entries`, input),
   ledger: (tenantId: string, accountId: string) =>
@@ -242,7 +258,8 @@ export const api = {
     request<{ ok: true; status: string }>("PATCH", `/api/tenants/${tenantId}/projects/${id}/tasks/${taskId}`, { status }),
 
   // --- Penjualan & Pembelian -----------------------------------------------------
-  invoices: (tenantId: string) => request<{ docs: ApiCommerceDoc[] }>("GET", `/api/tenants/${tenantId}/invoices`),
+  invoices: (tenantId: string, opts?: ListOpts) =>
+    request<{ docs: ApiCommerceDoc[]; total: number }>("GET", `/api/tenants/${tenantId}/invoices${listQs(opts)}`),
   createInvoice: (tenantId: string, input: CreateInvoiceInput) =>
     request<{ ok: true; id: string; docNo: string; total: number }>(
       "POST",
@@ -254,7 +271,8 @@ export const api = {
       "POST",
       `/api/tenants/${tenantId}/invoices/${id}/void`,
     ),
-  purchases: (tenantId: string) => request<{ docs: ApiCommerceDoc[] }>("GET", `/api/tenants/${tenantId}/purchases`),
+  purchases: (tenantId: string, opts?: ListOpts) =>
+    request<{ docs: ApiCommerceDoc[]; total: number }>("GET", `/api/tenants/${tenantId}/purchases${listQs(opts)}`),
   voidPurchase: (tenantId: string, id: string) =>
     request<{ ok: true; docNo: string; reversalEntryNo: string }>(
       "POST",
@@ -437,8 +455,11 @@ export const api = {
     request<{ ok: true }>("POST", "/api/auth/change-password", { currentPassword, newPassword }),
 
   // --- Master data --------------------------------------------------------------
-  listItems: <T = Record<string, unknown>>(tenantId: string, entity: "products" | "contacts" | "warehouses") =>
-    request<{ items: T[] }>("GET", `/api/tenants/${tenantId}/${entity}`),
+  listItems: <T = Record<string, unknown>>(
+    tenantId: string,
+    entity: "products" | "contacts" | "warehouses",
+    opts?: ListOpts,
+  ) => request<{ items: T[]; total: number }>("GET", `/api/tenants/${tenantId}/${entity}${listQs(opts)}`),
   createItem: (
     tenantId: string,
     entity: "products" | "contacts" | "warehouses",

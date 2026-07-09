@@ -6,7 +6,7 @@ import {
 } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, Plus, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api, formatIDR } from "../api/client";
 import {
   Alert,
@@ -18,6 +18,7 @@ import {
   EmptyState,
   Input,
   Label,
+  SearchSelect,
   Select,
   Spinner,
   useToast,
@@ -31,8 +32,8 @@ const today = () => new Date().toISOString().slice(0, 10);
 type ProductRow = { id: string; sku: string; name: string; sell_price: number };
 type ContactRow = { id: string; name: string; type: string };
 type WarehouseRow = { id: string; name: string };
-type DraftLine = { productId: string; qty: string; unitPrice: string };
-const emptyLine = (): DraftLine => ({ productId: "", qty: "1", unitPrice: "" });
+type DraftLine = { productId: string; productLabel: string; qty: string; unitPrice: string };
+const emptyLine = (): DraftLine => ({ productId: "", productLabel: "", qty: "1", unitPrice: "" });
 
 export function ContractsPage() {
   const { tenant } = useWorkspace();
@@ -41,15 +42,22 @@ export function ContractsPage() {
   const queryClient = useQueryClient();
 
   const contractsQuery = useQuery({ queryKey: ["contracts", tenant.tenantId], queryFn: () => api.contracts(tenant.tenantId) });
-  const productsQuery = useQuery({ queryKey: ["products", tenant.tenantId], queryFn: () => api.listItems<ProductRow>(tenant.tenantId, "products") });
-  const contactsQuery = useQuery({ queryKey: ["contacts", tenant.tenantId], queryFn: () => api.listItems<ContactRow>(tenant.tenantId, "contacts") });
   const warehousesQuery = useQuery({ queryKey: ["warehouses", tenant.tenantId], queryFn: () => api.listItems<WarehouseRow>(tenant.tenantId, "warehouses") });
 
-  const products = (productsQuery.data?.items ?? []) as ProductRow[];
-  const customers = ((contactsQuery.data?.items ?? []) as ContactRow[]).filter((k) => ["customer", "both"].includes(k.type));
   const warehouses = (warehousesQuery.data?.items ?? []) as WarehouseRow[];
 
-  const [form, setForm] = useState({ code: "", name: "", contactId: "", frequency: "monthly" as ContractFrequency, taxRate: 11 as 0 | 11 | 12, startDate: today(), endDate: "" });
+  const productCache = useRef(new Map<string, ProductRow>());
+  async function fetchProductOptions(q: string) {
+    const res = await api.listItems<ProductRow>(tenant.tenantId, "products", { q, limit: 20 });
+    for (const p of res.items) productCache.current.set(p.id, p);
+    return res.items.map((p) => ({ value: p.id, label: `${p.sku} · ${p.name}`, hint: formatIDR(p.sell_price || 0) }));
+  }
+  async function fetchCustomerOptions(q: string) {
+    const res = await api.listItems<ContactRow>(tenant.tenantId, "contacts", { q, limit: 20 });
+    return res.items.filter((k) => ["customer", "both"].includes(k.type)).map((k) => ({ value: k.id, label: k.name }));
+  }
+
+  const [form, setForm] = useState({ code: "", name: "", contactId: "", contactLabel: "", frequency: "monthly" as ContractFrequency, taxRate: 11 as 0 | 11 | 12, startDate: today(), endDate: "" });
   const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,7 +76,7 @@ export function ContractsPage() {
       }),
     onSuccess: () => {
       toast("success", "Kontrak dibuat.");
-      setForm({ code: "", name: "", contactId: "", frequency: "monthly", taxRate: 11, startDate: today(), endDate: "" });
+      setForm({ code: "", name: "", contactId: "", contactLabel: "", frequency: "monthly", taxRate: 11, startDate: today(), endDate: "" });
       setLines([emptyLine()]);
       setError(null);
       queryClient.invalidateQueries({ queryKey: ["contracts", tenant.tenantId] });
@@ -89,9 +97,9 @@ export function ContractsPage() {
   function setLine(i: number, patch: Partial<DraftLine>) {
     setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
   }
-  function pickProduct(i: number, productId: string) {
-    const p = products.find((x) => x.id === productId);
-    setLine(i, { productId, unitPrice: p ? String(p.sell_price || "") : "" });
+  function pickProduct(i: number, opt: { value: string; label: string }) {
+    const p = productCache.current.get(opt.value);
+    setLine(i, { productId: opt.value, productLabel: opt.label, unitPrice: p ? String(p.sell_price || "") : "" });
   }
 
   const contracts = contractsQuery.data?.contracts ?? [];
@@ -128,14 +136,14 @@ export function ContractsPage() {
               </div>
               <div>
                 <Label htmlFor="ct-contact">Pelanggan</Label>
-                <Select id="ct-contact" value={form.contactId} onChange={(e) => setForm({ ...form, contactId: e.target.value })}>
-                  <option value="">— pilih —</option>
-                  {customers.map((k) => (
-                    <option key={k.id} value={k.id}>
-                      {k.name}
-                    </option>
-                  ))}
-                </Select>
+                <SearchSelect
+                  id="ct-contact"
+                  value={form.contactId}
+                  valueLabel={form.contactLabel}
+                  placeholder="Cari pelanggan…"
+                  fetchOptions={fetchCustomerOptions}
+                  onSelect={(opt) => setForm({ ...form, contactId: opt.value, contactLabel: opt.label })}
+                />
               </div>
               <div>
                 <Label htmlFor="ct-freq">Frekuensi</Label>
@@ -168,14 +176,13 @@ export function ContractsPage() {
             <div className="space-y-2">
               {lines.map((line, i) => (
                 <div key={i} className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_6rem_10rem_10rem_2.5rem] sm:items-center">
-                  <Select aria-label={`Produk baris ${i + 1}`} value={line.productId} onChange={(e) => pickProduct(i, e.target.value)}>
-                    <option value="">— pilih produk/jasa —</option>
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.sku} · {p.name}
-                      </option>
-                    ))}
-                  </Select>
+                  <SearchSelect
+                    value={line.productId}
+                    valueLabel={line.productLabel}
+                    placeholder="Cari produk/jasa…"
+                    fetchOptions={fetchProductOptions}
+                    onSelect={(opt) => pickProduct(i, opt)}
+                  />
                   <Input aria-label={`Qty baris ${i + 1}`} type="number" min={1} value={line.qty} onChange={(e) => setLine(i, { qty: e.target.value })} />
                   <Input aria-label={`Harga baris ${i + 1}`} type="number" min={0} placeholder="Harga satuan" value={line.unitPrice} onChange={(e) => setLine(i, { unitPrice: e.target.value })} />
                   <div className="text-right text-sm tabular-nums">{formatIDR((Number(line.qty) || 0) * (Number(line.unitPrice) || 0))}</div>
