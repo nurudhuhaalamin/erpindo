@@ -110,6 +110,19 @@ async function consumeToken(env: Env, raw: string, type: string): Promise<TokenR
   return row;
 }
 
+/**
+ * Email pada COMPED_EMAILS mendapat tenant `active` + paket `enterprise`
+ * tanpa tanggal akhir trial — cron langganan tidak pernah menurunkannya
+ * (cron hanya menyentuh baris status 'trial').
+ */
+function isComped(env: Env, email: string): boolean {
+  return (env.COMPED_EMAILS ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(email.toLowerCase());
+}
+
 export const authRoutes = new Hono<AppEnv>()
 
   // -------------------------------------------------------------------------
@@ -143,7 +156,8 @@ export const authRoutes = new Hono<AppEnv>()
 
     const userId = crypto.randomUUID();
     const tenantId = crypto.randomUUID();
-    const status: TenantStatus = "trial";
+    const comped = isComped(c.env, email);
+    const status: TenantStatus = comped ? "active" : "trial";
 
     await c.env.DB.batch([
       c.env.DB.prepare(
@@ -151,16 +165,19 @@ export const authRoutes = new Hono<AppEnv>()
       ).bind(userId, email, name, await hashPassword(password), now()),
       c.env.DB.prepare(
         `INSERT INTO tenants (id, name, slug, db_ref, status, plan, trial_ends_at, schema_version, created_at)
-         VALUES (?, ?, ?, ?, ?, 'trial', ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         tenantId,
         companyName,
         slug,
         dbRef,
         status,
+        comped ? "enterprise" : "trial",
         // TRIAL_DAYS_OVERRIDE dipakai suite pengujian untuk menyimulasikan
         // trial yang sudah kedaluwarsa.
-        inDays(c.env.TRIAL_DAYS_OVERRIDE !== undefined ? Number(c.env.TRIAL_DAYS_OVERRIDE) : TRIAL_DAYS),
+        comped
+          ? null
+          : inDays(c.env.TRIAL_DAYS_OVERRIDE !== undefined ? Number(c.env.TRIAL_DAYS_OVERRIDE) : TRIAL_DAYS),
         TENANT_SCHEMA_VERSION,
         now(),
       ),
@@ -187,7 +204,7 @@ export const authRoutes = new Hono<AppEnv>()
       action: "auth.register",
       userId,
       tenantId,
-      detail: { email, slug },
+      detail: { email, slug, ...(comped ? { comped: true } : {}) },
       ip: clientIp(c),
     });
 
@@ -224,18 +241,24 @@ export const authRoutes = new Hono<AppEnv>()
     );
 
     const tenantId = crypto.randomUUID();
-    const status: TenantStatus = "trial";
+    // Perusahaan tambahan milik email comped ikut aktif permanen — pemilik
+    // bebas membuat workspace baru tanpa menabrak siklus trial.
+    const comped = isComped(c.env, user.email);
+    const status: TenantStatus = comped ? "active" : "trial";
     await c.env.DB.batch([
       c.env.DB.prepare(
         `INSERT INTO tenants (id, name, slug, db_ref, status, plan, trial_ends_at, schema_version, created_at)
-         VALUES (?, ?, ?, ?, ?, 'trial', ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         tenantId,
         companyName,
         slug,
         dbRef,
         status,
-        inDays(c.env.TRIAL_DAYS_OVERRIDE !== undefined ? Number(c.env.TRIAL_DAYS_OVERRIDE) : TRIAL_DAYS),
+        comped ? "enterprise" : "trial",
+        comped
+          ? null
+          : inDays(c.env.TRIAL_DAYS_OVERRIDE !== undefined ? Number(c.env.TRIAL_DAYS_OVERRIDE) : TRIAL_DAYS),
         TENANT_SCHEMA_VERSION,
         now(),
       ),
@@ -254,7 +277,7 @@ export const authRoutes = new Hono<AppEnv>()
       action: "tenant.company_created",
       userId: user.id,
       tenantId,
-      detail: { slug },
+      detail: { slug, ...(comped ? { comped: true } : {}) },
       ip: clientIp(c),
     });
     return c.json({ ok: true, tenantId, slug }, 201);

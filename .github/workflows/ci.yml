@@ -32,6 +32,9 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+      - name: Syntax check ops scripts
+        run: node --check scripts/seed-demo.mjs
+
       - name: Build
         run: pnpm build
 
