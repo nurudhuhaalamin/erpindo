@@ -1,6 +1,6 @@
 import { contactSchema, productSchema, warehouseSchema, type ContactType } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { Contact, Package, Search, Upload, Warehouse } from "lucide-react";
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { api, downloadCsv, formatIDR, parseCsv } from "../api/client";
 import { useDebounced } from "./commerce";
@@ -11,6 +11,7 @@ import {
   CardBody,
   CardHeader,
   ConfirmDialog,
+  EmptyState,
   FieldError,
   Input,
   Label,
@@ -70,7 +71,7 @@ function ImportCsvButton({
     <div className="flex flex-wrap items-center gap-2">
       <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onFile} />
       <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={importMutation.isPending}>
-        {importMutation.isPending ? <Spinner /> : null} ⬆ Impor CSV
+        {importMutation.isPending ? <Spinner /> : <Upload className="size-4" aria-hidden />} Impor CSV
       </Button>
       <Button
         variant="ghost"
@@ -235,7 +236,7 @@ type ProductRow = {
 export function ProductsPage() {
   const {
     isAdmin, query, create, update, archive, issues, setIssues, editing, setEditing, toArchive, setToArchive,
-    search, setSearch, limit, setLimit,
+    search, setSearch, q, limit, setLimit,
   } = useEntityPage<ProductRow>("products");
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -268,6 +269,7 @@ export function ProductsPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Produk</h1>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Katalog barang & jasa Anda — harga jual/beli, satuan, pelacakan kedaluwarsa, dan ambang stok minimum.</p>
 
       {isAdmin ? (
         <Card>
@@ -373,6 +375,12 @@ export function ProductsPage() {
           <SearchBox label="Cari SKU / nama produk…" value={search} onChange={(v) => { setSearch(v); setLimit(100); }} />
           {query.isLoading ? (
             <Spinner />
+          ) : (query.data?.items.length ?? 0) === 0 ? (
+            <EmptyState
+              icon={<Package className="size-6" aria-hidden />}
+              title={q ? "Tidak ada produk yang cocok" : "Belum ada produk"}
+              description={q ? "Coba kata kunci lain." : "Tambahkan produk pertama Anda lewat form di atas, atau impor sekaligus dari CSV."}
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -452,7 +460,7 @@ const CONTACT_TYPE_LABELS: Record<ContactType, string> = {
 export function ContactsPage() {
   const {
     isAdmin, query, create, update, archive, issues, setIssues, editing, setEditing, toArchive, setToArchive,
-    search, setSearch, limit, setLimit,
+    search, setSearch, q, limit, setLimit,
   } = useEntityPage<ContactRow>("contacts");
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -475,6 +483,7 @@ export function ContactsPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Kontak</h1>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Pelanggan dan pemasok dalam satu daftar — dipakai di faktur, kontrak, dan tiket dukungan.</p>
 
       {isAdmin ? (
         <Card>
@@ -561,6 +570,12 @@ export function ContactsPage() {
           <SearchBox label="Cari nama / email / telepon…" value={search} onChange={(v) => { setSearch(v); setLimit(100); }} />
           {query.isLoading ? (
             <Spinner />
+          ) : (query.data?.items.length ?? 0) === 0 ? (
+            <EmptyState
+              icon={<Contact className="size-6" aria-hidden />}
+              title={q ? "Tidak ada kontak yang cocok" : "Belum ada kontak"}
+              description={q ? "Coba kata kunci lain." : "Tambahkan pelanggan atau pemasok pertama Anda lewat form di atas."}
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -622,7 +637,7 @@ type WarehouseRow = { id: string; code: string; name: string; address: string | 
 export function WarehousesPage() {
   const {
     isAdmin, query, create, update, archive, issues, setIssues, editing, setEditing, toArchive, setToArchive,
-    search, setSearch, limit, setLimit,
+    search, setSearch, q, limit, setLimit,
   } = useEntityPage<WarehouseRow>("warehouses");
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -645,6 +660,7 @@ export function WarehousesPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Gudang</h1>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Lokasi penyimpanan stok. Setiap transaksi barang selalu tercatat per gudang.</p>
 
       {isAdmin ? (
         <Card>
@@ -693,6 +709,12 @@ export function WarehousesPage() {
           <SearchBox label="Cari kode / nama gudang…" value={search} onChange={(v) => { setSearch(v); setLimit(100); }} />
           {query.isLoading ? (
             <Spinner />
+          ) : (query.data?.items.length ?? 0) === 0 ? (
+            <EmptyState
+              icon={<Warehouse className="size-6" aria-hidden />}
+              title={q ? "Tidak ada gudang yang cocok" : "Belum ada gudang"}
+              description={q ? "Coba kata kunci lain." : "Gudang Utama dibuat otomatis saat registrasi."}
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

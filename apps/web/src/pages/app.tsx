@@ -44,8 +44,8 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { createContext, useContext, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { api, ApiRequestError } from "../api/client";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { api, ApiRequestError, formatDate, formatIDR } from "../api/client";
 import {
   Alert,
   Badge,
@@ -99,7 +99,7 @@ const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; 
   { to: "/app/keuangan/arus-kas", label: "Arus Kas", exact: false, section: "Keuangan", icon: Wallet },
   { to: "/app/keuangan/anggaran", label: "Anggaran", exact: false, section: "Keuangan", icon: PiggyBank },
   { to: "/app/keuangan/aset", label: "Aset Tetap", exact: false, section: "Keuangan", icon: Landmark },
-  { to: "/app/maintenance", label: "Maintenance", exact: false, section: "Keuangan", icon: Wrench },
+  { to: "/app/maintenance", label: "Pemeliharaan", exact: false, section: "Keuangan", icon: Wrench },
   { to: "/app/keuangan/kurs", label: "Mata Uang", exact: false, section: "Keuangan", icon: Coins },
   { to: "/app/keuangan/umur-tagihan", label: "Umur Piutang/Hutang", exact: false, section: "Keuangan", icon: Hourglass },
   { to: "/app/keuangan/e-faktur", label: "Ekspor e-Faktur", exact: false, section: "Keuangan", icon: FileSpreadsheet },
@@ -455,18 +455,326 @@ export function AppShell() {
 }
 
 // ---------------------------------------------------------------------------
-// Dashboard (Fase 0: kartu ringkasan placeholder menunggu modul Fase 1)
+// Dashboard: angka nyata + grafik tren + widget operasional + onboarding
 // ---------------------------------------------------------------------------
+
+/** Angka ringkas untuk tick sumbu: 1500000 → "1,5 jt", 250000 → "250 rb". */
+function compactNumber(n: number): string {
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} M`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} jt`;
+  if (n >= 1_000) return `${(n / 1_000).toLocaleString("id-ID", { maximumFractionDigits: 0 })} rb`;
+  return String(n);
+}
+
+/** Batas atas sumbu yang "bulat": naikkan ke 1/2/5 × 10^n terdekat. */
+function niceCeil(n: number): number {
+  if (n <= 0) return 1;
+  const pow = 10 ** Math.floor(Math.log10(n));
+  for (const m of [1, 2, 5, 10]) if (m * pow >= n) return m * pow;
+  return 10 * pow;
+}
+
+/**
+ * Grafik batang tren penjualan 30 hari (SVG ringan, tanpa pustaka chart).
+ * Mengikuti pedoman dataviz: batang tipis ujung membulat dari baseline, grid
+ * hairline recessive, tick sumbu angka bulat, satu seri = tanpa legend
+ * (judul kartu yang menamai), tooltip per batang dengan hit-target penuh,
+ * teks memakai token teks — bukan warna seri.
+ */
+function SalesTrendChart({ tenantId }: { tenantId: string }) {
+  const query = useQuery({
+    queryKey: ["sales-daily", tenantId],
+    queryFn: () => api.salesDaily(tenantId, 30),
+  });
+  const [hover, setHover] = useState<number | null>(null);
+
+  // Isi hari kosong dengan 0 agar sumbu waktu kontinu.
+  const days = useMemo(() => {
+    const byDate = new Map((query.data?.rows ?? []).map((r) => [r.date, r]));
+    const out: { date: string; total: number; count: number }[] = [];
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
+      const row = byDate.get(date);
+      out.push({ date, total: row?.total ?? 0, count: row?.count ?? 0 });
+    }
+    return out;
+  }, [query.data]);
+
+  const W = 600;
+  const H = 190;
+  const PAD_L = 44;
+  const PAD_B = 20;
+  const PAD_T = 8;
+  const plotW = W - PAD_L - 6;
+  const plotH = H - PAD_T - PAD_B;
+  const yMax = niceCeil(Math.max(...days.map((d) => d.total), 1));
+  const slot = plotW / days.length;
+  const barW = Math.min(24, Math.max(4, slot - 2)); // ≤24px + gap 2px antar batang
+  const y = (v: number) => PAD_T + plotH - (v / yMax) * plotH;
+  const ticks = [0, yMax / 2, yMax];
+  const hovered = hover !== null ? days[hover] : null;
+
+  return (
+    <Card>
+      <CardHeader
+        title="Penjualan 30 hari terakhir"
+        description="Total faktur penjualan per hari (dokumen dibatalkan tidak dihitung)."
+      />
+      <CardBody>
+        {query.isLoading ? (
+          <Skeleton className="h-48 w-full" />
+        ) : (
+          <div className="relative">
+            <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Grafik penjualan harian 30 hari">
+              {ticks.map((t) => (
+                <g key={t}>
+                  <line
+                    x1={PAD_L}
+                    x2={W - 6}
+                    y1={y(t)}
+                    y2={y(t)}
+                    className="stroke-slate-200 dark:stroke-slate-800"
+                    strokeWidth={1}
+                  />
+                  <text
+                    x={PAD_L - 6}
+                    y={y(t) + 3.5}
+                    textAnchor="end"
+                    className="fill-slate-400 dark:fill-slate-500"
+                    fontSize={10}
+                  >
+                    {compactNumber(t)}
+                  </text>
+                </g>
+              ))}
+              {days.map((d, i) => {
+                const cx = PAD_L + i * slot + slot / 2;
+                const barH = Math.max(d.total > 0 ? 2 : 0, ((d.total / yMax) * plotH));
+                const top = PAD_T + plotH - barH;
+                return (
+                  <g key={d.date}>
+                    {d.total > 0 ? (
+                      // Ujung atas membulat 4px, siku di baseline (path clip sederhana).
+                      <rect
+                        x={cx - barW / 2}
+                        y={top}
+                        width={barW}
+                        height={barH}
+                        rx={Math.min(4, barW / 2)}
+                        className={
+                          hover === i
+                            ? "fill-brand-500 dark:fill-brand-300"
+                            : "fill-brand-600 dark:fill-brand-400"
+                        }
+                      />
+                    ) : null}
+                    {/* Hit target lebih besar dari mark (selebar slot, setinggi plot). */}
+                    <rect
+                      x={PAD_L + i * slot}
+                      y={PAD_T}
+                      width={slot}
+                      height={plotH}
+                      fill="transparent"
+                      onPointerEnter={() => setHover(i)}
+                      onPointerLeave={() => setHover(null)}
+                    />
+                    {i % 7 === 1 ? (
+                      <text
+                        x={cx}
+                        y={H - 6}
+                        textAnchor="middle"
+                        className="fill-slate-400 dark:fill-slate-500"
+                        fontSize={10}
+                      >
+                        {formatDate(d.date).replace(/ \d{4}$/, "")}
+                      </text>
+                    ) : null}
+                  </g>
+                );
+              })}
+            </svg>
+            {hovered ? (
+              <div
+                className="pointer-events-none absolute -top-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-md dark:border-slate-700 dark:bg-slate-900"
+                style={{
+                  left: `${Math.min(92, Math.max(2, ((PAD_L + (hover ?? 0) * slot + slot / 2) / W) * 100))}%`,
+                  transform: "translateX(-50%)",
+                }}
+              >
+                <span className="block font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                  {formatIDR(hovered.total)}
+                </span>
+                <span className="block text-slate-500 dark:text-slate-400">
+                  {formatDate(hovered.date)} · {hovered.count} faktur
+                </span>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+/** Widget faktur lewat jatuh tempo — diambil dari mesin notifikasi. */
+function DueInvoicesWidget({ tenantId }: { tenantId: string }) {
+  const query = useQuery({
+    queryKey: ["notifications", tenantId],
+    queryFn: () => api.notifications(tenantId),
+  });
+  const overdue = (query.data?.notifications ?? []).filter((n) => n.type === "overdue_invoice").slice(0, 5);
+
+  return (
+    <Card>
+      <CardHeader title="Faktur lewat jatuh tempo" description="Tagih segera agar arus kas tetap sehat." />
+      <CardBody>
+        {query.isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : overdue.length === 0 ? (
+          <p className="py-4 text-center text-sm text-slate-500 dark:text-slate-400">
+            Tidak ada faktur yang lewat jatuh tempo. 👍
+          </p>
+        ) : (
+          <ul className="space-y-2.5">
+            {overdue.map((n, i) => (
+              <li key={i}>
+                <Link to="/app/penjualan" className="group block text-sm">
+                  <span className="block font-medium text-slate-800 group-hover:text-brand-700 dark:text-slate-100 dark:group-hover:text-brand-300">
+                    {n.title.replace("Faktur ", "").replace(" lewat jatuh tempo", "")}
+                  </span>
+                  <span className="block text-xs text-slate-500 dark:text-slate-400">{n.detail}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+/** Feed aktivitas terakhir (Owner) — cuplikan audit log. */
+function ActivityFeed({ tenantId }: { tenantId: string }) {
+  const query = useQuery({
+    queryKey: ["audit-logs", tenantId],
+    queryFn: () => api.auditLogs(tenantId),
+  });
+  const logs = (query.data?.logs ?? []).slice(0, 6);
+  return (
+    <Card>
+      <CardHeader title="Aktivitas terakhir" description="Siapa melakukan apa — cuplikan riwayat audit." />
+      <CardBody>
+        {query.isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : logs.length === 0 ? (
+          <p className="py-4 text-center text-sm text-slate-500 dark:text-slate-400">Belum ada aktivitas.</p>
+        ) : (
+          <ul className="space-y-2.5">
+            {logs.map((l) => (
+              <li key={l.id} className="flex items-baseline gap-2 text-sm">
+                <span className="size-1.5 shrink-0 translate-y-[-2px] rounded-full bg-brand-500" aria-hidden />
+                <span className="min-w-0">
+                  <span className="font-medium text-slate-800 dark:text-slate-100">
+                    {AUDIT_ACTION_LABELS[l.action] ?? l.action}
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {" "}
+                    — {l.userName ?? "sistem"} · {new Date(l.createdAt).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+/** Checklist onboarding: dihitung dari data nyata, hilang otomatis saat lengkap. */
+function OnboardingChecklist({ tenantId }: { tenantId: string }) {
+  const settings = useQuery({ queryKey: ["settings", tenantId], queryFn: () => api.settings(tenantId) });
+  const products = useQuery({
+    queryKey: ["products", tenantId, "", 1],
+    queryFn: () => api.listItems(tenantId, "products", { limit: 1 }),
+  });
+  const contacts = useQuery({
+    queryKey: ["contacts", tenantId, "", 1],
+    queryFn: () => api.listItems(tenantId, "contacts", { limit: 1 }),
+  });
+  const invoices = useQuery({
+    queryKey: ["invoices", tenantId, "", 1],
+    queryFn: () => api.invoices(tenantId, { limit: 1 }),
+  });
+  const members = useQuery({ queryKey: ["members", tenantId], queryFn: () => api.members(tenantId) });
+
+  if (settings.isLoading || products.isLoading || contacts.isLoading || invoices.isLoading || members.isLoading) {
+    return null;
+  }
+  const steps: { label: string; done: boolean; to: string }[] = [
+    { label: "Lengkapi profil perusahaan (alamat & NPWP)", done: Boolean(settings.data?.settings.address), to: "/app/pengaturan" },
+    { label: "Tambah produk pertama", done: (products.data?.total ?? 0) > 0, to: "/app/master/produk" },
+    { label: "Tambah pelanggan / pemasok", done: (contacts.data?.total ?? 0) > 0, to: "/app/master/kontak" },
+    { label: "Posting faktur pertama", done: (invoices.data?.total ?? 0) > 0, to: "/app/penjualan" },
+    { label: "Undang anggota tim", done: (members.data?.members.length ?? 0) > 1, to: "/app/pengaturan" },
+  ];
+  const doneCount = steps.filter((s) => s.done).length;
+  if (doneCount === steps.length) return null;
+
+  return (
+    <Card>
+      <CardHeader
+        title={`Mulai cepat — ${doneCount}/${steps.length} selesai`}
+        description="Lima langkah agar pembukuan Anda langsung berjalan."
+      />
+      <CardBody>
+        <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+          <div
+            className="h-full rounded-full bg-brand-600 transition-all dark:bg-brand-400"
+            style={{ width: `${(doneCount / steps.length) * 100}%` }}
+          />
+        </div>
+        <ul className="space-y-2">
+          {steps.map((s) => (
+            <li key={s.label}>
+              <Link to={s.to} className="group flex items-center gap-2.5 text-sm">
+                <span
+                  className={`flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold ${
+                    s.done
+                      ? "border-brand-600 bg-brand-600 text-white dark:border-brand-400 dark:bg-brand-400 dark:text-slate-900"
+                      : "border-slate-300 text-transparent dark:border-slate-600"
+                  }`}
+                  aria-hidden
+                >
+                  ✓
+                </span>
+                <span
+                  className={
+                    s.done
+                      ? "text-slate-400 line-through dark:text-slate-500"
+                      : "text-slate-700 group-hover:text-brand-700 dark:text-slate-200 dark:group-hover:text-brand-300"
+                  }
+                >
+                  {s.label}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </CardBody>
+    </Card>
+  );
+}
 
 export function DashboardPage() {
   const { me, tenant } = useWorkspace();
+  const isAdmin = tenant.role !== "viewer";
   const dash = useQuery({
     queryKey: ["dashboard", tenant.tenantId],
     queryFn: () => api.dashboard(tenant.tenantId),
   });
 
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
+  const fmt = formatIDR;
 
   const stats: { label: string; value?: number; hint?: string; icon: LucideIcon; chip: string; currency?: boolean }[] = [
     {
@@ -519,11 +827,13 @@ export function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Selamat datang, {me.user.name.split(" ")[0]} 👋</h1>
+        <h1 className="text-2xl font-semibold">Selamat datang, {me.user.name.split(" ")[0]}</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Ringkasan <span className="font-medium">{tenant.tenantName}</span> hari ini.
         </p>
       </div>
+
+      {isAdmin ? <OnboardingChecklist tenantId={tenant.tenantId} /> : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {stats.map((stat) => (
@@ -538,7 +848,7 @@ export function DashboardPage() {
               {stat.value === undefined ? (
                 <Skeleton className="mt-2 h-6 w-28" />
               ) : (
-                <div className="mt-1 text-xl font-semibold tabular-nums">
+                <div className="mt-1 text-xl font-semibold">
                   {stat.currency === false ? stat.value.toLocaleString("id-ID") : fmt(stat.value)}
                 </div>
               )}
@@ -548,28 +858,62 @@ export function DashboardPage() {
         ))}
       </div>
 
-      <Card>
-        <CardHeader title="Mulai dari sini" description="Alur kerja harian yang umum." />
-        <CardBody>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {quickLinks.map((q) => (
-              <Link
-                key={q.to}
-                to={q.to}
-                className="group flex items-center gap-3 rounded-xl border border-slate-200 p-3 transition-colors hover:border-brand-300 hover:bg-brand-50/50 dark:border-slate-800 dark:hover:border-brand-800 dark:hover:bg-brand-950/30"
-              >
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition-colors group-hover:bg-brand-100 group-hover:text-brand-700 dark:bg-slate-800 dark:text-slate-300 dark:group-hover:bg-brand-900/60 dark:group-hover:text-brand-300">
-                  <q.icon className="size-4" aria-hidden />
-                </span>
-                <span>
-                  <span className="block text-sm font-medium">{q.label}</span>
-                  <span className="block text-xs text-slate-500 dark:text-slate-400">{q.text}</span>
-                </span>
-              </Link>
-            ))}
-          </div>
-        </CardBody>
-      </Card>
+      <SalesTrendChart tenantId={tenant.tenantId} />
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <DueInvoicesWidget tenantId={tenant.tenantId} />
+        {tenant.role === "owner" ? (
+          <ActivityFeed tenantId={tenant.tenantId} />
+        ) : (
+          <Card>
+            <CardHeader title="Mulai dari sini" description="Alur kerja harian yang umum." />
+            <CardBody>
+              <div className="grid gap-3">
+                {quickLinks.map((q) => (
+                  <Link
+                    key={q.to}
+                    to={q.to}
+                    className="group flex items-center gap-3 rounded-xl border border-slate-200 p-3 transition-colors hover:border-brand-300 hover:bg-brand-50/50 dark:border-slate-800 dark:hover:border-brand-800 dark:hover:bg-brand-950/30"
+                  >
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition-colors group-hover:bg-brand-100 group-hover:text-brand-700 dark:bg-slate-800 dark:text-slate-300 dark:group-hover:bg-brand-900/60 dark:group-hover:text-brand-300">
+                      <q.icon className="size-4" aria-hidden />
+                    </span>
+                    <span>
+                      <span className="block text-sm font-medium">{q.label}</span>
+                      <span className="block text-xs text-slate-500 dark:text-slate-400">{q.text}</span>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </CardBody>
+          </Card>
+        )}
+      </div>
+
+      {tenant.role === "owner" ? (
+        <Card>
+          <CardHeader title="Mulai dari sini" description="Alur kerja harian yang umum." />
+          <CardBody>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {quickLinks.map((q) => (
+                <Link
+                  key={q.to}
+                  to={q.to}
+                  className="group flex items-center gap-3 rounded-xl border border-slate-200 p-3 transition-colors hover:border-brand-300 hover:bg-brand-50/50 dark:border-slate-800 dark:hover:border-brand-800 dark:hover:bg-brand-950/30"
+                >
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition-colors group-hover:bg-brand-100 group-hover:text-brand-700 dark:bg-slate-800 dark:text-slate-300 dark:group-hover:bg-brand-900/60 dark:group-hover:text-brand-300">
+                    <q.icon className="size-4" aria-hidden />
+                  </span>
+                  <span>
+                    <span className="block text-sm font-medium">{q.label}</span>
+                    <span className="block text-xs text-slate-500 dark:text-slate-400">{q.text}</span>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </CardBody>
+        </Card>
+      ) : null}
     </div>
   );
 }
@@ -583,7 +927,12 @@ export function SettingsPage() {
   const isAdmin = tenant.role === "owner" || tenant.role === "admin";
   return (
     <div className="max-w-3xl space-y-6">
-      <h1 className="text-2xl font-semibold">Pengaturan</h1>
+      <div>
+        <h1 className="text-2xl font-semibold">Pengaturan</h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Langganan, profil & keamanan akun, identitas perusahaan, tim, dan kendali pembukuan.
+        </p>
+      </div>
       <SubscriptionCard />
       <ProfileCard />
       <SecurityCard />

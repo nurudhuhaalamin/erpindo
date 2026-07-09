@@ -148,6 +148,7 @@ export function BudgetPage() {
     <div className="max-w-4xl space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Anggaran</h1>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Tetapkan target pendapatan & beban per akun tiap bulan, lalu bandingkan dengan realisasi dari jurnal.</p>
         {query.data ? (
           <ExportButton
             onClick={() =>

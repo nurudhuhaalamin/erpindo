@@ -43,6 +43,7 @@ export function ApprovalsPage() {
     return (
       <div className="max-w-xl space-y-4">
         <h1 className="text-2xl font-semibold">Persetujuan</h1>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Pengajuan pembelian di atas ambang menunggu keputusan Anda — disetujui baru diposting ke pembukuan.</p>
         <Alert tone="info">
           Halaman ini khusus Owner. Pembelian Anda yang melebihi ambang akan menunggu persetujuan Owner — statusnya
           terlihat lewat notifikasi saat pengajuan.

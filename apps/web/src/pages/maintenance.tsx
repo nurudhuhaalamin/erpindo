@@ -141,7 +141,7 @@ export function MaintenancePage() {
     <div className="space-y-6">
       <div className="flex items-center gap-2">
         <Wrench className="size-6 text-brand-600" aria-hidden />
-        <h1 className="text-2xl font-semibold">Maintenance / Servis Aset</h1>
+        <h1 className="text-2xl font-semibold">Pemeliharaan</h1>
       </div>
       <p className="text-sm text-slate-500 dark:text-slate-400">
         Jadwalkan servis berkala per aset — sistem menerbitkan work order otomatis saat jatuh tempo. Catat biaya servis

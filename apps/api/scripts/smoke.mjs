@@ -2206,6 +2206,20 @@ try {
   const duNotifViewer = await viewer("GET", `/api/tenants/${tenantId}/notifications`);
   check("viewer boleh membaca notifikasi (200)", duNotifViewer.status === 200);
 
+  // Tren penjualan harian (grafik dashboard Fase 3e).
+  const duTrend = await owner("GET", `/api/tenants/${tenantId}/reports/sales-daily?days=30`);
+  check(
+    "tren penjualan harian: 200, baris terurut & dalam jendela 30 hari",
+    duTrend.status === 200 &&
+      Array.isArray(duTrend.json?.rows) &&
+      duTrend.json.rows.every((r) => r.date >= duTrend.json.from && r.total > 0 && r.count > 0),
+    `→ ${JSON.stringify({ from: duTrend.json?.from, n: duTrend.json?.rows?.length })}`,
+  );
+  const duTrendClamp = await owner("GET", `/api/tenants/${tenantId}/reports/sales-daily?days=999`);
+  check("parameter days di-clamp maksimal 90", duTrendClamp.json?.days === 90);
+  const duTrendViewer = await viewer("GET", `/api/tenants/${tenantId}/reports/sales-daily`);
+  check("viewer boleh membaca tren penjualan (200)", duTrendViewer.status === 200);
+
   // Logo kop: simpan data URL kecil di settings, tampil di cetakan.
   const duLogo = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
   const duSetLogo = await owner("PATCH", `/api/tenants/${tenantId}/settings`, { logoDataUrl: duLogo });

@@ -91,7 +91,7 @@ export function PayrollPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Penggajian (HR)</h1>
+        <h1 className="text-2xl font-semibold">Penggajian</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Kelola karyawan dan jalankan penggajian bulanan — PPh 21 (TER) & BPJS dihitung otomatis, jurnal beban gaji
           dibuat sendiri.

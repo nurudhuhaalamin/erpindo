@@ -1,14 +1,15 @@
 import { AGING_BUCKETS, AGING_BUCKET_LABELS, type ApiReportLine } from "@erpindo/shared";
 import { useQuery } from "@tanstack/react-query";
+import { Download } from "lucide-react";
 import { useState } from "react";
 import { api, downloadCsv, formatDate, formatIDR } from "../api/client";
 import { Badge, Button, Card, CardBody, CardHeader, Input, Label, Select, Spinner } from "../components/ui";
 import { useWorkspace } from "./app";
 
-export function ExportButton({ onClick }: { onClick: () => void }) {
+export function ExportButton({ onClick, label = "Ekspor CSV" }: { onClick: () => void; label?: string }) {
   return (
     <Button variant="secondary" className="h-9" onClick={onClick}>
-      ⬇ Ekspor CSV
+      <Download className="size-4" aria-hidden /> {label}
     </Button>
   );
 }
@@ -67,6 +68,7 @@ export function IncomeStatementPage() {
     <div className="max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Laba Rugi</h1>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Pendapatan dikurangi beban untuk periode pilihan Anda — dihitung langsung dari jurnal.</p>
         {query.data ? (
           <ExportButton
             onClick={() =>
@@ -146,6 +148,7 @@ export function CashFlowPage() {
     <div className="max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Arus Kas</h1>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Uang masuk dan keluar dari akun kas & bank untuk periode pilihan, dengan saldo awal dan akhir.</p>
         {query.data ? (
           <ExportButton
             onClick={() =>
@@ -328,6 +331,7 @@ export function EfakturPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Ekspor e-Faktur</h1>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Rekap faktur keluaran ber-PPN per periode — siap diunduh untuk pelaporan pajak.</p>
         {query.data && query.data.rows.length > 0 ? (
           <ExportButton
             onClick={() =>

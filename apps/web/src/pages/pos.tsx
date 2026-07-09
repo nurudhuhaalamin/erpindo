@@ -239,7 +239,7 @@ export function PosPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-semibold">Kasir</h1>
+          <h1 className="text-2xl font-semibold">Kasir (POS)</h1>
           <Badge tone="brand">{shift.shiftNo}</Badge>
           <span className="text-sm text-slate-500 dark:text-slate-400">
             {shift.salesCount} transaksi · {formatIDR(shift.cashSalesTotal)}
