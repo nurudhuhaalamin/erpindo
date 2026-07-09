@@ -108,13 +108,14 @@ function makeClient() {
     });
     const setCookie = res.headers.get("set-cookie");
     if (setCookie) cookie = setCookie.split(";")[0];
+    const text = await res.text();
     let json = null;
     try {
-      json = await res.json();
+      json = JSON.parse(text);
     } catch {
-      /* respons bukan JSON */
+      /* respons bukan JSON (mis. XML) — tetap tersedia lewat .text */
     }
-    return { status: res.status, json };
+    return { status: res.status, json, text };
   };
 }
 
@@ -2230,6 +2231,94 @@ try {
   const duClearLogo = await owner("PATCH", `/api/tenants/${tenantId}/settings`, { logoDataUrl: "" });
   const duSettings2 = await owner("GET", `/api/tenants/${tenantId}/settings`);
   check("logo bisa dihapus (string kosong)", duClearLogo.status === 200 && duSettings2.json?.settings?.logo_data_url === "");
+
+  // --- e-Faktur XML Coretax (Fase 3f) ----------------------------------------------
+  console.log("11v. e-Faktur XML Coretax");
+
+  // Pembeli ber-NPWP dengan karakter khusus XML di nama (uji escaping).
+  const cxBuyer = await owner("POST", `/api/tenants/${tenantId}/contacts`, {
+    type: "customer", name: "Toko Roti & Kopi <Nusantara>", npwp: "12.345.678.9-012.000",
+    address: "Jl. Melati No. 5, Bandung",
+  });
+  const cxInv = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: cxBuyer.json.id, invoiceDate: "2026-08-21", taxRate: 11, warehouseId: whUtama.id,
+    lines: [{ productId: vdProd1.json.id, qty: 2, unitPrice: 100_000, discountPct: 10 }],
+  });
+  check("faktur ber-NPWP diposting (180rb + PPN 19,8rb = 199.800)", cxInv.status === 201 && cxInv.json?.total === 199_800, `→ ${JSON.stringify(cxInv.json)}`);
+  // Faktur tarif 12% penuh (barang mewah) → kode transaksi 01, DPP = harga penuh.
+  const cxLux = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id, invoiceDate: "2026-08-21", taxRate: 12, warehouseId: whUtama.id,
+    lines: [{ productId: vdProd1.json.id, qty: 1, unitPrice: 50_000 }],
+  });
+  check("faktur tarif 12% diposting (total 56.000)", cxLux.status === 201 && cxLux.json?.total === 56_000);
+
+  const cxRes = await owner("GET", `/api/tenants/${tenantId}/reports/efaktur-xml?from=2026-08-01&to=2026-08-31`);
+  const cxXml = cxRes.text ?? "";
+  check("ekspor XML Coretax 200", cxRes.status === 200, `→ ${cxRes.status}`);
+  check(
+    "dokumen XML valid: deklarasi + root TaxInvoiceBulk + elemen wajib CustomDocMonthYear",
+    cxXml.startsWith(`<?xml version="1.0" encoding="utf-8"?>`) &&
+      cxXml.includes("<TaxInvoiceBulk") &&
+      cxXml.trimEnd().endsWith("</TaxInvoiceBulk>") &&
+      cxXml.includes("<CustomDocMonthYear/>"),
+  );
+  check(
+    "TIN penjual 16 digit dari NPWP settings + SellerIDTKU berakhiran 000000",
+    cxXml.includes("<TIN>0012345678901000</TIN>") && cxXml.includes("<SellerIDTKU>0012345678901000000000</SellerIDTKU>"),
+  );
+
+  // Potong per-faktur berdasarkan RefDesc untuk asersi per dokumen.
+  const cxDocOf = (docNo) => cxXml.split("<TaxInvoice>").find((s) => s.includes(`<RefDesc>${docNo}</RefDesc>`));
+  const cxDocA = cxDocOf(cxInv.json.docNo);
+  check("faktur ber-NPWP ada di XML (RefDesc = nomor faktur)", Boolean(cxDocA));
+  check("non-mewah memakai kode transaksi 04 (DPP nilai lain, PMK 131/2024)", cxDocA?.includes("<TrxCode>04</TrxCode>") === true);
+  check(
+    "TIN pembeli dinormalkan 16 digit + BuyerIDTKU",
+    cxDocA?.includes("<BuyerTin>0123456789012000</BuyerTin>") === true &&
+      cxDocA?.includes("<BuyerIDTKU>0123456789012000000000</BuyerIDTKU>") === true,
+  );
+  check("nama pembeli ter-escape XML", cxDocA?.includes("<BuyerName>Toko Roti &amp; Kopi &lt;Nusantara&gt;</BuyerName>") === true);
+  check(
+    "baris berdiskon: Price 100000, Qty 2, TotalDiscount 20000, TaxBase 180000",
+    cxDocA?.includes("<Price>100000.00</Price>") === true &&
+      cxDocA?.includes("<Qty>2</Qty>") === true &&
+      cxDocA?.includes("<TotalDiscount>20000.00</TotalDiscount>") === true &&
+      cxDocA?.includes("<TaxBase>180000.00</TaxBase>") === true,
+  );
+  check(
+    "DPP nilai lain = 11/12 × TaxBase (165000) + VATRate 12 + PPN eksak 19800",
+    cxDocA?.includes("<OtherTaxBase>165000.00</OtherTaxBase>") === true &&
+      cxDocA?.includes("<VATRate>12</VATRate>") === true &&
+      cxDocA?.includes("<VAT>19800.00</VAT>") === true,
+  );
+
+  const cxDocLux = cxDocOf(cxLux.json.docNo);
+  check(
+    "faktur tarif 12%: kode 01, OtherTaxBase = TaxBase penuh (50000), PPN 6000",
+    cxDocLux?.includes("<TrxCode>01</TrxCode>") === true &&
+      cxDocLux?.includes("<OtherTaxBase>50000.00</OtherTaxBase>") === true &&
+      cxDocLux?.includes("<VAT>6000.00</VAT>") === true,
+  );
+  check("pembeli tanpa NPWP diekspor sebagai 16 digit nol", cxDocLux?.includes("<BuyerTin>0000000000000000</BuyerTin>") === true);
+
+  const cxDocDisc = cxDocOf(duInv.json.docNo);
+  check(
+    "faktur diskon 25% dari 11u ikut ter-ekspor (OtherTaxBase 275000, VAT 33000)",
+    cxDocDisc?.includes("<OtherTaxBase>275000.00</OtherTaxBase>") === true && cxDocDisc?.includes("<VAT>33000.00</VAT>") === true,
+  );
+  check("faktur VOID dikecualikan dari XML", !cxXml.includes(`<RefDesc>${vdInvB.json.docNo}</RefDesc>`));
+  check("faktur non-PPN dikecualikan dari XML", !cxXml.includes(`<RefDesc>${duOverdue.json.docNo}</RefDesc>`));
+
+  const cxViewer = await viewer("GET", `/api/tenants/${tenantId}/reports/efaktur-xml?from=2026-08-01&to=2026-08-31`);
+  check("viewer boleh mengekspor XML (200)", cxViewer.status === 200);
+  const cxBadDate = await owner("GET", `/api/tenants/${tenantId}/reports/efaktur-xml?from=2026-08&to=2026-08-31`);
+  check("tanggal salah format DITOLAK 400", cxBadDate.status === 400);
+  const cxNoNpwp = await viewer("GET", `/api/tenants/${regViewer.json.tenantId}/reports/efaktur-xml?from=2026-08-01&to=2026-08-31`);
+  check(
+    "tenant tanpa NPWP DITOLAK 400 dengan pesan jelas",
+    cxNoNpwp.status === 400 && /NPWP/.test(cxNoNpwp.json?.error ?? ""),
+    `→ ${JSON.stringify(cxNoNpwp.json)}`,
+  );
 
   // --- Arus kas (Fase 2b-1) -------------------------------------------------------
   console.log("12. Arus kas");

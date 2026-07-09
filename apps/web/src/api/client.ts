@@ -79,6 +79,16 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return json as T;
 }
 
+/** GET yang mengembalikan teks mentah (mis. XML) — error tetap dibaca sebagai JSON. */
+async function requestText(path: string): Promise<string> {
+  const res = await fetch(path, { credentials: "same-origin" });
+  if (!res.ok) {
+    const json = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new ApiRequestError(res.status, json?.error ?? "Terjadi kesalahan.");
+  }
+  return res.text();
+}
+
 /** Opsi list berhalaman: pencarian + limit/offset. */
 export type ListOpts = { q?: string; limit?: number; offset?: number };
 
@@ -175,6 +185,8 @@ export const api = {
     request<{ rows: ApiAgingRow[]; grandTotal: number }>("GET", `/api/tenants/${tenantId}/reports/aging?type=${type}`),
   efaktur: (tenantId: string, from: string, to: string) =>
     request<ApiEfakturReport>("GET", `/api/tenants/${tenantId}/reports/efaktur?from=${from}&to=${to}`),
+  efakturXml: (tenantId: string, from: string, to: string) =>
+    requestText(`/api/tenants/${tenantId}/reports/efaktur-xml?from=${from}&to=${to}`),
   stockCard: (tenantId: string, productId: string, warehouseId: string) =>
     request<{ rows: ApiStockCardRow[]; balance: number }>(
       "GET",
@@ -583,6 +595,17 @@ export function downloadCsv(filename: string, headers: string[], rows: (string |
   const csv = [headers, ...rows].map((r) => r.map(escape).join(";")).join("\r\n");
   // BOM agar Excel mengenali UTF-8; pemisah ';' sesuai locale Indonesia.
   const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** Unduh teks XML sebagai berkas (dipakai ekspor Coretax). */
+export function downloadXml(filename: string, xml: string): void {
+  const blob = new Blob([xml], { type: "application/xml;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
