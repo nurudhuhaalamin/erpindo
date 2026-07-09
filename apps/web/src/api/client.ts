@@ -110,6 +110,8 @@ export const api = {
   accounts: (tenantId: string) => request<{ accounts: ApiAccount[] }>("GET", `/api/tenants/${tenantId}/accounts`),
   createAccount: (tenantId: string, input: CreateAccountInput) =>
     request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/accounts`, input),
+  renameAccount: (tenantId: string, accountId: string, name: string) =>
+    request<{ ok: true }>("PATCH", `/api/tenants/${tenantId}/accounts/${accountId}`, { name }),
   archiveAccount: (tenantId: string, accountId: string) =>
     request<{ ok: true }>("POST", `/api/tenants/${tenantId}/accounts/${accountId}/archive`),
   journalEntries: (tenantId: string) =>
@@ -247,7 +249,17 @@ export const api = {
       `/api/tenants/${tenantId}/invoices`,
       input,
     ),
+  voidInvoice: (tenantId: string, id: string) =>
+    request<{ ok: true; docNo: string; reversalEntryNo: string }>(
+      "POST",
+      `/api/tenants/${tenantId}/invoices/${id}/void`,
+    ),
   purchases: (tenantId: string) => request<{ docs: ApiCommerceDoc[] }>("GET", `/api/tenants/${tenantId}/purchases`),
+  voidPurchase: (tenantId: string, id: string) =>
+    request<{ ok: true; docNo: string; reversalEntryNo: string }>(
+      "POST",
+      `/api/tenants/${tenantId}/purchases/${id}/void`,
+    ),
   createPurchase: (tenantId: string, input: CreateInvoiceInput) =>
     request<{ ok: true; id?: string; docNo?: string; total: number; pendingApproval?: boolean; requestNo?: string }>(
       "POST",
@@ -432,6 +444,12 @@ export const api = {
     entity: "products" | "contacts" | "warehouses",
     input: ProductInput | ContactInput | WarehouseInput,
   ) => request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/${entity}`, input),
+  updateItem: (
+    tenantId: string,
+    entity: "products" | "contacts" | "warehouses",
+    id: string,
+    input: ProductInput | ContactInput | WarehouseInput,
+  ) => request<{ ok: true }>("PUT", `/api/tenants/${tenantId}/${entity}/${id}`, input),
   archiveItem: (tenantId: string, entity: "products" | "contacts" | "warehouses", id: string) =>
     request<{ ok: true }>("POST", `/api/tenants/${tenantId}/${entity}/${id}/archive`),
   importItems: (tenantId: string, entity: "products" | "contacts", rows: unknown[]) =>

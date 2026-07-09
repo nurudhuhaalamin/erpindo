@@ -30,6 +30,7 @@ type DocRow = {
   total: number;
   paid_amount: number;
   returned_amount: number;
+  voided_at: string | null;
 };
 
 async function docLineAggregates(
@@ -82,11 +83,14 @@ export const returnRoutes = new Hono<AppEnv>().post(
     }
 
     const { results: docs } = await db
-      .prepare(`SELECT ${noColumn} AS doc_no, tax_rate, total, paid_amount, returned_amount FROM ${table} WHERE id = ?`)
+      .prepare(
+        `SELECT ${noColumn} AS doc_no, tax_rate, total, paid_amount, returned_amount, voided_at FROM ${table} WHERE id = ?`,
+      )
       .bind(input.refId)
       .all<DocRow>();
     const doc = docs[0];
     if (!doc) return c.json({ error: "Dokumen asal tidak ditemukan." }, 404);
+    if (doc.voided_at) return c.json({ error: "Dokumen asal sudah dibatalkan — tidak bisa diretur." }, 400);
 
     // Validasi qty per produk terhadap dokumen asal dan retur sebelumnya.
     const docLines = await docLineAggregates(db, lineTable, fk, input.refId);

@@ -10,6 +10,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  ConfirmDialog,
   EmptyState,
   Input,
   Label,
@@ -210,6 +211,7 @@ function AssetRow({ asset, isAdmin, cashAccounts }: { asset: ApiFixedAsset; isAd
   const toast = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [proceeds, setProceeds] = useState("");
   const [cashAccountId, setCashAccountId] = useState("");
   const [date, setDate] = useState(today);
@@ -224,9 +226,13 @@ function AssetRow({ asset, isAdmin, cashAccounts }: { asset: ApiFixedAsset; isAd
     onSuccess: (res) => {
       toast("success", `Aset dilepas. ${res.gain >= 0 ? "Laba" : "Rugi"} pelepasan ${formatIDR(Math.abs(res.gain))}.`);
       setOpen(false);
+      setConfirmOpen(false);
       queryClient.invalidateQueries({ queryKey: ["assets", tenant.tenantId] });
     },
-    onError: (err) => toast("error", (err as Error).message),
+    onError: (err) => {
+      toast("error", (err as Error).message);
+      setConfirmOpen(false);
+    },
   });
 
   const pct = asset.acquisitionCost > 0 ? Math.round((asset.accumulatedDepreciation / asset.acquisitionCost) * 100) : 0;
@@ -272,9 +278,19 @@ function AssetRow({ asset, isAdmin, cashAccounts }: { asset: ApiFixedAsset; isAd
               ))}
             </Select>
           </div>
-          <Button variant="danger" onClick={() => dispose.mutate()} disabled={dispose.isPending}>
-            {dispose.isPending ? <Spinner /> : null} Lepas Aset
+          <Button variant="danger" onClick={() => setConfirmOpen(true)} disabled={dispose.isPending}>
+            Lepas Aset
           </Button>
+          <ConfirmDialog
+            open={confirmOpen}
+            title={`Lepas aset ${asset.name}?`}
+            description={`Nilai buku ${formatIDR(asset.bookValue)} akan dihapus dari neraca dan laba/rugi pelepasan dijurnal otomatis. Aksi ini tidak bisa diurungkan.`}
+            confirmLabel="Ya, lepas aset"
+            danger
+            busy={dispose.isPending}
+            onConfirm={() => dispose.mutate()}
+            onCancel={() => setConfirmOpen(false)}
+          />
         </div>
       ) : null}
     </div>

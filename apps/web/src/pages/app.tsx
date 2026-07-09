@@ -52,6 +52,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  ConfirmDialog,
   Input,
   Label,
   Select,
@@ -675,6 +676,7 @@ function SecurityCard() {
   const queryClient = useQueryClient();
   const [setupData, setSetupData] = useState<{ secret: string; otpauthUrl: string } | null>(null);
   const [code, setCode] = useState("");
+  const [disableOpen, setDisableOpen] = useState(false);
 
   const setup = useMutation({
     mutationFn: api.totpSetup,
@@ -696,9 +698,13 @@ function SecurityCard() {
     onSuccess: () => {
       toast("success", "2FA dinonaktifkan.");
       setCode("");
+      setDisableOpen(false);
       queryClient.invalidateQueries({ queryKey: ["me"] });
     },
-    onError: (err) => toast("error", (err as Error).message),
+    onError: (err) => {
+      toast("error", (err as Error).message);
+      setDisableOpen(false);
+    },
   });
 
   return (
@@ -725,10 +731,20 @@ function SecurityCard() {
                   onChange={(e) => setCode(e.target.value)}
                 />
               </div>
-              <Button variant="danger" disabled={code.length !== 6 || disable.isPending} onClick={() => disable.mutate()}>
-                {disable.isPending ? <Spinner /> : null} Nonaktifkan 2FA
+              <Button variant="danger" disabled={code.length !== 6 || disable.isPending} onClick={() => setDisableOpen(true)}>
+                Nonaktifkan 2FA
               </Button>
             </div>
+            <ConfirmDialog
+              open={disableOpen}
+              title="Nonaktifkan verifikasi dua langkah?"
+              description="Akun Anda kembali hanya dilindungi password. Anda bisa mengaktifkan 2FA lagi kapan saja."
+              confirmLabel="Ya, nonaktifkan"
+              danger
+              busy={disable.isPending}
+              onConfirm={() => disable.mutate()}
+              onCancel={() => setDisableOpen(false)}
+            />
           </>
         ) : setupData ? (
           <>
@@ -826,13 +842,18 @@ function CloseBooksCard({ tenantId }: { tenantId: string }) {
   const lockedBefore = settingsQuery.data?.settings.locked_before;
 
   const [date, setDate] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const close = useMutation({
     mutationFn: () => api.closeBooks(tenantId, date),
     onSuccess: (res) => {
       toast("success", `Pembukuan dikunci sampai ${res.lockedBefore}.`);
+      setConfirmOpen(false);
       queryClient.invalidateQueries({ queryKey: ["settings", tenantId] });
     },
-    onError: (err) => toast("error", (err as Error).message),
+    onError: (err) => {
+      toast("error", (err as Error).message);
+      setConfirmOpen(false);
+    },
   });
 
   return (
@@ -854,18 +875,20 @@ function CloseBooksCard({ tenantId }: { tenantId: string }) {
             <Label htmlFor="close-date">Kunci sampai tanggal</Label>
             <Input id="close-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
-          <Button
-            variant="danger"
-            disabled={!date || close.isPending}
-            onClick={() => {
-              if (window.confirm(`Kunci semua transaksi sampai ${date}? Tindakan ini tidak bisa dimundurkan.`)) {
-                close.mutate();
-              }
-            }}
-          >
-            {close.isPending ? <Spinner /> : null} Tutup Buku
+          <Button variant="danger" disabled={!date || close.isPending} onClick={() => setConfirmOpen(true)}>
+            Tutup Buku
           </Button>
         </div>
+        <ConfirmDialog
+          open={confirmOpen}
+          title={`Tutup buku sampai ${date}?`}
+          description="Semua transaksi bertanggal pada atau sebelum tanggal ini akan terkunci permanen — jurnal, faktur, pembayaran, dan retur tidak bisa lagi ditambahkan. Tanggal kunci tidak bisa dimundurkan."
+          confirmLabel="Ya, kunci pembukuan"
+          danger
+          busy={close.isPending}
+          onConfirm={() => close.mutate()}
+          onCancel={() => setConfirmOpen(false)}
+        />
       </CardBody>
     </Card>
   );

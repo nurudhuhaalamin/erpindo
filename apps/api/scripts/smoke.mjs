@@ -1889,6 +1889,183 @@ try {
   const efEmpty = await owner("GET", `/api/tenants/${tenantId}/reports/efaktur?from=2027-01-01&to=2027-01-31`);
   check("periode tanpa faktur ber-PPN: kosong", efEmpty.json?.rows?.length === 0 && efEmpty.json?.totalPpn === 0);
 
+  // --- Void dokumen, edit master data & rename akun (Fase 3b) ---------------------
+  // Semua dokumen bertanggal Agustus 2026: setelah kunci buku 10 Jul dan di luar
+  // jendela asersi arus kas/laba-rugi Juli, jadi angka lama tidak terganggu.
+  console.log("11s. Void dokumen, edit master data & rename akun");
+
+  // Edit master data (PUT) + guard duplikat kolom unik.
+  const vdProd1 = await owner("POST", `/api/tenants/${tenantId}/products`, {
+    sku: "VD-001", name: "Kopi Robusta 1kg", unit: "pcs", sellPrice: 80_000, buyPrice: 50_000,
+  });
+  check("produk VD-001 dibuat", vdProd1.status === 201);
+
+  const vdEdit = await owner("PUT", `/api/tenants/${tenantId}/products/${vdProd1.json.id}`, {
+    sku: "VD-001", name: "Kopi Robusta Premium 1kg", unit: "pcs", sellPrice: 85_000, buyPrice: 50_000,
+  });
+  check("edit produk (PUT) 200", vdEdit.status === 200);
+  const vdItems = await owner("GET", `/api/tenants/${tenantId}/products`);
+  const vdRow = vdItems.json?.items?.find((p) => p.sku === "VD-001");
+  check("perubahan tersimpan (nama & harga jual baru)", vdRow?.name === "Kopi Robusta Premium 1kg" && vdRow?.sell_price === 85_000);
+
+  const vdDup = await owner("PUT", `/api/tenants/${tenantId}/products/${vdProd1.json.id}`, {
+    sku: "BRG-002", name: "Coba tabrak SKU", unit: "pcs", sellPrice: 1, buyPrice: 1,
+  });
+  check("edit ke SKU milik produk lain DITOLAK 409", vdDup.status === 409);
+  const vdEdit404 = await owner("PUT", `/api/tenants/${tenantId}/products/${crypto.randomUUID()}`, {
+    sku: "VD-404", name: "Tidak ada", unit: "pcs", sellPrice: 1, buyPrice: 1,
+  });
+  check("edit produk yang tidak ada DITOLAK 404", vdEdit404.status === 404);
+  const vdEditViewer = await viewer("PUT", `/api/tenants/${tenantId}/products/${vdProd1.json.id}`, {
+    sku: "VD-001", name: "Viewer usil", unit: "pcs", sellPrice: 1, buyPrice: 1,
+  });
+  check("viewer DITOLAK mengedit produk (403)", vdEditViewer.status === 403);
+  const vdWhDup = await owner("PUT", `/api/tenants/${tenantId}/warehouses/${wh2.json.id}`, {
+    code: "UTAMA", name: "Gudang Cabang",
+  });
+  check("edit kode gudang menabrak kode lain DITOLAK 409", vdWhDup.status === 409);
+
+  // Rename akun (nama saja; kode & tipe terkunci).
+  const vdRename = await owner("PATCH", `/api/tenants/${tenantId}/accounts/${kasAcc.id}`, { name: "Kas Utama" });
+  const vdAccs = await owner("GET", `/api/tenants/${tenantId}/accounts`);
+  check(
+    "rename akun 1-1000 → 'Kas Utama' (kode tetap)",
+    vdRename.status === 200 && vdAccs.json?.accounts?.find((a) => a.code === "1-1000")?.name === "Kas Utama",
+  );
+  const vdRenameBad = await owner("PATCH", `/api/tenants/${tenantId}/accounts/${kasAcc.id}`, { name: "x" });
+  check("rename dengan nama terlalu pendek DITOLAK 400", vdRenameBad.status === 400);
+  const vdRenameViewer = await viewer("PATCH", `/api/tenants/${tenantId}/accounts/${kasAcc.id}`, { name: "Kas Viewer" });
+  check("viewer DITOLAK me-rename akun (403)", vdRenameViewer.status === 403);
+  const vdRename404 = await owner("PATCH", `/api/tenants/${tenantId}/accounts/${crypto.randomUUID()}`, { name: "Tidak Ada" });
+  check("rename akun yang tidak ada DITOLAK 404", vdRename404.status === 404);
+
+  // Void faktur penjualan: jurnal pembalik + stok kembali persis + outstanding hilang.
+  const vdAgingArBefore = (await owner("GET", `/api/tenants/${tenantId}/reports/aging?type=receivable`)).json?.grandTotal ?? 0;
+  const vdPlBefore = (await owner("GET", `/api/tenants/${tenantId}/reports/income-statement?from=2026-08-01&to=2026-08-31`)).json;
+
+  const vdPurchA = await owner("POST", `/api/tenants/${tenantId}/purchases`, {
+    contactId: supplier.json.id, invoiceDate: "2026-08-01", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: vdProd1.json.id, qty: 20, unitPrice: 50_000 }],
+  });
+  check("beli 20 pcs VD-001 (1.000.000)", vdPurchA.status === 201 && vdPurchA.json?.total === 1_000_000);
+
+  const vdInvB = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id, invoiceDate: "2026-08-02", taxRate: 11, warehouseId: whUtama.id,
+    lines: [{ productId: vdProd1.json.id, qty: 5, unitPrice: 80_000 }],
+  });
+  check("jual 5 pcs VD-001 (total 444.000)", vdInvB.status === 201 && vdInvB.json?.total === 444_000, `→ ${JSON.stringify(vdInvB.json)}`);
+  const vdStock1 = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  check("stok VD-001 turun ke 15", vdStock1.json?.levels?.find((l) => l.sku === "VD-001")?.qty === 15);
+  const vdAgingArMid = (await owner("GET", `/api/tenants/${tenantId}/reports/aging?type=receivable`)).json?.grandTotal ?? 0;
+  check("piutang bertambah 444.000", vdAgingArMid === vdAgingArBefore + 444_000, `→ ${vdAgingArMid}`);
+
+  const vdVoidViewer = await viewer("POST", `/api/tenants/${tenantId}/invoices/${vdInvB.json.id}/void`);
+  check("viewer DITOLAK membatalkan faktur (403)", vdVoidViewer.status === 403);
+
+  const vdVoidB = await owner("POST", `/api/tenants/${tenantId}/invoices/${vdInvB.json.id}/void`);
+  check("void faktur 200 + jurnal pembalik", vdVoidB.status === 200 && Boolean(vdVoidB.json?.reversalEntryNo), `→ ${JSON.stringify(vdVoidB.json)}`);
+
+  const vdStock2 = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  const vdLevel2 = vdStock2.json?.levels?.find((l) => l.sku === "VD-001");
+  check("stok VD-001 kembali 20 pcs @50.000 (nilai 1.000.000)", vdLevel2?.qty === 20 && vdLevel2?.avgCost === 50_000 && vdLevel2?.value === 1_000_000, `→ ${JSON.stringify(vdLevel2)}`);
+
+  const vdDocsB = await owner("GET", `/api/tenants/${tenantId}/invoices`);
+  check("faktur ditandai voidedAt", vdDocsB.json?.docs?.find((d) => d.id === vdInvB.json.id)?.voidedAt != null);
+  const vdAgingArAfter = (await owner("GET", `/api/tenants/${tenantId}/reports/aging?type=receivable`)).json?.grandTotal ?? 0;
+  check("piutang kembali seperti sebelum faktur", vdAgingArAfter === vdAgingArBefore, `→ ${vdAgingArAfter} vs ${vdAgingArBefore}`);
+  const vdPlAfter = (await owner("GET", `/api/tenants/${tenantId}/reports/income-statement?from=2026-08-01&to=2026-08-31`)).json;
+  check(
+    "laba rugi Agustus kembali persis (pendapatan & HPP terbalik penuh)",
+    vdPlAfter?.totalIncome === vdPlBefore?.totalIncome && vdPlAfter?.totalExpense === vdPlBefore?.totalExpense && vdPlAfter?.netProfit === vdPlBefore?.netProfit,
+    `→ ${JSON.stringify({ before: vdPlBefore?.netProfit, after: vdPlAfter?.netProfit })}`,
+  );
+  const vdTb1 = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah void faktur", vdTb1.json?.balanced === true);
+
+  const vdVoidAgain = await owner("POST", `/api/tenants/${tenantId}/invoices/${vdInvB.json.id}/void`);
+  check("void dua kali DITOLAK 400", vdVoidAgain.status === 400);
+  const vdPayVoided = await owner("POST", `/api/tenants/${tenantId}/payments`, {
+    refType: "invoice", refId: vdInvB.json.id, accountId: kasAcc.id, amount: 1000, paymentDate: "2026-08-05",
+  });
+  check("bayar dokumen void DITOLAK 400", vdPayVoided.status === 400);
+  const vdReturnVoided = await owner("POST", `/api/tenants/${tenantId}/returns`, {
+    refType: "invoice", refId: vdInvB.json.id, warehouseId: whUtama.id, returnDate: "2026-08-05",
+    lines: [{ productId: vdProd1.json.id, qty: 1 }],
+  });
+  check("retur dokumen void DITOLAK 400", vdReturnVoided.status === 400);
+
+  const vdVoidPaid = await owner("POST", `/api/tenants/${tenantId}/invoices/${invoice.json.id}/void`);
+  check("void faktur TERBAYAR DITOLAK 400", vdVoidPaid.status === 400);
+  const vdVoidReturned = await owner("POST", `/api/tenants/${tenantId}/invoices/${inv2.json.id}/void`);
+  check("void faktur yang punya retur DITOLAK 400", vdVoidReturned.status === 400);
+  const vdVoid404 = await owner("POST", `/api/tenants/${tenantId}/invoices/${crypto.randomUUID()}/void`);
+  check("void dokumen yang tidak ada DITOLAK 404", vdVoid404.status === 404);
+
+  // Void pembelian: hanya bila stok dari pembelian itu belum bergerak.
+  const vdProd2 = await owner("POST", `/api/tenants/${tenantId}/products`, {
+    sku: "VD-002", name: "Gula Aren 500g", unit: "pcs", sellPrice: 90_000, buyPrice: 60_000,
+  });
+  const vdAgingApBefore = (await owner("GET", `/api/tenants/${tenantId}/reports/aging?type=payable`)).json?.grandTotal ?? 0;
+  const vdPurchC = await owner("POST", `/api/tenants/${tenantId}/purchases`, {
+    contactId: supplier.json.id, invoiceDate: "2026-08-03", taxRate: 11, warehouseId: whUtama.id,
+    lines: [{ productId: vdProd2.json.id, qty: 10, unitPrice: 60_000 }],
+  });
+  check("beli 10 pcs VD-002 (666.000)", vdPurchC.status === 201 && vdPurchC.json?.total === 666_000);
+
+  const vdVoidC = await owner("POST", `/api/tenants/${tenantId}/purchases/${vdPurchC.json.id}/void`);
+  check("void pembelian (stok utuh) 200", vdVoidC.status === 200 && Boolean(vdVoidC.json?.reversalEntryNo), `→ ${JSON.stringify(vdVoidC.json)}`);
+  const vdStock3 = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  check("stok VD-002 kembali 0", (vdStock3.json?.levels?.find((l) => l.sku === "VD-002")?.qty ?? 0) === 0);
+  const vdAgingApAfter = (await owner("GET", `/api/tenants/${tenantId}/reports/aging?type=payable`)).json?.grandTotal ?? 0;
+  check("hutang kembali seperti sebelum pembelian", vdAgingApAfter === vdAgingApBefore);
+  const vdTb2 = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah void pembelian", vdTb2.json?.balanced === true);
+
+  const vdPurchD = await owner("POST", `/api/tenants/${tenantId}/purchases`, {
+    contactId: supplier.json.id, invoiceDate: "2026-08-03", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: vdProd2.json.id, qty: 10, unitPrice: 60_000 }],
+  });
+  const vdInvE = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id, invoiceDate: "2026-08-04", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: vdProd2.json.id, qty: 2, unitPrice: 90_000 }],
+  });
+  check("pembelian D & penjualan E diposting", vdPurchD.status === 201 && vdInvE.status === 201);
+  const vdVoidD = await owner("POST", `/api/tenants/${tenantId}/purchases/${vdPurchD.json.id}/void`);
+  check("void pembelian yang stoknya SUDAH BERGERAK ditolak 400", vdVoidD.status === 400, `→ ${JSON.stringify(vdVoidD.json)}`);
+  const vdVoidE = await owner("POST", `/api/tenants/${tenantId}/invoices/${vdInvE.json.id}/void`);
+  const vdStock4 = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  check("void penjualan E: stok VD-002 kembali 10", vdVoidE.status === 200 && vdStock4.json?.levels?.find((l) => l.sku === "VD-002")?.qty === 10);
+
+  // Produk berpelacakan lot/kedaluwarsa: void pembelian diarahkan ke retur.
+  const vdProdExp = await owner("POST", `/api/tenants/${tenantId}/products`, {
+    sku: "VD-EXP", name: "Susu UHT 1L", unit: "pcs", sellPrice: 20_000, buyPrice: 10_000, trackExpiry: true,
+  });
+  const vdPurchF = await owner("POST", `/api/tenants/${tenantId}/purchases`, {
+    contactId: supplier.json.id, invoiceDate: "2026-08-05", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: vdProdExp.json.id, qty: 5, unitPrice: 10_000, expiryDate: "2027-01-01" }],
+  });
+  check("pembelian produk ber-lot diposting", vdPurchF.status === 201);
+  const vdVoidF = await owner("POST", `/api/tenants/${tenantId}/purchases/${vdPurchF.json.id}/void`);
+  check("void pembelian produk ber-lot DITOLAK 400 (pakai retur)", vdVoidF.status === 400);
+
+  // Void menghormati tutup buku: kunci maju ke 10 Agustus lalu coba batalkan
+  // dokumen bertanggal 5 Agustus → jurnal pembalik tertolak periode terkunci.
+  const vdInvG = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id, invoiceDate: "2026-08-05", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: vdProd1.json.id, qty: 1, unitPrice: 80_000 }],
+  });
+  check("faktur G (5 Agu) diposting", vdInvG.status === 201);
+  const vdClose = await owner("POST", `/api/tenants/${tenantId}/close-books`, { date: "2026-08-10" });
+  check("tutup buku maju ke 2026-08-10", vdClose.status === 200);
+  const vdVoidLocked = await owner("POST", `/api/tenants/${tenantId}/invoices/${vdInvG.json.id}/void`);
+  check(
+    "void dokumen di periode TERKUNCI ditolak 400 + saran retur",
+    vdVoidLocked.status === 400 && String(vdVoidLocked.json?.error ?? "").includes("Retur"),
+    `→ ${JSON.stringify(vdVoidLocked.json)}`,
+  );
+  const vdTb3 = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang di akhir seksi void", vdTb3.json?.balanced === true);
+
   // --- Arus kas (Fase 2b-1) -------------------------------------------------------
   console.log("12. Arus kas");
   // Konteks: modal 50jt (2/7) + penjualan tunai 2,5jt (3/7) + terima pembayaran 499,5rb (5/7)

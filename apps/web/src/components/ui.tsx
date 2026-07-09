@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
 /**
  * Komponen dasar design system erpindo (gaya shadcn/ui, tanpa dependensi
@@ -174,6 +174,64 @@ export function EmptyState({
       <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{title}</div>
       {description ? <p className="max-w-sm text-sm text-slate-500 dark:text-slate-400">{description}</p> : null}
       {children}
+    </div>
+  );
+}
+
+// --- ConfirmDialog ------------------------------------------------------------------
+
+/**
+ * Dialog konfirmasi berbrand — pengganti window.confirm untuk aksi berisiko
+ * (arsip, batalkan dokumen, tutup buku, pelepasan aset, nonaktif 2FA).
+ * Render selalu; kontrol lewat prop `open`. Escape/klik backdrop = batal.
+ */
+export function ConfirmDialog({
+  open,
+  title,
+  description,
+  confirmLabel = "Ya, lanjutkan",
+  cancelLabel = "Batal",
+  danger = false,
+  busy = false,
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean;
+  title: string;
+  description?: ReactNode;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  danger?: boolean;
+  busy?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCancel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onCancel]);
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onCancel} aria-hidden="true" />
+      <div className="relative w-full max-w-md rounded-card border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+        <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
+        {description ? <div className="mt-2 text-sm text-slate-600 dark:text-slate-400">{description}</div> : null}
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="secondary" onClick={onCancel} disabled={busy}>
+            {cancelLabel}
+          </Button>
+          <Button variant={danger ? "danger" : "primary"} onClick={onConfirm} disabled={busy}>
+            {busy ? <Spinner /> : null}
+            {confirmLabel}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

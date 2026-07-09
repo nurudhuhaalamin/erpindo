@@ -8,6 +8,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  ConfirmDialog,
   FieldError,
   Input,
   Label,
@@ -89,13 +90,19 @@ function ImportCsvButton({
   );
 }
 
-/** Kerangka halaman master data seragam: form tambah (admin) + tabel + arsip. */
-function useEntityPage(entity: "products" | "contacts" | "warehouses") {
+/**
+ * Kerangka halaman master data seragam: form tambah/ubah (admin) + tabel +
+ * arsip berkonfirmasi. `editing` menampung baris yang sedang diubah — form
+ * yang sama dipakai untuk tambah maupun ubah (dibedakan lewat submit).
+ */
+function useEntityPage<Row extends { id: string }>(entity: "products" | "contacts" | "warehouses") {
   const { tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
   const toast = useToast();
   const queryClient = useQueryClient();
   const [issues, setIssues] = useState<Record<string, string[]>>({});
+  const [editing, setEditing] = useState<Row | null>(null);
+  const [toArchive, setToArchive] = useState<Row | null>(null);
 
   const query = useQuery({
     queryKey: [entity, tenant.tenantId],
@@ -113,16 +120,45 @@ function useEntityPage(entity: "products" | "contacts" | "warehouses") {
     onError: (err) => toast("error", (err as Error).message),
   });
 
-  const archive = useMutation({
-    mutationFn: (id: string) => api.archiveItem(tenant.tenantId, entity, id),
+  const update = useMutation({
+    mutationFn: (vars: { id: string; input: Parameters<typeof api.updateItem>[3] }) =>
+      api.updateItem(tenant.tenantId, entity, vars.id, vars.input),
     onSuccess: () => {
-      toast("success", "Data diarsipkan.");
+      toast("success", "Perubahan tersimpan.");
+      setEditing(null);
       invalidate();
     },
     onError: (err) => toast("error", (err as Error).message),
   });
 
-  return { tenant, isAdmin, query, create, archive, issues, setIssues };
+  const archive = useMutation({
+    mutationFn: (id: string) => api.archiveItem(tenant.tenantId, entity, id),
+    onSuccess: () => {
+      toast("success", "Data diarsipkan.");
+      setToArchive(null);
+      invalidate();
+    },
+    onError: (err) => {
+      toast("error", (err as Error).message);
+      setToArchive(null);
+    },
+  });
+
+  return { tenant, isAdmin, query, create, update, archive, issues, setIssues, editing, setEditing, toArchive, setToArchive };
+}
+
+/** Tombol aksi baris (Ubah + Arsipkan) yang seragam di ketiga halaman. */
+function RowActions({ onEdit, onArchive }: { onEdit: () => void; onArchive: () => void }) {
+  return (
+    <div className="flex justify-end gap-1">
+      <Button variant="ghost" className="h-8" onClick={onEdit}>
+        Ubah
+      </Button>
+      <Button variant="ghost" className="h-8 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" onClick={onArchive}>
+        Arsipkan
+      </Button>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -135,10 +171,12 @@ type ProductRow = {
   sell_price: number;
   buy_price: number;
   track_expiry: number;
+  is_service: number;
 };
 
 export function ProductsPage() {
-  const { isAdmin, query, create, archive, issues, setIssues } = useEntityPage("products");
+  const { isAdmin, query, create, update, archive, issues, setIssues, editing, setEditing, toArchive, setToArchive } =
+    useEntityPage<ProductRow>("products");
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -158,63 +196,99 @@ export function ProductsPage() {
       setIssues(parsed.error.flatten().fieldErrors as Record<string, string[]>);
       return;
     }
-    create.mutate(parsed.data, { onSuccess: () => form.reset() });
+    if (editing) {
+      update.mutate({ id: editing.id, input: parsed.data });
+    } else {
+      create.mutate(parsed.data, { onSuccess: () => form.reset() });
+    }
   }
 
+  const busy = create.isPending || update.isPending;
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Produk</h1>
 
       {isAdmin ? (
         <Card>
-          <CardHeader title="Tambah produk" description="Tambah satu per satu, atau impor sekaligus dari file CSV/Excel." />
+          <CardHeader
+            title={editing ? `Ubah produk — ${editing.sku}` : "Tambah produk"}
+            description={
+              editing
+                ? "Perubahan hanya memengaruhi data master; transaksi lama tetap memakai nilai saat diposting."
+                : "Tambah satu per satu, atau impor sekaligus dari file CSV/Excel."
+            }
+          />
           <CardBody className="space-y-4">
-            <ImportCsvButton
-              entity="products"
-              templateHeaders={["sku", "nama", "satuan", "harga_jual", "harga_beli", "lacak_exp"]}
-              templateExample={["BRG-001", "Kopi Arabika 1kg", "pcs", 150000, 100000, "tidak"]}
-              mapRow={(r) => ({
-                sku: r.sku ?? "",
-                name: r.nama ?? r.name ?? "",
-                unit: r.satuan || r.unit || "pcs",
-                sellPrice: Number(r.harga_jual ?? r.sellprice ?? 0) || 0,
-                buyPrice: Number(r.harga_beli ?? r.buyprice ?? 0) || 0,
-                trackExpiry: ["ya", "yes", "1", "true"].includes((r.lacak_exp ?? "").toLowerCase()),
-              })}
-            />
-            <form onSubmit={onSubmit} className="grid gap-3 sm:grid-cols-[8rem_1fr_6rem_10rem_10rem_auto] sm:items-end" noValidate>
+            {editing ? null : (
+              <ImportCsvButton
+                entity="products"
+                templateHeaders={["sku", "nama", "satuan", "harga_jual", "harga_beli", "lacak_exp"]}
+                templateExample={["BRG-001", "Kopi Arabika 1kg", "pcs", 150000, 100000, "tidak"]}
+                mapRow={(r) => ({
+                  sku: r.sku ?? "",
+                  name: r.nama ?? r.name ?? "",
+                  unit: r.satuan || r.unit || "pcs",
+                  sellPrice: Number(r.harga_jual ?? r.sellprice ?? 0) || 0,
+                  buyPrice: Number(r.harga_beli ?? r.buyprice ?? 0) || 0,
+                  trackExpiry: ["ya", "yes", "1", "true"].includes((r.lacak_exp ?? "").toLowerCase()),
+                })}
+              />
+            )}
+            <form
+              key={editing?.id ?? "new"}
+              onSubmit={onSubmit}
+              className="grid gap-3 sm:grid-cols-[8rem_1fr_6rem_10rem_10rem_auto] sm:items-end"
+              noValidate
+            >
               <div>
                 <Label htmlFor="p-sku">SKU</Label>
-                <Input id="p-sku" name="sku" placeholder="BRG-001" required />
+                <Input id="p-sku" name="sku" placeholder="BRG-001" defaultValue={editing?.sku} required />
                 <FieldError messages={issues.sku} />
               </div>
               <div>
                 <Label htmlFor="p-name">Nama</Label>
-                <Input id="p-name" name="name" placeholder="Kopi Arabika 1kg" required />
+                <Input id="p-name" name="name" placeholder="Kopi Arabika 1kg" defaultValue={editing?.name} required />
                 <FieldError messages={issues.name} />
               </div>
               <div>
                 <Label htmlFor="p-unit">Satuan</Label>
-                <Input id="p-unit" name="unit" placeholder="pcs" defaultValue="pcs" />
+                <Input id="p-unit" name="unit" placeholder="pcs" defaultValue={editing?.unit ?? "pcs"} />
               </div>
               <div>
                 <Label htmlFor="p-sell">Harga jual (Rp)</Label>
-                <Input id="p-sell" name="sellPrice" type="number" min={0} placeholder="150000" />
+                <Input id="p-sell" name="sellPrice" type="number" min={0} placeholder="150000" defaultValue={editing?.sell_price} />
               </div>
               <div>
                 <Label htmlFor="p-buy">Harga beli (Rp)</Label>
-                <Input id="p-buy" name="buyPrice" type="number" min={0} placeholder="100000" />
+                <Input id="p-buy" name="buyPrice" type="number" min={0} placeholder="100000" defaultValue={editing?.buy_price} />
               </div>
-              <Button type="submit" disabled={create.isPending}>
-                {create.isPending ? <Spinner /> : null} Tambah
-              </Button>
+              <div className="flex gap-2">
+                <Button type="submit" disabled={busy}>
+                  {busy ? <Spinner /> : null} {editing ? "Simpan" : "Tambah"}
+                </Button>
+                {editing ? (
+                  <Button type="button" variant="secondary" onClick={() => setEditing(null)}>
+                    Batal
+                  </Button>
+                ) : null}
+              </div>
               <label className="flex items-center gap-2 text-sm text-slate-600 sm:col-span-3 dark:text-slate-300">
-                <input type="checkbox" name="trackExpiry" className="h-4 w-4 rounded border-slate-300" />
+                <input
+                  type="checkbox"
+                  name="trackExpiry"
+                  className="h-4 w-4 rounded border-slate-300"
+                  defaultChecked={editing ? editing.track_expiry === 1 : false}
+                />
                 Lacak lot &amp; tanggal kedaluwarsa (F&amp;B/farmasi) — wajib isi tgl exp saat pembelian, keluar otomatis
                 FEFO
               </label>
               <label className="flex items-center gap-2 text-sm text-slate-600 sm:col-span-3 dark:text-slate-300">
-                <input type="checkbox" name="isService" className="h-4 w-4 rounded border-slate-300" />
+                <input
+                  type="checkbox"
+                  name="isService"
+                  className="h-4 w-4 rounded border-slate-300"
+                  defaultChecked={editing ? editing.is_service === 1 : false}
+                />
                 Jasa (tanpa stok) — faktur tidak menggerakkan stok/HPP; cocok untuk layanan, sewa, langganan
               </label>
             </form>
@@ -251,9 +325,7 @@ export function ProductsPage() {
                       <td className={td}>{p.track_expiry ? <Badge tone="amber">FEFO</Badge> : "—"}</td>
                       {isAdmin ? (
                         <td className={`${td} text-right`}>
-                          <Button variant="ghost" className="h-8" onClick={() => archive.mutate(p.id)}>
-                            Arsipkan
-                          </Button>
+                          <RowActions onEdit={() => setEditing(p)} onArchive={() => setToArchive(p)} />
                         </td>
                       ) : null}
                     </tr>
@@ -264,6 +336,19 @@ export function ProductsPage() {
           )}
         </CardBody>
       </Card>
+
+      <ConfirmDialog
+        open={toArchive !== null}
+        title="Arsipkan produk ini?"
+        description={
+          toArchive ? `${toArchive.sku} — ${toArchive.name} akan disembunyikan dari daftar & form transaksi. Riwayat transaksi tetap utuh.` : undefined
+        }
+        confirmLabel="Arsipkan"
+        danger
+        busy={archive.isPending}
+        onConfirm={() => toArchive && archive.mutate(toArchive.id)}
+        onCancel={() => setToArchive(null)}
+      />
     </div>
   );
 }
@@ -276,6 +361,7 @@ type ContactRow = {
   name: string;
   email: string | null;
   phone: string | null;
+  address: string | null;
   npwp: string | null;
 };
 
@@ -286,7 +372,8 @@ const CONTACT_TYPE_LABELS: Record<ContactType, string> = {
 };
 
 export function ContactsPage() {
-  const { isAdmin, query, create, archive, issues, setIssues } = useEntityPage("contacts");
+  const { isAdmin, query, create, update, archive, issues, setIssues, editing, setEditing, toArchive, setToArchive } =
+    useEntityPage<ContactRow>("contacts");
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -297,37 +384,52 @@ export function ContactsPage() {
       setIssues(parsed.error.flatten().fieldErrors as Record<string, string[]>);
       return;
     }
-    create.mutate(parsed.data, { onSuccess: () => form.reset() });
+    if (editing) {
+      update.mutate({ id: editing.id, input: parsed.data });
+    } else {
+      create.mutate(parsed.data, { onSuccess: () => form.reset() });
+    }
   }
 
+  const busy = create.isPending || update.isPending;
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Kontak</h1>
 
       {isAdmin ? (
         <Card>
-          <CardHeader title="Tambah kontak" description="Pelanggan dan pemasok Anda — bisa impor sekaligus dari CSV." />
+          <CardHeader
+            title={editing ? `Ubah kontak — ${editing.name}` : "Tambah kontak"}
+            description={editing ? "Perubahan berlaku untuk transaksi berikutnya." : "Pelanggan dan pemasok Anda — bisa impor sekaligus dari CSV."}
+          />
           <CardBody className="space-y-4">
-            <ImportCsvButton
-              entity="contacts"
-              templateHeaders={["jenis", "nama", "email", "telepon", "alamat", "npwp"]}
-              templateExample={["pelanggan", "PT Pelanggan Setia", "info@pelanggan.co.id", "0812345678", "Jakarta", ""]}
-              mapRow={(r) => ({
-                type:
-                  { pelanggan: "customer", pemasok: "supplier", keduanya: "both" }[
-                    (r.jenis ?? r.type ?? "").toLowerCase()
-                  ] ?? (r.type || "customer"),
-                name: r.nama ?? r.name ?? "",
-                email: r.email || undefined,
-                phone: r.telepon || r.phone || undefined,
-                address: r.alamat || r.address || undefined,
-                npwp: r.npwp || undefined,
-              })}
-            />
-            <form onSubmit={onSubmit} className="grid gap-3 sm:grid-cols-[11rem_1fr_1fr_1fr_auto] sm:items-end" noValidate>
+            {editing ? null : (
+              <ImportCsvButton
+                entity="contacts"
+                templateHeaders={["jenis", "nama", "email", "telepon", "alamat", "npwp"]}
+                templateExample={["pelanggan", "PT Pelanggan Setia", "info@pelanggan.co.id", "0812345678", "Jakarta", ""]}
+                mapRow={(r) => ({
+                  type:
+                    { pelanggan: "customer", pemasok: "supplier", keduanya: "both" }[
+                      (r.jenis ?? r.type ?? "").toLowerCase()
+                    ] ?? (r.type || "customer"),
+                  name: r.nama ?? r.name ?? "",
+                  email: r.email || undefined,
+                  phone: r.telepon || r.phone || undefined,
+                  address: r.alamat || r.address || undefined,
+                  npwp: r.npwp || undefined,
+                })}
+              />
+            )}
+            <form
+              key={editing?.id ?? "new"}
+              onSubmit={onSubmit}
+              className="grid gap-3 sm:grid-cols-[11rem_1fr_1fr_1fr_auto] sm:items-end"
+              noValidate
+            >
               <div>
                 <Label htmlFor="k-type">Jenis</Label>
-                <Select id="k-type" name="type" defaultValue="customer">
+                <Select id="k-type" name="type" defaultValue={editing?.type ?? "customer"}>
                   <option value="customer">Pelanggan</option>
                   <option value="supplier">Pemasok</option>
                   <option value="both">Keduanya</option>
@@ -335,21 +437,40 @@ export function ContactsPage() {
               </div>
               <div>
                 <Label htmlFor="k-name">Nama</Label>
-                <Input id="k-name" name="name" placeholder="PT Pelanggan Setia" required />
+                <Input id="k-name" name="name" placeholder="PT Pelanggan Setia" defaultValue={editing?.name} required />
                 <FieldError messages={issues.name} />
               </div>
               <div>
                 <Label htmlFor="k-email">Email</Label>
-                <Input id="k-email" name="email" type="email" placeholder="opsional" />
+                <Input id="k-email" name="email" type="email" placeholder="opsional" defaultValue={editing?.email ?? ""} />
                 <FieldError messages={issues.email} />
               </div>
               <div>
                 <Label htmlFor="k-phone">Telepon</Label>
-                <Input id="k-phone" name="phone" placeholder="opsional" />
+                <Input id="k-phone" name="phone" placeholder="opsional" defaultValue={editing?.phone ?? ""} />
               </div>
-              <Button type="submit" disabled={create.isPending}>
-                {create.isPending ? <Spinner /> : null} Tambah
-              </Button>
+              <div className="flex gap-2">
+                <Button type="submit" disabled={busy}>
+                  {busy ? <Spinner /> : null} {editing ? "Simpan" : "Tambah"}
+                </Button>
+                {editing ? (
+                  <Button type="button" variant="secondary" onClick={() => setEditing(null)}>
+                    Batal
+                  </Button>
+                ) : null}
+              </div>
+              {editing ? (
+                <>
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="k-address">Alamat</Label>
+                    <Input id="k-address" name="address" placeholder="opsional" defaultValue={editing.address ?? ""} />
+                  </div>
+                  <div>
+                    <Label htmlFor="k-npwp">NPWP</Label>
+                    <Input id="k-npwp" name="npwp" placeholder="opsional" defaultValue={editing.npwp ?? ""} />
+                  </div>
+                </>
+              ) : null}
             </form>
           </CardBody>
         </Card>
@@ -382,9 +503,7 @@ export function ContactsPage() {
                       <td className={td}>{k.phone ?? "—"}</td>
                       {isAdmin ? (
                         <td className={`${td} text-right`}>
-                          <Button variant="ghost" className="h-8" onClick={() => archive.mutate(k.id)}>
-                            Arsipkan
-                          </Button>
+                          <RowActions onEdit={() => setEditing(k)} onArchive={() => setToArchive(k)} />
                         </td>
                       ) : null}
                     </tr>
@@ -395,6 +514,17 @@ export function ContactsPage() {
           )}
         </CardBody>
       </Card>
+
+      <ConfirmDialog
+        open={toArchive !== null}
+        title="Arsipkan kontak ini?"
+        description={toArchive ? `${toArchive.name} akan disembunyikan dari daftar & form transaksi. Riwayat transaksi tetap utuh.` : undefined}
+        confirmLabel="Arsipkan"
+        danger
+        busy={archive.isPending}
+        onConfirm={() => toArchive && archive.mutate(toArchive.id)}
+        onCancel={() => setToArchive(null)}
+      />
     </div>
   );
 }
@@ -404,7 +534,8 @@ export function ContactsPage() {
 type WarehouseRow = { id: string; code: string; name: string; address: string | null };
 
 export function WarehousesPage() {
-  const { isAdmin, query, create, archive, issues, setIssues } = useEntityPage("warehouses");
+  const { isAdmin, query, create, update, archive, issues, setIssues, editing, setEditing, toArchive, setToArchive } =
+    useEntityPage<WarehouseRow>("warehouses");
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -415,35 +546,55 @@ export function WarehousesPage() {
       setIssues(parsed.error.flatten().fieldErrors as Record<string, string[]>);
       return;
     }
-    create.mutate(parsed.data, { onSuccess: () => form.reset() });
+    if (editing) {
+      update.mutate({ id: editing.id, input: parsed.data });
+    } else {
+      create.mutate(parsed.data, { onSuccess: () => form.reset() });
+    }
   }
 
+  const busy = create.isPending || update.isPending;
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Gudang</h1>
 
       {isAdmin ? (
         <Card>
-          <CardHeader title="Tambah gudang" description="Gudang Utama sudah dibuat otomatis." />
+          <CardHeader
+            title={editing ? `Ubah gudang — ${editing.code}` : "Tambah gudang"}
+            description={editing ? "Stok & riwayat mutasi tetap terikat pada gudang ini." : "Gudang Utama sudah dibuat otomatis."}
+          />
           <CardBody>
-            <form onSubmit={onSubmit} className="grid gap-3 sm:grid-cols-[8rem_1fr_1fr_auto] sm:items-end" noValidate>
+            <form
+              key={editing?.id ?? "new"}
+              onSubmit={onSubmit}
+              className="grid gap-3 sm:grid-cols-[8rem_1fr_1fr_auto] sm:items-end"
+              noValidate
+            >
               <div>
                 <Label htmlFor="w-code">Kode</Label>
-                <Input id="w-code" name="code" placeholder="CAB-01" required />
+                <Input id="w-code" name="code" placeholder="CAB-01" defaultValue={editing?.code} required />
                 <FieldError messages={issues.code} />
               </div>
               <div>
                 <Label htmlFor="w-name">Nama</Label>
-                <Input id="w-name" name="name" placeholder="Gudang Cabang Bandung" required />
+                <Input id="w-name" name="name" placeholder="Gudang Cabang Bandung" defaultValue={editing?.name} required />
                 <FieldError messages={issues.name} />
               </div>
               <div>
                 <Label htmlFor="w-address">Alamat</Label>
-                <Input id="w-address" name="address" placeholder="opsional" />
+                <Input id="w-address" name="address" placeholder="opsional" defaultValue={editing?.address ?? ""} />
               </div>
-              <Button type="submit" disabled={create.isPending}>
-                {create.isPending ? <Spinner /> : null} Tambah
-              </Button>
+              <div className="flex gap-2">
+                <Button type="submit" disabled={busy}>
+                  {busy ? <Spinner /> : null} {editing ? "Simpan" : "Tambah"}
+                </Button>
+                {editing ? (
+                  <Button type="button" variant="secondary" onClick={() => setEditing(null)}>
+                    Batal
+                  </Button>
+                ) : null}
+              </div>
             </form>
           </CardBody>
         </Card>
@@ -472,9 +623,7 @@ export function WarehousesPage() {
                       <td className={td}>{w.address ?? "—"}</td>
                       {isAdmin ? (
                         <td className={`${td} text-right`}>
-                          <Button variant="ghost" className="h-8" onClick={() => archive.mutate(w.id)}>
-                            Arsipkan
-                          </Button>
+                          <RowActions onEdit={() => setEditing(w)} onArchive={() => setToArchive(w)} />
                         </td>
                       ) : null}
                     </tr>
@@ -485,6 +634,17 @@ export function WarehousesPage() {
           )}
         </CardBody>
       </Card>
+
+      <ConfirmDialog
+        open={toArchive !== null}
+        title="Arsipkan gudang ini?"
+        description={toArchive ? `${toArchive.code} — ${toArchive.name} akan disembunyikan dari daftar & form transaksi. Riwayat mutasi stok tetap utuh.` : undefined}
+        confirmLabel="Arsipkan"
+        danger
+        busy={archive.isPending}
+        onConfirm={() => toArchive && archive.mutate(toArchive.id)}
+        onCancel={() => setToArchive(null)}
+      />
     </div>
   );
 }

@@ -122,7 +122,7 @@ export const reportRoutes = new Hono<AppEnv>()
         `SELECT i.invoice_no, i.invoice_date, i.subtotal, i.tax_amount, i.total,
                 k.name AS buyer_name, k.npwp AS buyer_npwp
          FROM invoices i JOIN contacts k ON k.id = i.contact_id
-         WHERE i.tax_amount > 0 AND i.invoice_date >= ? AND i.invoice_date <= ?
+         WHERE i.tax_amount > 0 AND i.voided_at IS NULL AND i.invoice_date >= ? AND i.invoice_date <= ?
          ORDER BY i.invoice_date, i.invoice_no`,
       )
       .bind(from, to)
@@ -197,7 +197,7 @@ export const reportRoutes = new Hono<AppEnv>()
         `SELECT d.contact_id, k.name AS contact_name, d.total - d.paid_amount - d.returned_amount AS outstanding,
                 COALESCE(d.due_date, d.${dateCol}) AS due
          FROM ${table} d JOIN contacts k ON k.id = d.contact_id
-         WHERE d.status != 'paid' AND d.total > d.paid_amount + d.returned_amount`,
+         WHERE d.status != 'paid' AND d.voided_at IS NULL AND d.total > d.paid_amount + d.returned_amount`,
       )
       .all<{ contact_id: string; contact_name: string; outstanding: number; due: string }>();
 
@@ -243,14 +243,14 @@ export const reportRoutes = new Hono<AppEnv>()
         )
         .all<{ balance: number }>(),
       db
-        .prepare(`SELECT COALESCE(SUM(total), 0) AS total, COUNT(*) AS n FROM invoices WHERE invoice_date LIKE ?`)
+        .prepare(`SELECT COALESCE(SUM(total), 0) AS total, COUNT(*) AS n FROM invoices WHERE voided_at IS NULL AND invoice_date LIKE ?`)
         .bind(`${monthPrefix}%`)
         .all<{ total: number; n: number }>(),
       db
-        .prepare(`SELECT COALESCE(SUM(total - paid_amount - returned_amount), 0) AS outstanding FROM invoices WHERE status != 'paid'`)
+        .prepare(`SELECT COALESCE(SUM(total - paid_amount - returned_amount), 0) AS outstanding FROM invoices WHERE status != 'paid' AND voided_at IS NULL`)
         .all<{ outstanding: number }>(),
       db
-        .prepare(`SELECT COALESCE(SUM(total - paid_amount - returned_amount), 0) AS outstanding FROM purchases WHERE status != 'paid'`)
+        .prepare(`SELECT COALESCE(SUM(total - paid_amount - returned_amount), 0) AS outstanding FROM purchases WHERE status != 'paid' AND voided_at IS NULL`)
         .all<{ outstanding: number }>(),
       db.prepare(`SELECT COALESCE(SUM(qty * avg_cost), 0) AS value FROM stock_levels`).all<{ value: number }>(),
       db.prepare(`SELECT COUNT(*) AS n FROM leads WHERE status = 'open'`).all<{ n: number }>(),
