@@ -53,6 +53,7 @@ type DraftLine = {
   trackExpiry: boolean;
   qty: string;
   unitPrice: string;
+  discountPct: string;
   lotNo: string;
   expiryDate: string;
 };
@@ -62,9 +63,16 @@ const emptyLine = (): DraftLine => ({
   trackExpiry: false,
   qty: "1",
   unitPrice: "",
+  discountPct: "",
   lotNo: "",
   expiryDate: "",
 });
+
+/** Nilai baris setelah diskon — meniru pembulatan backend. */
+function lineAmount(l: { qty: string; unitPrice: string; discountPct: string }): number {
+  const disc = Math.min(Math.max(Number(l.discountPct) || 0, 0), 100);
+  return Math.round((Number(l.qty) || 0) * (Number(l.unitPrice) || 0) * (1 - disc / 100));
+}
 
 type ProductRow = { id: string; sku: string; name: string; sell_price: number; buy_price: number; track_expiry: number };
 type ContactRow = { id: string; name: string; type: string };
@@ -180,7 +188,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
     });
   }
 
-  const subtotal = lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.unitPrice) || 0), 0);
+  const subtotal = lines.reduce((s, l) => s + lineAmount(l), 0);
   const taxAmount = Math.round((subtotal * taxRate) / 100);
 
   function submit() {
@@ -198,6 +206,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
           productId: l.productId,
           qty: Number(l.qty) || 0,
           unitPrice: Number(l.unitPrice) || 0,
+          ...(Number(l.discountPct) > 0 ? { discountPct: Number(l.discountPct) } : {}),
           ...(mode === "purchase" && l.lotNo ? { lotNo: l.lotNo } : {}),
           ...(mode === "purchase" && l.expiryDate ? { expiryDate: l.expiryDate } : {}),
         })),
@@ -299,7 +308,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
                 const tracked = mode === "purchase" && line.trackExpiry;
                 return (
                   <div key={i} className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_6rem_10rem_10rem_2.5rem] sm:items-center">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_5rem_9rem_5.5rem_9rem_2.5rem] sm:items-center">
                       <SearchSelect
                         value={line.productId}
                         valueLabel={line.productLabel}
@@ -322,9 +331,16 @@ export function CommercePage({ mode }: { mode: Mode }) {
                         value={line.unitPrice}
                         onChange={(e) => setLine(i, { unitPrice: e.target.value })}
                       />
-                      <div className="text-right text-sm tabular-nums">
-                        {formatIDR((Number(line.qty) || 0) * (Number(line.unitPrice) || 0))}
-                      </div>
+                      <Input
+                        aria-label={`Diskon % baris ${i + 1}`}
+                        type="number"
+                        min={0}
+                        max={100}
+                        placeholder="Disc %"
+                        value={line.discountPct}
+                        onChange={(e) => setLine(i, { discountPct: e.target.value })}
+                      />
+                      <div className="text-right text-sm tabular-nums">{formatIDR(lineAmount(line))}</div>
                       <Button
                         type="button"
                         variant="ghost"
@@ -598,6 +614,7 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
           <div key={l.id} className="flex justify-between">
             <span>
               {l.productName} × {l.qty}
+              {l.discountPct > 0 ? <span className="text-emerald-600 dark:text-emerald-400"> (−{l.discountPct}%)</span> : null}
             </span>
             <span className="tabular-nums">{formatIDR(l.amount)}</span>
           </div>

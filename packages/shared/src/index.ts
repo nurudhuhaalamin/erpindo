@@ -114,6 +114,15 @@ export const updateTenantSettingsSchema = z.object({
   displayName: z.string().trim().min(2).max(100).optional(),
   address: z.string().trim().max(500).optional(),
   npwp: z.string().trim().max(30).optional(),
+  /**
+   * Logo kop faktur/struk: data URL PNG/JPEG/SVG ≤64KB (base64, disimpan di
+   * settings DB tenant — tanpa butuh object storage). String kosong = hapus.
+   */
+  logoDataUrl: z
+    .string()
+    .max(90_000, "Logo terlalu besar — maksimal ±64KB")
+    .refine((v) => v === "" || /^data:image\/(png|jpeg|webp|svg\+xml);base64,/.test(v), "Format logo tidak dikenal")
+    .optional(),
 });
 export type UpdateTenantSettingsInput = z.infer<typeof updateTenantSettingsSchema>;
 
@@ -269,8 +278,19 @@ export const productSchema = z.object({
   trackExpiry: z.boolean().default(false),
   /** Jasa: tidak melacak stok — faktur tak menggerakkan stok/HPP. */
   isService: z.boolean().default(false),
+  /** Ambang stok menipis (0 = tanpa peringatan): total stok ≤ nilai ini memicu notifikasi. */
+  minStock: z.number().int().min(0).max(1_000_000).default(0),
 });
 export type ProductInput = z.infer<typeof productSchema>;
+
+/** Notifikasi operasional (lonceng di topbar) — dihitung on-demand dari data nyata. */
+export type ApiNotification = {
+  type: "low_stock" | "overdue_invoice" | "open_ticket" | "pending_approval";
+  title: string;
+  detail: string;
+  /** Rute SPA yang dituju saat notifikasi diklik. */
+  href: string;
+};
 
 export const warehouseSchema = z.object({
   code: z.string().trim().min(1, "Kode wajib diisi").max(20).toUpperCase(),
@@ -331,6 +351,8 @@ export const commerceLineSchema = z.object({
   description: z.string().trim().max(200).optional(),
   qty: z.number().int("Qty harus bilangan bulat").min(1, "Qty minimal 1").max(1_000_000),
   unitPrice: commerceAmountSchema,
+  /** Diskon per baris dalam persen (0–100); nilai baris = qty × harga × (1 − diskon/100). */
+  discountPct: z.number().min(0, "Diskon minimal 0%").max(100, "Diskon maksimal 100%").optional(),
   /** Untuk produk berpelacakan kedaluwarsa (pembelian): nomor lot & tanggal exp. */
   lotNo: z.string().trim().max(50).optional(),
   expiryDate: z
@@ -392,6 +414,8 @@ export type ApiCommerceLine = {
   description: string | null;
   qty: number;
   unitPrice: number;
+  /** Diskon per baris (persen, 0–100). */
+  discountPct: number;
   amount: number;
 };
 
@@ -1259,6 +1283,7 @@ export const posSaleSchema = z.object({
         productId: z.string().min(1),
         qty: z.number().int().min(1),
         unitPrice: z.number().int().min(0),
+        discountPct: z.number().min(0).max(100).optional(),
       }),
     )
     .min(1, "Keranjang kosong"),

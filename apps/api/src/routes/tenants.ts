@@ -7,6 +7,7 @@ import {
   updateTenantSettingsSchema,
   type ApiAuditLog,
   type ApiMember,
+  type ApiNotification,
   type Plan,
   type Role,
 } from "@erpindo/shared";
@@ -124,6 +125,7 @@ export const tenantRoutes = new Hono<AppEnv>()
       display_name: parsed.data.displayName,
       address: parsed.data.address,
       npwp: parsed.data.npwp,
+      logo_data_url: parsed.data.logoDataUrl,
     }).filter(([, v]) => v !== undefined) as [string, string][];
 
     for (const [key, value] of entries) {
@@ -144,6 +146,80 @@ export const tenantRoutes = new Hono<AppEnv>()
       ip: clientIp(c),
     });
     return c.json({ ok: true });
+  })
+
+  // -------------------------------------------------------------------------
+  // Notifikasi operasional (lonceng topbar) — dihitung on-demand dari data
+  // nyata: stok ≤ ambang minimum, faktur lewat jatuh tempo, tiket terbuka,
+  // dan pembelian menunggu persetujuan. Tanpa tabel/estado tambahan.
+  // -------------------------------------------------------------------------
+  .get("/:tenantId/notifications", requireAuth, requireTenantRole("viewer"), async (c) => {
+    const tenant = c.get("tenant");
+    const db = getTenantDb(c.env, tenant.dbRef);
+    const today = new Date().toISOString().slice(0, 10);
+
+    const [lowStock, overdue, tickets, approvals] = await Promise.all([
+      db
+        .prepare(
+          `SELECT p.sku, p.name, p.min_stock, COALESCE(SUM(s.qty), 0) AS qty
+           FROM products p LEFT JOIN stock_levels s ON s.product_id = p.id
+           WHERE p.is_archived = 0 AND p.is_service = 0 AND p.min_stock > 0
+           GROUP BY p.id HAVING qty <= p.min_stock
+           ORDER BY qty LIMIT 20`,
+        )
+        .all<{ sku: string; name: string; min_stock: number; qty: number }>(),
+      db
+        .prepare(
+          `SELECT d.invoice_no, k.name AS contact_name, d.due_date,
+                  d.total - d.paid_amount - d.returned_amount AS outstanding
+           FROM invoices d JOIN contacts k ON k.id = d.contact_id
+           WHERE d.status != 'paid' AND d.voided_at IS NULL
+             AND d.total > d.paid_amount + d.returned_amount
+             AND d.due_date IS NOT NULL AND d.due_date < ?
+           ORDER BY d.due_date LIMIT 20`,
+        )
+        .bind(today)
+        .all<{ invoice_no: string; contact_name: string; due_date: string; outstanding: number }>(),
+      db.prepare(`SELECT COUNT(*) AS n FROM tickets WHERE status IN ('open', 'in_progress')`).all<{ n: number }>(),
+      db.prepare(`SELECT COUNT(*) AS n FROM approval_requests WHERE status = 'pending'`).all<{ n: number }>(),
+    ]);
+
+    const notifications: ApiNotification[] = [];
+    for (const p of lowStock.results) {
+      notifications.push({
+        type: "low_stock",
+        title: `Stok menipis: ${p.name}`,
+        detail: `${p.sku} tersisa ${p.qty} (ambang ${p.min_stock}).`,
+        href: "/app/stok",
+      });
+    }
+    for (const d of overdue.results) {
+      notifications.push({
+        type: "overdue_invoice",
+        title: `Faktur ${d.invoice_no} lewat jatuh tempo`,
+        detail: `${d.contact_name} — sisa Rp ${d.outstanding.toLocaleString("id-ID")} (jatuh tempo ${d.due_date}).`,
+        href: "/app/penjualan",
+      });
+    }
+    const openTickets = tickets.results[0]?.n ?? 0;
+    if (openTickets > 0) {
+      notifications.push({
+        type: "open_ticket",
+        title: `${openTickets} tiket dukungan belum selesai`,
+        detail: "Ada tiket berstatus terbuka/diproses yang menunggu tindak lanjut.",
+        href: "/app/helpdesk",
+      });
+    }
+    const pendingApprovals = approvals.results[0]?.n ?? 0;
+    if (pendingApprovals > 0) {
+      notifications.push({
+        type: "pending_approval",
+        title: `${pendingApprovals} pembelian menunggu persetujuan`,
+        detail: "Pengajuan pembelian di atas ambang menunggu keputusan Owner.",
+        href: "/app/persetujuan",
+      });
+    }
+    return c.json({ notifications, count: notifications.length });
   })
 
   // -------------------------------------------------------------------------

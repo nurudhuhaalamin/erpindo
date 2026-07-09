@@ -59,6 +59,7 @@ async function listQuotationLines(db: SqlExecutor, quotationIds: string[]): Prom
       description: l.description,
       qty: l.qty,
       unitPrice: l.unit_price,
+      discountPct: 0, // penawaran belum mendukung diskon per baris
       amount: l.amount,
     });
     byQuote.set(l.quotation_id, list);
