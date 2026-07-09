@@ -33,7 +33,8 @@
     { "binding": "TENANT_DB_2", "database_name": "erpindo-tenant-2", "database_id": "ee503edd-654d-4dab-b147-7630fac2e064" },
     { "binding": "TENANT_DB_3", "database_name": "erpindo-tenant-3", "database_id": "b4b65e36-80f2-49ac-a305-003150cde427" },
     { "binding": "TENANT_DB_4", "database_name": "erpindo-tenant-4", "database_id": "75f03aab-902d-4c04-b6b1-207bd4c70d73" },
-    { "binding": "TENANT_DB_5", "database_name": "erpindo-tenant-5", "database_id": "7064c569-1dad-4795-ae55-2e1f302f10cb" }
+    { "binding": "TENANT_DB_5", "database_name": "erpindo-tenant-5", "database_id": "7064c569-1dad-4795-ae55-2e1f302f10cb" },
+    { "binding": "TENANT_DB_6", "database_name": "erpindo-tenant-6", "database_id": "1457a4c8-e7db-47af-b993-300ccf6a928a" }
   ],
 
   "kv_namespaces": [

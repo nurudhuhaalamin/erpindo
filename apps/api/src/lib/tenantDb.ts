@@ -14,7 +14,7 @@ import type { Env } from "../env";
  * modul bisnis tidak perlu tahu berjalan di mode mana.
  */
 
-const LOCAL_POOL = ["TENANT_DB_1", "TENANT_DB_2", "TENANT_DB_3", "TENANT_DB_4", "TENANT_DB_5"] as const;
+const LOCAL_POOL = ["TENANT_DB_1", "TENANT_DB_2", "TENANT_DB_3", "TENANT_DB_4", "TENANT_DB_5", "TENANT_DB_6"] as const;
 
 type CfD1QueryResult = {
   success: boolean;

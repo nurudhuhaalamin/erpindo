@@ -47,6 +47,9 @@ const child = spawn(
     "--test-scheduled",
     "--var",
     "TRIAL_DAYS_OVERRIDE:0",
+    // Uji jalur akun comped (Fase 4a): email Dewi mendapat tenant aktif permanen.
+    "--var",
+    "COMPED_EMAILS:dewi@majujaya.co.id",
   ],
   { cwd: apiDir, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, CI: "1" } },
 );
@@ -858,6 +861,29 @@ try {
     password: "rahasia-dewi-789",
   });
   await admin("POST", "/api/invites/accept", { token: inviteAdmin.json.inviteUrl.split("token=")[1] });
+
+  // --- Akun comped (Fase 4a): email di COMPED_EMAILS → tenant aktif permanen ------
+  // Server dijalankan dengan COMPED_EMAILS=dewi@majujaya.co.id (lihat spawn args).
+  const dewiMe = await admin("GET", "/api/auth/me");
+  const dewiOwn = dewiMe.json?.memberships?.find((m) => m.tenantSlug?.startsWith("usaha-dewi"));
+  check(
+    "register email comped → tenant langsung active + paket enterprise tanpa akhir trial",
+    dewiOwn?.tenantStatus === "active" && dewiOwn?.plan === "enterprise" && dewiOwn?.trialEndsAt === null,
+    `→ ${JSON.stringify(dewiOwn)}`,
+  );
+  check(
+    "register email biasa tetap trial (tenant utama tidak ikut comped)",
+    dewiMe.json?.memberships?.find((m) => m.tenantId === tenantId)?.tenantStatus === "trial",
+  );
+  const dewiCo = await admin("POST", "/api/auth/companies", { companyName: "Cabang Dewi" });
+  check("perusahaan tambahan milik email comped 201", dewiCo.status === 201);
+  const dewiMe2 = await admin("GET", "/api/auth/me");
+  const dewiCoRow = dewiMe2.json?.memberships?.find((m) => m.tenantId === dewiCo.json?.tenantId);
+  check(
+    "perusahaan tambahan comped juga active/enterprise",
+    dewiCoRow?.tenantStatus === "active" && dewiCoRow?.plan === "enterprise" && dewiCoRow?.trialEndsAt === null,
+    `→ ${JSON.stringify(dewiCoRow)}`,
+  );
 
   const thresholdByViewer = await viewer("POST", `/api/tenants/${tenantId}/approval-threshold`, { amount: 1 });
   check("viewer DITOLAK mengatur ambang (403)", thresholdByViewer.status === 403);
@@ -2405,6 +2431,18 @@ try {
     buyPrice: 1,
   });
   check("mode baca-saja: MENULIS ditolak 402", writeWhilePastDue.status === 402);
+
+  // Akun comped kebal siklus trial: cron di atas TIDAK menurunkan tenant Dewi
+  // (status 'active' tak pernah disentuh cron) dan menulis tetap boleh.
+  const dewiMeAfterCron = await admin("GET", "/api/auth/me");
+  check(
+    "tenant comped TETAP active setelah cron trial-expiry",
+    dewiMeAfterCron.json?.memberships?.find((m) => m.tenantId === dewiOwn?.tenantId)?.tenantStatus === "active",
+  );
+  const compedWrite = await admin("POST", `/api/tenants/${dewiOwn.tenantId}/products`, {
+    sku: "CMP-001", name: "Produk Akun Comped", unit: "pcs", sellPrice: 1000, buyPrice: 500,
+  });
+  check("tenant comped tetap BISA MENULIS setelah cron (201, bukan 402)", compedWrite.status === 201, `→ ${compedWrite.status}`);
 
   // --- Logout -----------------------------------------------------------------
   console.log("15. Logout");

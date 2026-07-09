@@ -13,6 +13,7 @@
     "test": "pnpm -r test",
     "build": "pnpm -r build",
     "smoke": "node apps/api/scripts/smoke.mjs",
+    "seed:demo": "node scripts/seed-demo.mjs",
     "dev:api": "pnpm --filter @erpindo/api dev",
     "dev:web": "pnpm --filter @erpindo/web dev"
   }

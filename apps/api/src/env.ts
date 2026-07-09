@@ -11,6 +11,7 @@ export type Env = {
   TENANT_DB_3?: D1Database;
   TENANT_DB_4?: D1Database;
   TENANT_DB_5?: D1Database;
+  TENANT_DB_6?: D1Database;
 
   TENANT_DB_MODE: "local" | "cloudflare";
   /** Opsional: override URL publik aplikasi; default origin request. */
@@ -18,6 +19,13 @@ export type Env = {
 
   /** Hanya untuk pengujian: override lama trial (hari). */
   TRIAL_DAYS_OVERRIDE?: string;
+
+  /**
+   * Daftar email (dipisah koma, case-insensitive) yang mendapat tenant
+   * aktif permanen tanpa batasan langganan — dipakai untuk akun pemilik.
+   * Disimpan sebagai secret di produksi agar email tidak masuk repo.
+   */
+  COMPED_EMAILS?: string;
 
   // Secret opsional (produksi).
   RESEND_API_KEY?: string;
