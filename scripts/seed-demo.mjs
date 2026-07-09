@@ -13,7 +13,13 @@
  * dibuat manual dengan meng-INSERT sha256(token) ke tabel sessions control-plane,
  * dipakai sekali untuk seeding, lalu barisnya dihapus.
  *
- * - Login memakai akun yang SUDAH terdaftar (tidak membuat akun baru).
+ * Alternatif tanpa kredensial sama sekali (ops via runner CI): SEED_REGISTER=1 —
+ * skrip MENDAFTARKAN akun seeder baru dengan email+password acak yang dibuat di
+ * proses ini dan tidak pernah dicetak; setelah seeding, kepemilikan perusahaan
+ * demo dipindahkan ke akun tujuan lewat control-plane dan akun seeder
+ * dinonaktifkan. Email seeder dicetak agar operator bisa menindaklanjuti.
+ *
+ * - Mode default: login memakai akun yang SUDAH terdaftar (tidak membuat akun baru).
  * - Menolak berjalan bila perusahaan demo sudah ada (idempoten; --force
  *   membuat salinan baru dengan slug berbeda, hanya untuk uji lokal).
  * - Gagal keras (exit 1) pada respons tak terduga agar drift skema terlihat.
@@ -21,15 +27,18 @@
  *   sehingga grafik dashboard 30 hari selalu hidup.
  */
 
+import { randomBytes } from "node:crypto";
+
 const BASE = (process.env.BASE_URL ?? "http://127.0.0.1:8787").replace(/\/$/, "");
 const EMAIL = process.env.SEED_EMAIL;
 const PASSWORD = process.env.SEED_PASSWORD;
 const SESSION = process.env.SEED_SESSION;
+const REGISTER = process.env.SEED_REGISTER === "1";
 const FORCE = process.argv.includes("--force");
 const COMPANY = "PT Demo Sejahtera";
 
-if (!SESSION && (!EMAIL || !PASSWORD)) {
-  console.error("Set SEED_EMAIL + SEED_PASSWORD, atau SEED_SESSION (token sesi mentah).");
+if (!REGISTER && !SESSION && (!EMAIL || !PASSWORD)) {
+  console.error("Set SEED_EMAIL + SEED_PASSWORD, SEED_SESSION (token sesi mentah), atau SEED_REGISTER=1.");
   process.exit(1);
 }
 
@@ -83,8 +92,21 @@ const LOGO_DATA_URL = `data:image/svg+xml;base64,${Buffer.from(LOGO_SVG).toStrin
 
 console.log(`Seed demo → ${BASE} sebagai ${EMAIL}\n`);
 
-// --- 0. Login & buat perusahaan demo -----------------------------------------
-if (!SESSION) {
+// --- 0. Login/registrasi & buat perusahaan demo --------------------------------
+if (REGISTER) {
+  // Kredensial acak dibuat di proses ini dan TIDAK pernah dicetak.
+  const seederEmail = `seeder-${Date.now()}@demo-seed.example.com`;
+  const seederPass = randomBytes(24).toString("base64url");
+  const reg = await api("POST", "/api/auth/register", {
+    companyName: "Workspace Seeder", name: "Seeder Otomatis", email: seederEmail, password: seederPass,
+  });
+  if (reg.status !== 201) {
+    console.error(`Registrasi seeder gagal (HTTP ${reg.status}): ${JSON.stringify(reg.json)}`);
+    process.exit(1);
+  }
+  console.log(`  ✓ registrasi akun seeder: ${seederEmail}`);
+  console.log("    (setelah seeding: pindahkan kepemilikan perusahaan demo ke akun tujuan lewat control-plane, lalu nonaktifkan akun seeder)");
+} else if (!SESSION) {
   const login = await api("POST", "/api/auth/login", { email: EMAIL, password: PASSWORD });
   if (login.status !== 200) {
     console.error(`Login gagal (HTTP ${login.status}): ${JSON.stringify(login.json)}`);
@@ -438,9 +460,12 @@ await step("transfer teh ke gudang cabang", "POST", `${T}/stock-transfers`, {
 // --- 22. Persetujuan pembelian: ambang + pengajuan pending dari staf admin -------------------------
 await step("ambang persetujuan 5 juta", "POST", `${T}/approval-threshold`, { amount: 5_000_000 });
 const staffEmail = `staf.demo.${Date.now()}@example.com`;
+// Password staf acak & tidak dicetak — akun ini hanya perlu ada sebagai
+// pengaju approval; operator menonaktifkannya setelah seeding produksi.
+const staffPass = randomBytes(24).toString("base64url");
 const staff = makeClient();
 const staffReg = await staff("POST", "/api/auth/register", {
-  companyName: "Workspace Staf Demo", name: "Staf Demo", email: staffEmail, password: "demo-staf-12345",
+  companyName: "Workspace Staf Demo", name: "Staf Demo", email: staffEmail, password: staffPass,
 });
 if (staffReg.status === 201) {
   const invite = await api("POST", `${T}/invites`, { email: staffEmail, role: "admin" });
