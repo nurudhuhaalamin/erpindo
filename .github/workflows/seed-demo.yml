@@ -1,0 +1,38 @@
+# Alat ops: menjalankan scripts/seed-demo.mjs terhadap deployment produksi.
+# Dipicu manual (workflow_dispatch). Runner GitHub dipakai karena punya akses
+# internet langsung ke *.workers.dev. Token sesi bersifat sementara (dibuat
+# khusus untuk seeding, dihapus setelah selesai) dan di-mask dari log.
+name: Seed demo
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "URL produksi, mis. https://erpindo.contoh.workers.dev"
+        required: true
+      session:
+        description: "Token sesi mentah sementara (SEED_SESSION)"
+        required: true
+
+jobs:
+  seed:
+    name: Seed PT Demo Sejahtera
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Mask token sesi dari log
+        run: echo "::add-mask::${{ inputs.session }}"
+
+      - name: Cek kesehatan API
+        run: curl -sf --max-time 20 "${{ inputs.base_url }}/api/health"
+
+      - name: Jalankan seed demo
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+          SEED_SESSION: ${{ inputs.session }}
+        run: node scripts/seed-demo.mjs
