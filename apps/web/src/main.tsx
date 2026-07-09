@@ -3,6 +3,7 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  lazyRouteComponent,
   Outlet,
   RouterProvider,
 } from "@tanstack/react-router";
@@ -50,6 +51,17 @@ const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/reset-password", component: ResetPasswordPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/undangan", component: InvitePage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/cetak/faktur", component: InvoicePrintPage }),
+  // Panduan pengguna: publik & code-split — kontennya tidak membebani bundle utama.
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/panduan",
+    component: lazyRouteComponent(() => import("./pages/panduan"), "PanduanIndexPage"),
+  }),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/panduan/$modul",
+    component: lazyRouteComponent(() => import("./pages/panduan"), "PanduanModulePage"),
+  }),
 ];
 
 const appRoute = createRoute({ getParentRoute: () => rootRoute, path: "/app", component: AppShell });

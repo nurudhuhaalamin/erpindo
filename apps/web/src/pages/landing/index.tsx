@@ -25,6 +25,7 @@ function Header() {
           {[
             ["#fitur", "Fitur"],
             ["#harga", "Harga"],
+            ["/panduan", "Panduan"],
             ["#faq", "FAQ"],
           ].map(([href, label]) => (
             <a
@@ -363,6 +364,7 @@ function Footer() {
         <div className="flex items-center gap-4">
           <a href="#fitur" className="hover:text-slate-900 dark:hover:text-white">Fitur</a>
           <a href="#harga" className="hover:text-slate-900 dark:hover:text-white">Harga</a>
+          <a href="/panduan" className="hover:text-slate-900 dark:hover:text-white">Panduan</a>
           <a href="#faq" className="hover:text-slate-900 dark:hover:text-white">FAQ</a>
           <Link to="/masuk" className="hover:text-slate-900 dark:hover:text-white">Masuk</Link>
           <Link to="/daftar" className="hover:text-slate-900 dark:hover:text-white">Daftar</Link>
