@@ -150,6 +150,19 @@ const acc = (code) => {
 };
 const kas = acc("1-1000");
 const bank = acc("1-1100");
+const modal = acc("3-1000");
+
+// Setoran modal awal — agar saldo Kas & Bank realistis (tidak negatif) setelah
+// seluruh pembelian, aset, dan gaji dibayarkan.
+await step("jurnal setoran modal awal 200 juta", "POST", `${T}/journal-entries`, {
+  entryDate: daysAgo(59),
+  memo: "Setoran modal awal pemilik",
+  lines: [
+    { accountId: bank.id, debit: 150_000_000, credit: 0 },
+    { accountId: kas.id, debit: 50_000_000, credit: 0 },
+    { accountId: modal.id, debit: 0, credit: 200_000_000 },
+  ],
+});
 await step("akun kustom: Beban Iklan Digital", "POST", `${T}/accounts`, { code: "6-2100", name: "Beban Iklan Digital", type: "expense" });
 const bebanIklan = (await api("GET", `${T}/accounts`)).json.accounts.find((a) => a.code === "6-2100");
 const bebanListrik = accountsRes.accounts.find((a) => a.name.toLowerCase().includes("listrik")) ?? bebanIklan;

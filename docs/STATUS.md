@@ -46,7 +46,8 @@
 | Fase 3e — Dashboard modern & polish | Grafik penjualan 30 hari, checklist onboarding, widget jatuh tempo + feed aktivitas, halaman auth split, nav↔judul selaras (Maintenance→Pemeliharaan), paragraf pengantar semua halaman, favicon/OG + shortcut PWA | ✅ Selesai |
 | Fase 3f — e-Faktur XML Coretax | Ekspor XML `TaxInvoiceBulk` sesuai skema impor Coretax terbaru (kode 04 DPP nilai lain 11/12 utk non-mewah, kode 01 utk tarif 12%; NPWP→TIN 16 digit; faktur void/non-PPN dikecualikan) — rangkaian Fase 3 lengkap | ✅ Selesai |
 | Fase 4a — Akun bebas langganan + seed demo | Daftar email khusus (`COMPED_EMAILS`) mendapat tenant aktif permanen paket Enterprise (kebal siklus trial); skrip seed "PT Demo Sejahtera" mengisi data hidup SEMUA modul (131 langkah, neraca seimbang) untuk review langsung — **sudah dijalankan di produksi** | ✅ Selesai |
-| **Fase 4b — Identitas visual baru** | Palet baru total: indigo-violet + aksen amber (semua halaman lewat token), font Inter Variable, kartu/tombol/badge disempurnakan, ikon & PWA baru, kontras dark mode diperbaiki | ✅ **Selesai** |
+| Fase 4b — Identitas visual baru | Palet baru total: indigo-violet + aksen amber (semua halaman lewat token), font Inter Variable, kartu/tombol/badge disempurnakan, ikon & PWA baru, kontras dark mode diperbaiki | ✅ Selesai |
+| **Fase 4c — Landing page baru** | Hero dengan screenshot produk nyata, trust bar, showcase 5 alur bertab, seksi perbandingan vs Excel, FAQ 8, pipeline screenshot otomatis (WebP 534 KB total) | ✅ **Selesai** |
 | Fase 2m — Manajemen dokumen (lampiran file) | Lampiran di faktur/kontak/jurnal (penyimpanan Cloudflare R2) | ⏸ **Menunggu Anda mengaktifkan R2 di dashboard Cloudflare** |
 | Fase 2b-2 — Pembayaran langganan | Checkout Midtrans/Xendit, aktivasi otomatis | ⏸ **Menunggu akun gateway dari Anda** |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
