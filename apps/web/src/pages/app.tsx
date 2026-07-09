@@ -1,10 +1,11 @@
 import { PLAN_LABELS, PLAN_LIMITS, type ApiMembership, type MeResponse } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, Outlet, useNavigate } from "@tanstack/react-router";
+import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
   Bell,
+  CircleHelp,
   BookOpen,
   BookText,
   Boxes,
@@ -133,6 +134,54 @@ function Avatar({ name }: { name: string }) {
  * terbuka, dan pembelian menunggu persetujuan — dihitung server on-demand,
  * disegarkan tiap menit.
  */
+/** Pemetaan rute aplikasi → slug modul panduan (untuk tombol bantuan topbar). */
+const GUIDE_SLUG_BY_PREFIX: [prefix: string, slug: string][] = [
+  ["/app/pos", "pos"],
+  ["/app/penjualan", "penjualan"],
+  ["/app/pembelian", "pembelian"],
+  ["/app/stok", "stok"],
+  ["/app/persetujuan", "persetujuan"],
+  ["/app/crm", "crm"],
+  ["/app/master/produk", "produk"],
+  ["/app/master/kontak", "kontak"],
+  ["/app/master", "produk"],
+  ["/app/hr", "penggajian"],
+  ["/app/keuangan/e-faktur", "pajak"],
+  ["/app/keuangan/anggaran", "anggaran"],
+  ["/app/keuangan/aset", "aset"],
+  ["/app/keuangan/kurs", "kurs"],
+  ["/app/keuangan/laba-rugi", "laporan"],
+  ["/app/keuangan/neraca", "laporan"],
+  ["/app/keuangan/arus-kas", "laporan"],
+  ["/app/keuangan/umur-tagihan", "laporan"],
+  ["/app/keuangan", "akuntansi"],
+  ["/app/proyek", "proyek"],
+  ["/app/kontrak", "kontrak"],
+  ["/app/konsolidasi", "konsolidasi"],
+  ["/app/manufaktur", "manufaktur"],
+  ["/app/maintenance", "maintenance"],
+  ["/app/helpdesk", "helpdesk"],
+  ["/app/pengaturan", "pengaturan"],
+];
+
+/** Tombol "?" — membuka panduan modul yang sedang dibuka (tab baru). */
+function HelpLink() {
+  const { location } = useRouterState();
+  const slug = GUIDE_SLUG_BY_PREFIX.find(([p]) => location.pathname.startsWith(p))?.[1] ?? "mulai";
+  return (
+    <a
+      href={`/panduan/${slug}`}
+      target="_blank"
+      rel="noreferrer"
+      className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+      aria-label="Buka panduan halaman ini"
+      title="Panduan halaman ini"
+    >
+      <CircleHelp className="size-4" aria-hidden />
+    </a>
+  );
+}
+
 function NotificationBell({ tenantId }: { tenantId: string }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -298,6 +347,15 @@ export function AppShell() {
           </Link>
         </div>
       ))}
+      <a
+        href="/panduan"
+        target="_blank"
+        rel="noreferrer"
+        className="mt-4 flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-100"
+      >
+        <CircleHelp className="size-4 shrink-0" aria-hidden />
+        Panduan
+      </a>
     </nav>
   );
 
@@ -380,6 +438,7 @@ export function AppShell() {
             </div>
             <div className="flex items-center gap-2">
               <NotificationBell tenantId={tenant.tenantId} />
+              <HelpLink />
               <button
                 onClick={toggle}
                 className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
