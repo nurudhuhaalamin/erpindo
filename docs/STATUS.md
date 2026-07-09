@@ -42,7 +42,8 @@
 | Fase 3a — Kepatuhan 2026 + trial 30 hari | Trial 30 hari (teks diturunkan dari konstanta), batas upah JP BPJS Rp11.086.300 (Maret 2026), tanggal format Indonesia, email bertanda tangan | ✅ Selesai |
 | Fase 3b — Void, edit master data & konfirmasi | Batalkan faktur jual/beli (jurnal pembalik + stok kembali persis), edit produk/kontak/gudang & nama akun dari UI, dialog konfirmasi untuk semua aksi berisiko | ✅ Selesai |
 | Fase 3c — Pencarian, pagination & pemilih berskala | Kotak cari + muat-lebih-banyak di semua daftar utama, combobox typeahead produk/kontak (faktur, kontrak, BoM), pencarian POS sisi server — siap ribuan produk | ✅ Selesai |
-| **Fase 3d — Diskon, logo kop & notifikasi** | Diskon % per baris (faktur, POS, cetakan; PPN & jurnal mengikuti), logo kop faktur/struk dari Pengaturan, ambang stok minimum + lonceng notifikasi (stok menipis, faktur jatuh tempo, tiket, persetujuan) | ✅ **Selesai** |
+| Fase 3d — Diskon, logo kop & notifikasi | Diskon % per baris (faktur, POS, cetakan; PPN & jurnal mengikuti), logo kop faktur/struk dari Pengaturan, ambang stok minimum + lonceng notifikasi (stok menipis, faktur jatuh tempo, tiket, persetujuan) | ✅ Selesai |
+| **Fase 3e — Dashboard modern & polish** | Grafik penjualan 30 hari, checklist onboarding, widget jatuh tempo + feed aktivitas, halaman auth split, nav↔judul selaras (Maintenance→Pemeliharaan), paragraf pengantar semua halaman, favicon/OG + shortcut PWA | ✅ **Selesai** |
 | Fase 2m — Manajemen dokumen (lampiran file) | Lampiran di faktur/kontak/jurnal (penyimpanan Cloudflare R2) | ⏸ **Menunggu Anda mengaktifkan R2 di dashboard Cloudflare** |
 | Fase 2b-2 — Pembayaran langganan | Checkout Midtrans/Xendit, aktivasi otomatis | ⏸ **Menunggu akun gateway dari Anda** |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
@@ -104,8 +105,9 @@
 51. **Diskon per baris** *(baru — Fase 3d)*: kolom diskon % di setiap baris faktur penjualan/pembelian dan keranjang POS — **PPN dan seluruh pembukuan otomatis mengikuti nilai setelah diskon**; cetakan faktur & struk menampilkan diskonnya.
 52. **Logo kop faktur & struk** *(baru — Fase 3d)*: unggah logo perusahaan di Pengaturan (otomatis dikecilkan) — langsung tampil di kop cetakan faktur dan struk kasir.
 53. **Lonceng notifikasi & stok menipis** *(baru — Fase 3d)*: tetapkan ambang stok minimum per produk; lonceng di bilah atas memberi tahu **stok menipis, faktur lewat jatuh tempo, tiket terbuka, dan pembelian menunggu persetujuan** — klik untuk langsung menuju halamannya.
+54. **Dashboard modern & panduan mulai** *(baru — Fase 3e)*: grafik tren penjualan 30 hari dengan tooltip, widget faktur lewat jatuh tempo, feed aktivitas terakhir, dan **checklist "Mulai cepat"** berprogres untuk perusahaan baru (hilang otomatis saat lengkap). Halaman daftar/masuk bergaya split modern; setiap halaman kini punya paragraf pengantar; nama menu dan judul halaman konsisten (Maintenance menjadi Pemeliharaan).
 
-Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (363 skenario ujian end-to-end + 24 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
+Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (366 skenario ujian end-to-end + 24 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
 
 ## Apakah sudah bisa diakses di internet?
 

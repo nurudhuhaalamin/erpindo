@@ -90,6 +90,7 @@ export function AccountsPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Bagan Akun</h1>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Daftar akun pembukuan (COA) standar Indonesia — fondasi semua jurnal dan laporan.</p>
 
       {isAdmin ? (
         <Card>
@@ -282,6 +283,7 @@ export function JournalPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Jurnal Umum</h1>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Catat transaksi manual dengan debit = kredit. Jurnal terposting tidak bisa diubah — koreksi lewat jurnal pembalik.</p>
 
       {isAdmin ? (
         <Card>
@@ -476,6 +478,7 @@ export function LedgerPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Buku Besar</h1>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Riwayat lengkap satu akun: setiap jurnal yang menyentuhnya beserta saldo berjalan.</p>
       <Card>
         <CardBody className="space-y-4">
           <div className="sm:w-96">
@@ -549,6 +552,7 @@ export function TrialBalancePage() {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-semibold">Neraca Saldo</h1>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Ringkasan saldo semua akun — total debit dan kredit harus selalu sama.</p>
         {query.data ? (
           query.data.balanced ? (
             <Badge tone="brand">seimbang ✓</Badge>

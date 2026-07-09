@@ -164,6 +164,11 @@ export const api = {
   balanceSheet: (tenantId: string, asOf: string) =>
     request<ApiBalanceSheet>("GET", `/api/tenants/${tenantId}/reports/balance-sheet?asOf=${asOf}`),
   dashboard: (tenantId: string) => request<ApiDashboard>("GET", `/api/tenants/${tenantId}/dashboard`),
+  salesDaily: (tenantId: string, days = 30) =>
+    request<{ from: string; days: number; rows: { date: string; total: number; count: number }[] }>(
+      "GET",
+      `/api/tenants/${tenantId}/reports/sales-daily?days=${days}`,
+    ),
   cashFlow: (tenantId: string, from: string, to: string) =>
     request<ApiCashFlow>("GET", `/api/tenants/${tenantId}/reports/cash-flow?from=${from}&to=${to}`),
   aging: (tenantId: string, type: "receivable" | "payable") =>

@@ -1067,6 +1067,7 @@ export function StockPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Stok</h1>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Level stok per gudang beserta nilai persediaan, kartu stok, transfer antar gudang, dan opname.</p>
       {isAdmin ? <StockAdjustmentForm /> : null}
       {isAdmin ? <StockTransferForm /> : null}
       <LotsCard />

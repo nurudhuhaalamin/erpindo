@@ -226,6 +226,27 @@ export const reportRoutes = new Hono<AppEnv>()
   })
 
   // -------------------------------------------------------------------------
+  // Tren penjualan harian (grafik dashboard): total faktur per tanggal untuk
+  // N hari terakhir; dokumen void dikecualikan. Hari tanpa penjualan diisi 0
+  // di sisi klien agar sumbu waktu tetap kontinu.
+  // -------------------------------------------------------------------------
+  .get("/:tenantId/reports/sales-daily", requireAuth, requireTenantRole("viewer"), async (c) => {
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+    const days = Math.min(Math.max(Number(c.req.query("days")) || 30, 7), 90);
+    const from = new Date(Date.now() - (days - 1) * 86_400_000).toISOString().slice(0, 10);
+
+    const { results } = await db
+      .prepare(
+        `SELECT invoice_date AS date, SUM(total) AS total, COUNT(*) AS n
+         FROM invoices WHERE voided_at IS NULL AND invoice_date >= ?
+         GROUP BY invoice_date ORDER BY invoice_date`,
+      )
+      .bind(from)
+      .all<{ date: string; total: number; n: number }>();
+    return c.json({ from, days, rows: results.map((r) => ({ date: r.date, total: r.total, count: r.n })) });
+  })
+
+  // -------------------------------------------------------------------------
   // Dashboard: ringkasan angka nyata
   // -------------------------------------------------------------------------
   .get("/:tenantId/dashboard", requireAuth, requireTenantRole("viewer"), async (c) => {

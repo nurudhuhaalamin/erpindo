@@ -108,7 +108,7 @@ export function ContractsPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Kontrak & Tagihan Berulang</h1>
+          <h1 className="text-2xl font-semibold">Kontrak Berulang</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             Buat kontrak langganan — sistem menerbitkan faktur otomatis tiap periode. Bisa juga dipicu manual.
           </p>

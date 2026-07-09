@@ -35,7 +35,7 @@ export function CurrenciesPage() {
   return (
     <div className="max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Mata Uang & Kurs</h1>
+        <h1 className="text-2xl font-semibold">Mata Uang</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           IDR adalah mata uang dasar. Tetapkan kurs valas untuk membuat faktur dalam mata uang asing — pembukuan tetap
           dalam Rupiah, dan selisih kurs saat pelunasan dijurnal otomatis.

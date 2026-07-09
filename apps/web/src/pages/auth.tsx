@@ -1,23 +1,59 @@
 import { registerSchema, TRIAL_DAYS } from "@erpindo/shared";
 import { useMutation } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { CheckCircle2 } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { api, ApiRequestError } from "../api/client";
 import { Alert, Button, Card, CardBody, FieldError, Input, Label, Spinner } from "../components/ui";
 
+const AUTH_BENEFITS = [
+  "Pembukuan double-entry otomatis dari faktur, kasir, sampai penggajian",
+  "Siap pajak Indonesia: PPN 11/12%, PPh 21 TER, dan ekspor e-Faktur",
+  "Database terpisah untuk tiap perusahaan — data Anda benar-benar terisolasi",
+  "360+ uji otomatis menjaga setiap rilis; angka pembukuan selalu seimbang",
+];
+
+/**
+ * Layout auth belah dua ala SaaS modern: panel kiri gradient brand berisi
+ * nilai jual (desktop), form di kanan. Di layar kecil hanya form yang tampil.
+ */
 function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: ReactNode; children: ReactNode }) {
   return (
-    <div className="flex min-h-full flex-col items-center justify-center px-4 py-10">
-      <Link to="/" className="mb-6 text-2xl font-bold tracking-tight text-brand-700 dark:text-brand-400">
-        erpindo
-      </Link>
-      <Card className="w-full max-w-md">
-        <CardBody className="py-6">
-          <h1 className="text-xl font-semibold">{title}</h1>
-          {subtitle ? <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p> : null}
-          <div className="mt-5">{children}</div>
-        </CardBody>
-      </Card>
+    <div className="flex min-h-full">
+      <aside className="hidden w-[44%] flex-col justify-between bg-gradient-to-br from-brand-700 via-brand-800 to-brand-950 p-10 text-white lg:flex">
+        <Link to="/" className="text-2xl font-bold tracking-tight">
+          erpindo
+        </Link>
+        <div>
+          <h2 className="max-w-md text-2xl font-semibold leading-snug">
+            Satu aplikasi untuk seluruh operasional UMKM Anda.
+          </h2>
+          <ul className="mt-6 space-y-3.5">
+            {AUTH_BENEFITS.map((b) => (
+              <li key={b} className="flex items-start gap-2.5 text-sm text-brand-50/90">
+                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-brand-300" aria-hidden />
+                {b}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <p className="text-xs text-brand-200/70">
+          Gratis {TRIAL_DAYS} hari · tanpa kartu kredit · berhenti kapan saja
+        </p>
+      </aside>
+
+      <div className="flex flex-1 flex-col items-center justify-center px-4 py-10">
+        <Link to="/" className="mb-6 text-2xl font-bold tracking-tight text-brand-700 lg:hidden dark:text-brand-400">
+          erpindo
+        </Link>
+        <Card className="w-full max-w-md">
+          <CardBody className="py-6">
+            <h1 className="text-xl font-semibold">{title}</h1>
+            {subtitle ? <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p> : null}
+            <div className="mt-5">{children}</div>
+          </CardBody>
+        </Card>
+      </div>
     </div>
   );
 }
@@ -116,10 +152,10 @@ export function LoginPage() {
 
   return (
     <AuthLayout
-      title="Masuk ke erpindo"
+      title="Selamat datang kembali"
       subtitle={
         <>
-          Belum punya akun?{" "}
+          Masuk untuk melanjutkan pekerjaan Anda. Belum punya akun?{" "}
           <Link to="/daftar" className="font-medium text-brand-700 hover:underline dark:text-brand-400">
             Daftar gratis
           </Link>

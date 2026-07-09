@@ -134,7 +134,7 @@ export function ConsolidationPage() {
     <div className="max-w-5xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold">Konsolidasi Multi-Perusahaan</h1>
+          <h1 className="text-2xl font-semibold">Konsolidasi</h1>
           {mode === "balance" && balanceQuery.data ? (
             balanceQuery.data.balanced ? (
               <Badge tone="brand">seimbang ✓</Badge>
