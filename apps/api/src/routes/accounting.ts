@@ -1,6 +1,7 @@
 import {
   createAccountSchema,
   createJournalEntrySchema,
+  renameAccountSchema,
   type ApiAccount,
   type ApiJournalEntry,
   type ApiJournalLine,
@@ -76,6 +77,35 @@ export const accountingRoutes = new Hono<AppEnv>()
       ip: clientIp(c),
     });
     return c.json({ ok: true, id }, 201);
+  })
+
+  // Ganti nama akun saja — kode & tipe terkunci demi integritas laporan
+  // (saldo & pemetaan akun sistem bergantung pada kode/tipe yang stabil).
+  .patch("/:tenantId/accounts/:accountId", requireAuth, requireTenantRole("admin"), async (c) => {
+    const parsed = renameAccountSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) {
+      return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
+    }
+    const tenant = c.get("tenant");
+    const db = getTenantDb(c.env, tenant.dbRef);
+    const accountId = c.req.param("accountId");
+
+    const { results } = await db
+      .prepare(`SELECT code, name FROM accounts WHERE id = ?`)
+      .bind(accountId)
+      .all<{ code: string; name: string }>();
+    const account = results[0];
+    if (!account) return c.json({ error: "Akun tidak ditemukan." }, 404);
+
+    await db.prepare(`UPDATE accounts SET name = ? WHERE id = ?`).bind(parsed.data.name, accountId).run();
+    await audit(c.env, {
+      action: "accounting.account_renamed",
+      userId: c.get("user").id,
+      tenantId: tenant.id,
+      detail: { code: account.code, from: account.name, to: parsed.data.name },
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true });
   })
 
   .post("/:tenantId/accounts/:accountId/archive", requireAuth, requireTenantRole("admin"), async (c) => {

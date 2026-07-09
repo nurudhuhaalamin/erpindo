@@ -18,6 +18,7 @@ import {
   getLockedBefore,
   InsufficientStockError,
   nextDocNo,
+  PeriodLockedError,
   postJournal,
   stockIn,
   stockOut,
@@ -70,7 +71,8 @@ async function listDocs(db: SqlExecutor, cfg: DocTable): Promise<ApiCommerceDoc[
     .prepare(
       `SELECT d.id, d.${cfg.noColumn} AS doc_no, d.contact_id, c.name AS contact_name,
               d.${cfg.dateColumn} AS date, d.due_date, d.status, d.subtotal, d.tax_rate,
-              d.tax_amount, d.total, d.paid_amount, d.returned_amount, d.currency, d.exchange_rate, d.foreign_total
+              d.tax_amount, d.total, d.paid_amount, d.returned_amount, d.currency, d.exchange_rate, d.foreign_total,
+              d.voided_at
        FROM ${cfg.table} d JOIN contacts c ON c.id = d.contact_id
        ORDER BY d.created_at DESC LIMIT 200`,
     )
@@ -91,6 +93,7 @@ async function listDocs(db: SqlExecutor, cfg: DocTable): Promise<ApiCommerceDoc[
       currency: string;
       exchange_rate: number;
       foreign_total: number;
+      voided_at: string | null;
     }>();
 
   const { results: lines } = await db
@@ -142,6 +145,7 @@ async function listDocs(db: SqlExecutor, cfg: DocTable): Promise<ApiCommerceDoc[
     currency: d.currency,
     exchangeRate: d.exchange_rate,
     foreignTotal: d.foreign_total,
+    voidedAt: d.voided_at,
     lines: byDoc.get(d.id) ?? [],
   }));
 }
@@ -465,6 +469,158 @@ async function validateRefs(
   return null;
 }
 
+/**
+ * Pembatalan (void) dokumen: jurnal pembalik persis (debit↔kredit ditukar,
+ * tanggal = tanggal dokumen asal sehingga gerbang tutup buku tetap berlaku)
+ * + stok dikembalikan berdasarkan mutasi asal pada biaya asal — neraca dan
+ * nilai persediaan kembali eksak seperti sebelum dokumen diposting.
+ *
+ * Hanya dokumen tanpa pembayaran & tanpa retur yang bisa dibatalkan; untuk
+ * pembelian, stoknya juga harus belum bergerak (belum terjual/ditransfer).
+ */
+async function voidDoc(
+  db: SqlExecutor,
+  cfg: DocTable,
+  docId: string,
+  userId: string,
+): Promise<{ docNo: string; reversalEntryNo: string } | { error: string; status: 400 | 404 }> {
+  const { results: docs } = await db
+    .prepare(
+      `SELECT ${cfg.noColumn} AS doc_no, ${cfg.dateColumn} AS date, paid_amount, returned_amount,
+              voided_at, journal_entry_id
+       FROM ${cfg.table} WHERE id = ?`,
+    )
+    .bind(docId)
+    .all<{
+      doc_no: string;
+      date: string;
+      paid_amount: number;
+      returned_amount: number;
+      voided_at: string | null;
+      journal_entry_id: string;
+    }>();
+  const doc = docs[0];
+  if (!doc) return { error: "Dokumen tidak ditemukan.", status: 404 };
+  if (doc.voided_at) return { error: "Dokumen sudah dibatalkan sebelumnya.", status: 400 };
+  if (doc.paid_amount > 0) {
+    return { error: "Dokumen sudah menerima pembayaran — batalkan lewat Retur, bukan void.", status: 400 };
+  }
+  if (doc.returned_amount > 0) {
+    return { error: "Dokumen sudah memiliki retur — tidak bisa dibatalkan.", status: 400 };
+  }
+
+  const { results: movements } = await db
+    .prepare(
+      `SELECT rowid AS row_id, product_id, warehouse_id, qty, unit_cost
+       FROM stock_movements WHERE ref_type = ? AND ref_id = ?`,
+    )
+    .bind(cfg.table === "invoices" ? "sale" : "purchase", docId)
+    .all<{ row_id: number; product_id: string; warehouse_id: string; qty: number; unit_cost: number }>();
+
+  if (cfg.table === "purchases" && movements.length > 0) {
+    // Stok hasil pembelian ini harus masih utuh: tidak boleh ada mutasi lain
+    // yang lebih baru pada produk+gudang yang sama (sudah terjual/ditransfer/
+    // dibeli lagi → biaya rata-rata sudah tercampur, koreksi harus via retur).
+    const productIds = [...new Set(movements.map((m) => m.product_id))];
+    const { results: tracked } = await db
+      .prepare(`SELECT id FROM products WHERE track_expiry = 1 AND id IN (${productIds.map(() => "?").join(",")})`)
+      .bind(...productIds)
+      .all<{ id: string }>();
+    if (tracked.length > 0) {
+      return { error: "Pembelian berisi produk berpelacakan lot/kedaluwarsa — gunakan Retur Pembelian.", status: 400 };
+    }
+    for (const m of movements) {
+      const { results: later } = await db
+        .prepare(
+          `SELECT 1 AS x FROM stock_movements
+           WHERE product_id = ? AND warehouse_id = ? AND rowid > ?
+             AND NOT (ref_type = 'purchase' AND ref_id = ?) LIMIT 1`,
+        )
+        .bind(m.product_id, m.warehouse_id, m.row_id, docId)
+        .all<{ x: number }>();
+      if (later[0]) {
+        return { error: "Stok dari pembelian ini sudah bergerak — gunakan Retur Pembelian untuk koreksi.", status: 400 };
+      }
+    }
+  }
+
+  // Jurnal pembalik: baris asal ditukar debit↔kredit, tanggal ikut dokumen
+  // asal — bila periodenya sudah ditutup, PeriodLockedError memblokir void.
+  const { results: origLines } = await db
+    .prepare(`SELECT account_id, description, debit, credit FROM journal_lines WHERE entry_id = ?`)
+    .bind(doc.journal_entry_id)
+    .all<{ account_id: string; description: string | null; debit: number; credit: number }>();
+  if (origLines.length < 2) return { error: "Jurnal asal dokumen tidak ditemukan.", status: 400 };
+
+  let reversal: { id: string; entryNo: string };
+  try {
+    reversal = await postJournal(db, {
+      entryDate: doc.date,
+      memo: `Pembatalan ${doc.doc_no}`,
+      createdBy: userId,
+      lines: origLines.map((l) => ({
+        accountId: l.account_id,
+        description: `Pembatalan ${doc.doc_no}${l.description ? ` — ${l.description}` : ""}`,
+        debit: l.credit,
+        credit: l.debit,
+      })),
+    });
+  } catch (err) {
+    if (err instanceof PeriodLockedError) {
+      return { error: `${err.message} Gunakan Retur untuk koreksi di periode berjalan.`, status: 400 };
+    }
+    throw err;
+  }
+
+  const voidRefId = crypto.randomUUID();
+  if (cfg.table === "invoices") {
+    // Kembalikan stok terjual pada biaya asal (unit_cost mutasi penjualan),
+    // sehingga nilai persediaan kembali persis — bukan pada avg_cost kini.
+    for (const m of movements) {
+      await stockIn(db, {
+        productId: m.product_id,
+        warehouseId: m.warehouse_id,
+        qty: -m.qty, // mutasi penjualan tercatat negatif
+        unitCost: m.unit_cost,
+        refType: "adjustment",
+        refId: voidRefId,
+      });
+    }
+  } else {
+    // Stok pembelian masih utuh (sudah dijaga di atas) → keluarkan kembali
+    // persis qty & biaya asal. Level dihitung manual agar nilai eksak.
+    for (const m of movements) {
+      await db
+        .prepare(
+          `INSERT INTO stock_movements (id, product_id, warehouse_id, ref_type, ref_id, qty, unit_cost)
+           VALUES (?, ?, ?, 'adjustment', ?, ?, ?)`,
+        )
+        .bind(crypto.randomUUID(), m.product_id, m.warehouse_id, voidRefId, -m.qty, m.unit_cost)
+        .run();
+      const { results: levels } = await db
+        .prepare(`SELECT qty, avg_cost FROM stock_levels WHERE product_id = ? AND warehouse_id = ?`)
+        .bind(m.product_id, m.warehouse_id)
+        .all<{ qty: number; avg_cost: number }>();
+      const level = levels[0];
+      if (level) {
+        const newQty = level.qty - m.qty;
+        const newValue = level.qty * level.avg_cost - m.qty * m.unit_cost;
+        const newAvg = newQty > 0 ? Math.round(newValue / newQty) : 0;
+        await db
+          .prepare(`UPDATE stock_levels SET qty = ?, avg_cost = ? WHERE product_id = ? AND warehouse_id = ?`)
+          .bind(newQty, newAvg, m.product_id, m.warehouse_id)
+          .run();
+      }
+    }
+  }
+
+  await db
+    .prepare(`UPDATE ${cfg.table} SET voided_at = datetime('now') WHERE id = ?`)
+    .bind(docId)
+    .run();
+  return { docNo: doc.doc_no, reversalEntryNo: reversal.entryNo };
+}
+
 export const commerceRoutes = new Hono<AppEnv>()
 
   // -------------------------------------------------------------------------
@@ -494,6 +650,21 @@ export const commerceRoutes = new Hono<AppEnv>()
       ip: clientIp(c),
     });
     return c.json({ ok: true, id: result.invoiceId, docNo: result.docNo, total: result.total }, 201);
+  })
+
+  .post("/:tenantId/invoices/:id/void", requireAuth, requireTenantRole("admin"), async (c) => {
+    const tenant = c.get("tenant");
+    const db = getTenantDb(c.env, tenant.dbRef);
+    const result = await voidDoc(db, INVOICE_CFG, c.req.param("id"), c.get("user").id);
+    if ("error" in result) return c.json({ error: result.error }, result.status);
+    await audit(c.env, {
+      action: "sales.invoice_voided",
+      userId: c.get("user").id,
+      tenantId: tenant.id,
+      detail: { docNo: result.docNo, reversalEntryNo: result.reversalEntryNo },
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true, docNo: result.docNo, reversalEntryNo: result.reversalEntryNo });
   })
 
   // -------------------------------------------------------------------------
@@ -557,6 +728,21 @@ export const commerceRoutes = new Hono<AppEnv>()
       ip: clientIp(c),
     });
     return c.json({ ok: true, id: result.purchaseId, docNo: result.docNo, total: result.total }, 201);
+  })
+
+  .post("/:tenantId/purchases/:id/void", requireAuth, requireTenantRole("admin"), async (c) => {
+    const tenant = c.get("tenant");
+    const db = getTenantDb(c.env, tenant.dbRef);
+    const result = await voidDoc(db, PURCHASE_CFG, c.req.param("id"), c.get("user").id);
+    if ("error" in result) return c.json({ error: result.error }, result.status);
+    await audit(c.env, {
+      action: "purchase.voided",
+      userId: c.get("user").id,
+      tenantId: tenant.id,
+      detail: { docNo: result.docNo, reversalEntryNo: result.reversalEntryNo },
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true, docNo: result.docNo, reversalEntryNo: result.reversalEntryNo });
   })
 
   // -------------------------------------------------------------------------
@@ -674,13 +860,14 @@ export const commerceRoutes = new Hono<AppEnv>()
 
     const { results: docs } = await db
       .prepare(
-        `SELECT ${cfg.noColumn} AS doc_no, total, paid_amount, returned_amount, currency, exchange_rate
+        `SELECT ${cfg.noColumn} AS doc_no, total, paid_amount, returned_amount, currency, exchange_rate, voided_at
          FROM ${cfg.table} WHERE id = ?`,
       )
       .bind(input.refId)
-      .all<{ doc_no: string; total: number; paid_amount: number; returned_amount: number; currency: string; exchange_rate: number }>();
+      .all<{ doc_no: string; total: number; paid_amount: number; returned_amount: number; currency: string; exchange_rate: number; voided_at: string | null }>();
     const doc = docs[0];
     if (!doc) return c.json({ error: "Dokumen tidak ditemukan." }, 404);
+    if (doc.voided_at) return c.json({ error: "Dokumen sudah dibatalkan — tidak bisa menerima pembayaran." }, 400);
     const lockError = await checkPeriodOpen(db, input.paymentDate);
     if (lockError) return c.json({ error: lockError }, 400);
 

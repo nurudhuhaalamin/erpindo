@@ -190,6 +190,11 @@ export const createAccountSchema = z.object({
 });
 export type CreateAccountInput = z.infer<typeof createAccountSchema>;
 
+/** Ganti nama akun saja — kode & tipe terkunci demi integritas laporan historis. */
+export const renameAccountSchema = z.object({
+  name: z.string().trim().min(2, "Nama akun minimal 2 karakter").max(100),
+});
+
 /** Nominal rupiah bulat non-negatif (IDR tanpa sen), maksimal 1 triliun. */
 const amountSchema = z.number().int("Nominal harus bilangan bulat").min(0).max(1_000_000_000_000);
 
@@ -408,6 +413,8 @@ export type ApiCommerceDoc = {
   currency: string;
   exchangeRate: number;
   foreignTotal: number;
+  /** Terisi bila dokumen dibatalkan (jurnal pembalik diposting, stok dikembalikan). */
+  voidedAt: string | null;
   lines: ApiCommerceLine[];
 };
 

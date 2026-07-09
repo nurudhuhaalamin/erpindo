@@ -39,7 +39,8 @@
 | Fase 2w — Helpdesk | Tiket dukungan pelanggan: prioritas & status, penugasan ke tim, balasan + catatan internal | ✅ Selesai |
 | Fase 2x — Ekspor e-Faktur | Ekspor CSV faktur keluaran ber-PPN per periode (NPWP/DPP/PPN) untuk impor e-Faktur DJP | ✅ Selesai |
 | Fase 2y — UI responsif + tema + landing | Sidebar/menu ikut tema terang↔gelap, menu mobile jadi off-canvas drawer, tabel responsif, landing marketing penuh + harga baru | ✅ Selesai |
-| **Fase 3a — Kepatuhan 2026 + trial 30 hari** | Trial 30 hari (teks diturunkan dari konstanta), batas upah JP BPJS Rp11.086.300 (Maret 2026), tanggal format Indonesia, email bertanda tangan | ✅ **Selesai** |
+| Fase 3a — Kepatuhan 2026 + trial 30 hari | Trial 30 hari (teks diturunkan dari konstanta), batas upah JP BPJS Rp11.086.300 (Maret 2026), tanggal format Indonesia, email bertanda tangan | ✅ Selesai |
+| **Fase 3b — Void, edit master data & konfirmasi** | Batalkan faktur jual/beli (jurnal pembalik + stok kembali persis), edit produk/kontak/gudang & nama akun dari UI, dialog konfirmasi untuk semua aksi berisiko | ✅ **Selesai** |
 | Fase 2m — Manajemen dokumen (lampiran file) | Lampiran di faktur/kontak/jurnal (penyimpanan Cloudflare R2) | ⏸ **Menunggu Anda mengaktifkan R2 di dashboard Cloudflare** |
 | Fase 2b-2 — Pembayaran langganan | Checkout Midtrans/Xendit, aktivasi otomatis | ⏸ **Menunggu akun gateway dari Anda** |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
@@ -94,7 +95,11 @@
 45. **Helpdesk** *(Fase 2w)*: kelola **tiket dukungan pelanggan** — atur **prioritas** (rendah s.d. mendesak) dan **status** (terbuka → diproses → selesai), **tugaskan ke anggota tim**, dan balas lewat utas percakapan dengan opsi **catatan internal** yang tak terlihat pelanggan. Setiap tiket terhubung ke kontak.
 46. **Ekspor e-Faktur** *(baru — Fase 2x)*: hasilkan **CSV faktur keluaran ber-PPN** per periode — lengkap dengan NPWP/nama pembeli, DPP, dan PPN — siap diimpor ke aplikasi e-Faktur DJP. Faktur non-PPN otomatis dikecualikan; pembeli tanpa NPWP diekspor sebagai `000000000000000`.
 
-Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (292 skenario ujian end-to-end + 24 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
+47. **Batalkan (void) faktur** *(baru — Fase 3b)*: faktur jual/beli yang salah input dan **belum dibayar/diretur** bisa dibatalkan sekali klik — sistem memposting **jurnal pembalik persis** dan **mengembalikan stok pada biaya asal**, dokumen tetap tercatat dengan tanda DIBATALKAN (jejak audit utuh). Dokumen di periode terkunci atau yang stok pembeliannya sudah bergerak diarahkan memakai retur.
+48. **Edit master data & nama akun** *(baru — Fase 3b)*: produk, kontak, dan gudang kini bisa **diubah langsung dari halaman** (tombol Ubah per baris); nama akun di Bagan Akun bisa diganti (kode & tipe sengaja terkunci demi integritas laporan). Mengubah SKU/kode ke nilai yang sudah dipakai ditolak dengan pesan jelas.
+49. **Dialog konfirmasi berbrand** *(baru — Fase 3b)*: semua aksi berisiko — arsip data, batalkan dokumen, tutup buku, lepas aset, nonaktif 2FA — kini meminta konfirmasi lewat dialog yang menjelaskan konsekuensinya.
+
+Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (334 skenario ujian end-to-end + 24 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
 
 ## Apakah sudah bisa diakses di internet?
 

@@ -739,6 +739,16 @@ export const TENANT_MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    id: "0018_void",
+    statements: [
+      // Pembatalan dokumen: terisi = dokumen dibatalkan (jurnal pembalik telah
+      // diposting & stok dikembalikan). Semua query outstanding memfilter
+      // voided_at IS NULL.
+      `ALTER TABLE invoices ADD COLUMN voided_at TEXT`,
+      `ALTER TABLE purchases ADD COLUMN voided_at TEXT`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

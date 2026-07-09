@@ -85,6 +85,16 @@ function crudRoutes<S extends z.ZodTypeAny>(path: string, cfg: EntityConfig<S>) 
       const { results } = await db.prepare(`SELECT id FROM ${cfg.table} WHERE id = ?`).bind(id).all();
       if (results.length === 0) return c.json({ error: "Data tidak ditemukan." }, 404);
 
+      // Kolom unik (SKU/kode) tidak boleh menabrak baris lain.
+      if (cfg.uniqueField) {
+        const value = row[cfg.uniqueField.column];
+        const { results: dupes } = await db
+          .prepare(`SELECT id FROM ${cfg.table} WHERE ${cfg.uniqueField.column} = ? AND id != ?`)
+          .bind(value, id)
+          .all();
+        if (dupes.length > 0) return c.json({ error: `${cfg.uniqueField.input} '${value}' sudah dipakai.` }, 409);
+      }
+
       await db
         .prepare(`UPDATE ${cfg.table} SET ${columns.map((k) => `${k} = ?`).join(", ")} WHERE id = ?`)
         .bind(...columns.map((k) => row[k]), id)

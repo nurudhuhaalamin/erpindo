@@ -10,6 +10,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  ConfirmDialog,
   EmptyState,
   Input,
   Label,
@@ -382,8 +383,25 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
   const queryClient = useQueryClient();
   const [payOpen, setPayOpen] = useState(false);
   const [returnOpen, setReturnOpen] = useState(false);
+  const [voidOpen, setVoidOpen] = useState(false);
   const [returnQty, setReturnQty] = useState<Record<string, string>>({});
+  const isVoided = doc.voidedAt !== null;
   const remaining = doc.total - doc.paidAmount - doc.returnedAmount;
+
+  const doVoid = useMutation({
+    mutationFn: () =>
+      mode === "sale" ? api.voidInvoice(tenant.tenantId, doc.id) : api.voidPurchase(tenant.tenantId, doc.id),
+    onSuccess: (res) => {
+      toast("success", `${res.docNo} dibatalkan — jurnal pembalik ${res.reversalEntryNo} diposting, stok dikembalikan.`);
+      setVoidOpen(false);
+      queryClient.invalidateQueries({ queryKey: [mode === "sale" ? "invoices" : "purchases", tenant.tenantId] });
+      queryClient.invalidateQueries({ queryKey: ["stock", tenant.tenantId] });
+    },
+    onError: (err) => {
+      toast("error", (err as Error).message);
+      setVoidOpen(false);
+    },
+  });
 
   const warehousesQuery = useQuery({
     queryKey: ["warehouses", tenant.tenantId],
@@ -458,7 +476,13 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
           <span className="font-mono text-xs font-semibold">{doc.docNo}</span>
           <span className="text-slate-500 dark:text-slate-400">{formatDate(doc.date)}</span>
           <span>{doc.contactName}</span>
-          {doc.status === "paid" ? <Badge tone="green">lunas</Badge> : <Badge tone="amber">belum lunas</Badge>}
+          {isVoided ? (
+            <Badge tone="red">DIBATALKAN</Badge>
+          ) : doc.status === "paid" ? (
+            <Badge tone="green">lunas</Badge>
+          ) : (
+            <Badge tone="amber">belum lunas</Badge>
+          )}
           {isForeign ? <Badge tone="brand">{doc.currency} @ {doc.exchangeRate.toLocaleString("id-ID")}</Badge> : null}
         </div>
         <div className="flex items-center gap-3 text-sm">
@@ -475,12 +499,21 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
               <Printer className="size-4" aria-hidden /> Cetak
             </a>
           ) : null}
-          {isAdmin && remaining > 0 ? (
+          {isAdmin && !isVoided && remaining > 0 ? (
             <Button variant="ghost" className="h-8" onClick={() => setReturnOpen((o) => !o)}>
               Retur
             </Button>
           ) : null}
-          {isAdmin && doc.status !== "paid" ? (
+          {isAdmin && !isVoided && doc.paidAmount === 0 && doc.returnedAmount === 0 ? (
+            <Button
+              variant="ghost"
+              className="h-8 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
+              onClick={() => setVoidOpen(true)}
+            >
+              Batalkan
+            </Button>
+          ) : null}
+          {isAdmin && !isVoided && doc.status !== "paid" ? (
             <Button variant="secondary" className="h-8" onClick={() => setPayOpen((o) => !o)}>
               {mode === "sale" ? "Terima Pembayaran" : "Bayar"}
             </Button>
@@ -594,6 +627,22 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
           ) : null}
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={voidOpen}
+        title={`Batalkan ${doc.docNo}?`}
+        description={
+          <>
+            Jurnal pembalik akan diposting dan stok dikembalikan seperti sebelum dokumen ini dibuat. Dokumen tetap
+            tercatat dengan tanda <strong>DIBATALKAN</strong> — aksi ini tidak bisa diurungkan.
+          </>
+        }
+        confirmLabel="Ya, batalkan dokumen"
+        danger
+        busy={doVoid.isPending}
+        onConfirm={() => doVoid.mutate()}
+        onCancel={() => setVoidOpen(false)}
+      />
     </div>
   );
 }

@@ -40,6 +40,8 @@ export function AccountsPage() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const [issues, setIssues] = useState<Record<string, string[]>>({});
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
   const query = useQuery({ queryKey: ["accounts", tenant.tenantId], queryFn: () => api.accounts(tenant.tenantId) });
 
@@ -51,6 +53,25 @@ export function AccountsPage() {
     },
     onError: (err) => toast("error", (err as Error).message),
   });
+
+  const rename = useMutation({
+    mutationFn: (vars: { id: string; name: string }) => api.renameAccount(tenant.tenantId, vars.id, vars.name),
+    onSuccess: () => {
+      toast("success", "Nama akun diperbarui.");
+      setRenamingId(null);
+      queryClient.invalidateQueries({ queryKey: ["accounts", tenant.tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  function saveRename(id: string) {
+    const name = renameValue.trim();
+    if (name.length < 2) {
+      toast("error", "Nama akun minimal 2 karakter.");
+      return;
+    }
+    rename.mutate({ id, name });
+  }
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -122,11 +143,51 @@ export function AccountsPage() {
                     .map((a) => (
                       <tr key={a.id}>
                         <td className={`${td} font-mono text-xs`}>{a.code}</td>
-                        <td className={td}>{a.name}</td>
+                        <td className={td}>
+                          {renamingId === a.id ? (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                aria-label={`Nama baru untuk akun ${a.code}`}
+                                className="h-8 max-w-xs"
+                                value={renameValue}
+                                onChange={(e) => setRenameValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") saveRename(a.id);
+                                  if (e.key === "Escape") setRenamingId(null);
+                                }}
+                                autoFocus
+                              />
+                              <Button className="h-8" onClick={() => saveRename(a.id)} disabled={rename.isPending}>
+                                {rename.isPending ? <Spinner /> : null} Simpan
+                              </Button>
+                              <Button variant="ghost" className="h-8" onClick={() => setRenamingId(null)}>
+                                Batal
+                              </Button>
+                            </div>
+                          ) : (
+                            a.name
+                          )}
+                        </td>
                         <td className={td}>
                           <Badge>{ACCOUNT_TYPE_LABELS[a.type]}</Badge>
                         </td>
-                        <td className={td}>{a.isSystem ? <Badge tone="brand">sistem</Badge> : null}</td>
+                        <td className={`${td} text-right`}>
+                          <span className="inline-flex items-center gap-2">
+                            {a.isSystem ? <Badge tone="brand">sistem</Badge> : null}
+                            {isAdmin && renamingId !== a.id ? (
+                              <Button
+                                variant="ghost"
+                                className="h-8"
+                                onClick={() => {
+                                  setRenamingId(a.id);
+                                  setRenameValue(a.name);
+                                }}
+                              >
+                                Ubah nama
+                              </Button>
+                            ) : null}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                 </tbody>
