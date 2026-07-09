@@ -282,7 +282,10 @@ export function AppShell() {
           <Link
             to={item.to}
             activeOptions={{ exact: item.exact }}
-            activeProps={{ className: "bg-brand-50 font-medium text-brand-700 dark:bg-brand-600/20 dark:text-white" }}
+            activeProps={{
+              className:
+                "bg-brand-50 font-medium text-brand-700 ring-1 ring-inset ring-brand-200/70 dark:bg-brand-500/15 dark:text-brand-100 dark:ring-brand-400/20",
+            }}
             inactiveProps={{
               className:
                 "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-100",
@@ -806,7 +809,7 @@ export function DashboardPage() {
       label: "Nilai Persediaan",
       value: dash.data?.inventoryValue,
       icon: Boxes,
-      chip: "bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300",
+      chip: "bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300",
     },
     {
       label: "Lead Terbuka",

@@ -15,22 +15,29 @@ type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
 const buttonVariants: Record<ButtonVariant, string> = {
   primary:
-    "bg-gradient-to-b from-brand-600 to-brand-700 text-white shadow-sm hover:from-brand-700 hover:to-brand-800 focus-visible:ring-brand-500 disabled:from-brand-600/60 disabled:to-brand-700/60",
+    "bg-gradient-to-b from-brand-500 to-brand-600 text-white shadow-sm ring-1 ring-inset ring-white/10 hover:from-brand-600 hover:to-brand-700 focus-visible:ring-brand-500 disabled:from-brand-500/60 disabled:to-brand-600/60",
   secondary:
-    "border border-slate-300 bg-white text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800",
+    "border border-slate-300 bg-white text-slate-800 shadow-sm hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700",
   ghost: "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800",
-  danger: "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500",
+  danger: "bg-red-600 text-white shadow-sm hover:bg-red-700 focus-visible:ring-red-500",
 };
+
+const buttonSizes = {
+  md: "h-10 px-4 text-sm",
+  lg: "h-12 px-6 text-base",
+} as const;
 
 export function Button({
   variant = "primary",
+  size = "md",
   className,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant }) {
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant; size?: keyof typeof buttonSizes }) {
   return (
     <button
       className={cx(
-        "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 dark:ring-offset-slate-950",
+        "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 dark:ring-offset-slate-950",
+        buttonSizes[size],
         buttonVariants[variant],
         className,
       )}
@@ -78,11 +85,21 @@ export function FieldError({ messages }: { messages?: string[] }) {
 
 // --- Card & layout -------------------------------------------------------------
 
-export function Card({ className, children }: { className?: string; children: ReactNode }) {
+export function Card({
+  className,
+  hover = false,
+  children,
+}: {
+  className?: string;
+  /** Efek angkat halus saat kursor di atas kartu (untuk kartu yang bisa diklik). */
+  hover?: boolean;
+  children: ReactNode;
+}) {
   return (
     <div
       className={cx(
-        "rounded-card border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900",
+        "rounded-card border border-slate-200 bg-white shadow-card dark:border-slate-700/60 dark:bg-slate-900",
+        hover && "transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-lg dark:hover:border-brand-700",
         className,
       )}
     >
@@ -134,11 +151,11 @@ export function Badge({
   children: ReactNode;
 }) {
   const tones = {
-    neutral: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
-    brand: "bg-brand-100 text-brand-800 dark:bg-brand-900 dark:text-brand-200",
-    amber: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
-    red: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-    green: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
+    neutral: "bg-slate-100 text-slate-700 dark:bg-slate-700/60 dark:text-slate-200",
+    brand: "bg-brand-100 text-brand-800 dark:bg-brand-500/20 dark:text-brand-200",
+    amber: "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200",
+    red: "bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-200",
+    green: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200",
   };
   return (
     <span className={cx("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium", tones[tone])}>
