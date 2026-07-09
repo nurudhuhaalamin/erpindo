@@ -1,9 +1,17 @@
 import type { Role } from "@erpindo/shared";
 
+/** Antarmuka minimal Workers AI — binding opsional (hanya terpasang di produksi). */
+export type WorkersAi = {
+  run(model: string, options: Record<string, unknown>): Promise<unknown>;
+};
+
 export type Env = {
   DB: D1Database;
   RATE_KV: KVNamespace;
   ASSETS: Fetcher;
+
+  /** Workers AI (Asisten erpindo). Opsional: absen di dev/CI → endpoint AI membalas 503. */
+  AI?: WorkersAi;
 
   // Pool database tenant untuk mode lokal (lihat wrangler.jsonc).
   TENANT_DB_1?: D1Database;

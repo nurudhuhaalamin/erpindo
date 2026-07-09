@@ -41,6 +41,11 @@
     { "binding": "RATE_KV", "id": "fb7b923a51294221986d0b067a9a7a4c" }
   ],
 
+  // Workers AI (Asisten erpindo) — kuota gratis 10.000 neuron/hari.
+  // Di dev lokal tanpa login Cloudflare, panggilan AI gagal saat runtime dan
+  // API mengubahnya menjadi 503 (degradasi anggun) — lihat routes/ai.ts.
+  "ai": { "binding": "AI" },
+
   "vars": {
     "TENANT_DB_MODE": "local"
   },

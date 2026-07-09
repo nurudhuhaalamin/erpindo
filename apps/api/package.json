@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev -c ../../wrangler.jsonc",
+    "dev": "node ../../scripts/make-dev-config.mjs && wrangler dev -c ../../wrangler.dev.jsonc",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "build": "true",

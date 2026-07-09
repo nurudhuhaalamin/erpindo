@@ -19,6 +19,7 @@ import type {
   ApiContract,
   ApiCurrency,
   ApiDashboard,
+  ApiAiJournalDraft,
   ApiEfakturReport,
   ApiIncomeStatement,
   ApiLead,
@@ -187,6 +188,11 @@ export const api = {
     request<ApiEfakturReport>("GET", `/api/tenants/${tenantId}/reports/efaktur?from=${from}&to=${to}`),
   efakturXml: (tenantId: string, from: string, to: string) =>
     requestText(`/api/tenants/${tenantId}/reports/efaktur-xml?from=${from}&to=${to}`),
+
+  aiChat: (tenantId: string, messages: { role: "user" | "assistant"; content: string }[]) =>
+    request<{ reply: string }>("POST", `/api/tenants/${tenantId}/ai/chat`, { messages }),
+  aiJurnal: (tenantId: string, prompt: string) =>
+    request<{ draft: ApiAiJournalDraft }>("POST", `/api/tenants/${tenantId}/ai/jurnal`, { prompt }),
   stockCard: (tenantId: string, productId: string, warehouseId: string) =>
     request<{ rows: ApiStockCardRow[]; balance: number }>(
       "GET",

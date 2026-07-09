@@ -7,3 +7,4 @@ dist/
 .env.*
 coverage/
 .DS_Store
+wrangler.dev.jsonc

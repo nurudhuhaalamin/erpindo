@@ -5,6 +5,7 @@ import type { AppEnv, Env } from "./env";
 import { getMailer } from "./lib/mailer";
 import { getTenantDb } from "./lib/tenantDb";
 import { accountingRoutes } from "./routes/accounting";
+import { aiRoutes } from "./routes/ai";
 import { assetRoutes, runDepreciation } from "./routes/assets";
 import { authRoutes } from "./routes/auth";
 import { budgetRoutes } from "./routes/budgets";
@@ -52,6 +53,7 @@ const app = new Hono<AppEnv>()
   .route("/api/auth", authRoutes)
   .route("/api/tenants", tenantRoutes)
   .route("/api/tenants", accountingRoutes)
+  .route("/api/tenants", aiRoutes)
   .route("/api/tenants", masterDataRoutes)
   .route("/api/tenants", commerceRoutes)
   .route("/api/tenants", reportRoutes)
