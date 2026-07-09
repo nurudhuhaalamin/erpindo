@@ -1,7 +1,7 @@
 import type { ApiCommerceDoc } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, PackageOpen, Printer } from "lucide-react";
-import { useState } from "react";
+import { FileText, PackageOpen, Printer, Search } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { api, formatDate, formatIDR } from "../api/client";
 import {
   Alert,
@@ -14,6 +14,7 @@ import {
   EmptyState,
   Input,
   Label,
+  SearchSelect,
   Select,
   Spinner,
   useToast,
@@ -45,12 +46,39 @@ const MODE_CFG = {
   },
 };
 
-type DraftLine = { productId: string; qty: string; unitPrice: string; lotNo: string; expiryDate: string };
-const emptyLine = (): DraftLine => ({ productId: "", qty: "1", unitPrice: "", lotNo: "", expiryDate: "" });
+type DraftLine = {
+  productId: string;
+  /** Label produk terpilih (cache dari hasil pencarian) untuk ditampilkan di combobox. */
+  productLabel: string;
+  trackExpiry: boolean;
+  qty: string;
+  unitPrice: string;
+  lotNo: string;
+  expiryDate: string;
+};
+const emptyLine = (): DraftLine => ({
+  productId: "",
+  productLabel: "",
+  trackExpiry: false,
+  qty: "1",
+  unitPrice: "",
+  lotNo: "",
+  expiryDate: "",
+});
 
 type ProductRow = { id: string; sku: string; name: string; sell_price: number; buy_price: number; track_expiry: number };
 type ContactRow = { id: string; name: string; type: string };
 type WarehouseRow = { id: string; name: string };
+
+/** Debounce nilai input (untuk kotak pencarian daftar). */
+export function useDebounced<T>(value: T, ms = 300): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return debounced;
+}
 
 export function CommercePage({ mode }: { mode: Mode }) {
   const cfg = MODE_CFG[mode];
@@ -59,17 +87,16 @@ export function CommercePage({ mode }: { mode: Mode }) {
   const toast = useToast();
   const queryClient = useQueryClient();
 
+  const [docSearch, setDocSearch] = useState("");
+  const docQ = useDebounced(docSearch);
+  const [docLimit, setDocLimit] = useState(100);
   const docsQuery = useQuery({
-    queryKey: [cfg.queryKey, tenant.tenantId],
-    queryFn: () => (mode === "sale" ? api.invoices(tenant.tenantId) : api.purchases(tenant.tenantId)),
-  });
-  const productsQuery = useQuery({
-    queryKey: ["products", tenant.tenantId],
-    queryFn: () => api.listItems<ProductRow>(tenant.tenantId, "products"),
-  });
-  const contactsQuery = useQuery({
-    queryKey: ["contacts", tenant.tenantId],
-    queryFn: () => api.listItems<ContactRow>(tenant.tenantId, "contacts"),
+    queryKey: [cfg.queryKey, tenant.tenantId, docQ, docLimit],
+    queryFn: () =>
+      mode === "sale"
+        ? api.invoices(tenant.tenantId, { q: docQ, limit: docLimit })
+        : api.purchases(tenant.tenantId, { q: docQ, limit: docLimit }),
+    placeholderData: (prev) => prev,
   });
   const warehousesQuery = useQuery({
     queryKey: ["warehouses", tenant.tenantId],
@@ -87,6 +114,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
   const currencies = currenciesQuery.data?.currencies ?? [];
 
   const [contactId, setContactId] = useState("");
+  const [contactLabel, setContactLabel] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [taxRate, setTaxRate] = useState<0 | 11 | 12>(11);
@@ -117,20 +145,37 @@ export function CommercePage({ mode }: { mode: Mode }) {
     onError: (err) => setError((err as Error).message),
   });
 
-  const products = (productsQuery.data?.items ?? []) as ProductRow[];
-  const contacts = ((contactsQuery.data?.items ?? []) as ContactRow[]).filter((k) =>
-    cfg.contactTypes.includes(k.type),
-  );
   const warehouses = (warehousesQuery.data?.items ?? []) as WarehouseRow[];
+
+  // Cache hasil pencarian produk agar pilihan (harga, lacak-exp) tetap tersedia
+  // setelah dropdown ditutup — daftar lengkap tidak pernah dimuat semuanya.
+  const productCache = useRef(new Map<string, ProductRow>());
+
+  async function fetchProductOptions(q: string) {
+    const res = await api.listItems<ProductRow>(tenant.tenantId, "products", { q, limit: 20 });
+    for (const p of res.items) productCache.current.set(p.id, p);
+    return res.items.map((p) => ({
+      value: p.id,
+      label: `${p.sku} · ${p.name}`,
+      hint: formatIDR(p[cfg.priceField] || 0),
+    }));
+  }
+
+  async function fetchContactOptions(q: string) {
+    const res = await api.listItems<ContactRow>(tenant.tenantId, "contacts", { q, limit: 20 });
+    return res.items.filter((k) => cfg.contactTypes.includes(k.type)).map((k) => ({ value: k.id, label: k.name }));
+  }
 
   function setLine(i: number, patch: Partial<DraftLine>) {
     setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
   }
 
-  function pickProduct(i: number, productId: string) {
-    const product = products.find((p) => p.id === productId);
+  function pickProduct(i: number, opt: { value: string; label: string }) {
+    const product = productCache.current.get(opt.value);
     setLine(i, {
-      productId,
+      productId: opt.value,
+      productLabel: opt.label,
+      trackExpiry: product?.track_expiry === 1,
       unitPrice: product ? String(product[cfg.priceField] || "") : "",
     });
   }
@@ -171,14 +216,17 @@ export function CommercePage({ mode }: { mode: Mode }) {
             <div className="grid gap-3 sm:grid-cols-4">
               <div>
                 <Label htmlFor="doc-contact">{cfg.contactLabel}</Label>
-                <Select id="doc-contact" value={contactId} onChange={(e) => setContactId(e.target.value)}>
-                  <option value="">— pilih —</option>
-                  {contacts.map((k) => (
-                    <option key={k.id} value={k.id}>
-                      {k.name}
-                    </option>
-                  ))}
-                </Select>
+                <SearchSelect
+                  id="doc-contact"
+                  value={contactId}
+                  valueLabel={contactLabel}
+                  placeholder={`Cari ${cfg.contactLabel.toLowerCase()}…`}
+                  fetchOptions={fetchContactOptions}
+                  onSelect={(opt) => {
+                    setContactId(opt.value);
+                    setContactLabel(opt.label);
+                  }}
+                />
               </div>
               <div>
                 <Label htmlFor="doc-wh">Gudang</Label>
@@ -248,22 +296,17 @@ export function CommercePage({ mode }: { mode: Mode }) {
 
             <div className="space-y-2">
               {lines.map((line, i) => {
-                const tracked = mode === "purchase" && products.find((p) => p.id === line.productId)?.track_expiry === 1;
+                const tracked = mode === "purchase" && line.trackExpiry;
                 return (
                   <div key={i} className="space-y-2">
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_6rem_10rem_10rem_2.5rem] sm:items-center">
-                      <Select
-                        aria-label={`Produk baris ${i + 1}`}
+                      <SearchSelect
                         value={line.productId}
-                        onChange={(e) => pickProduct(i, e.target.value)}
-                      >
-                        <option value="">— pilih produk —</option>
-                        {products.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.sku} · {p.name}
-                          </option>
-                        ))}
-                      </Select>
+                        valueLabel={line.productLabel}
+                        placeholder="Cari produk (SKU/nama)…"
+                        fetchOptions={fetchProductOptions}
+                        onSelect={(opt) => pickProduct(i, opt)}
+                      />
                       <Input
                         aria-label={`Qty baris ${i + 1}`}
                         type="number"
@@ -355,21 +398,50 @@ export function CommercePage({ mode }: { mode: Mode }) {
 
       <Card>
         <CardHeader title={`Daftar ${cfg.title.toLowerCase()}`} />
-        <CardBody>
+        <CardBody className="space-y-3">
+          <div className="relative sm:max-w-xs">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
+            <Input
+              aria-label={`Cari ${cfg.docLabel.toLowerCase()}`}
+              className="pl-9"
+              placeholder="Cari no. dokumen / nama kontak…"
+              value={docSearch}
+              onChange={(e) => {
+                setDocSearch(e.target.value);
+                setDocLimit(100);
+              }}
+            />
+          </div>
           {docsQuery.isLoading ? (
             <Spinner />
           ) : (docsQuery.data?.docs.length ?? 0) === 0 ? (
             <EmptyState
               icon={<FileText className="size-6" aria-hidden />}
-              title={`Belum ada ${cfg.docLabel.toLowerCase()}`}
-              description="Dokumen yang Anda posting akan muncul di sini beserta status pembayarannya."
+              title={docQ ? "Tidak ada dokumen yang cocok" : `Belum ada ${cfg.docLabel.toLowerCase()}`}
+              description={
+                docQ
+                  ? "Coba kata kunci lain — pencarian mencocokkan nomor dokumen dan nama kontak."
+                  : "Dokumen yang Anda posting akan muncul di sini beserta status pembayarannya."
+              }
             />
           ) : (
-            <div className="space-y-3">
-              {docsQuery.data!.docs.map((doc) => (
-                <DocRow key={doc.id} doc={doc} mode={mode} isAdmin={isAdmin} />
-              ))}
-            </div>
+            <>
+              <div className="space-y-3">
+                {docsQuery.data!.docs.map((doc) => (
+                  <DocRow key={doc.id} doc={doc} mode={mode} isAdmin={isAdmin} />
+                ))}
+              </div>
+              {(docsQuery.data?.total ?? 0) > (docsQuery.data?.docs.length ?? 0) ? (
+                <div className="flex items-center justify-center gap-3 pt-1">
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    Menampilkan {docsQuery.data!.docs.length} dari {docsQuery.data!.total}
+                  </span>
+                  <Button variant="secondary" className="h-8" onClick={() => setDocLimit((l) => Math.min(l + 100, 500))}>
+                    Muat lebih banyak
+                  </Button>
+                </div>
+              ) : null}
+            </>
           )}
         </CardBody>
       </Card>

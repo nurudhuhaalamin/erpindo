@@ -13,6 +13,7 @@ import {
   EmptyState,
   Input,
   Label,
+  SearchSelect,
   Select,
   Spinner,
   useToast,
@@ -21,7 +22,7 @@ import { useWorkspace } from "./app";
 
 type ProductRow = { id: string; sku: string; name: string; unit?: string; is_service?: number };
 type WarehouseRow = { id: string; name: string };
-type CompLine = { componentId: string; qty: string };
+type CompLine = { componentId: string; componentLabel: string; qty: string };
 
 const QC_TONE = { none: "neutral", pending: "amber", passed: "green", quarantined: "red" } as const;
 const QC_LABEL = { none: "—", pending: "menunggu QC", passed: "lulus QC", quarantined: "karantina" } as const;
@@ -37,18 +38,21 @@ export function ManufacturingPage() {
     queryKey: ["production-orders", tenant.tenantId],
     queryFn: () => api.productionOrders(tenant.tenantId),
   });
-  const productsQuery = useQuery({
-    queryKey: ["products", tenant.tenantId],
-    queryFn: () => api.listItems<ProductRow>(tenant.tenantId, "products"),
-  });
   const warehousesQuery = useQuery({
     queryKey: ["warehouses", tenant.tenantId],
     queryFn: () => api.listItems<WarehouseRow>(tenant.tenantId, "warehouses"),
   });
 
-  const products = ((productsQuery.data?.items ?? []) as ProductRow[]).filter((p) => !p.is_service);
   const warehouses = (warehousesQuery.data?.items ?? []) as WarehouseRow[];
   const boms = bomsQuery.data?.boms ?? [];
+
+  // Produk dicari on-type (jasa dikecualikan — BoM hanya untuk barang berstok).
+  async function fetchGoodsOptions(q: string, excludeId?: string) {
+    const res = await api.listItems<ProductRow>(tenant.tenantId, "products", { q, limit: 20 });
+    return res.items
+      .filter((p) => !p.is_service && p.id !== excludeId)
+      .map((p) => ({ value: p.id, label: `${p.sku} · ${p.name}` }));
+  }
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["boms", tenant.tenantId] });
@@ -58,8 +62,9 @@ export function ManufacturingPage() {
 
   // --- Form BoM --------------------------------------------------------------
   const [bomProduct, setBomProduct] = useState("");
+  const [bomProductLabel, setBomProductLabel] = useState("");
   const [outputQty, setOutputQty] = useState("1");
-  const [comps, setComps] = useState<CompLine[]>([{ componentId: "", qty: "1" }]);
+  const [comps, setComps] = useState<CompLine[]>([{ componentId: "", componentLabel: "", qty: "1" }]);
   const [bomError, setBomError] = useState<string | null>(null);
 
   const saveBom = useMutation({
@@ -74,8 +79,9 @@ export function ManufacturingPage() {
     onSuccess: () => {
       toast("success", "Resep (BoM) disimpan.");
       setBomProduct("");
+      setBomProductLabel("");
       setOutputQty("1");
-      setComps([{ componentId: "", qty: "1" }]);
+      setComps([{ componentId: "", componentLabel: "", qty: "1" }]);
       setBomError(null);
       invalidate();
     },
@@ -147,14 +153,17 @@ export function ManufacturingPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="bom-product">Produk jadi</Label>
-                  <Select id="bom-product" value={bomProduct} onChange={(e) => setBomProduct(e.target.value)}>
-                    <option value="">— pilih —</option>
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </Select>
+                  <SearchSelect
+                    id="bom-product"
+                    value={bomProduct}
+                    valueLabel={bomProductLabel}
+                    placeholder="Cari produk…"
+                    fetchOptions={(q) => fetchGoodsOptions(q)}
+                    onSelect={(opt) => {
+                      setBomProduct(opt.value);
+                      setBomProductLabel(opt.label);
+                    }}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="bom-output">Hasil per resep</Label>
@@ -172,22 +181,19 @@ export function ManufacturingPage() {
                 <Label>Komponen</Label>
                 {comps.map((line, i) => (
                   <div key={i} className="flex items-center gap-2">
-                    <Select
-                      className="flex-1"
-                      value={line.componentId}
-                      onChange={(e) =>
-                        setComps((cs) => cs.map((c, j) => (j === i ? { ...c, componentId: e.target.value } : c)))
-                      }
-                    >
-                      <option value="">— komponen —</option>
-                      {products
-                        .filter((p) => p.id !== bomProduct)
-                        .map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                    </Select>
+                    <div className="flex-1">
+                      <SearchSelect
+                        value={line.componentId}
+                        valueLabel={line.componentLabel}
+                        placeholder="Cari komponen…"
+                        fetchOptions={(q) => fetchGoodsOptions(q, bomProduct)}
+                        onSelect={(opt) =>
+                          setComps((cs) =>
+                            cs.map((c, j) => (j === i ? { ...c, componentId: opt.value, componentLabel: opt.label } : c)),
+                          )
+                        }
+                      />
+                    </div>
                     <Input
                       type="number"
                       min={1}
@@ -209,7 +215,7 @@ export function ManufacturingPage() {
                 <Button
                   variant="secondary"
                   className="h-8"
-                  onClick={() => setComps((cs) => [...cs, { componentId: "", qty: "1" }])}
+                  onClick={() => setComps((cs) => [...cs, { componentId: "", componentLabel: "", qty: "1" }])}
                 >
                   <Plus className="size-4" aria-hidden /> Tambah komponen
                 </Button>
@@ -233,13 +239,11 @@ export function ManufacturingPage() {
                 <Label htmlFor="ord-product">Produk (harus punya resep)</Label>
                 <Select id="ord-product" value={ordProduct} onChange={(e) => setOrdProduct(e.target.value)}>
                   <option value="">— pilih —</option>
-                  {products
-                    .filter((p) => bomProducts.has(p.id))
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
+                  {boms.map((b) => (
+                    <option key={b.productId} value={b.productId}>
+                      {b.productSku} · {b.productName}
+                    </option>
+                  ))}
                 </Select>
               </div>
               <div className="grid grid-cols-2 gap-3">

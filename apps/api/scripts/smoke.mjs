@@ -2066,6 +2066,78 @@ try {
   const vdTb3 = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang di akhir seksi void", vdTb3.json?.balanced === true);
 
+  // --- Pencarian & pagination (Fase 3c) --------------------------------------------
+  console.log("11t. Pencarian & pagination (master data, dokumen, jurnal)");
+
+  const searchVd = await owner("GET", `/api/tenants/${tenantId}/products?q=VD-`);
+  check(
+    "cari produk ?q=VD- → 3 hasil, semua ber-SKU VD-",
+    searchVd.status === 200 && searchVd.json?.total === 3 && searchVd.json.items.every((p) => p.sku.startsWith("VD-")),
+    `→ total ${searchVd.json?.total}`,
+  );
+  const searchWildcard = await owner("GET", `/api/tenants/${tenantId}/products?q=${encodeURIComponent("%")}`);
+  check("wildcard '%' dicari sebagai literal (0 hasil)", searchWildcard.status === 200 && searchWildcard.json?.total === 0);
+
+  const page1 = await owner("GET", `/api/tenants/${tenantId}/products?limit=2`);
+  const page2 = await owner("GET", `/api/tenants/${tenantId}/products?limit=2&offset=2`);
+  check(
+    "pagination produk: limit=2 memberi 2 baris, offset=2 memberi baris berbeda, total konsisten",
+    page1.json?.items?.length === 2 &&
+      page1.json?.total > 2 &&
+      page2.json?.items?.length === 2 &&
+      page1.json.items[0].id !== page2.json.items[0].id &&
+      page2.json.total === page1.json.total,
+  );
+  const bigLimit = await owner("GET", `/api/tenants/${tenantId}/products?limit=9999`);
+  check("limit di-clamp maksimal 500", bigLimit.status === 200 && bigLimit.json?.limit === 500);
+
+  const searchContact = await owner("GET", `/api/tenants/${tenantId}/contacts?q=Kena Pajak`);
+  check(
+    "cari kontak ?q=Kena Pajak → PT Kena Pajak ditemukan",
+    searchContact.status === 200 && searchContact.json?.total === 1 && searchContact.json.items[0]?.name === "PT Kena Pajak",
+  );
+
+  const searchInv = await owner("GET", `/api/tenants/${tenantId}/invoices?q=INV-00001`);
+  check(
+    "cari faktur ?q=INV-00001 → tepat 1 dokumen",
+    searchInv.status === 200 && searchInv.json?.total === 1 && searchInv.json.docs[0]?.docNo === "INV-00001",
+    `→ ${JSON.stringify({ total: searchInv.json?.total })}`,
+  );
+  const searchInvByContact = await owner("GET", `/api/tenants/${tenantId}/invoices?q=${encodeURIComponent("Kena Pajak")}`);
+  check(
+    "cari faktur berdasarkan nama kontak → semua milik PT Kena Pajak",
+    searchInvByContact.json?.total >= 1 && searchInvByContact.json.docs.every((d) => d.contactName === "PT Kena Pajak"),
+  );
+  const invPage = await owner("GET", `/api/tenants/${tenantId}/invoices?limit=1`);
+  check("pagination faktur: limit=1 → 1 dokumen, total > 1", invPage.json?.docs?.length === 1 && invPage.json?.total > 1);
+
+  const searchJrn = await owner("GET", `/api/tenants/${tenantId}/journal-entries?q=Pembatalan`);
+  check(
+    "cari jurnal ?q=Pembatalan → ≥3 jurnal pembalik void, semuanya cocok",
+    searchJrn.status === 200 &&
+      searchJrn.json?.total >= 3 &&
+      searchJrn.json.entries.every((e) => (e.memo ?? "").includes("Pembatalan")),
+    `→ total ${searchJrn.json?.total}`,
+  );
+  const jrnPage = await owner("GET", `/api/tenants/${tenantId}/journal-entries?limit=1&offset=1`);
+  check("pagination jurnal: limit=1&offset=1 → 1 entri, total banyak", jrnPage.json?.entries?.length === 1 && jrnPage.json?.total > 1);
+
+  const viewerSearch = await viewer("GET", `/api/tenants/${tenantId}/products?q=VD-001`);
+  check("viewer boleh mencari (200)", viewerSearch.status === 200 && viewerSearch.json?.total === 1);
+
+  // Alur nyata: temukan produk lewat pencarian → langsung difakturkan.
+  const foundProduct = viewerSearch.json?.items?.[0] ?? searchVd.json.items.find((p) => p.sku === "VD-001");
+  const invFromSearch = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id,
+    invoiceDate: "2026-08-15",
+    taxRate: 0,
+    warehouseId: whUtama.id,
+    lines: [{ productId: foundProduct.id, qty: 1, unitPrice: 80_000 }],
+  });
+  check("faktur dengan produk hasil pencarian diposting (80.000)", invFromSearch.status === 201 && invFromSearch.json?.total === 80_000, `→ ${JSON.stringify(invFromSearch.json)}`);
+  const tbAfterSearchFlow = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah alur pencarian→faktur", tbAfterSearchFlow.json?.balanced === true);
+
   // --- Arus kas (Fase 2b-1) -------------------------------------------------------
   console.log("12. Arus kas");
   // Konteks: modal 50jt (2/7) + penjualan tunai 2,5jt (3/7) + terima pembayaran 499,5rb (5/7)

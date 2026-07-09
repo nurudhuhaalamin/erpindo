@@ -18,6 +18,8 @@ type EntityConfig<S extends z.ZodTypeAny> = {
   auditPrefix: string;
   schema: S;
   uniqueField?: { column: string; input: string };
+  /** Kolom yang dicari saat parameter ?q= diisi (LIKE, case-insensitive). */
+  searchColumns: string[];
   toRow: (input: z.infer<S>) => Record<string, string | number | null>;
 };
 
@@ -26,12 +28,32 @@ function crudRoutes<S extends z.ZodTypeAny>(path: string, cfg: EntityConfig<S>) 
     .get(`/:tenantId/${path}`, requireAuth, requireTenantRole("viewer"), async (c) => {
       const db = getTenantDb(c.env, c.get("tenant").dbRef);
       const includeArchived = c.req.query("arsip") === "1";
-      const { results } = await db
-        .prepare(
-          `SELECT * FROM ${cfg.table} ${includeArchived ? "" : "WHERE is_archived = 0"} ORDER BY created_at DESC LIMIT 500`,
-        )
-        .all<Record<string, unknown>>();
-      return c.json({ items: results });
+      const q = (c.req.query("q") ?? "").trim();
+      const limit = Math.min(Math.max(Number(c.req.query("limit")) || 100, 1), 500);
+      const offset = Math.max(Number(c.req.query("offset")) || 0, 0);
+
+      const where: string[] = [];
+      const binds: (string | number)[] = [];
+      if (!includeArchived) where.push("is_archived = 0");
+      if (q) {
+        // Escape wildcard LIKE agar '%'/'_' pada input dicari sebagai literal.
+        const like = `%${q.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+        where.push(`(${cfg.searchColumns.map((col) => `${col} LIKE ? ESCAPE '\\'`).join(" OR ")})`);
+        for (const _ of cfg.searchColumns) binds.push(like);
+      }
+      const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+      const [{ results }, { results: countRows }] = await Promise.all([
+        db
+          .prepare(`SELECT * FROM ${cfg.table} ${whereSql} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+          .bind(...binds, limit, offset)
+          .all<Record<string, unknown>>(),
+        db
+          .prepare(`SELECT COUNT(*) AS n FROM ${cfg.table} ${whereSql}`)
+          .bind(...binds)
+          .all<{ n: number }>(),
+      ]);
+      return c.json({ items: results, total: countRows[0]?.n ?? results.length, limit, offset });
     })
 
     .post(`/:tenantId/${path}`, requireAuth, requireTenantRole("admin"), async (c) => {
@@ -191,6 +213,7 @@ export const masterDataRoutes = new Hono<AppEnv>()
       auditPrefix: "masterdata.product",
       schema: productSchema,
       uniqueField: { column: "sku", input: "SKU" },
+      searchColumns: ["sku", "name"],
       toRow: (p) => ({
         sku: p.sku,
         name: p.name,
@@ -208,6 +231,7 @@ export const masterDataRoutes = new Hono<AppEnv>()
       table: "contacts",
       auditPrefix: "masterdata.contact",
       schema: contactSchema,
+      searchColumns: ["name", "email", "phone"],
       toRow: (k) => ({
         type: k.type,
         name: k.name,
@@ -225,6 +249,7 @@ export const masterDataRoutes = new Hono<AppEnv>()
       auditPrefix: "masterdata.warehouse",
       schema: warehouseSchema,
       uniqueField: { column: "code", input: "Kode" },
+      searchColumns: ["code", "name"],
       toRow: (w) => ({ code: w.code, name: w.name, address: w.address || null }),
     }),
   );

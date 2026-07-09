@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 /**
  * Komponen dasar design system erpindo (gaya shadcn/ui, tanpa dependensi
@@ -174,6 +174,144 @@ export function EmptyState({
       <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{title}</div>
       {description ? <p className="max-w-sm text-sm text-slate-500 dark:text-slate-400">{description}</p> : null}
       {children}
+    </div>
+  );
+}
+
+// --- SearchSelect (combobox typeahead) ------------------------------------------------
+
+export type SearchSelectOption = { value: string; label: string; hint?: string };
+
+/**
+ * Combobox ringan untuk data berskala: opsi di-fetch saat mengetik (debounce),
+ * bukan dirender semua — produk ke-501+ tetap bisa dipilih. Keyboard: ↑/↓
+ * memindah sorotan, Enter memilih, Escape menutup.
+ */
+export function SearchSelect({
+  id,
+  value,
+  valueLabel,
+  placeholder = "Ketik untuk mencari…",
+  disabled,
+  fetchOptions,
+  onSelect,
+}: {
+  id?: string;
+  /** Nilai terpilih saat ini ("" bila belum ada). */
+  value: string;
+  /** Label nilai terpilih — ditampilkan saat combobox tertutup. */
+  valueLabel: string;
+  placeholder?: string;
+  disabled?: boolean;
+  /** Dipanggil (ter-debounce) dengan teks pencarian; kembalikan daftar opsi. */
+  fetchOptions: (q: string) => Promise<SearchSelectOption[]>;
+  onSelect: (option: SearchSelectOption) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [options, setOptions] = useState<SearchSelectOption[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [highlight, setHighlight] = useState(0);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const fetchRef = useRef(fetchOptions);
+  fetchRef.current = fetchOptions;
+
+  useEffect(() => {
+    if (!open) return;
+    setLoading(true);
+    const seq = setTimeout(async () => {
+      try {
+        const opts = await fetchRef.current(query.trim());
+        setOptions(opts);
+        setHighlight(0);
+      } catch {
+        setOptions([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 250);
+    return () => clearTimeout(seq);
+  }, [query, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener("pointerdown", onDown);
+    return () => window.removeEventListener("pointerdown", onDown);
+  }, [open]);
+
+  function choose(opt: SearchSelectOption) {
+    onSelect(opt);
+    setQuery("");
+    setOpen(false);
+  }
+
+  return (
+    <div ref={rootRef} className="relative">
+      <Input
+        id={id}
+        role="combobox"
+        aria-expanded={open}
+        aria-autocomplete="list"
+        disabled={disabled}
+        placeholder={value ? undefined : placeholder}
+        value={open ? query : valueLabel}
+        onFocus={() => {
+          setOpen(true);
+          setQuery("");
+        }}
+        onChange={(e) => {
+          if (!open) setOpen(true);
+          setQuery(e.target.value);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") setOpen(false);
+          if (!open) return;
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setHighlight((h) => Math.min(h + 1, options.length - 1));
+          }
+          if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setHighlight((h) => Math.max(h - 1, 0));
+          }
+          if (e.key === "Enter") {
+            e.preventDefault();
+            const opt = options[highlight];
+            if (opt) choose(opt);
+          }
+        }}
+      />
+      {open ? (
+        <div className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+          {loading ? (
+            <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">Mencari…</div>
+          ) : options.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">Tidak ada hasil.</div>
+          ) : (
+            options.map((opt, i) => (
+              <button
+                key={opt.value}
+                type="button"
+                className={cx(
+                  "flex w-full items-baseline justify-between gap-3 px-3 py-2 text-left text-sm",
+                  i === highlight
+                    ? "bg-brand-50 text-brand-800 dark:bg-brand-600/20 dark:text-brand-100"
+                    : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800",
+                  opt.value === value && "font-semibold",
+                )}
+                onMouseEnter={() => setHighlight(i)}
+                onClick={() => choose(opt)}
+              >
+                <span className="truncate">{opt.label}</span>
+                {opt.hint ? <span className="shrink-0 text-xs text-slate-400">{opt.hint}</span> : null}
+              </button>
+            ))
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

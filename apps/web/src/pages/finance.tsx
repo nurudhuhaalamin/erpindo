@@ -5,8 +5,10 @@ import {
   type ApiAccount,
 } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Search } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { api, formatDate, formatIDR } from "../api/client";
+import { useDebounced } from "./commerce";
 import {
   Alert,
   Badge,
@@ -217,9 +219,13 @@ export function JournalPage() {
     queryKey: ["accounts", tenant.tenantId],
     queryFn: () => api.accounts(tenant.tenantId),
   });
+  const [entrySearch, setEntrySearch] = useState("");
+  const entryQ = useDebounced(entrySearch);
+  const [entryLimit, setEntryLimit] = useState(100);
   const entriesQuery = useQuery({
-    queryKey: ["journal", tenant.tenantId],
-    queryFn: () => api.journalEntries(tenant.tenantId),
+    queryKey: ["journal", tenant.tenantId, entryQ, entryLimit],
+    queryFn: () => api.journalEntries(tenant.tenantId, { q: entryQ, limit: entryLimit }),
+    placeholderData: (prev) => prev,
   });
   const projectsQuery = useQuery({
     queryKey: ["projects", tenant.tenantId],
@@ -382,11 +388,26 @@ export function JournalPage() {
 
       <Card>
         <CardHeader title="Jurnal terposting" />
-        <CardBody>
+        <CardBody className="space-y-3">
+          <div className="relative sm:max-w-xs">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
+            <Input
+              aria-label="Cari jurnal"
+              className="pl-9"
+              placeholder="Cari no. jurnal / keterangan…"
+              value={entrySearch}
+              onChange={(e) => {
+                setEntrySearch(e.target.value);
+                setEntryLimit(100);
+              }}
+            />
+          </div>
           {entriesQuery.isLoading ? (
             <Spinner />
           ) : (entriesQuery.data?.entries.length ?? 0) === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada jurnal.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {entryQ ? "Tidak ada jurnal yang cocok dengan pencarian." : "Belum ada jurnal."}
+            </p>
           ) : (
             <div className="space-y-4">
               {entriesQuery.data!.entries.map((e) => (
@@ -416,6 +437,16 @@ export function JournalPage() {
                   </div>
                 </div>
               ))}
+              {(entriesQuery.data?.total ?? 0) > (entriesQuery.data?.entries.length ?? 0) ? (
+                <div className="flex items-center justify-center gap-3">
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    Menampilkan {entriesQuery.data!.entries.length} dari {entriesQuery.data!.total}
+                  </span>
+                  <Button variant="secondary" className="h-8" onClick={() => setEntryLimit((l) => Math.min(l + 100, 500))}>
+                    Muat lebih banyak
+                  </Button>
+                </div>
+              ) : null}
             </div>
           )}
         </CardBody>
