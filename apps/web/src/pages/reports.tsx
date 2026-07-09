@@ -2,8 +2,8 @@ import { AGING_BUCKETS, AGING_BUCKET_LABELS, type ApiReportLine } from "@erpindo
 import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { useState } from "react";
-import { api, downloadCsv, formatDate, formatIDR } from "../api/client";
-import { Badge, Button, Card, CardBody, CardHeader, Input, Label, Select, Spinner } from "../components/ui";
+import { api, downloadCsv, downloadXml, formatDate, formatIDR } from "../api/client";
+import { Badge, Button, Card, CardBody, CardHeader, Input, Label, Select, Spinner, useToast } from "../components/ui";
 import { useWorkspace } from "./app";
 
 export function ExportButton({ onClick, label = "Ekspor CSV" }: { onClick: () => void; label?: string }) {
@@ -315,14 +315,29 @@ export function AgingPage() {
 
 export function EfakturPage() {
   const { tenant } = useWorkspace();
+  const toast = useToast();
   const [from, setFrom] = useState(monthStart);
   const [to, setTo] = useState(today);
+  const [xmlBusy, setXmlBusy] = useState(false);
 
   const query = useQuery({
     queryKey: ["efaktur", tenant.tenantId, from, to],
     queryFn: () => api.efaktur(tenant.tenantId, from, to),
     enabled: Boolean(from && to),
   });
+
+  async function downloadCoretaxXml() {
+    setXmlBusy(true);
+    try {
+      const xml = await api.efakturXml(tenant.tenantId, from, to);
+      downloadXml(`efaktur-coretax-${from}-sd-${to}.xml`, xml);
+      toast("success", "XML Coretax terunduh — impor lewat menu e-Faktur → Impor Faktur Keluaran.");
+    } catch (err) {
+      toast("error", (err as Error).message);
+    } finally {
+      setXmlBusy(false);
+    }
+  }
 
   const th = "pb-2 pr-4 text-left font-medium text-slate-500 dark:text-slate-400";
   const td = "border-b border-slate-100 py-2 pr-4 dark:border-slate-800/60";
@@ -333,28 +348,35 @@ export function EfakturPage() {
         <h1 className="text-2xl font-semibold">Ekspor e-Faktur</h1>
       <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Rekap faktur keluaran ber-PPN per periode — siap diunduh untuk pelaporan pajak.</p>
         {query.data && query.data.rows.length > 0 ? (
-          <ExportButton
-            onClick={() =>
-              downloadCsv(
-                `e-faktur-${from}-${to}.csv`,
-                ["Nomor Faktur", "Tanggal", "NPWP Pembeli", "Nama Pembeli", "DPP", "PPN", "Total"],
-                query.data!.rows.map((r) => [
-                  r.invoiceNo,
-                  r.invoiceDate,
-                  r.buyerNpwp ?? "000000000000000",
-                  r.buyerName,
-                  r.dpp,
-                  r.ppn,
-                  r.total,
-                ]),
-              )
-            }
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button className="h-9" onClick={downloadCoretaxXml} disabled={xmlBusy}>
+              <Download className="size-4" aria-hidden /> {xmlBusy ? "Menyiapkan…" : "Unduh XML Coretax"}
+            </Button>
+            <ExportButton
+              onClick={() =>
+                downloadCsv(
+                  `e-faktur-${from}-${to}.csv`,
+                  ["Nomor Faktur", "Tanggal", "NPWP Pembeli", "Nama Pembeli", "DPP", "PPN", "Total"],
+                  query.data!.rows.map((r) => [
+                    r.invoiceNo,
+                    r.invoiceDate,
+                    r.buyerNpwp ?? "000000000000000",
+                    r.buyerName,
+                    r.dpp,
+                    r.ppn,
+                    r.total,
+                  ]),
+                )
+              }
+            />
+          </div>
         ) : null}
       </div>
       <p className="text-sm text-slate-500 dark:text-slate-400">
-        Daftar faktur penjualan ber-PPN pada periode terpilih, siap diekspor CSV untuk diimpor ke aplikasi e-Faktur.
-        Pembeli tanpa NPWP diekspor sebagai <span className="font-mono">000000000000000</span>.
+        Sejak 2025 Coretax DJP menerima impor faktur keluaran dalam format <strong>XML</strong> — unduh XML Coretax
+        lalu impor di menu e-Faktur Coretax. Faktur non-mewah memakai kode transaksi 04 dengan DPP nilai lain (11/12);
+        NPWP perusahaan diambil dari Pengaturan. CSV tetap tersedia sebagai rekap. Pembeli tanpa NPWP diekspor sebagai{" "}
+        <span className="font-mono">0000000000000000</span>.
       </p>
 
       <Card>

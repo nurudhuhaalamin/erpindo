@@ -10,7 +10,7 @@ const AUTH_BENEFITS = [
   "Pembukuan double-entry otomatis dari faktur, kasir, sampai penggajian",
   "Siap pajak Indonesia: PPN 11/12%, PPh 21 TER, dan ekspor e-Faktur",
   "Database terpisah untuk tiap perusahaan — data Anda benar-benar terisolasi",
-  "360+ uji otomatis menjaga setiap rilis; angka pembukuan selalu seimbang",
+  "380+ uji otomatis menjaga setiap rilis; angka pembukuan selalu seimbang",
 ];
 
 /**

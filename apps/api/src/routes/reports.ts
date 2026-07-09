@@ -21,6 +21,26 @@ import { requireAuth, requireTenantRole } from "../middleware/auth";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** NPWP → TIN 16 digit Coretax: buang non-digit; 15 digit lama diberi awalan 0. */
+function tin16(raw: string | null): string {
+  const digits = (raw ?? "").replace(/\D/g, "");
+  if (digits.length === 16) return digits;
+  if (digits.length === 15) return `0${digits}`;
+  return "";
+}
+
+const XML_ENTITIES: Record<string, string> = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&apos;",
+};
+
+function xmlEscape(s: string): string {
+  return s.replace(/[&<>"']/g, (ch) => XML_ENTITIES[ch] ?? ch);
+}
+
 export const reportRoutes = new Hono<AppEnv>()
 
   // -------------------------------------------------------------------------
@@ -153,6 +173,146 @@ export const reportRoutes = new Hono<AppEnv>()
       totalPpn: rows.reduce((s, r) => s + r.ppn, 0),
     };
     return c.json(body);
+  })
+
+  // -------------------------------------------------------------------------
+  // Ekspor e-Faktur XML Coretax (TaxInvoiceBulk) — sejak 2025 DJP hanya
+  // menerima XML untuk impor faktur keluaran. Non-mewah (tarif efektif 11%,
+  // PMK 131/2024) memakai kode transaksi 04 dengan DPP nilai lain = 11/12 ×
+  // nilai setelah diskon; tarif 12 penuh (mewah) memakai kode 01. Elemen
+  // CustomDocMonthYear wajib ada sejak skema Coretax Feb 2025.
+  // -------------------------------------------------------------------------
+  .get("/:tenantId/reports/efaktur-xml", requireAuth, requireTenantRole("viewer"), async (c) => {
+    const from = c.req.query("from") ?? "";
+    const to = c.req.query("to") ?? "";
+    if (!DATE_RE.test(from) || !DATE_RE.test(to)) {
+      return c.json({ error: "Parameter from/to wajib berformat YYYY-MM-DD." }, 400);
+    }
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+
+    const { results: npwpRows } = await db
+      .prepare(`SELECT value FROM settings WHERE key = 'npwp'`)
+      .all<{ value: string }>();
+    const sellerTin = tin16(npwpRows[0]?.value ?? null);
+    if (!sellerTin) {
+      return c.json({ error: "Isi NPWP perusahaan (15/16 digit) di halaman Pengaturan terlebih dulu." }, 400);
+    }
+
+    const { results: docs } = await db
+      .prepare(
+        `SELECT i.id, i.invoice_no, i.invoice_date, i.tax_rate, i.exchange_rate,
+                k.name AS buyer_name, k.npwp AS buyer_npwp, k.address AS buyer_address
+         FROM invoices i JOIN contacts k ON k.id = i.contact_id
+         WHERE i.tax_amount > 0 AND i.voided_at IS NULL AND i.invoice_date >= ? AND i.invoice_date <= ?
+         ORDER BY i.invoice_date, i.invoice_no`,
+      )
+      .bind(from, to)
+      .all<{
+        id: string;
+        invoice_no: string;
+        invoice_date: string;
+        tax_rate: number;
+        exchange_rate: number;
+        buyer_name: string;
+        buyer_npwp: string | null;
+        buyer_address: string | null;
+      }>();
+
+    type XmlLine = {
+      invoice_id: string;
+      description: string | null;
+      qty: number;
+      unit_price: number;
+      discount_pct: number;
+      product_name: string;
+      is_service: number;
+    };
+    let lines: XmlLine[] = [];
+    if (docs.length > 0) {
+      const ph = docs.map(() => "?").join(",");
+      const res = await db
+        .prepare(
+          `SELECT il.invoice_id, il.description, il.qty, il.unit_price, il.discount_pct,
+                  p.name AS product_name, p.is_service
+           FROM invoice_lines il JOIN products p ON p.id = il.product_id
+           WHERE il.invoice_id IN (${ph}) ORDER BY il.rowid`,
+        )
+        .bind(...docs.map((d) => d.id))
+        .all<XmlLine>();
+      lines = res.results;
+    }
+    const linesByDoc = new Map<string, XmlLine[]>();
+    for (const l of lines) {
+      const arr = linesByDoc.get(l.invoice_id) ?? [];
+      arr.push(l);
+      linesByDoc.set(l.invoice_id, arr);
+    }
+
+    const out: string[] = [
+      `<?xml version="1.0" encoding="utf-8"?>`,
+      `<TaxInvoiceBulk xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">`,
+      `  <TIN>${sellerTin}</TIN>`,
+      `  <ListOfTaxInvoice>`,
+    ];
+    for (const d of docs) {
+      // Pembeli tanpa NPWP valid diekspor sebagai 16 digit nol (lawan transaksi umum).
+      const buyerTin = tin16(d.buyer_npwp) || "0000000000000000";
+      const trxCode = d.tax_rate === 12 ? "01" : "04";
+      out.push(
+        `    <TaxInvoice>`,
+        `      <TaxInvoiceDate>${d.invoice_date}</TaxInvoiceDate>`,
+        `      <TaxInvoiceOpt>Normal</TaxInvoiceOpt>`,
+        `      <TrxCode>${trxCode}</TrxCode>`,
+        `      <AddInfo/>`,
+        `      <CustomDoc/>`,
+        `      <CustomDocMonthYear/>`,
+        `      <RefDesc>${xmlEscape(d.invoice_no)}</RefDesc>`,
+        `      <FacilityStamp/>`,
+        `      <SellerIDTKU>${sellerTin}000000</SellerIDTKU>`,
+        `      <BuyerTin>${buyerTin}</BuyerTin>`,
+        `      <BuyerDocument>TIN</BuyerDocument>`,
+        `      <BuyerCountry>IDN</BuyerCountry>`,
+        `      <BuyerDocumentNumber/>`,
+        `      <BuyerName>${xmlEscape(d.buyer_name)}</BuyerName>`,
+        `      <BuyerAdress>${xmlEscape(d.buyer_address?.trim() || "-")}</BuyerAdress>`,
+        `      <BuyerEmail/>`,
+        `      <BuyerIDTKU>${buyerTin}000000</BuyerIDTKU>`,
+        `      <ListOfGoodService>`,
+      );
+      for (const l of linesByDoc.get(d.id) ?? []) {
+        // Reproduksi persis perhitungan posting: harga satuan dikonversi ke IDR,
+        // lalu nilai baris dibulatkan setelah diskon — jumlah TaxBase = subtotal faktur.
+        const unitIdr = Math.round(l.unit_price * d.exchange_rate);
+        const taxBase = Math.round(l.qty * unitIdr * (1 - l.discount_pct / 100));
+        const totalDiscount = unitIdr * l.qty - taxBase;
+        const otherTaxBase = d.tax_rate === 12 ? taxBase : Math.round((taxBase * 11 * 100) / 12) / 100;
+        const vat = Math.round(otherTaxBase * 12) / 100;
+        out.push(
+          `        <GoodService>`,
+          `          <Opt>${l.is_service ? "B" : "A"}</Opt>`,
+          `          <Code>000000</Code>`,
+          `          <Name>${xmlEscape(l.description?.trim() || l.product_name)}</Name>`,
+          `          <Unit>UM.0018</Unit>`,
+          `          <Price>${unitIdr.toFixed(2)}</Price>`,
+          `          <Qty>${l.qty}</Qty>`,
+          `          <TotalDiscount>${totalDiscount.toFixed(2)}</TotalDiscount>`,
+          `          <TaxBase>${taxBase.toFixed(2)}</TaxBase>`,
+          `          <OtherTaxBase>${otherTaxBase.toFixed(2)}</OtherTaxBase>`,
+          `          <VATRate>12</VATRate>`,
+          `          <VAT>${vat.toFixed(2)}</VAT>`,
+          `          <STLGRate>0</STLGRate>`,
+          `          <STLG>0</STLG>`,
+          `        </GoodService>`,
+        );
+      }
+      out.push(`      </ListOfGoodService>`, `    </TaxInvoice>`);
+    }
+    out.push(`  </ListOfTaxInvoice>`, `</TaxInvoiceBulk>`, ``);
+
+    return c.body(out.join("\n"), 200, {
+      "Content-Type": "application/xml; charset=utf-8",
+      "Content-Disposition": `attachment; filename="efaktur-coretax-${from}-sd-${to}.xml"`,
+    });
   })
 
   // -------------------------------------------------------------------------

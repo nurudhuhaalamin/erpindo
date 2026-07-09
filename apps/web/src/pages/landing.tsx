@@ -38,7 +38,7 @@ const FEATURE_GROUPS: { icon: LucideIcon; title: string; desc: string }[] = [
 
 const STATS = [
   { value: "40+", label: "modul bisnis siap pakai" },
-  { value: "360+", label: "uji otomatis tiap rilis" },
+  { value: "380+", label: "uji otomatis tiap rilis" },
   { value: "1 DB", label: "terpisah tiap perusahaan" },
   { value: "PPN · PPh 21 · e-Faktur", label: "standar pajak Indonesia" },
 ];
