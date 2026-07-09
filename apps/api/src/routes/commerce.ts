@@ -108,7 +108,7 @@ async function listDocs(
   const { results: lines } = await db
     .prepare(
       `SELECT l.id, l.${cfg.fk} AS doc_id, l.product_id, p.name AS product_name,
-              l.description, l.qty, l.unit_price, l.amount
+              l.description, l.qty, l.unit_price, l.discount_pct, l.amount
        FROM ${cfg.lineTable} l JOIN products p ON p.id = l.product_id
        WHERE l.${cfg.fk} IN (${docs.map(() => "?").join(",")})`,
     )
@@ -121,6 +121,7 @@ async function listDocs(
       description: string | null;
       qty: number;
       unit_price: number;
+      discount_pct: number;
       amount: number;
     }>();
 
@@ -134,6 +135,7 @@ async function listDocs(
       description: l.description,
       qty: l.qty,
       unitPrice: l.unit_price,
+      discountPct: l.discount_pct,
       amount: l.amount,
     });
     byDoc.set(l.doc_id, list);
@@ -259,11 +261,17 @@ async function executePurchase(
   const cur = await resolveCurrency(db, input.currency, input.exchangeRate);
   if ("error" in cur) return { error: cur.error };
 
+  // Nilai baris = qty × harga × (1 − diskon/100), dibulatkan per baris; PPN &
+  // jurnal mengikuti nilai setelah diskon.
   const idrLines = input.lines.map((l) => {
+    const disc = l.discountPct ?? 0;
     const unitIdr = Math.round(l.unitPrice * cur.rate);
-    return { ...l, unitIdr, amountIdr: l.qty * unitIdr };
+    return { ...l, disc, unitIdr, amountIdr: Math.round(l.qty * unitIdr * (1 - disc / 100)) };
   });
-  const foreignSubtotal = input.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
+  const foreignSubtotal = input.lines.reduce(
+    (s, l) => s + Math.round(l.qty * l.unitPrice * (1 - (l.discountPct ?? 0) / 100)),
+    0,
+  );
   const foreignTotal = foreignSubtotal + Math.round((foreignSubtotal * input.taxRate) / 100);
   const subtotal = idrLines.reduce((s, l) => s + l.amountIdr, 0);
   const taxAmount = Math.round((subtotal * input.taxRate) / 100);
@@ -317,8 +325,8 @@ async function executePurchase(
   for (const line of idrLines) {
     await db
       .prepare(
-        `INSERT INTO purchase_lines (id, purchase_id, product_id, description, qty, unit_price, amount)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO purchase_lines (id, purchase_id, product_id, description, qty, unit_price, discount_pct, amount)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         crypto.randomUUID(),
@@ -327,14 +335,16 @@ async function executePurchase(
         line.description ?? null,
         line.qty,
         line.unitPrice,
-        line.qty * line.unitPrice,
+        line.disc,
+        Math.round(line.qty * line.unitPrice * (1 - line.disc / 100)),
       )
       .run();
+    // Biaya persediaan = harga satuan IDR setelah diskon (senilai jurnal Persediaan).
     await stockIn(db, {
       productId: line.productId,
       warehouseId: input.warehouseId,
       qty: line.qty,
-      unitCost: line.unitPrice,
+      unitCost: Math.round(line.unitIdr * (1 - line.disc / 100)),
       refType: "purchase",
       refId: purchaseId,
       lot: line.expiryDate || line.lotNo ? { lotNo: line.lotNo ?? null, expiryDate: line.expiryDate ?? null } : undefined,
@@ -361,13 +371,17 @@ export async function executeInvoice(
   const cur = await resolveCurrency(db, input.currency, input.exchangeRate);
   if ("error" in cur) return { error: cur.error };
 
-  // Nilai baris dikonversi ke IDR pada kurs posting (buku selalu IDR).
-  // foreign_total menyimpan total dalam mata uang faktur untuk jejak & selisih kurs.
+  // Nilai baris dikonversi ke IDR pada kurs posting (buku selalu IDR), setelah
+  // diskon per baris. foreign_total = total dalam mata uang faktur.
   const idrLines = input.lines.map((l) => {
+    const disc = l.discountPct ?? 0;
     const unitIdr = Math.round(l.unitPrice * cur.rate);
-    return { ...l, unitIdr, amountIdr: l.qty * unitIdr };
+    return { ...l, disc, unitIdr, amountIdr: Math.round(l.qty * unitIdr * (1 - disc / 100)) };
   });
-  const foreignSubtotal = input.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
+  const foreignSubtotal = input.lines.reduce(
+    (s, l) => s + Math.round(l.qty * l.unitPrice * (1 - (l.discountPct ?? 0) / 100)),
+    0,
+  );
   const foreignTotal = foreignSubtotal + Math.round((foreignSubtotal * input.taxRate) / 100);
   const subtotal = idrLines.reduce((s, l) => s + l.amountIdr, 0);
   const taxAmount = Math.round((subtotal * input.taxRate) / 100);
@@ -456,8 +470,8 @@ export async function executeInvoice(
   for (const line of idrLines) {
     await db
       .prepare(
-        `INSERT INTO invoice_lines (id, invoice_id, product_id, description, qty, unit_price, amount)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO invoice_lines (id, invoice_id, product_id, description, qty, unit_price, discount_pct, amount)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         crypto.randomUUID(),
@@ -466,6 +480,7 @@ export async function executeInvoice(
         line.description ?? null,
         line.qty,
         line.unitIdr,
+        line.disc,
         line.amountIdr,
       )
       .run();

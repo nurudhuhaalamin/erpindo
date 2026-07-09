@@ -222,6 +222,7 @@ export const masterDataRoutes = new Hono<AppEnv>()
         buy_price: p.buyPrice,
         track_expiry: p.trackExpiry ? 1 : 0,
         is_service: p.isService ? 1 : 0,
+        min_stock: p.minStock,
       }),
     }),
   )

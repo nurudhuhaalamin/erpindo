@@ -4,6 +4,7 @@ import { Link, Outlet, useNavigate } from "@tanstack/react-router";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
+  Bell,
   BookOpen,
   BookText,
   Boxes,
@@ -43,7 +44,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { createContext, useContext, useEffect, useState, type FormEvent } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { api, ApiRequestError } from "../api/client";
 import {
   Alert,
@@ -124,6 +125,92 @@ function Avatar({ name }: { name: string }) {
     <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-xs font-semibold text-white">
       {initials || "?"}
     </span>
+  );
+}
+
+/**
+ * Lonceng notifikasi topbar: stok menipis, faktur lewat jatuh tempo, tiket
+ * terbuka, dan pembelian menunggu persetujuan — dihitung server on-demand,
+ * disegarkan tiap menit.
+ */
+function NotificationBell({ tenantId }: { tenantId: string }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const query = useQuery({
+    queryKey: ["notifications", tenantId],
+    queryFn: () => api.notifications(tenantId),
+    refetchInterval: 60_000,
+  });
+  const items = query.data?.notifications ?? [];
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("pointerdown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const toneByType: Record<string, string> = {
+    low_stock: "bg-amber-500",
+    overdue_invoice: "bg-red-500",
+    open_ticket: "bg-sky-500",
+    pending_approval: "bg-brand-500",
+  };
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+        aria-label={`Notifikasi${items.length > 0 ? ` (${items.length})` : ""}`}
+        title="Notifikasi"
+      >
+        <Bell className="size-4" aria-hidden />
+        {items.length > 0 ? (
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+            {items.length > 9 ? "9+" : items.length}
+          </span>
+        ) : null}
+      </button>
+      {open ? (
+        <div className="absolute right-0 z-50 mt-2 w-80 max-w-[85vw] overflow-hidden rounded-card border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+          <div className="border-b border-slate-200 px-4 py-2.5 text-sm font-semibold dark:border-slate-800">
+            Notifikasi
+          </div>
+          <div className="max-h-96 overflow-y-auto">
+            {items.length === 0 ? (
+              <p className="px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400">
+                Tidak ada yang perlu perhatian. 👍
+              </p>
+            ) : (
+              items.map((n, i) => (
+                <Link
+                  key={i}
+                  to={n.href}
+                  onClick={() => setOpen(false)}
+                  className="flex gap-3 border-b border-slate-100 px-4 py-3 text-sm hover:bg-slate-50 dark:border-slate-800/60 dark:hover:bg-slate-800/50"
+                >
+                  <span className={`mt-1.5 size-2 shrink-0 rounded-full ${toneByType[n.type] ?? "bg-slate-400"}`} aria-hidden />
+                  <span>
+                    <span className="block font-medium text-slate-800 dark:text-slate-100">{n.title}</span>
+                    <span className="block text-xs text-slate-500 dark:text-slate-400">{n.detail}</span>
+                  </span>
+                </Link>
+              ))
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -289,6 +376,7 @@ export function AppShell() {
               <Badge tone="brand">{tenant.role}</Badge>
             </div>
             <div className="flex items-center gap-2">
+              <NotificationBell tenantId={tenant.tenantId} />
               <button
                 onClick={toggle}
                 className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
@@ -936,6 +1024,7 @@ function CompanySettingsCard({ tenantId, readOnly }: { tenantId: string; readOnl
               <Label htmlFor="npwp">NPWP</Label>
               <Input id="npwp" name="npwp" defaultValue={s.npwp ?? ""} disabled={readOnly} />
             </div>
+            <LogoUploader tenantId={tenantId} current={s.logo_data_url ?? ""} readOnly={readOnly} />
             {readOnly ? (
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 Hanya Owner/Admin yang dapat mengubah pengaturan.
@@ -949,6 +1038,89 @@ function CompanySettingsCard({ tenantId, readOnly }: { tenantId: string; readOnl
         )}
       </CardBody>
     </Card>
+  );
+}
+
+/**
+ * Unggah logo kop faktur/struk: gambar dikecilkan di browser (kanvas, sisi
+ * terpanjang 256px, PNG) sampai muat ≤64KB base64, lalu disimpan ke settings
+ * DB tenant — tanpa butuh object storage.
+ */
+function LogoUploader({ tenantId, current, readOnly }: { tenantId: string; current: string; readOnly: boolean }) {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const save = useMutation({
+    mutationFn: (logoDataUrl: string) => api.updateSettings(tenantId, { logoDataUrl }),
+    onSuccess: (_res, logoDataUrl) => {
+      toast("success", logoDataUrl ? "Logo tersimpan — tampil di cetakan faktur & struk." : "Logo dihapus.");
+      queryClient.invalidateQueries({ queryKey: ["settings", tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  async function onFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!/^image\/(png|jpeg|webp|svg\+xml)$/.test(file.type)) {
+      toast("error", "Format harus PNG, JPEG, WebP, atau SVG.");
+      return;
+    }
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const maxSide = 256;
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/png");
+      if (dataUrl.length > 90_000) {
+        toast("error", "Logo masih terlalu besar setelah dikecilkan — gunakan gambar yang lebih sederhana.");
+        return;
+      }
+      save.mutate(dataUrl);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      toast("error", "Gambar tidak bisa dibaca.");
+    };
+    img.src = objectUrl;
+  }
+
+  return (
+    <div>
+      <Label>Logo kop faktur &amp; struk</Label>
+      <div className="flex flex-wrap items-center gap-3">
+        {current ? (
+          <img
+            src={current}
+            alt="Logo perusahaan"
+            className="h-12 w-auto max-w-28 rounded border border-slate-200 bg-white object-contain p-1 dark:border-slate-700"
+          />
+        ) : (
+          <span className="text-sm text-slate-400">Belum ada logo.</span>
+        )}
+        {readOnly ? null : (
+          <>
+            <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="hidden" onChange={onFile} />
+            <Button type="button" variant="secondary" className="h-9" onClick={() => fileRef.current?.click()} disabled={save.isPending}>
+              {save.isPending ? <Spinner /> : null} {current ? "Ganti logo" : "Unggah logo"}
+            </Button>
+            {current ? (
+              <Button type="button" variant="ghost" className="h-9" onClick={() => save.mutate("")} disabled={save.isPending}>
+                Hapus
+              </Button>
+            ) : null}
+          </>
+        )}
+      </div>
+      <p className="mt-1 text-xs text-slate-400">PNG/JPEG/WebP/SVG — otomatis dikecilkan; tampil di kop faktur cetak & struk POS.</p>
+    </div>
   );
 }
 

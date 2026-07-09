@@ -50,10 +50,15 @@ export function InvoicePrintPage() {
       </div>
 
       <header className="flex items-start justify-between border-b-2 border-slate-900 pb-4">
-        <div>
-          <div className="text-2xl font-bold">{company.display_name ?? "—"}</div>
-          {company.address ? <div className="text-sm">{company.address}</div> : null}
-          {company.npwp ? <div className="text-sm">NPWP: {company.npwp}</div> : null}
+        <div className="flex items-start gap-4">
+          {company.logo_data_url ? (
+            <img src={company.logo_data_url} alt="Logo perusahaan" className="h-16 w-auto max-w-32 object-contain" />
+          ) : null}
+          <div>
+            <div className="text-2xl font-bold">{company.display_name ?? "—"}</div>
+            {company.address ? <div className="text-sm">{company.address}</div> : null}
+            {company.npwp ? <div className="text-sm">NPWP: {company.npwp}</div> : null}
+          </div>
         </div>
         <div className="text-right">
           <div className="text-xl font-bold tracking-wide">FAKTUR</div>
@@ -87,6 +92,7 @@ export function InvoicePrintPage() {
             <th className="py-2 pr-4">Barang</th>
             <th className="py-2 pr-4 text-right">Qty</th>
             <th className="py-2 pr-4 text-right">Harga Satuan</th>
+            <th className="py-2 pr-4 text-right">Diskon</th>
             <th className="py-2 text-right">Jumlah</th>
           </tr>
         </thead>
@@ -99,34 +105,35 @@ export function InvoicePrintPage() {
               </td>
               <td className="py-2 pr-4 text-right tabular-nums">{l.qty}</td>
               <td className="py-2 pr-4 text-right tabular-nums">{formatIDR(l.unitPrice)}</td>
+              <td className="py-2 pr-4 text-right tabular-nums">{l.discountPct > 0 ? `${l.discountPct}%` : "—"}</td>
               <td className="py-2 text-right tabular-nums">{formatIDR(l.amount)}</td>
             </tr>
           ))}
         </tbody>
         <tfoot>
           <tr>
-            <td colSpan={3} className="py-1.5 pr-4 text-right">
+            <td colSpan={4} className="py-1.5 pr-4 text-right">
               Subtotal
             </td>
             <td className="py-1.5 text-right tabular-nums">{formatIDR(doc.subtotal)}</td>
           </tr>
           {doc.taxAmount > 0 ? (
             <tr>
-              <td colSpan={3} className="py-1.5 pr-4 text-right">
+              <td colSpan={4} className="py-1.5 pr-4 text-right">
                 PPN {doc.taxRate}%
               </td>
               <td className="py-1.5 text-right tabular-nums">{formatIDR(doc.taxAmount)}</td>
             </tr>
           ) : null}
           <tr className="border-t-2 border-slate-900 text-base font-bold">
-            <td colSpan={3} className="py-2 pr-4 text-right">
+            <td colSpan={4} className="py-2 pr-4 text-right">
               TOTAL
             </td>
             <td className="py-2 text-right tabular-nums">{formatIDR(doc.total)}</td>
           </tr>
           {doc.paidAmount > 0 && doc.status !== "paid" ? (
             <tr>
-              <td colSpan={3} className="py-1.5 pr-4 text-right">
+              <td colSpan={4} className="py-1.5 pr-4 text-right">
                 Sudah dibayar
               </td>
               <td className="py-1.5 text-right tabular-nums">{formatIDR(doc.paidAmount)}</td>

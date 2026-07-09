@@ -24,6 +24,7 @@ import type {
   ApiLead,
   ApiLeadActivity,
   ApiMaintenanceSchedule,
+  ApiNotification,
   ApiProductionOrder,
   ApiWorkOrder,
   ApiQuotation,
@@ -116,8 +117,12 @@ export const api = {
   acceptInvite: (token: string) => request<{ ok: true; tenantId: string }>("POST", "/api/invites/accept", { token }),
   settings: (tenantId: string) =>
     request<{ settings: Record<string, string> }>("GET", `/api/tenants/${tenantId}/settings`),
-  updateSettings: (tenantId: string, input: { displayName?: string; address?: string; npwp?: string }) =>
-    request<{ ok: true }>("PATCH", `/api/tenants/${tenantId}/settings`, input),
+  updateSettings: (
+    tenantId: string,
+    input: { displayName?: string; address?: string; npwp?: string; logoDataUrl?: string },
+  ) => request<{ ok: true }>("PATCH", `/api/tenants/${tenantId}/settings`, input),
+  notifications: (tenantId: string) =>
+    request<{ notifications: ApiNotification[]; count: number }>("GET", `/api/tenants/${tenantId}/notifications`),
 
   // --- Keuangan --------------------------------------------------------------
   accounts: (tenantId: string) => request<{ accounts: ApiAccount[] }>("GET", `/api/tenants/${tenantId}/accounts`),
@@ -437,7 +442,7 @@ export const api = {
       shiftId: string;
       taxRate: number;
       cashReceived: number;
-      lines: { productId: string; qty: number; unitPrice: number }[];
+      lines: { productId: string; qty: number; unitPrice: number; discountPct?: number }[];
     },
   ) =>
     request<{ ok: true; invoiceNo: string; total: number; change: number }>(

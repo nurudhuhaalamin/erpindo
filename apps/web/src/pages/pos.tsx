@@ -7,11 +7,17 @@ import { useDebounced } from "./commerce";
 
 type ProductRow = { id: string; sku: string; name: string; unit: string; sell_price: number };
 type WarehouseRow = { id: string; name: string };
-type CartItem = { productId: string; name: string; unitPrice: number; qty: number };
+type CartItem = { productId: string; name: string; unitPrice: number; qty: number; discountPct: number };
+
+/** Nilai item setelah diskon — meniru pembulatan backend. */
+function itemAmount(i: CartItem): number {
+  return Math.round(i.qty * i.unitPrice * (1 - i.discountPct / 100));
+}
 
 /** Struk sederhana dicetak lewat jendela print browser (kompatibel printer thermal). */
 function printReceipt(opts: {
   companyName: string;
+  logoDataUrl?: string;
   invoiceNo: string;
   items: CartItem[];
   subtotal: number;
@@ -24,7 +30,7 @@ function printReceipt(opts: {
   const rows = opts.items
     .map(
       (i) =>
-        `<tr><td>${i.name} x${i.qty}</td><td style="text-align:right">${(i.qty * i.unitPrice).toLocaleString("id-ID")}</td></tr>`,
+        `<tr><td>${i.name} x${i.qty}${i.discountPct > 0 ? ` (-${i.discountPct}%)` : ""}</td><td style="text-align:right">${itemAmount(i).toLocaleString("id-ID")}</td></tr>`,
     )
     .join("");
   const w = window.open("", "_blank", "width=300,height=600");
@@ -34,6 +40,7 @@ function printReceipt(opts: {
     table{width:100%;border-collapse:collapse} td{padding:1px 0}
     .c{text-align:center} .b{font-weight:bold} hr{border:none;border-top:1px dashed #000}
   </style></head><body>
+    ${opts.logoDataUrl ? `<div class="c"><img src="${opts.logoDataUrl}" alt="" style="max-height:48px;max-width:160px"/></div>` : ""}
     <div class="c b">${opts.companyName}</div>
     <div class="c">${opts.invoiceNo} · ${new Date().toLocaleString("id-ID")}</div>
     <hr/><table>${rows}</table><hr/>
@@ -70,6 +77,10 @@ export function PosPage() {
     queryKey: ["warehouses", tenant.tenantId],
     queryFn: () => api.listItems<WarehouseRow>(tenant.tenantId, "warehouses"),
   });
+  const settingsQuery = useQuery({
+    queryKey: ["settings", tenant.tenantId],
+    queryFn: () => api.settings(tenant.tenantId),
+  });
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [taxRate, setTaxRate] = useState(0);
@@ -100,12 +111,18 @@ export function PosPage() {
         shiftId: shiftQuery.data!.shift!.id,
         taxRate,
         cashReceived: Number(cashReceived) || 0,
-        lines: cart.map((i) => ({ productId: i.productId, qty: i.qty, unitPrice: i.unitPrice })),
+        lines: cart.map((i) => ({
+          productId: i.productId,
+          qty: i.qty,
+          unitPrice: i.unitPrice,
+          ...(i.discountPct > 0 ? { discountPct: i.discountPct } : {}),
+        })),
       }),
     onSuccess: (res) => {
       toast("success", `${res.invoiceNo} — kembalian ${formatIDR(res.change)}`);
       printReceipt({
         companyName: tenant.tenantName,
+        logoDataUrl: settingsQuery.data?.settings.logo_data_url,
         invoiceNo: res.invoiceNo,
         items: cart,
         subtotal,
@@ -140,7 +157,7 @@ export function PosPage() {
 
   const products = (productsQuery.data?.items ?? []) as ProductRow[];
 
-  const subtotal = useMemo(() => cart.reduce((s, i) => s + i.qty * i.unitPrice, 0), [cart]);
+  const subtotal = useMemo(() => cart.reduce((s, i) => s + itemAmount(i), 0), [cart]);
   const taxAmount = Math.round((subtotal * taxRate) / 100);
   const total = subtotal + taxAmount;
   const change = (Number(cashReceived) || 0) - total;
@@ -149,12 +166,17 @@ export function PosPage() {
     setCart((c) => {
       const existing = c.find((i) => i.productId === p.id);
       if (existing) return c.map((i) => (i.productId === p.id ? { ...i, qty: i.qty + 1 } : i));
-      return [...c, { productId: p.id, name: p.name, unitPrice: p.sell_price, qty: 1 }];
+      return [...c, { productId: p.id, name: p.name, unitPrice: p.sell_price, qty: 1, discountPct: 0 }];
     });
   }
 
   function setQty(productId: string, qty: number) {
     setCart((c) => (qty <= 0 ? c.filter((i) => i.productId !== productId) : c.map((i) => (i.productId === productId ? { ...i, qty } : i))));
+  }
+
+  function setDiscount(productId: string, discountPct: number) {
+    const disc = Math.min(Math.max(discountPct, 0), 100);
+    setCart((c) => c.map((i) => (i.productId === productId ? { ...i, discountPct: disc } : i)));
   }
 
   if (!isAdmin) {
@@ -295,7 +317,17 @@ export function PosPage() {
                   >
                     +
                   </button>
-                  <span className="w-24 text-right tabular-nums">{formatIDR(i.qty * i.unitPrice)}</span>
+                  <input
+                    aria-label={`Diskon % ${i.name}`}
+                    type="number"
+                    min={0}
+                    max={100}
+                    placeholder="0%"
+                    className="w-14 rounded border border-slate-300 bg-transparent px-1 py-0.5 text-right text-sm dark:border-slate-700"
+                    value={i.discountPct || ""}
+                    onChange={(e) => setDiscount(i.productId, Number(e.target.value) || 0)}
+                  />
+                  <span className="w-24 text-right tabular-nums">{formatIDR(itemAmount(i))}</span>
                 </div>
               ))
             )}

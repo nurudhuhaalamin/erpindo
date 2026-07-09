@@ -2138,6 +2138,85 @@ try {
   const tbAfterSearchFlow = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah alur pencarian→faktur", tbAfterSearchFlow.json?.balanced === true);
 
+  // --- Diskon per baris, stok menipis & notifikasi, logo kop (Fase 3d) -------------
+  console.log("11u. Diskon per baris, notifikasi stok menipis, & logo kop");
+
+  // Diskon faktur penjualan: 4 × 100rb − 25% = 300rb; PPN 11% dari nilai setelah diskon.
+  const duPlBefore = (await owner("GET", `/api/tenants/${tenantId}/reports/income-statement?from=2026-08-01&to=2026-08-31`)).json;
+  const duInv = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id, invoiceDate: "2026-08-20", taxRate: 11, warehouseId: whUtama.id,
+    lines: [{ productId: vdProd1.json.id, qty: 4, unitPrice: 100_000, discountPct: 25 }],
+  });
+  check("faktur berdiskon 25%: total 333.000 (300rb + PPN 33rb)", duInv.status === 201 && duInv.json?.total === 333_000, `→ ${JSON.stringify(duInv.json)}`);
+  const duDocs = await owner("GET", `/api/tenants/${tenantId}/invoices?q=${duInv.json.docNo}`);
+  const duLine = duDocs.json?.docs?.[0]?.lines?.[0];
+  check("baris menyimpan diskon 25% & nilai 300.000", duLine?.discountPct === 25 && duLine?.amount === 300_000, `→ ${JSON.stringify(duLine)}`);
+  const duPlAfter = (await owner("GET", `/api/tenants/${tenantId}/reports/income-statement?from=2026-08-01&to=2026-08-31`)).json;
+  check(
+    "laba rugi: pendapatan +300rb (setelah diskon) & HPP +200rb (4 × 50rb)",
+    duPlAfter?.totalIncome === duPlBefore?.totalIncome + 300_000 && duPlAfter?.totalExpense === duPlBefore?.totalExpense + 200_000,
+    `→ Δincome ${duPlAfter?.totalIncome - duPlBefore?.totalIncome}, Δexpense ${duPlAfter?.totalExpense - duPlBefore?.totalExpense}`,
+  );
+
+  // Diskon pembelian: persediaan masuk pada biaya setelah diskon.
+  const duProd3 = await owner("POST", `/api/tenants/${tenantId}/products`, {
+    sku: "VD-003", name: "Cokelat Bubuk 250g", unit: "pcs", sellPrice: 35_000, buyPrice: 20_000,
+  });
+  const duPurch = await owner("POST", `/api/tenants/${tenantId}/purchases`, {
+    contactId: supplier.json.id, invoiceDate: "2026-08-20", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: duProd3.json.id, qty: 10, unitPrice: 20_000, discountPct: 10 }],
+  });
+  check("pembelian berdiskon 10%: total 180.000", duPurch.status === 201 && duPurch.json?.total === 180_000);
+  const duStock = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  const duLevel = duStock.json?.levels?.find((l) => l.sku === "VD-003");
+  check("stok VD-003 masuk 10 pcs @18.000 (nilai 180.000 = jurnal Persediaan)", duLevel?.qty === 10 && duLevel?.avgCost === 18_000 && duLevel?.value === 180_000, `→ ${JSON.stringify(duLevel)}`);
+  const duTb = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah transaksi berdiskon", duTb.json?.balanced === true);
+
+  const duBadDisc = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id, invoiceDate: "2026-08-20", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: vdProd1.json.id, qty: 1, unitPrice: 1000, discountPct: 150 }],
+  });
+  check("diskon > 100% DITOLAK 400", duBadDisc.status === 400);
+
+  // Stok menipis: ambang minimum 15 > stok 10 → notifikasi muncul.
+  const duMinStock = await owner("PUT", `/api/tenants/${tenantId}/products/${duProd3.json.id}`, {
+    sku: "VD-003", name: "Cokelat Bubuk 250g", unit: "pcs", sellPrice: 35_000, buyPrice: 20_000, minStock: 15,
+  });
+  check("set ambang stok minimum lewat edit produk", duMinStock.status === 200);
+
+  // Faktur lewat jatuh tempo (due date sudah lampau, belum dibayar).
+  const duOverdue = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id, invoiceDate: "2026-08-20", dueDate: "2026-07-01", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: vdProd1.json.id, qty: 1, unitPrice: 80_000 }],
+  });
+  check("faktur jatuh tempo lampau diposting", duOverdue.status === 201);
+
+  const duNotif = await owner("GET", `/api/tenants/${tenantId}/notifications`);
+  check(
+    "notifikasi stok menipis muncul (VD-003 sisa 10 ≤ ambang 15)",
+    duNotif.status === 200 && duNotif.json?.notifications?.some((n) => n.type === "low_stock" && n.detail.includes("VD-003")),
+    `→ ${JSON.stringify(duNotif.json?.notifications?.filter((n) => n.type === "low_stock"))}`,
+  );
+  check(
+    "notifikasi faktur lewat jatuh tempo muncul",
+    duNotif.json?.notifications?.some((n) => n.type === "overdue_invoice" && n.title.includes(duOverdue.json.docNo)),
+  );
+  check("count = jumlah notifikasi (konsisten)", duNotif.json?.count === duNotif.json?.notifications?.length);
+  const duNotifViewer = await viewer("GET", `/api/tenants/${tenantId}/notifications`);
+  check("viewer boleh membaca notifikasi (200)", duNotifViewer.status === 200);
+
+  // Logo kop: simpan data URL kecil di settings, tampil di cetakan.
+  const duLogo = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const duSetLogo = await owner("PATCH", `/api/tenants/${tenantId}/settings`, { logoDataUrl: duLogo });
+  const duSettings = await owner("GET", `/api/tenants/${tenantId}/settings`);
+  check("logo tersimpan di settings tenant", duSetLogo.status === 200 && duSettings.json?.settings?.logo_data_url === duLogo);
+  const duBadLogo = await owner("PATCH", `/api/tenants/${tenantId}/settings`, { logoDataUrl: "data:text/html;base64,PGI+" });
+  check("format logo tidak dikenal DITOLAK 400", duBadLogo.status === 400);
+  const duClearLogo = await owner("PATCH", `/api/tenants/${tenantId}/settings`, { logoDataUrl: "" });
+  const duSettings2 = await owner("GET", `/api/tenants/${tenantId}/settings`);
+  check("logo bisa dihapus (string kosong)", duClearLogo.status === 200 && duSettings2.json?.settings?.logo_data_url === "");
+
   // --- Arus kas (Fase 2b-1) -------------------------------------------------------
   console.log("12. Arus kas");
   // Konteks: modal 50jt (2/7) + penjualan tunai 2,5jt (3/7) + terima pembayaran 499,5rb (5/7)

@@ -229,6 +229,7 @@ type ProductRow = {
   buy_price: number;
   track_expiry: number;
   is_service: number;
+  min_stock: number;
 };
 
 export function ProductsPage() {
@@ -250,6 +251,7 @@ export function ProductsPage() {
       buyPrice: Number(raw.buyPrice) || 0,
       trackExpiry: raw.trackExpiry === "on",
       isService: raw.isService === "on",
+      minStock: Number(raw.minStock) || 0,
     });
     if (!parsed.success) {
       setIssues(parsed.error.flatten().fieldErrors as Record<string, string[]>);
@@ -296,7 +298,7 @@ export function ProductsPage() {
             <form
               key={editing?.id ?? "new"}
               onSubmit={onSubmit}
-              className="grid gap-3 sm:grid-cols-[8rem_1fr_6rem_10rem_10rem_auto] sm:items-end"
+              className="grid gap-3 sm:grid-cols-[8rem_1fr_5rem_9rem_9rem_8rem_auto] sm:items-end"
               noValidate
             >
               <div>
@@ -320,6 +322,17 @@ export function ProductsPage() {
               <div>
                 <Label htmlFor="p-buy">Harga beli (Rp)</Label>
                 <Input id="p-buy" name="buyPrice" type="number" min={0} placeholder="100000" defaultValue={editing?.buy_price} />
+              </div>
+              <div>
+                <Label htmlFor="p-minstock">Stok minimum</Label>
+                <Input
+                  id="p-minstock"
+                  name="minStock"
+                  type="number"
+                  min={0}
+                  placeholder="0 = tanpa peringatan"
+                  defaultValue={editing?.min_stock || ""}
+                />
               </div>
               <div className="flex gap-2">
                 <Button type="submit" disabled={busy}>

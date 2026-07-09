@@ -749,6 +749,16 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `ALTER TABLE purchases ADD COLUMN voided_at TEXT`,
     ],
   },
+  {
+    id: "0019_commerce_extras",
+    statements: [
+      // Diskon per baris (persen 0–100): nilai baris & PPN dihitung setelah diskon.
+      `ALTER TABLE invoice_lines ADD COLUMN discount_pct REAL NOT NULL DEFAULT 0`,
+      `ALTER TABLE purchase_lines ADD COLUMN discount_pct REAL NOT NULL DEFAULT 0`,
+      // Ambang stok menipis per produk (0 = tanpa peringatan).
+      `ALTER TABLE products ADD COLUMN min_stock INTEGER NOT NULL DEFAULT 0`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

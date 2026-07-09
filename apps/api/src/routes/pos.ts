@@ -150,7 +150,10 @@ export const posRoutes = new Hono<AppEnv>()
     const shift = shifts[0];
     if (!shift) return c.json({ error: "Shift tidak ditemukan atau sudah ditutup." }, 400);
 
-    const subtotal = input.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
+    const subtotal = input.lines.reduce(
+      (s, l) => s + Math.round(l.qty * l.unitPrice * (1 - (l.discountPct ?? 0) / 100)),
+      0,
+    );
     const taxAmount = Math.round((subtotal * input.taxRate) / 100);
     const total = subtotal + taxAmount;
     if (total === 0) return c.json({ error: "Total tidak boleh nol." }, 400);
@@ -225,11 +228,21 @@ export const posRoutes = new Hono<AppEnv>()
       )
       .run();
     for (const line of input.lines) {
+      const disc = line.discountPct ?? 0;
       await db
         .prepare(
-          `INSERT INTO invoice_lines (id, invoice_id, product_id, qty, unit_price, amount) VALUES (?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO invoice_lines (id, invoice_id, product_id, qty, unit_price, discount_pct, amount)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
         )
-        .bind(crypto.randomUUID(), invoiceId, line.productId, line.qty, line.unitPrice, line.qty * line.unitPrice)
+        .bind(
+          crypto.randomUUID(),
+          invoiceId,
+          line.productId,
+          line.qty,
+          line.unitPrice,
+          disc,
+          Math.round(line.qty * line.unitPrice * (1 - disc / 100)),
+        )
         .run();
     }
     const paymentNo = await nextDocNo(db, "payments", "PAY");
