@@ -17,7 +17,12 @@ import { requireAuth, requireTenantRole } from "../middleware/auth";
  * gagal) → 503 dengan pesan jelas, fitur lain tidak terganggu.
  */
 
-const AI_MODEL = "@cf/meta/llama-3.1-8b-instruct";
+// Kandidat model berurutan — bila yang utama dipensiunkan Cloudflare (spt.
+// llama-3.1-8b-instruct pada 2026-05-30, AiError 5028), otomatis jatuh ke
+// kandidat berikutnya alih-alih mematikan fitur. glm-4.7-flash = pengganti
+// resmi yang direkomendasikan (multibahasa, cepat); varian -fast llama
+// dinyatakan tetap aktif oleh Cloudflare.
+const AI_MODELS = ["@cf/zai-org/glm-4.7-flash", "@cf/meta/llama-3.1-8b-instruct-fast"];
 const DAILY_LIMIT = 50;
 
 const AI_UNAVAILABLE_MSG = "Fitur AI belum tersedia di lingkungan ini. Coba lagi nanti.";
@@ -46,19 +51,32 @@ type ChatMessage = { role: string; content: string };
 
 type ModelResult = { ok: true; text: string } | { ok: false; detail: string };
 
+/** Ambil teks jawaban dari berbagai bentuk respons model (response / gaya OpenAI). */
+function extractText(res: unknown): string | null {
+  const r = res as { response?: unknown; choices?: { message?: { content?: unknown } }[] } | null;
+  if (typeof r?.response === "string" && r.response.length > 0) return r.response;
+  const openai = r?.choices?.[0]?.message?.content;
+  return typeof openai === "string" && openai.length > 0 ? openai : null;
+}
+
 async function runModel(env: Env, messages: ChatMessage[], maxTokens: number): Promise<ModelResult> {
   if (!env.AI) return { ok: false, detail: "binding-absent" };
-  try {
-    const res = (await env.AI.run(AI_MODEL, { messages, max_tokens: maxTokens })) as { response?: string } | null;
-    if (typeof res?.response !== "string") return { ok: false, detail: "empty-response" };
-    return { ok: true, text: res.response };
-  } catch (err) {
-    // Termasuk dev lokal tanpa kredensial remote. Alasan asli dicatat agar
-    // kegagalan produksi (mis. Workers AI belum aktif di akun) bisa didiagnosa.
-    console.error("[ai] model call failed:", err);
-    const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
-    return { ok: false, detail: msg.slice(0, 160) };
+  let detail = "empty-response";
+  for (const model of AI_MODELS) {
+    try {
+      const res = await env.AI.run(model, { messages, max_tokens: maxTokens });
+      const text = extractText(res);
+      if (text !== null) return { ok: true, text };
+    } catch (err) {
+      // Termasuk dev lokal tanpa kredensial remote. Alasan asli dicatat agar
+      // kegagalan produksi (mis. model dipensiunkan) bisa didiagnosa; coba
+      // kandidat berikutnya.
+      console.error(`[ai] model ${model} failed:`, err);
+      const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      detail = msg.slice(0, 160);
+    }
   }
+  return { ok: false, detail };
 }
 
 /** Bentuk JSON yang kita minta dari model untuk draf jurnal. */
