@@ -3,7 +3,7 @@
 > Halaman ini ditulis untuk pemilik produk (non-teknis). Selalu diperbarui setiap ada kemajuan.
 > Log teknis per fase ada di folder [docs/log/](./log/).
 
-**Terakhir diperbarui:** 9 Juli 2026
+**Terakhir diperbarui:** 10 Juli 2026
 
 ## Di mana kita sekarang?
 
@@ -49,7 +49,8 @@
 | Fase 4b — Identitas visual baru | Palet baru total: indigo-violet + aksen amber (semua halaman lewat token), font Inter Variable, kartu/tombol/badge disempurnakan, ikon & PWA baru, kontras dark mode diperbaiki | ✅ Selesai |
 | Fase 4c — Landing page baru | Hero dengan screenshot produk nyata, trust bar, showcase 5 alur bertab, seksi perbandingan vs Excel, FAQ 8, pipeline screenshot otomatis (WebP 534 KB total) | ✅ Selesai |
 | Fase 4d — Panduan lengkap | 23 modul panduan ber-screenshot asli di `/panduan` (publik, code-split, bisa dicari), versi Markdown di repo (`docs/panduan/`), dan tombol `?` di tiap halaman aplikasi yang membuka panduan terkait | ✅ Selesai |
-| **Fase 4e — Asisten AI gratis** | "Asisten erpindo" via Cloudflare Workers AI (kuota gratis 10rb neuron/hari, tanpa API key): chat cara pakai grounded panduan + draf jurnal dari bahasa alami (usulan seimbang, manusia yang memposting); kuota 50/hari/perusahaan; mundur anggun bila AI tak tersedia | ✅ **Selesai** |
+| Fase 4e — Asisten AI gratis | "Asisten erpindo" via Cloudflare Workers AI (kuota gratis 10rb neuron/hari, tanpa API key): chat cara pakai grounded panduan + draf jurnal dari bahasa alami (usulan seimbang, manusia yang memposting); kuota 50/hari/perusahaan; mundur anggun bila AI tak tersedia | ✅ Selesai |
+| **Fase 4f — Roadmap lanjutan per modul** | Dokumen [03-roadmap-lanjutan.md](./03-roadmap-lanjutan.md): 23 modul dinilai kondisi saat ini + quick wins + ide lanjutan berskor Dampak/Usaha/AI, ditutup urutan prioritas 6 bulan & analisis kuota AI gratis — **rangkaian Fase 4 lengkap** | ✅ **Selesai** |
 | Fase 2m — Manajemen dokumen (lampiran file) | Lampiran di faktur/kontak/jurnal (penyimpanan Cloudflare R2) | ⏸ **Menunggu Anda mengaktifkan R2 di dashboard Cloudflare** |
 | Fase 2b-2 — Pembayaran langganan | Checkout Midtrans/Xendit, aktivasi otomatis | ⏸ **Menunggu akun gateway dari Anda** |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
