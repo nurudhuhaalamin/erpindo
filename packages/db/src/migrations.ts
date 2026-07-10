@@ -849,6 +849,46 @@ export const TENANT_MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    id: "0023_project_extras",
+    statements: [
+      // Termin penagihan: milestone → 'Buat faktur dari termin' (faktur penjualan
+      // jasa tertaut proyek). invoice_id terisi setelah difakturkan.
+      `CREATE TABLE project_milestones (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id),
+        name TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'planned',
+        invoice_id TEXT REFERENCES invoices(id),
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX project_milestones_project ON project_milestones (project_id)`,
+      // RAB: anggaran biaya per kategori vs realisasi (realisasi dari jurnal ber-tag proyek).
+      `CREATE TABLE project_budgets (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id),
+        category TEXT NOT NULL,
+        planned_amount INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX project_budgets_project ON project_budgets (project_id)`,
+      // Timesheet: jam kerja per karyawan per proyek (informatif, jam × tarif) →
+      // estimasi biaya tenaga kerja proyek (gaji sudah dibebankan lewat payroll,
+      // jadi tidak dijurnal ulang agar tak dobel-hitung).
+      `CREATE TABLE time_entries (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id),
+        employee_id TEXT REFERENCES employees(id),
+        entry_date TEXT NOT NULL,
+        hours REAL NOT NULL,
+        hourly_rate INTEGER NOT NULL DEFAULT 0,
+        note TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX time_entries_project ON time_entries (project_id)`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */
