@@ -358,15 +358,36 @@ await step("anggaran pendapatan bulan ini", "PUT", `${T}/budgets`, { accountId: 
 await step("anggaran beban iklan bulan ini", "PUT", `${T}/budgets`, { accountId: bebanIklan.id, period: thisMonth, amount: 2_000_000 });
 
 // --- 13. HR & payroll ---------------------------------------------------------------
+const employees = {};
 for (const e of [
   { name: "Rina Kusuma", position: "Manajer Operasional", ptkpStatus: "K/1", baseSalary: 9_500_000 },
   { name: "Agus Prabowo", position: "Staf Gudang", ptkpStatus: "TK/0", baseSalary: 5_200_000 },
   { name: "Sari Melati", position: "Kasir", ptkpStatus: "TK/0", baseSalary: 4_900_000 },
   { name: "Budi Santosa", position: "Kurir", ptkpStatus: "K/0", baseSalary: 4_800_000 },
 ]) {
-  await step(`karyawan ${e.name}`, "POST", `${T}/employees`, e);
+  employees[e.name] = await step(`karyawan ${e.name}`, "POST", `${T}/employees`, e);
 }
 await step(`payroll periode ${lastMonth}`, "POST", `${T}/payroll-runs`, { period: lastMonth, cashAccountId: bank.id, paymentDate: daysAgo(3) });
+
+// Kasbon (dicairkan dari bank; cicilan otomatis memotong gaji tiap run berikutnya).
+await step("kasbon Agus Prabowo", "POST", `${T}/employee-loans`, {
+  employeeId: employees["Agus Prabowo"].id, name: "Kasbon renovasi rumah",
+  principal: 3_000_000, monthlyDeduction: 1_000_000, cashAccountId: bank.id, loanDate: daysAgo(2),
+});
+// Komponen ad-hoc bulan berjalan: bonus untuk manajer, akan ikut saat digaji.
+await step("bonus kinerja Rina", "POST", `${T}/payroll-adjustments`, {
+  period: thisMonth, employeeId: employees["Rina Kusuma"].id, name: "Bonus kinerja triwulan", amount: 2_500_000,
+});
+// Jalankan penggajian bulan berjalan → slip Rina memuat bonus, slip Agus memuat cicilan kasbon.
+await step(`payroll periode ${thisMonth}`, "POST", `${T}/payroll-runs`, { period: thisMonth, cashAccountId: bank.id, paymentDate: daysAgo(0) });
+// Cuti & izin: pengajuan lalu disetujui (memotong saldo cuti Sari).
+const cutiSari = await step("pengajuan cuti tahunan Sari", "POST", `${T}/leave-requests`, {
+  employeeId: employees["Sari Melati"].id, type: "annual", startDate: daysAgo(-7), endDate: daysAgo(-9), note: "Acara keluarga",
+});
+await step("setujui cuti Sari", "PATCH", `${T}/leave-requests/${cutiSari.id}`, { status: "approved" });
+await step("pengajuan izin Budi (menunggu)", "POST", `${T}/leave-requests`, {
+  employeeId: employees["Budi Santosa"].id, type: "permit", startDate: daysAgo(-3), endDate: daysAgo(-3), note: "Urusan keluarga",
+});
 
 // --- 14. Aset tetap + penyusutan ----------------------------------------------------
 await step("aset: mobil boks", "POST", `${T}/assets`, {

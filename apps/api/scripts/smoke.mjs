@@ -1401,6 +1401,89 @@ try {
   const tbAfterPayroll = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah penggajian", tbAfterPayroll.json?.balanced === true);
 
+  // --- HR lanjut (Fase 5f): kasbon, komponen ad-hoc, cuti & izin ------------------
+  console.log("11i2. HR lanjut (kasbon, bonus/potongan ad-hoc, cuti & izin, 1721-A1)");
+  const andiId = empA.json?.id;
+
+  // Kasbon Andi: pokok 2jt, cicilan 1jt/bln — pencairan berjurnal (Piutang Karyawan).
+  const loan = await owner("POST", `/api/tenants/${tenantId}/employee-loans`, {
+    employeeId: andiId,
+    name: "Kasbon uji",
+    principal: 2_000_000,
+    monthlyDeduction: 1_000_000,
+    cashAccountId: kas.id,
+    loanDate: "2026-09-01",
+  });
+  check("cairkan kasbon 201 + jurnal", loan.status === 201 && Boolean(loan.json?.journalNo), `→ ${JSON.stringify(loan.json)}`);
+  const loansList = await owner("GET", `/api/tenants/${tenantId}/employee-loans`);
+  const loan1 = loansList.json?.loans?.find((l) => l.id === loan.json?.id);
+  check("daftar kasbon: saldo 2jt, status aktif", loan1?.balance === 2_000_000 && loan1?.status === "active");
+  const badLoan = await owner("POST", `/api/tenants/${tenantId}/employee-loans`, {
+    employeeId: andiId, name: "Cicilan > pokok", principal: 1_000_000, monthlyDeduction: 2_000_000, cashAccountId: kas.id, loanDate: "2026-09-01",
+  });
+  check("kasbon cicilan > pokok DITOLAK 400", badLoan.status === 400);
+  const viewerLoan = await viewer("POST", `/api/tenants/${tenantId}/employee-loans`, {
+    employeeId: andiId, name: "x", principal: 1000, monthlyDeduction: 100, cashAccountId: kas.id, loanDate: "2026-09-01",
+  });
+  check("viewer DITOLAK mencairkan kasbon (403)", viewerLoan.status === 403);
+
+  // Komponen ad-hoc periode 2026-09: bonus 1jt untuk Andi (ikut bruto & pajak).
+  const adj = await owner("POST", `/api/tenants/${tenantId}/payroll-adjustments`, {
+    period: "2026-09", employeeId: andiId, name: "Bonus uji", amount: 1_000_000,
+  });
+  check("tambah komponen ad-hoc 201", adj.status === 201);
+  const adjThrow = await owner("POST", `/api/tenants/${tenantId}/payroll-adjustments`, {
+    period: "2026-09", employeeId: andiId, name: "Potongan salah", amount: -500_000,
+  });
+  const adjList = await owner("GET", `/api/tenants/${tenantId}/payroll-adjustments?period=2026-09`);
+  check("daftar komponen periode berisi 2 (belum terpakai)", adjList.json?.adjustments?.length === 2 && adjList.json.adjustments.every((a) => a.runId === null));
+  const delAdj = await owner("DELETE", `/api/tenants/${tenantId}/payroll-adjustments/${adjThrow.json?.id}`);
+  check("hapus komponen belum terpakai 200", delAdj.status === 200);
+
+  // Jalankan penggajian 2026-09 → Andi: bruto 6jt (5jt + bonus 1jt), cicilan kasbon 1jt terpotong.
+  const run9 = await owner("POST", `/api/tenants/${tenantId}/payroll-runs`, {
+    period: "2026-09", cashAccountId: kas.id, paymentDate: "2026-09-15",
+  });
+  check("penggajian 2026-09 dengan bonus 201", run9.status === 201, `→ ${JSON.stringify(run9.json)}`);
+  const runs9 = await owner("GET", `/api/tenants/${tenantId}/payroll-runs`);
+  const run9row = runs9.json?.runs?.find((r) => r.period === "2026-09");
+  const slipAndi = run9row?.payslips?.find((p) => p.employeeName === "Andi Karyawan");
+  check(
+    "slip Andi memuat bonus (bruto 6jt, komponen +1jt) & cicilan kasbon 1jt",
+    slipAndi?.gross === 6_000_000 && slipAndi?.adjustmentsTotal === 1_000_000 && slipAndi?.loanDeduction === 1_000_000,
+    `→ ${JSON.stringify(slipAndi)}`,
+  );
+  const loansAfter = await owner("GET", `/api/tenants/${tenantId}/employee-loans`);
+  const loanAfter = loansAfter.json?.loans?.find((l) => l.id === loan.json?.id);
+  check("saldo kasbon berkurang jadi 1jt setelah run", loanAfter?.balance === 1_000_000 && loanAfter?.status === "active");
+  const delUsed = await owner("DELETE", `/api/tenants/${tenantId}/payroll-adjustments/${adj.json?.id}`);
+  check("hapus komponen yang sudah terpakai DITOLAK 409", delUsed.status === 409);
+
+  // Cuti & izin: annual 3 hari disetujui → saldo cuti Andi 12 → 9; pengajuan > saldo ditolak.
+  const leave = await owner("POST", `/api/tenants/${tenantId}/leave-requests`, {
+    employeeId: andiId, type: "annual", startDate: "2026-09-20", endDate: "2026-09-22", note: "Acara keluarga",
+  });
+  check("ajukan cuti tahunan 3 hari 201", leave.status === 201 && leave.json?.days === 3, `→ ${JSON.stringify(leave.json)}`);
+  const viewerLeave = await viewer("POST", `/api/tenants/${tenantId}/leave-requests`, {
+    employeeId: andiId, type: "sick", startDate: "2026-09-20", endDate: "2026-09-20",
+  });
+  check("viewer DITOLAK mengajukan cuti (403)", viewerLeave.status === 403);
+  const approveLeave = await owner("PATCH", `/api/tenants/${tenantId}/leave-requests/${leave.json?.id}`, { status: "approved" });
+  check("setujui cuti 200", approveLeave.status === 200);
+  const empsAfterLeave = await owner("GET", `/api/tenants/${tenantId}/employees`);
+  const andiAfter = empsAfterLeave.json?.employees?.find((e) => e.id === andiId);
+  check("saldo cuti Andi berkurang 12 → 9 setelah cuti tahunan disetujui", andiAfter?.leaveBalance === 9, `→ ${andiAfter?.leaveBalance}`);
+  const reApprove = await owner("PATCH", `/api/tenants/${tenantId}/leave-requests/${leave.json?.id}`, { status: "rejected" });
+  check("memutuskan cuti yang sudah diputus DITOLAK 409", reApprove.status === 409);
+  const bigLeave = await owner("POST", `/api/tenants/${tenantId}/leave-requests`, {
+    employeeId: andiId, type: "annual", startDate: "2026-10-01", endDate: "2026-10-20",
+  });
+  const bigApprove = await owner("PATCH", `/api/tenants/${tenantId}/leave-requests/${bigLeave.json?.id}`, { status: "approved" });
+  check("setujui cuti melebihi saldo DITOLAK 400", bigApprove.status === 400);
+
+  const tbAfterHr = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah kasbon & penggajian bonus", tbAfterHr.json?.balanced === true);
+
   // --- Aset Tetap (Fase 2p) -------------------------------------------------------
   // Beroperasi di Agustus (di luar jendela arus kas Juli & tanggal kunci).
   console.log("11j. Aset Tetap (penyusutan garis lurus + pelepasan)");
