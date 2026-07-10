@@ -14,4 +14,4 @@ Tabel stok menampilkan jumlah, biaya rata-rata, dan nilai per produk per gudang 
 
 1. Transfer: pindahkan stok antar gudang — nilai persediaan tidak berubah, tanpa jurnal.
 2. Opname: masukkan jumlah fisik hasil hitung — selisihnya otomatis dijurnal sebagai penyesuaian.
-3. Lot kedaluwarsa: penjualan otomatis mengambil lot ter-dekat exp (FEFO); peringatan muncul untuk lot yang akan kedaluwarsa ≤ 30 hari.
+3. Lot kedaluwarsa: penjualan otomatis mengambil lot dengan tanggal kedaluwarsa terdekat (FEFO); peringatan muncul untuk lot yang akan kedaluwarsa ≤ 30 hari.

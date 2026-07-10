@@ -112,7 +112,7 @@ export const KEUANGAN: GuideModule[] = [
         imageAlt: "Register aset tetap",
         steps: [
           "Daftarkan aset: nama, kategori, tanggal & harga perolehan, umur manfaat (bulan), nilai residu, akun pembayar.",
-          "Penyusutan bulanan berjalan otomatis (Cron) — akumulasi & nilai buku ter-update, bebannya terjurnal.",
+          "Penyusutan bulanan berjalan otomatis (Cron) — akumulasi & nilai buku ikut terbarui, bebannya terjurnal.",
           "Melepas/menjual aset: isi tanggal & harga jual — laba/rugi pelepasan dihitung dan dijurnal otomatis.",
         ],
       },
