@@ -365,7 +365,7 @@ export type ProductInput = z.infer<typeof productSchema>;
 
 /** Notifikasi operasional (lonceng di topbar) — dihitung on-demand dari data nyata. */
 export type ApiNotification = {
-  type: "low_stock" | "overdue_invoice" | "open_ticket" | "pending_approval";
+  type: "low_stock" | "overdue_invoice" | "open_ticket" | "pending_approval" | "crm_followup_due" | "crm_stale_lead";
   title: string;
   detail: string;
   /** Rute SPA yang dituju saat notifikasi diklik. */
@@ -607,8 +607,22 @@ export const leadActivitySchema = z.object({
   type: z.enum(LEAD_ACTIVITY_TYPES),
   note: z.string().trim().min(1, "Catatan wajib diisi").max(1000),
   activityDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+  /** Tenggat tindak lanjut (opsional) — masuk lonceng notifikasi saat jatuh tempo. */
+  dueAt: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid")
+    .optional(),
 });
 export type LeadActivityInput = z.infer<typeof leadActivitySchema>;
+
+/** Laporan konversi CRM per sumber lead (Fase 5e). */
+export type ApiCrmSourceRow = {
+  source: string;
+  total: number;
+  won: number;
+  lost: number;
+  conversionPct: number;
+};
 
 export const createQuotationSchema = z.object({
   contactId: z.string().min(1, "Pelanggan wajib dipilih"),
@@ -663,6 +677,7 @@ export type ApiLeadActivity = {
   type: LeadActivityType;
   note: string;
   activityDate: string;
+  dueAt: string | null;
   userName: string | null;
   createdAt: string;
 };

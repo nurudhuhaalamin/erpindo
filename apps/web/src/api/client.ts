@@ -2,6 +2,7 @@ import type {
   ApiAccount,
   ApiAgingRow,
   ApiBankStatementItem,
+  ApiCrmSourceRow,
   ApiJournalTemplate,
   BankImportInput,
   JournalTemplateInput,
@@ -167,6 +168,8 @@ export const api = {
       }[];
       balance: number;
     }>("GET", `/api/tenants/${tenantId}/ledger/${accountId}`),
+  crmReport: (tenantId: string) =>
+    request<{ rows: ApiCrmSourceRow[] }>("GET", `/api/tenants/${tenantId}/crm/report`),
   journalTemplates: (tenantId: string) =>
     request<{ templates: ApiJournalTemplate[] }>("GET", `/api/tenants/${tenantId}/journal-templates`),
   createJournalTemplate: (tenantId: string, input: JournalTemplateInput) =>

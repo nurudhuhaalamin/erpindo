@@ -217,7 +217,7 @@ export const crmRoutes = new Hono<AppEnv>()
     // menampilkan jenis + catatan + tanggal (pelaku tak ditampilkan di sini).
     const { results } = await db
       .prepare(
-        `SELECT id, type, note, activity_date, created_at
+        `SELECT id, type, note, activity_date, due_at, created_at
          FROM lead_activities WHERE lead_id = ?
          ORDER BY activity_date DESC, created_at DESC LIMIT 200`,
       )
@@ -227,6 +227,7 @@ export const crmRoutes = new Hono<AppEnv>()
         type: ApiLeadActivity["type"];
         note: string;
         activity_date: string;
+        due_at: string | null;
         created_at: string;
       }>();
 
@@ -235,10 +236,37 @@ export const crmRoutes = new Hono<AppEnv>()
       type: r.type,
       note: r.note,
       activityDate: r.activity_date,
+      dueAt: r.due_at,
       userName: null,
       createdAt: r.created_at,
     }));
     return c.json({ activities });
+  })
+
+  // -------------------------------------------------------------------------
+  // Laporan konversi per sumber lead (Fase 5e).
+  // -------------------------------------------------------------------------
+  .get("/:tenantId/crm/report", requireAuth, requireTenantRole("viewer"), async (c) => {
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+    const { results } = await db
+      .prepare(
+        `SELECT COALESCE(NULLIF(TRIM(source), ''), '(tanpa sumber)') AS source,
+                COUNT(*) AS total,
+                SUM(CASE WHEN stage = 'won' THEN 1 ELSE 0 END) AS won,
+                SUM(CASE WHEN stage = 'lost' THEN 1 ELSE 0 END) AS lost
+         FROM leads
+         GROUP BY 1
+         ORDER BY total DESC, source`,
+      )
+      .all<{ source: string; total: number; won: number; lost: number }>();
+    const rows = results.map((r) => ({
+      source: r.source,
+      total: r.total,
+      won: r.won,
+      lost: r.lost,
+      conversionPct: r.total > 0 ? Math.round((r.won / r.total) * 1000) / 10 : 0,
+    }));
+    return c.json({ rows });
   })
 
   .post("/:tenantId/leads/:id/activities", requireAuth, requireTenantRole("admin"), async (c) => {
@@ -257,10 +285,10 @@ export const crmRoutes = new Hono<AppEnv>()
     const id = crypto.randomUUID();
     await db
       .prepare(
-        `INSERT INTO lead_activities (id, lead_id, type, note, activity_date, created_by)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO lead_activities (id, lead_id, type, note, activity_date, due_at, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
-      .bind(id, leadId, input.type, input.note, input.activityDate, c.get("user").id)
+      .bind(id, leadId, input.type, input.note, input.activityDate, input.dueAt ?? null, c.get("user").id)
       .run();
     await db.prepare(`UPDATE leads SET updated_at = datetime('now') WHERE id = ?`).bind(leadId).run();
     await audit(c.env, {

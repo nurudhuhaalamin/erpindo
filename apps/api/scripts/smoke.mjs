@@ -1232,6 +1232,67 @@ try {
   const tbAfterCrm = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah alur CRM", tbAfterCrm.json?.balanced === true);
 
+  // --- CRM lanjut (Fase 5e): sumber lead, tenggat follow-up, laporan konversi ------
+  console.log("11g2. CRM lanjut (sumber, tenggat follow-up, laporan sumber, masa berlaku penawaran)");
+
+  const lead5e = await owner("POST", `/api/tenants/${tenantId}/leads`, {
+    name: "Toko Oleh-Oleh Nusantara",
+    contactPerson: "Pak Bagus",
+    estValue: 4_000_000,
+    source: "Instagram",
+  });
+  check("buat lead ber-sumber 201", lead5e.status === 201, `→ ${JSON.stringify(lead5e.json)}`);
+  const leads5e = await owner("GET", `/api/tenants/${tenantId}/leads`);
+  check(
+    "daftar lead memuat kolom sumber",
+    leads5e.json?.leads?.some((l) => l.id === lead5e.json?.id && l.source === "Instagram"),
+  );
+
+  const act5e = await owner("POST", `/api/tenants/${tenantId}/leads/${lead5e.json?.id}/activities`, {
+    type: "whatsapp",
+    note: "Kirim katalog — janji dihubungi lagi.",
+    activityDate: "2026-01-02",
+    dueAt: "2026-01-05",
+  });
+  check("catat aktivitas ber-tenggat 201", act5e.status === 201, `→ ${JSON.stringify(act5e.json)}`);
+  const acts5e = await owner("GET", `/api/tenants/${tenantId}/leads/${lead5e.json?.id}/activities`);
+  check(
+    "daftar aktivitas memuat tenggat (dueAt)",
+    acts5e.json?.activities?.some((a) => a.dueAt === "2026-01-05"),
+  );
+
+  const notif5e = await owner("GET", `/api/tenants/${tenantId}/notifications`);
+  check(
+    "lonceng notifikasi memuat follow-up jatuh tempo (crm_followup_due)",
+    notif5e.json?.notifications?.some((n) => n.type === "crm_followup_due"),
+    `→ ${JSON.stringify(notif5e.json?.notifications?.map((n) => n.type))}`,
+  );
+
+  const crmReport = await owner("GET", `/api/tenants/${tenantId}/crm/report`);
+  const igRow = crmReport.json?.rows?.find((r) => r.source === "Instagram");
+  check("laporan sumber lead 200 + baris Instagram", crmReport.status === 200 && Boolean(igRow));
+  check(
+    "baris laporan punya total & conversionPct angka",
+    igRow?.total >= 1 && typeof igRow?.conversionPct === "number",
+    `→ ${JSON.stringify(crmReport.json)}`,
+  );
+  const outsiderReport = await outsider("GET", `/api/tenants/${tenantId}/crm/report`);
+  check("non-anggota DITOLAK laporan CRM (403)", outsiderReport.status === 403);
+
+  const quote5e = await owner("POST", `/api/tenants/${tenantId}/quotations`, {
+    contactId: newCust.id,
+    quoteDate: "2026-01-10",
+    validUntil: "2026-01-31",
+    taxRate: 0,
+    lines: [{ productId: prodBarang.json.id, qty: 1, unitPrice: 150_000 }],
+  });
+  check("buat penawaran ber-masa-berlaku 201", quote5e.status === 201, `→ ${JSON.stringify(quote5e.json)}`);
+  const quotes5e = await owner("GET", `/api/tenants/${tenantId}/quotations`);
+  check(
+    "daftar penawaran memuat validUntil (basis status kedaluwarsa)",
+    quotes5e.json?.quotations?.some((q) => q.id === quote5e.json?.id && q.validUntil === "2026-01-31"),
+  );
+
   // --- Anggaran (Fase 2n) ---------------------------------------------------------
   console.log("11h. Anggaran (budget vs realisasi)");
   const expenseAcc = accounts.find((a) => a.type === "expense");

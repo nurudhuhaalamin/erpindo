@@ -92,6 +92,9 @@ export function LeadsPage() {
         </p>
       </div>
 
+      {/* Papan kanban funnel — seret kartu antar kolom untuk memindah tahap. */}
+      <KanbanBoard leads={leads} isAdmin={isAdmin} />
+
       {/* Ringkasan funnel */}
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {funnel.map((f) => (
@@ -189,7 +192,138 @@ export function LeadsPage() {
           )}
         </CardBody>
       </Card>
+
+      <SourceReportCard tenantId={tenant.tenantId} />
     </div>
+  );
+}
+
+/**
+ * Papan kanban funnel (Fase 5e): drag-and-drop HTML5 tanpa pustaka tambahan.
+ * Melepas kartu di kolom lain memindah tahap lead — dropdown di Detail tetap
+ * tersedia sebagai jalur alternatif (termasuk untuk layar sentuh).
+ */
+function KanbanBoard({ leads, isAdmin }: { leads: ApiLead[]; isAdmin: boolean }) {
+  const { tenant } = useWorkspace();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [dragOver, setDragOver] = useState<LeadStage | null>(null);
+
+  const move = useMutation({
+    mutationFn: (vars: { id: string; stage: LeadStage }) => api.updateLead(tenant.tenantId, vars.id, { stage: vars.stage }),
+    onSuccess: () => {
+      toast("success", "Tahap diperbarui.");
+      queryClient.invalidateQueries({ queryKey: ["leads", tenant.tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  if (leads.length === 0) return null;
+
+  return (
+    <div className="overflow-x-auto pb-1">
+      <div className="flex min-w-[900px] gap-3">
+        {LEAD_STAGES.map((stage) => {
+          const inStage = leads.filter((l) => l.stage === stage && l.status === "open");
+          return (
+            <div
+              key={stage}
+              onDragOver={(e) => {
+                if (!isAdmin) return;
+                e.preventDefault();
+                setDragOver(stage);
+              }}
+              onDragLeave={() => setDragOver((s) => (s === stage ? null : s))}
+              onDrop={(e) => {
+                if (!isAdmin) return;
+                e.preventDefault();
+                setDragOver(null);
+                const id = e.dataTransfer.getData("text/lead-id");
+                const lead = leads.find((l) => l.id === id);
+                if (id && lead && lead.stage !== stage) move.mutate({ id, stage });
+              }}
+              className={`w-52 shrink-0 rounded-xl border p-2 transition-colors ${
+                dragOver === stage
+                  ? "border-brand-400 bg-brand-50 dark:border-brand-500/50 dark:bg-brand-500/10"
+                  : "border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60"
+              }`}
+            >
+              <div className="mb-2 flex items-center justify-between px-1">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  {LEAD_STAGE_LABELS[stage]}
+                </span>
+                <Badge tone={STAGE_TONE[stage]}>{inStage.length}</Badge>
+              </div>
+              <div className="space-y-2">
+                {inStage.map((lead) => (
+                  <div
+                    key={lead.id}
+                    draggable={isAdmin}
+                    onDragStart={(e) => e.dataTransfer.setData("text/lead-id", lead.id)}
+                    className={`rounded-lg border border-slate-200 bg-white p-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800 ${
+                      isAdmin ? "cursor-grab active:cursor-grabbing" : ""
+                    }`}
+                  >
+                    <div className="font-medium leading-snug">{lead.name}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-slate-500 dark:text-slate-400">
+                      {lead.estValue > 0 ? <span className="tabular-nums">{formatIDR(lead.estValue)}</span> : null}
+                      {lead.source ? <span>· {lead.source}</span> : null}
+                    </div>
+                  </div>
+                ))}
+                {inStage.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-slate-200 p-2 text-center text-xs text-slate-400 dark:border-slate-700">
+                    kosong
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** Laporan konversi per sumber lead (dari mana pelanggan terbaik datang). */
+function SourceReportCard({ tenantId }: { tenantId: string }) {
+  const query = useQuery({ queryKey: ["crm-report", tenantId], queryFn: () => api.crmReport(tenantId) });
+  const rows = query.data?.rows ?? [];
+  if (query.isLoading || rows.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader
+        title="Konversi per sumber"
+        description="Sumber lead mana yang paling banyak menghasilkan pelanggan — arahkan promosi ke sana."
+      />
+      <CardBody>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[480px] text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                <th className="py-2 pr-3 font-medium">Sumber</th>
+                <th className="py-2 pr-3 text-right font-medium">Lead</th>
+                <th className="py-2 pr-3 text-right font-medium">Menang</th>
+                <th className="py-2 pr-3 text-right font-medium">Kalah</th>
+                <th className="py-2 text-right font-medium">Konversi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.source} className="border-b border-slate-100 dark:border-slate-800">
+                  <td className="py-2 pr-3">{r.source}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums">{r.total}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums">{r.won}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums">{r.lost}</td>
+                  <td className="py-2 text-right font-medium tabular-nums">{r.conversionPct.toLocaleString("id-ID")}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardBody>
+    </Card>
   );
 }
 
@@ -198,7 +332,11 @@ function LeadRow({ lead, isAdmin }: { lead: ApiLead; isAdmin: boolean }) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [act, setAct] = useState<{ type: LeadActivityType; note: string }>({ type: "call", note: "" });
+  const [act, setAct] = useState<{ type: LeadActivityType; note: string; dueAt: string }>({
+    type: "call",
+    note: "",
+    dueAt: "",
+  });
 
   const activitiesQuery = useQuery({
     queryKey: ["lead-activities", tenant.tenantId, lead.id],
@@ -223,10 +361,15 @@ function LeadRow({ lead, isAdmin }: { lead: ApiLead; isAdmin: boolean }) {
 
   const addActivity = useMutation({
     mutationFn: () =>
-      api.addLeadActivity(tenant.tenantId, lead.id, { type: act.type, note: act.note.trim(), activityDate: today() }),
+      api.addLeadActivity(tenant.tenantId, lead.id, {
+        type: act.type,
+        note: act.note.trim(),
+        activityDate: today(),
+        ...(act.dueAt ? { dueAt: act.dueAt } : {}),
+      }),
     onSuccess: () => {
       toast("success", "Aktivitas dicatat.");
-      setAct({ type: "call", note: "" });
+      setAct({ type: "call", note: "", dueAt: "" });
       invalidate();
     },
     onError: (err) => toast("error", (err as Error).message),
@@ -316,6 +459,15 @@ function LeadRow({ lead, isAdmin }: { lead: ApiLead; isAdmin: boolean }) {
                     onChange={(e) => setAct({ ...act, note: e.target.value })}
                   />
                 </div>
+                <div>
+                  <Label htmlFor={`due-${lead.id}`}>Tenggat (opsional)</Label>
+                  <Input
+                    id={`due-${lead.id}`}
+                    type="date"
+                    value={act.dueAt}
+                    onChange={(e) => setAct({ ...act, dueAt: e.target.value })}
+                  />
+                </div>
                 <Button onClick={() => addActivity.mutate()} disabled={addActivity.isPending || !act.note.trim()}>
                   {addActivity.isPending ? <Spinner /> : null} Catat
                 </Button>
@@ -328,10 +480,13 @@ function LeadRow({ lead, isAdmin }: { lead: ApiLead; isAdmin: boolean }) {
             ) : (
               <ul className="space-y-1.5">
                 {activitiesQuery.data!.activities.map((a) => (
-                  <li key={a.id} className="flex gap-2 text-sm">
+                  <li key={a.id} className="flex flex-wrap gap-2 text-sm">
                     <Badge tone="neutral">{LEAD_ACTIVITY_LABELS[a.type]}</Badge>
                     <span className="text-slate-400">{a.activityDate}</span>
                     <span>{a.note}</span>
+                    {a.dueAt ? (
+                      <Badge tone={a.dueAt <= today() ? "red" : "amber"}>tenggat {a.dueAt}</Badge>
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -613,6 +768,19 @@ function QuoteRow({ quote, isAdmin }: { quote: ApiQuotation; isAdmin: boolean })
         <span className="font-medium">{quote.contactName}</span>
         <span className="text-sm text-slate-400">{quote.quoteDate}</span>
         <Badge tone={QUOTE_TONE[quote.status]}>{QUOTE_LABEL[quote.status]}</Badge>
+        {quote.validUntil && quote.validUntil < today() && (quote.status === "draft" || quote.status === "sent") ? (
+          <Badge tone="red">kedaluwarsa</Badge>
+        ) : quote.validUntil ? (
+          <span className="text-xs text-slate-400">berlaku s.d. {quote.validUntil}</span>
+        ) : null}
+        <a
+          href={`/cetak/penawaran?tenant=${tenant.tenantId}&id=${quote.id}`}
+          target="_blank"
+          rel="noreferrer"
+          className="text-sm font-medium text-brand-700 hover:underline dark:text-brand-300"
+        >
+          Cetak
+        </a>
         <span className="ml-auto text-sm font-semibold tabular-nums">{formatIDR(quote.total)}</span>
       </div>
 
