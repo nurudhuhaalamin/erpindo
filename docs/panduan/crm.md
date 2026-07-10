@@ -6,7 +6,7 @@ Kelola calon pelanggan dari prospek sampai deal: tahapan funnel, catatan aktivit
 
 ## Pipeline lead
 
-1. Catat lead beserta nilai potensinya; geser tahapan (baru → dihubungi → qualified → menang/kalah).
+1. Catat lead beserta nilai potensinya; geser tahapan (baru → dihubungi → terkualifikasi → penawaran → menang/kalah).
 2. Tambahkan aktivitas follow-up (telepon, meeting, catatan) agar riwayat komunikasi tersimpan.
 3. Lead yang siap dikonversi menjadi Pelanggan otomatis masuk daftar kontak.
 

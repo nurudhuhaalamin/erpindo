@@ -35,7 +35,7 @@ export const OPERASIONAL: GuideModule[] = [
         image: "/panduan/crm-1.webp",
         imageAlt: "Pipeline CRM",
         steps: [
-          "Catat lead beserta nilai potensinya; geser tahapan (baru → dihubungi → qualified → menang/kalah).",
+          "Catat lead beserta nilai potensinya; geser tahapan (baru → dihubungi → terkualifikasi → penawaran → menang/kalah).",
           "Tambahkan aktivitas follow-up (telepon, meeting, catatan) agar riwayat komunikasi tersimpan.",
           "Lead yang siap dikonversi menjadi Pelanggan otomatis masuk daftar kontak.",
         ],
@@ -64,7 +64,7 @@ export const OPERASIONAL: GuideModule[] = [
         imageAlt: "Halaman proyek",
         steps: [
           "Buat proyek dengan kode & anggaran; tambahkan tugas dan tandai selesai.",
-          "Saat membuat faktur atau jurnal, pilih proyek terkait — pendapatan/biaya otomatis ter-tag.",
+          "Saat membuat faktur atau jurnal, pilih proyek terkait — pendapatan/biaya otomatis tertandai ke proyek itu.",
           "Detail proyek menampilkan realisasi vs anggaran dan laba proyek berjalan.",
         ],
       },
