@@ -998,9 +998,79 @@ export type ApiProjectTask = {
   dueDate: string | null;
 };
 
+// --- Proyek lanjut (Fase 5g): termin penagihan, RAB, timesheet ---------------
+
+/** Termin penagihan proyek: nama tahap + nominal. */
+export const projectMilestoneSchema = z.object({
+  name: z.string().trim().min(2, "Nama termin minimal 2 karakter").max(150),
+  amount: amountSchema.refine((v) => v > 0, "Nominal termin harus lebih dari 0"),
+});
+export type ProjectMilestoneInput = z.infer<typeof projectMilestoneSchema>;
+
+/** Buat faktur dari termin: pola faktur jasa (tanpa stok), tertaut proyek. */
+export const invoiceMilestoneSchema = z.object({
+  invoiceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  taxRate: z.union([z.literal(0), z.literal(11), z.literal(12)]).default(0),
+  warehouseId: z.string().min(1, "Gudang wajib dipilih"),
+});
+export type InvoiceMilestoneInput = z.infer<typeof invoiceMilestoneSchema>;
+
+/** RAB: baris anggaran biaya per kategori. */
+export const projectBudgetSchema = z.object({
+  category: z.string().trim().min(2, "Kategori minimal 2 karakter").max(100),
+  plannedAmount: amountSchema.refine((v) => v > 0, "Anggaran harus lebih dari 0"),
+});
+export type ProjectBudgetInput = z.infer<typeof projectBudgetSchema>;
+
+/** Timesheet: jam kerja per karyawan pada proyek (informatif → estimasi biaya tenaga kerja). */
+export const timeEntrySchema = z.object({
+  employeeId: z.string().optional(),
+  entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+  hours: z.number().positive("Jam harus lebih dari 0").max(24, "Maksimal 24 jam per entri"),
+  hourlyRate: amountSchema.default(0),
+  note: z.string().trim().max(200).optional(),
+});
+export type TimeEntryInput = z.infer<typeof timeEntrySchema>;
+
+export type ApiProjectMilestone = {
+  id: string;
+  name: string;
+  amount: number;
+  status: "planned" | "invoiced";
+  invoiceId: string | null;
+  invoiceNo: string | null;
+};
+
+export type ApiProjectBudget = {
+  id: string;
+  category: string;
+  plannedAmount: number;
+};
+
+export type ApiTimeEntry = {
+  id: string;
+  employeeId: string | null;
+  employeeName: string | null;
+  entryDate: string;
+  hours: number;
+  hourlyRate: number;
+  amount: number;
+  note: string | null;
+};
+
 export type ApiProjectDetail = ApiProject & {
   tasks: ApiProjectTask[];
   entries: { entryNo: string; entryDate: string; memo: string | null; revenue: number; cost: number }[];
+  milestones: ApiProjectMilestone[];
+  budgets: ApiProjectBudget[];
+  timeEntries: ApiTimeEntry[];
+  /** Total anggaran RAB (jumlah planned_amount). */
+  plannedCost: number;
+  /** Estimasi biaya tenaga kerja dari timesheet (jam × tarif). */
+  laborCost: number;
+  /** Progres = tugas selesai / total tugas (persen, 0 bila belum ada tugas). */
+  progressPct: number;
 };
 
 // ---------------------------------------------------------------------------

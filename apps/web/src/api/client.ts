@@ -53,9 +53,13 @@ import type {
   CreatePaymentInput,
   CreateQuotationInput,
   EmployeeLoanInput,
+  InvoiceMilestoneInput,
   LeadActivityInput,
   LeaveRequestInput,
   PayrollAdjustmentInput,
+  ProjectBudgetInput,
+  ProjectMilestoneInput,
+  TimeEntryInput,
   LeadInput,
   MeResponse,
   ProductInput,
@@ -338,6 +342,24 @@ export const api = {
     request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/projects/${id}/tasks`, input),
   setTaskStatus: (tenantId: string, id: string, taskId: string, status: string) =>
     request<{ ok: true; status: string }>("PATCH", `/api/tenants/${tenantId}/projects/${id}/tasks/${taskId}`, { status }),
+  addMilestone: (tenantId: string, id: string, input: ProjectMilestoneInput) =>
+    request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/projects/${id}/milestones`, input),
+  invoiceMilestone: (tenantId: string, id: string, mid: string, input: InvoiceMilestoneInput) =>
+    request<{ ok: true; invoiceId: string; docNo: string; total: number }>(
+      "POST",
+      `/api/tenants/${tenantId}/projects/${id}/milestones/${mid}/invoice`,
+      input,
+    ),
+  deleteMilestone: (tenantId: string, id: string, mid: string) =>
+    request<{ ok: true }>("DELETE", `/api/tenants/${tenantId}/projects/${id}/milestones/${mid}`),
+  addProjectBudget: (tenantId: string, id: string, input: ProjectBudgetInput) =>
+    request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/projects/${id}/budgets`, input),
+  deleteProjectBudget: (tenantId: string, id: string, bid: string) =>
+    request<{ ok: true }>("DELETE", `/api/tenants/${tenantId}/projects/${id}/budgets/${bid}`),
+  addTimeEntry: (tenantId: string, id: string, input: TimeEntryInput) =>
+    request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/projects/${id}/time-entries`, input),
+  deleteTimeEntry: (tenantId: string, id: string, eid: string) =>
+    request<{ ok: true }>("DELETE", `/api/tenants/${tenantId}/projects/${id}/time-entries/${eid}`),
 
   // --- Penjualan & Pembelian -----------------------------------------------------
   invoices: (tenantId: string, opts?: ListOpts) =>

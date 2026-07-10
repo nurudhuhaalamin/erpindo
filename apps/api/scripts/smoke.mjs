@@ -1623,6 +1623,81 @@ try {
   const tbAfterProject = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah jurnal proyek", tbAfterProject.json?.balanced === true);
 
+  // --- Proyek lanjut (Fase 5g): termin, RAB, papan tugas, timesheet ----------------
+  console.log("11k2. Proyek lanjut (termin → faktur, RAB, progres tugas, timesheet)");
+
+  const viewerMs = await viewer("POST", `/api/tenants/${tenantId}/projects/${projectId}/milestones`, { name: "X", amount: 1000 });
+  check("viewer DITOLAK menambah termin (403)", viewerMs.status === 403);
+
+  // Proyek jasa baru dengan pelanggan (agar bisa menagih termin).
+  const projSvc = await owner("POST", `/api/tenants/${tenantId}/projects`, {
+    code: "PRJ-JASA-5G",
+    name: "Jasa Desain 5g",
+    contactId: newCust.id,
+    budget: 5_000_000,
+  });
+  check("buat proyek jasa ber-pelanggan 201", projSvc.status === 201);
+  const projSvcId = projSvc.json?.id;
+
+  const ms1 = await owner("POST", `/api/tenants/${tenantId}/projects/${projSvcId}/milestones`, { name: "Uang muka", amount: 5_000_000 });
+  check("tambah termin 201", ms1.status === 201);
+  const badMs = await owner("POST", `/api/tenants/${tenantId}/projects/${projSvcId}/milestones`, { name: "X", amount: 0 });
+  check("termin nominal 0 DITOLAK 400", badMs.status === 400);
+
+  const invMs = await owner("POST", `/api/tenants/${tenantId}/projects/${projSvcId}/milestones/${ms1.json?.id}/invoice`, {
+    invoiceDate: "2026-07-20",
+    taxRate: 0,
+    warehouseId: whUtama.id,
+  });
+  check("buat faktur dari termin 201 (5jt)", invMs.status === 201 && invMs.json?.total === 5_000_000, `→ ${JSON.stringify(invMs.json)}`);
+
+  const detailSvc = await owner("GET", `/api/tenants/${tenantId}/projects/${projSvcId}`);
+  const invoicedMs = detailSvc.json?.milestones?.find((m) => m.id === ms1.json?.id);
+  check(
+    "termin jadi 'invoiced' + tertaut faktur, pendapatan proyek 5jt",
+    invoicedMs?.status === "invoiced" && Boolean(invoicedMs?.invoiceNo) && detailSvc.json?.revenue === 5_000_000,
+    `→ ${JSON.stringify({ st: invoicedMs?.status, rev: detailSvc.json?.revenue })}`,
+  );
+
+  const reInvMs = await owner("POST", `/api/tenants/${tenantId}/projects/${projSvcId}/milestones/${ms1.json?.id}/invoice`, {
+    invoiceDate: "2026-07-20", taxRate: 0, warehouseId: whUtama.id,
+  });
+  check("faktur termin kedua kali DITOLAK 400", reInvMs.status === 400);
+  const delInvMs = await owner("DELETE", `/api/tenants/${tenantId}/projects/${projSvcId}/milestones/${ms1.json?.id}`);
+  check("hapus termin yang sudah difakturkan DITOLAK 409", delInvMs.status === 409);
+
+  // Proyek tanpa pelanggan tidak bisa menagih termin.
+  const projNoCust = await owner("POST", `/api/tenants/${tenantId}/projects`, { code: "PRJ-NOCUST-5G", name: "Tanpa Pelanggan" });
+  const msNoCust = await owner("POST", `/api/tenants/${tenantId}/projects/${projNoCust.json?.id}/milestones`, { name: "DP", amount: 1_000_000 });
+  const invNoCust = await owner("POST", `/api/tenants/${tenantId}/projects/${projNoCust.json?.id}/milestones/${msNoCust.json?.id}/invoice`, {
+    invoiceDate: "2026-07-20", taxRate: 0, warehouseId: whUtama.id,
+  });
+  check("faktur termin proyek tanpa pelanggan DITOLAK 400", invNoCust.status === 400);
+
+  // RAB: dua baris anggaran → plannedCost 5jt.
+  await owner("POST", `/api/tenants/${tenantId}/projects/${projSvcId}/budgets`, { category: "Material", plannedAmount: 3_000_000 });
+  await owner("POST", `/api/tenants/${tenantId}/projects/${projSvcId}/budgets`, { category: "Tenaga kerja", plannedAmount: 2_000_000 });
+  const detailBudget = await owner("GET", `/api/tenants/${tenantId}/projects/${projSvcId}`);
+  check("RAB: 2 baris, total anggaran 5jt", detailBudget.json?.budgets?.length === 2 && detailBudget.json?.plannedCost === 5_000_000);
+  const viewerProjBudget = await viewer("POST", `/api/tenants/${tenantId}/projects/${projSvcId}/budgets`, { category: "X", plannedAmount: 1000 });
+  check("viewer DITOLAK menambah RAB (403)", viewerProjBudget.status === 403);
+
+  // Timesheet: 10 jam × 100rb → estimasi biaya tenaga kerja 1jt (informatif, tak dijurnal).
+  const te1 = await owner("POST", `/api/tenants/${tenantId}/projects/${projSvcId}/time-entries`, { entryDate: "2026-07-18", hours: 10, hourlyRate: 100_000, note: "Desain" });
+  check("catat timesheet 201", te1.status === 201);
+  const detailTime = await owner("GET", `/api/tenants/${tenantId}/projects/${projSvcId}`);
+  check("timesheet: estimasi biaya tenaga kerja 1jt", detailTime.json?.laborCost === 1_000_000 && detailTime.json?.timeEntries?.length === 1);
+
+  // Papan tugas: 2 tugas, 1 selesai → progres 50%.
+  const ta1 = await owner("POST", `/api/tenants/${tenantId}/projects/${projSvcId}/tasks`, { name: "Survei" });
+  await owner("POST", `/api/tenants/${tenantId}/projects/${projSvcId}/tasks`, { name: "Gambar kerja" });
+  await owner("PATCH", `/api/tenants/${tenantId}/projects/${projSvcId}/tasks/${ta1.json?.id}`, { status: "done" });
+  const detailProg = await owner("GET", `/api/tenants/${tenantId}/projects/${projSvcId}`);
+  check("progres proyek = 50% (1 dari 2 tugas selesai)", detailProg.json?.progressPct === 50, `→ ${detailProg.json?.progressPct}`);
+
+  const tbAfterProjectExtras = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah termin & faktur proyek", tbAfterProjectExtras.json?.balanced === true);
+
   // --- Multi mata uang (Fase 2r) --------------------------------------------------
   // Beroperasi di Agustus (di luar jendela arus kas Juli & tanggal kunci).
   console.log("11l. Multi mata uang (faktur valas + selisih kurs)");
