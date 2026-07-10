@@ -1,8 +1,8 @@
 import type { ApiCommerceDoc } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, PackageOpen, Printer, Search } from "lucide-react";
+import { Download, FileText, PackageOpen, Printer, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { api, formatDate, formatIDR } from "../api/client";
+import { api, downloadCsv, formatDate, formatIDR } from "../api/client";
 import {
   Alert,
   Badge,
@@ -1063,6 +1063,12 @@ export function StockPage() {
   const isAdmin = tenant.role !== "viewer";
   const query = useQuery({ queryKey: ["stock", tenant.tenantId], queryFn: () => api.stock(tenant.tenantId) });
   const [selected, setSelected] = useState<{ productId: string; warehouseId: string; title: string } | null>(null);
+  const [lowOnly, setLowOnly] = useState(false);
+  const [threshold, setThreshold] = useState("10");
+
+  const allLevels = query.data?.levels ?? [];
+  const lowLimit = Number(threshold) || 0;
+  const levels = lowOnly ? allLevels.filter((l) => l.qty <= lowLimit) : allLevels;
 
   return (
     <div className="space-y-6">
@@ -1075,16 +1081,55 @@ export function StockPage() {
         <CardHeader
           title="Level stok per gudang"
           description="Nilai persediaan memakai metode biaya rata-rata bergerak (moving average)."
+          action={
+            allLevels.length > 0 ? (
+              <Button
+                variant="secondary"
+                className="h-9"
+                onClick={() =>
+                  downloadCsv(
+                    "stok.csv",
+                    ["SKU", "Produk", "Gudang", "Qty", "Satuan", "Biaya rata-rata", "Nilai"],
+                    levels.map((l) => [l.sku, l.productName, l.warehouseName, l.qty, l.unit, l.avgCost, l.value]),
+                  )
+                }
+              >
+                <Download className="size-4" aria-hidden /> Ekspor CSV
+              </Button>
+            ) : undefined
+          }
         />
         <CardBody>
+          {allLevels.length > 0 ? (
+            <label className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={lowOnly}
+                onChange={(e) => setLowOnly(e.target.checked)}
+                className="size-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+              />
+              Hanya tampilkan stok menipis (qty ≤
+              <input
+                type="number"
+                min={0}
+                value={threshold}
+                onChange={(e) => setThreshold(e.target.value)}
+                className="w-16 rounded border border-slate-300 px-2 py-0.5 text-sm dark:border-slate-700 dark:bg-slate-900"
+                aria-label="Ambang stok menipis"
+              />
+              )
+            </label>
+          ) : null}
           {query.isLoading ? (
             <Spinner />
-          ) : (query.data?.levels.length ?? 0) === 0 ? (
+          ) : allLevels.length === 0 ? (
             <EmptyState
               icon={<PackageOpen className="size-6" aria-hidden />}
               title="Belum ada stok"
               description="Catat faktur pembelian untuk mengisi stok — level per gudang akan tampil di sini."
             />
+          ) : levels.length === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400">Tidak ada produk dengan stok ≤ {lowLimit}.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -1100,7 +1145,7 @@ export function StockPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {query.data!.levels.map((l) => (
+                  {levels.map((l) => (
                     <tr key={`${l.productId}-${l.warehouseId}`}>
                       <td className="border-b border-slate-100 py-2.5 pr-4 font-mono text-xs dark:border-slate-800/60">
                         {l.sku}
@@ -1135,9 +1180,11 @@ export function StockPage() {
                   ))}
                   <tr className="font-semibold">
                     <td className="py-2.5 pr-4" colSpan={5}>
-                      Total nilai persediaan
+                      {lowOnly ? "Total nilai (terfilter)" : "Total nilai persediaan"}
                     </td>
-                    <td className="py-2.5 text-right tabular-nums">{formatIDR(query.data!.totalValue)}</td>
+                    <td className="py-2.5 text-right tabular-nums">
+                      {formatIDR(lowOnly ? levels.reduce((s, l) => s + l.value, 0) : query.data!.totalValue)}
+                    </td>
                     <td></td>
                   </tr>
                 </tbody>

@@ -42,6 +42,18 @@ const STATUS_TONE: Record<TicketStatus, "amber" | "brand" | "green" | "neutral">
   closed: "neutral",
 };
 
+/**
+ * Umur tiket yang masih terbuka: hijau <24 jam, kuning 24–72 jam, merah >72 jam.
+ * Tiket yang sudah selesai/ditutup tidak diberi label umur.
+ */
+function ticketAge(t: ApiTicket): { label: string; tone: "green" | "amber" | "red" } | null {
+  if (t.status === "resolved" || t.status === "closed") return null;
+  const hours = (Date.now() - Date.parse(t.createdAt)) / 3_600_000;
+  const label = hours < 24 ? `${Math.max(1, Math.round(hours))} jam` : `${Math.round(hours / 24)} hari`;
+  const tone = hours > 72 ? "red" : hours > 24 ? "amber" : "green";
+  return { label, tone };
+}
+
 export function HelpdeskPage() {
   const { tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
@@ -206,7 +218,11 @@ export function HelpdeskPage() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-mono text-xs text-slate-400">{t.ticketNo}</span>
-                      <div className="flex gap-1.5">
+                      <div className="flex flex-wrap justify-end gap-1.5">
+                        {(() => {
+                          const age = ticketAge(t);
+                          return age ? <Badge tone={age.tone}>umur {age.label}</Badge> : null;
+                        })()}
                         <Badge tone={PRIORITY_TONE[t.priority]}>{TICKET_PRIORITY_LABELS[t.priority]}</Badge>
                         <Badge tone={STATUS_TONE[t.status]}>{TICKET_STATUS_LABELS[t.status]}</Badge>
                       </div>

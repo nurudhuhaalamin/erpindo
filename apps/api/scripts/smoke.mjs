@@ -544,6 +544,7 @@ try {
     `→ ${JSON.stringify(dash.json)}`,
   );
   check("dashboard: kas & bank 52.999.500", dash.json?.cashAndBank === 52_999_500, `→ ${dash.json?.cashAndBank}`);
+  check("dashboard: memuat penjualan bulan lalu (untuk delta)", typeof dash.json?.salesLastMonth === "number");
 
   const viewerPl = await viewer(
     "GET",
@@ -2469,6 +2470,25 @@ try {
   check("parameter days di-clamp maksimal 90", duTrendClamp.json?.days === 90);
   const duTrendViewer = await viewer("GET", `/api/tenants/${tenantId}/reports/sales-daily`);
   check("viewer boleh membaca tren penjualan (200)", duTrendViewer.status === 200);
+
+  // Laporan penjualan analitik (Fase 5h): agregat per produk & per pelanggan.
+  const salesAnalytics = await owner("GET", `/api/tenants/${tenantId}/reports/sales-analytics?from=2026-01-01&to=2026-12-31`);
+  check(
+    "laporan penjualan analitik 200: total = jumlah omzet produk, ada baris produk & pelanggan",
+    salesAnalytics.status === 200 &&
+      Array.isArray(salesAnalytics.json?.byProduct) &&
+      salesAnalytics.json.byProduct.length > 0 &&
+      Array.isArray(salesAnalytics.json?.byCustomer) &&
+      salesAnalytics.json.byCustomer.length > 0 &&
+      salesAnalytics.json.byProduct.every((r) => r.qty > 0 && r.revenue > 0),
+    `→ ${JSON.stringify({ total: salesAnalytics.json?.totalRevenue, np: salesAnalytics.json?.byProduct?.length, nc: salesAnalytics.json?.byCustomer?.length })}`,
+  );
+  check(
+    "laporan penjualan: byProduct terurut menurun berdasarkan omzet",
+    salesAnalytics.json.byProduct.every((r, i, arr) => i === 0 || arr[i - 1].revenue >= r.revenue),
+  );
+  const salesAnalyticsViewer = await viewer("GET", `/api/tenants/${tenantId}/reports/sales-analytics`);
+  check("viewer boleh membaca laporan penjualan (200)", salesAnalyticsViewer.status === 200);
 
   // Logo kop: simpan data URL kecil di settings, tampil di cetakan.
   const duLogo = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";

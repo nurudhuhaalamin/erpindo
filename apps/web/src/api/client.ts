@@ -27,6 +27,7 @@ import type {
   ApiContract,
   ApiCurrency,
   ApiDashboard,
+  ApiSalesAnalytics,
   ApiAiJournalDraft,
   ApiEfakturReport,
   ApiIncomeStatement,
@@ -219,6 +220,8 @@ export const api = {
       "GET",
       `/api/tenants/${tenantId}/reports/sales-daily?days=${days}`,
     ),
+  salesAnalytics: (tenantId: string, from: string, to: string) =>
+    request<ApiSalesAnalytics>("GET", `/api/tenants/${tenantId}/reports/sales-analytics?from=${from}&to=${to}`),
   cashFlow: (tenantId: string, from: string, to: string) =>
     request<ApiCashFlow>("GET", `/api/tenants/${tenantId}/reports/cash-flow?from=${from}&to=${to}`),
   aging: (tenantId: string, type: "receivable" | "payable") =>

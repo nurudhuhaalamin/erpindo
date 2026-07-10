@@ -1457,10 +1457,40 @@ export type ApiDashboard = {
   cashAndBank: number;
   salesThisMonth: number;
   salesCountThisMonth: number;
+  /** Penjualan bulan lalu (untuk delta perbandingan di kartu KPI). */
+  salesLastMonth: number;
   receivableOutstanding: number;
   payableOutstanding: number;
   inventoryValue: number;
   openLeadsCount: number;
+};
+
+// ---------------------------------------------------------------------------
+// Laporan penjualan analitik (Fase 5h): agregat per produk & per pelanggan
+// ---------------------------------------------------------------------------
+
+export type ApiSalesByProduct = {
+  productId: string;
+  sku: string;
+  name: string;
+  qty: number;
+  revenue: number;
+};
+
+export type ApiSalesByCustomer = {
+  contactId: string;
+  name: string;
+  invoiceCount: number;
+  revenue: number;
+};
+
+export type ApiSalesAnalytics = {
+  from: string;
+  to: string;
+  totalRevenue: number;
+  invoiceCount: number;
+  byProduct: ApiSalesByProduct[];
+  byCustomer: ApiSalesByCustomer[];
 };
 
 // ---------------------------------------------------------------------------
