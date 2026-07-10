@@ -2488,6 +2488,30 @@ try {
   });
   check("tenant comped tetap BISA MENULIS setelah cron (201, bukan 402)", compedWrite.status === 201, `→ ${compedWrite.status}`);
 
+  // --- Catat Transaksi / wizard pemula (Fase 5c) --------------------------------
+  // Wizard di web membentuk jurnal 2 baris standar — kontraknya diuji di sini
+  // pada tenant comped (tenant utama sudah baca-saja pasca-cron di atas).
+  console.log("14b. Catat Transaksi (wizard pemula)");
+  const dwAccounts = await admin("GET", `/api/tenants/${dewiOwn.tenantId}/accounts`);
+  const dwKas = dwAccounts.json?.accounts?.find((a) => a.code === "1-1000");
+  const dwSewa = dwAccounts.json?.accounts?.find((a) => a.code === "5-3000");
+  check("COA tenant comped punya Kas & Beban Sewa (kategori wizard terpetakan)", Boolean(dwKas && dwSewa));
+  const wizardJournal = await admin("POST", `/api/tenants/${dewiOwn.tenantId}/journal-entries`, {
+    entryDate: new Date().toISOString().slice(0, 10),
+    memo: "Sewa tempat",
+    lines: [
+      { accountId: dwSewa.id, debit: 750_000, credit: 0 },
+      { accountId: dwKas.id, debit: 0, credit: 750_000 },
+    ],
+  });
+  check("jurnal bentukan wizard (uang keluar → kategori) diposting 201", wizardJournal.status === 201, `→ ${JSON.stringify(wizardJournal.json)}`);
+  const dwTb = await admin("GET", `/api/tenants/${dewiOwn.tenantId}/trial-balance`);
+  check(
+    "neraca saldo tenant comped tetap seimbang setelah catatan wizard",
+    dwTb.status === 200 && dwTb.json?.balanced === true,
+    `→ ${JSON.stringify(dwTb.json && { d: dwTb.json.totalDebit, k: dwTb.json.totalCredit })}`,
+  );
+
   // --- Logout -----------------------------------------------------------------
   console.log("15. Logout");
   const out = await owner("POST", "/api/auth/logout");

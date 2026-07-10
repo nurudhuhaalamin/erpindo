@@ -9,6 +9,8 @@
 - [Pengaturan & Tim](./pengaturan.md)
 - [Produk & Jasa](./produk.md)
 - [Pelanggan & Pemasok](./kontak.md)
+- [Akuntansi untuk Pemula](./akuntansi-pemula.md)
+- [Kamus Istilah](./istilah.md)
 
 ## Transaksi Harian
 

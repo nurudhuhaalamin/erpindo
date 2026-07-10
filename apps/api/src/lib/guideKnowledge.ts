@@ -164,6 +164,20 @@ export const GUIDE_KNOWLEDGE: GuideKnowledge[] = [
     keywords: ["helpdesk", "tiket", "keluhan", "dukungan", "support"],
     summary: "Tiket terhubung kontak dengan prioritas, penugasan anggota, balasan pelanggan vs catatan internal, dan status sampai selesai.",
   },
+  {
+    slug: "akuntansi-pemula",
+    title: "Akuntansi untuk Pemula",
+    keywords: ["pemula", "tidak paham", "awam", "catat transaksi", "uang masuk", "uang keluar", "pindah dana", "mode sederhana", "sak"],
+    summary:
+      "Pengguna awam tidak perlu paham jurnal: faktur/POS/gaji otomatis dibukukan. Uang keluar-masuk biasa dicatat lewat Keuangan → Catat Transaksi (Uang Masuk/Uang Keluar/Pindah Dana, kategori sehari-hari seperti bayar listrik, sewa, setoran modal — jurnal 2 baris dibuat otomatis). Mode Sederhana di Pengaturan → Tampilan menyembunyikan menu akuntansi teknis. Laporan inti untuk pemula: Laba Rugi (untung/rugi) dan Arus Kas (uang ke mana).",
+  },
+  {
+    slug: "istilah",
+    title: "Kamus Istilah",
+    keywords: ["istilah", "arti", "apa itu", "debit", "kredit", "hpp", "neraca", "dpp", "prive", "ekuitas", "penyusutan", "aging"],
+    summary:
+      "Kamus singkat: jurnal = catatan transaksi 2 sisi seimbang; debit/kredit = dua sisi pencatatan; HPP = biaya perolehan barang terjual; neraca = aset = kewajiban + ekuitas; piutang = tagihan ke pelanggan, hutang = kewajiban ke pemasok; DPP = nilai sebelum PPN; prive = uang diambil pemilik; penyusutan = beban pemakaian aset tetap per bulan; FEFO = kedaluwarsa terdekat keluar lebih dulu. Daftar lengkap di /panduan/istilah.",
+  },
 ];
 
 /** Pilih ringkasan modul paling relevan untuk sebuah pertanyaan (skor kata kunci). */
