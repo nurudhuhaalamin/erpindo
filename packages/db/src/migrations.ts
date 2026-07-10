@@ -759,6 +759,37 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `ALTER TABLE products ADD COLUMN min_stock INTEGER NOT NULL DEFAULT 0`,
     ],
   },
+  {
+    id: "0020_finance_extras",
+    statements: [
+      // Template jurnal berulang: lines = JSON [{accountId, debit, credit}].
+      // schedule 'monthly' + next_run_date → cron memposting otomatis; NULL =
+      // hanya terbit manual dari form Jurnal Umum.
+      `CREATE TABLE journal_templates (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        memo TEXT,
+        lines TEXT NOT NULL,
+        schedule TEXT,
+        next_run_date TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL
+      )`,
+      // Rekonsiliasi bank v1: baris mutasi rekening koran hasil impor CSV.
+      // amount bertanda (+ masuk / − keluar); matched_journal_line_id terisi =
+      // baris sudah dicocokkan (otomatis maupun manual).
+      `CREATE TABLE bank_statement_items (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id),
+        stmt_date TEXT NOT NULL,
+        description TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        matched_journal_line_id TEXT,
+        created_at TEXT NOT NULL
+      )`,
+      `CREATE INDEX idx_bank_stmt_account ON bank_statement_items(account_id, stmt_date)`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

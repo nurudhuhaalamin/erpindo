@@ -14,6 +14,7 @@ import { consolidationRoutes } from "./routes/consolidation";
 import { contractRoutes, runBilling } from "./routes/contracts";
 import { crmRoutes } from "./routes/crm";
 import { currencyRoutes } from "./routes/currencies";
+import { financeExtraRoutes, runScheduledTemplates } from "./routes/financeExtras";
 import { helpdeskRoutes } from "./routes/helpdesk";
 import { maintenanceRoutes, runMaintenance } from "./routes/maintenance";
 import { manufacturingRoutes } from "./routes/manufacturing";
@@ -53,6 +54,7 @@ const app = new Hono<AppEnv>()
   .route("/api/auth", authRoutes)
   .route("/api/tenants", tenantRoutes)
   .route("/api/tenants", accountingRoutes)
+  .route("/api/tenants", financeExtraRoutes)
   .route("/api/tenants", aiRoutes)
   .route("/api/tenants", masterDataRoutes)
   .route("/api/tenants", commerceRoutes)
@@ -194,6 +196,10 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
   for (const t of billTenants) {
     try {
       const db = getTenantDb(env, t.db_ref);
+      // Template jurnal berulang terjadwal (Fase 5d) — harian, idempotent
+      // karena next_run_date selalu dimajukan sebulan setelah diproses.
+      const tpl = await runScheduledTemplates(db, todayDate, "system");
+      if (tpl.posted > 0) console.log(`[cron] ${tpl.posted} jurnal template diposting untuk tenant ${t.id}`);
       const res = await runBilling(db, todayDate, "system");
       if (res.issued > 0) {
         billed += res.issued;

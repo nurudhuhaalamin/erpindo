@@ -53,16 +53,45 @@ function ReportSection({ title, lines, total }: { title: string; lines: ApiRepor
 // Laba Rugi
 // ---------------------------------------------------------------------------
 
+/** Periode sebelumnya dengan panjang yang sama (untuk perbandingan Laba Rugi). */
+function previousPeriod(from: string, to: string): { from: string; to: string } {
+  const f = new Date(`${from}T00:00:00Z`);
+  const t = new Date(`${to}T00:00:00Z`);
+  const days = Math.max(1, Math.round((t.getTime() - f.getTime()) / 86_400_000) + 1);
+  const prevTo = new Date(f.getTime() - 86_400_000);
+  const prevFrom = new Date(prevTo.getTime() - (days - 1) * 86_400_000);
+  return { from: prevFrom.toISOString().slice(0, 10), to: prevTo.toISOString().slice(0, 10) };
+}
+
+function deltaPct(now: number, prev: number): string {
+  if (prev === 0) return now === 0 ? "0%" : "—";
+  return `${(((now - prev) / Math.abs(prev)) * 100).toFixed(1).replace(".", ",")}%`;
+}
+
 export function IncomeStatementPage() {
   const { tenant } = useWorkspace();
   const [from, setFrom] = useState(monthStart);
   const [to, setTo] = useState(today);
+  const [compare, setCompare] = useState(false);
 
   const query = useQuery({
     queryKey: ["income-statement", tenant.tenantId, from, to],
     queryFn: () => api.incomeStatement(tenant.tenantId, from, to),
     enabled: Boolean(from && to),
   });
+  const prev = previousPeriod(from, to);
+  const prevQuery = useQuery({
+    queryKey: ["income-statement", tenant.tenantId, prev.from, prev.to],
+    queryFn: () => api.incomeStatement(tenant.tenantId, prev.from, prev.to),
+    enabled: compare && Boolean(from && to),
+  });
+
+  // Rasio ringkas dari data yang sudah ada: margin kotor (pendapatan − HPP)
+  // dan margin bersih. Ditampilkan bila ada pendapatan.
+  const hpp = (query.data?.expense ?? []).filter((l) => l.code.startsWith("5-1")).reduce((s, l) => s + l.amount, 0);
+  const income = query.data?.totalIncome ?? 0;
+  const grossMargin = income > 0 ? (((income - hpp) / income) * 100).toFixed(1).replace(".", ",") : null;
+  const netMargin = income > 0 ? (((query.data!.netProfit / income) * 100).toFixed(1).replace(".", ",")) : null;
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -98,12 +127,31 @@ export function IncomeStatementPage() {
               <Label htmlFor="pl-to">Sampai</Label>
               <Input id="pl-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
             </div>
+            <label className="flex items-center gap-2 pb-2 text-sm">
+              <input
+                type="checkbox"
+                checked={compare}
+                onChange={(e) => setCompare(e.target.checked)}
+                className="size-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+              />
+              Bandingkan dengan periode sebelumnya
+            </label>
           </div>
 
           {query.isLoading ? (
             <Spinner />
           ) : query.data ? (
             <>
+              {grossMargin !== null ? (
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                    Margin kotor <strong>{grossMargin}%</strong>
+                  </span>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                    Margin bersih <strong>{netMargin}%</strong>
+                  </span>
+                </div>
+              ) : null}
               <ReportSection title="Pendapatan" lines={query.data.income} total={query.data.totalIncome} />
               <ReportSection title="Beban" lines={query.data.expense} total={query.data.totalExpense} />
               <div
@@ -116,6 +164,28 @@ export function IncomeStatementPage() {
                 <span>{query.data.netProfit >= 0 ? "Laba Bersih" : "Rugi Bersih"}</span>
                 <span className="tabular-nums">{formatIDR(Math.abs(query.data.netProfit))}</span>
               </div>
+              {compare && prevQuery.data ? (
+                <div className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800">
+                  <div className="mb-2 font-medium">
+                    Periode sebelumnya ({formatDate(prev.from)} – {formatDate(prev.to)})
+                  </div>
+                  {[
+                    ["Pendapatan", query.data.totalIncome, prevQuery.data.totalIncome],
+                    ["Beban", query.data.totalExpense, prevQuery.data.totalExpense],
+                    ["Laba bersih", query.data.netProfit, prevQuery.data.netProfit],
+                  ].map(([label, now, was]) => (
+                    <div key={label as string} className="flex flex-wrap items-center justify-between gap-x-4 py-1">
+                      <span>{label}</span>
+                      <span className="tabular-nums text-slate-500 dark:text-slate-400">
+                        {formatIDR(was as number)} → <strong className="text-slate-900 dark:text-white">{formatIDR(now as number)}</strong>{" "}
+                        <span className={(now as number) >= (was as number) ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}>
+                          ({deltaPct(now as number, was as number)})
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </>
           ) : null}
         </CardBody>
