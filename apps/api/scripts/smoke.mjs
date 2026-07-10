@@ -2512,6 +2512,106 @@ try {
     `→ ${JSON.stringify(dwTb.json && { d: dwTb.json.totalDebit, k: dwTb.json.totalCredit })}`,
   );
 
+  // --- Keuangan lanjut (Fase 5d): template jurnal + rekonsiliasi + penutup ------
+  console.log("14c. Keuangan lanjut (template, rekonsiliasi bank, jurnal penutup)");
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const tplBad = await admin("POST", `/api/tenants/${dewiOwn.tenantId}/journal-templates`, {
+    name: "Template pincang",
+    lines: [
+      { accountId: dwSewa.id, debit: 100_000, credit: 0 },
+      { accountId: dwKas.id, debit: 0, credit: 90_000 },
+    ],
+  });
+  check("template TIDAK seimbang DITOLAK 400", tplBad.status === 400);
+
+  const tplOk = await admin("POST", `/api/tenants/${dewiOwn.tenantId}/journal-templates`, {
+    name: "Sewa ruko bulanan",
+    memo: "Sewa ruko",
+    lines: [
+      { accountId: dwSewa.id, debit: 750_000, credit: 0 },
+      { accountId: dwKas.id, debit: 0, credit: 750_000 },
+    ],
+    schedule: "monthly",
+    nextRunDate: todayStr,
+  });
+  check("template jurnal berulang dibuat 201", tplOk.status === 201, `→ ${JSON.stringify(tplOk.json)}`);
+
+  const tplList = await admin("GET", `/api/tenants/${dewiOwn.tenantId}/journal-templates`);
+  check(
+    "daftar template berisi 1 dengan kode akun ter-join & jadwal bulanan",
+    tplList.status === 200 &&
+      tplList.json?.templates?.length === 1 &&
+      tplList.json.templates[0].lines[0]?.accountCode === "5-3000" &&
+      tplList.json.templates[0].schedule === "monthly",
+    `→ ${JSON.stringify(tplList.json)}`,
+  );
+
+  const tplPost = await admin("POST", `/api/tenants/${dewiOwn.tenantId}/journal-templates/${tplOk.json.id}/post`, {});
+  check("terbitkan template manual → jurnal 201 dengan nomor", tplPost.status === 201 && Boolean(tplPost.json?.entryNo), `→ ${JSON.stringify(tplPost.json)}`);
+
+  // Rekonsiliasi: 1 baris cocok otomatis (nominal −750rb, tanggal sama dengan
+  // jurnal kas di atas), 1 baris tanpa pasangan.
+  const reconImport = await admin("POST", `/api/tenants/${dewiOwn.tenantId}/bank-recon/import`, {
+    accountId: dwKas.id,
+    items: [
+      { date: todayStr, description: "TRSF SEWA RUKO", amount: -750_000 },
+      { date: todayStr, description: "BIAYA ADMIN BANK", amount: -123_456 },
+    ],
+  });
+  check(
+    "impor mutasi bank 201: 2 baris, ≥1 cocok otomatis (nominal+tanggal)",
+    reconImport.status === 201 && reconImport.json?.imported === 2 && reconImport.json?.autoMatched >= 1,
+    `→ ${JSON.stringify(reconImport.json)}`,
+  );
+
+  const recon1 = await admin("GET", `/api/tenants/${dewiOwn.tenantId}/bank-recon?accountId=${dwKas.id}`);
+  const unmatchedItem = recon1.json?.items?.find((i) => i.matchedJournalLineId === null);
+  check(
+    "ringkasan rekonsiliasi benar (total 2, ada yang belum cocok) + kandidat baris jurnal tersedia",
+    recon1.status === 200 && recon1.json?.summary?.total === 2 && recon1.json?.summary?.unmatched >= 1 && (recon1.json?.unmatchedLines?.length ?? 0) > 0,
+    `→ ${JSON.stringify(recon1.json?.summary)}`,
+  );
+
+  const manualLine = recon1.json.unmatchedLines[0];
+  const doMatch = await admin("POST", `/api/tenants/${dewiOwn.tenantId}/bank-recon/${unmatchedItem.id}/match`, {
+    journalLineId: manualLine.id,
+  });
+  check("pencocokan manual 200", doMatch.status === 200, `→ ${JSON.stringify(doMatch.json)}`);
+  const doUnmatch = await admin("POST", `/api/tenants/${dewiOwn.tenantId}/bank-recon/${unmatchedItem.id}/unmatch`, {});
+  const recon2 = await admin("GET", `/api/tenants/${dewiOwn.tenantId}/bank-recon?accountId=${dwKas.id}`);
+  check(
+    "lepas pencocokan 200 dan ringkasan kembali (1 cocok, 1 belum)",
+    doUnmatch.status === 200 && recon2.json?.summary?.matched === 1 && recon2.json?.summary?.unmatched === 1,
+    `→ ${JSON.stringify(recon2.json?.summary)}`,
+  );
+
+  // Jurnal penutup: saldo P/L (2× sewa 750rb = rugi 1,5jt) dinolkan ke Laba Ditahan.
+  const closing = await admin("POST", `/api/tenants/${dewiOwn.tenantId}/closing-entry`, { asOf: todayStr });
+  check(
+    "jurnal penutup 201 dengan rugi bersih −1.500.000",
+    closing.status === 201 && closing.json?.netProfit === -1_500_000,
+    `→ ${JSON.stringify(closing.json)}`,
+  );
+  const plAfterClose = await admin(
+    "GET",
+    `/api/tenants/${dewiOwn.tenantId}/reports/income-statement?from=${todayStr}&to=${todayStr}`,
+  );
+  check(
+    "setelah penutup: total beban periode = 0 (saldo P/L nol)",
+    plAfterClose.status === 200 && plAfterClose.json?.totalExpense === 0 && plAfterClose.json?.totalIncome === 0,
+    `→ ${JSON.stringify(plAfterClose.json && { i: plAfterClose.json.totalIncome, e: plAfterClose.json.totalExpense })}`,
+  );
+  const closingAgain = await admin("POST", `/api/tenants/${dewiOwn.tenantId}/closing-entry`, { asOf: todayStr });
+  check("jurnal penutup kedua DITOLAK 400 (tidak ada saldo tersisa)", closingAgain.status === 400);
+
+  const tplDel = await admin("DELETE", `/api/tenants/${dewiOwn.tenantId}/journal-templates/${tplOk.json.id}`);
+  const tplList2 = await admin("GET", `/api/tenants/${dewiOwn.tenantId}/journal-templates`);
+  check("hapus template 200 dan daftar kosong", tplDel.status === 200 && tplList2.json?.templates?.length === 0);
+
+  const tbAfterClose = await admin("GET", `/api/tenants/${dewiOwn.tenantId}/trial-balance`);
+  check("neraca saldo tetap seimbang setelah seluruh alur 5d", tbAfterClose.status === 200 && tbAfterClose.json?.balanced === true);
+
   // --- Logout -----------------------------------------------------------------
   console.log("15. Logout");
   const out = await owner("POST", "/api/auth/logout");

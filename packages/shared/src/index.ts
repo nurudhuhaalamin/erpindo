@@ -282,6 +282,59 @@ export const createJournalEntrySchema = z
   });
 export type CreateJournalEntryInput = z.infer<typeof createJournalEntrySchema>;
 
+// --- Template jurnal berulang & rekonsiliasi bank (Fase 5d) -----------------
+
+export const journalTemplateSchema = z.object({
+  name: z.string().trim().min(2, "Nama template minimal 2 karakter").max(100),
+  memo: z.string().trim().max(500).optional(),
+  lines: z.array(journalLineSchema).min(2, "Template minimal 2 baris"),
+  /** 'monthly' = cron memposting otomatis tiap next_run_date; null = manual saja. */
+  schedule: z.enum(["monthly"]).nullable().optional(),
+  nextRunDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid (YYYY-MM-DD)")
+    .optional(),
+});
+export type JournalTemplateInput = z.infer<typeof journalTemplateSchema>;
+
+export type ApiJournalTemplate = {
+  id: string;
+  name: string;
+  memo: string | null;
+  lines: { accountId: string; accountCode: string; accountName: string; debit: number; credit: number }[];
+  schedule: "monthly" | null;
+  nextRunDate: string | null;
+  isActive: boolean;
+};
+
+export const bankImportSchema = z.object({
+  accountId: z.string().min(1, "Akun wajib dipilih"),
+  items: z
+    .array(
+      z.object({
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid (YYYY-MM-DD)"),
+        description: z.string().trim().min(1).max(300),
+        /** Rupiah bulat bertanda: + uang masuk, − uang keluar. */
+        amount: z
+          .number()
+          .int()
+          .refine((v) => v !== 0, "Jumlah tidak boleh 0"),
+      }),
+    )
+    .min(1, "Tidak ada baris mutasi")
+    .max(500, "Maksimal 500 baris per impor"),
+});
+export type BankImportInput = z.infer<typeof bankImportSchema>;
+
+export type ApiBankStatementItem = {
+  id: string;
+  stmtDate: string;
+  description: string;
+  amount: number;
+  matchedJournalLineId: string | null;
+  matchedEntryNo: string | null;
+};
+
 export const CONTACT_TYPES = ["customer", "supplier", "both"] as const;
 export type ContactType = (typeof CONTACT_TYPES)[number];
 

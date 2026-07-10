@@ -516,6 +516,33 @@ await step("jurnal beban iklan digital", "POST", `${T}/journal-entries`, {
   ],
 });
 
+// --- Keuangan lanjut (Fase 5d): template jurnal + rekonsiliasi bank ----------------------------------
+await step("template jurnal berulang: sewa ruko bulanan", "POST", `${T}/journal-templates`, {
+  name: "Sewa ruko bulanan",
+  memo: "Sewa ruko Jl. Merdeka",
+  lines: [
+    { accountId: acc("5-3000").id, debit: 3_500_000, credit: 0 },
+    { accountId: bank.id, debit: 0, credit: 3_500_000 },
+  ],
+  schedule: "monthly",
+  nextRunDate: daysAgo(-20), // terbit otomatis ±20 hari lagi
+});
+await step("jurnal bayar internet kantor (untuk rekonsiliasi)", "POST", `${T}/journal-entries`, {
+  entryDate: daysAgo(2), memo: "Internet kantor",
+  lines: [
+    { accountId: acc("5-4000").id, debit: 350_000, credit: 0 },
+    { accountId: bank.id, debit: 0, credit: 350_000 },
+  ],
+});
+await step("impor mutasi rekening koran (1 cocok otomatis, 2 belum)", "POST", `${T}/bank-recon/import`, {
+  accountId: bank.id,
+  items: [
+    { date: daysAgo(2), description: "PEMBAYARAN INTERNET OFFICE", amount: -350_000 },
+    { date: daysAgo(1), description: "BIAYA ADM", amount: -6_500 },
+    { date: daysAgo(0), description: "SETORAN TUNAI CABANG", amount: 2_000_000 },
+  ],
+});
+
 // --- Ringkasan akhir ---------------------------------------------------------------------------------
 const dash = await api("GET", `${T}/reports/dashboard`);
 const tb = await api("GET", `${T}/trial-balance`);

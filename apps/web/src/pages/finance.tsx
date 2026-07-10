@@ -3,6 +3,7 @@ import {
   ACCOUNT_TYPES,
   createAccountSchema,
   type ApiAccount,
+  type ApiJournalTemplate,
 } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search } from "lucide-react";
@@ -239,6 +240,30 @@ export function JournalPage() {
   const [projectId, setProjectId] = useState("");
   const [lines, setLines] = useState<DraftLine[]>([emptyLine(), emptyLine()]);
   const [error, setError] = useState<string | null>(null);
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [templateMonthly, setTemplateMonthly] = useState(false);
+  const [templateFirstDate, setTemplateFirstDate] = useState(() => new Date().toISOString().slice(0, 10));
+
+  const saveTemplate = useMutation({
+    mutationFn: () =>
+      api.createJournalTemplate(tenant.tenantId, {
+        name: templateName.trim(),
+        memo: memo || undefined,
+        lines: lines
+          .filter((l) => l.accountId)
+          .map((l) => ({ accountId: l.accountId, debit: Number(l.debit) || 0, credit: Number(l.credit) || 0 })),
+        schedule: templateMonthly ? "monthly" : null,
+        ...(templateMonthly ? { nextRunDate: templateFirstDate } : {}),
+      }),
+    onSuccess: () => {
+      toast("success", `Template "${templateName.trim()}" tersimpan.`);
+      setTemplateOpen(false);
+      setTemplateName("");
+      queryClient.invalidateQueries({ queryKey: ["journal-templates", tenant.tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
 
   // Prefill dari draf Asisten AI (sessionStorage) — sekali pakai; tetap
   // ditinjau & diposting manual oleh pengguna.
@@ -409,12 +434,67 @@ export function JournalPage() {
                 <strong className="tabular-nums">{formatIDR(totalCredit)}</strong>{" "}
                 {balanced ? <Badge tone="brand">seimbang</Badge> : <Badge tone="amber">belum seimbang</Badge>}
               </div>
-              <Button onClick={submit} disabled={!balanced || create.isPending}>
-                {create.isPending ? <Spinner /> : null} Posting Jurnal
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" variant="ghost" disabled={!balanced} onClick={() => setTemplateOpen((o) => !o)}>
+                  Simpan sebagai template
+                </Button>
+                <Button onClick={submit} disabled={!balanced || create.isPending}>
+                  {create.isPending ? <Spinner /> : null} Posting Jurnal
+                </Button>
+              </div>
             </div>
+
+            {templateOpen && balanced ? (
+              <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/40">
+                <div className="min-w-48 flex-1">
+                  <Label htmlFor="tpl-name">Nama template</Label>
+                  <Input id="tpl-name" placeholder="mis. Sewa ruko bulanan" value={templateName} onChange={(e) => setTemplateName(e.target.value)} />
+                </div>
+                <label className="flex items-center gap-2 pb-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={templateMonthly}
+                    onChange={(e) => setTemplateMonthly(e.target.checked)}
+                    className="size-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                  />
+                  Terbit otomatis tiap bulan
+                </label>
+                {templateMonthly ? (
+                  <div>
+                    <Label htmlFor="tpl-first">Terbit pertama</Label>
+                    <Input id="tpl-first" type="date" value={templateFirstDate} onChange={(e) => setTemplateFirstDate(e.target.value)} />
+                  </div>
+                ) : null}
+                <Button
+                  type="button"
+                  disabled={templateName.trim().length < 2 || saveTemplate.isPending}
+                  onClick={() => saveTemplate.mutate()}
+                >
+                  Simpan
+                </Button>
+              </div>
+            ) : null}
           </CardBody>
         </Card>
+      ) : null}
+
+      {isAdmin ? (
+        <TemplatesCard
+          tenantId={tenant.tenantId}
+          onLoad={(t) => {
+            setMemo(t.memo ?? t.name);
+            setLines(
+              t.lines.map((l) => ({
+                accountId: l.accountId,
+                description: "",
+                debit: l.debit ? String(l.debit) : "",
+                credit: l.credit ? String(l.credit) : "",
+              })),
+            );
+            toast("success", `Template "${t.name}" dimuat ke form — periksa lalu posting.`);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+        />
       ) : null}
 
       <Card>
@@ -634,5 +714,81 @@ export function TrialBalancePage() {
         </CardBody>
       </Card>
     </div>
+  );
+}
+
+/** Daftar template jurnal berulang (Fase 5d): terbitkan sekali klik, muat ke form, atau hapus. */
+function TemplatesCard({ tenantId, onLoad }: { tenantId: string; onLoad: (t: ApiJournalTemplate) => void }) {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: ["journal-templates", tenantId],
+    queryFn: () => api.journalTemplates(tenantId),
+  });
+
+  const postNow = useMutation({
+    mutationFn: (id: string) => api.postJournalTemplate(tenantId, id),
+    onSuccess: (res) => {
+      toast("success", `Jurnal ${res.entryNo} diposting dari template.`);
+      queryClient.invalidateQueries({ queryKey: ["journal", tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => api.deleteJournalTemplate(tenantId, id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["journal-templates", tenantId] }),
+  });
+
+  const templates = query.data?.templates ?? [];
+  if (query.isLoading || templates.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader
+        title="Template jurnal"
+        description="Jurnal rutin siap pakai — terbitkan sekali klik, atau otomatis tiap bulan bila berjadwal."
+      />
+      <CardBody className="space-y-3">
+        {templates.map((t) => (
+          <div key={t.id} className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="font-medium">{t.name}</span>
+                {t.schedule === "monthly" ? (
+                  <Badge tone="brand">bulanan · berikutnya {t.nextRunDate ? formatDate(t.nextRunDate) : "—"}</Badge>
+                ) : (
+                  <Badge>manual</Badge>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm sm:justify-end">
+                <Button variant="secondary" className="h-8" onClick={() => postNow.mutate(t.id)} disabled={postNow.isPending}>
+                  Terbitkan sekarang
+                </Button>
+                <Button variant="ghost" className="h-8" onClick={() => onLoad(t)}>
+                  Muat ke form
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="h-8 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
+                  onClick={() => remove.mutate(t.id)}
+                >
+                  Hapus
+                </Button>
+              </div>
+            </div>
+            <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+              {t.lines.map((l, i) => (
+                <div key={i} className="flex justify-between">
+                  <span>
+                    {l.accountCode} · {l.accountName}
+                  </span>
+                  <span className="tabular-nums">{l.debit ? `D ${formatIDR(l.debit)}` : `K ${formatIDR(l.credit)}`}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </CardBody>
+    </Card>
   );
 }

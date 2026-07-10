@@ -94,6 +94,7 @@ const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; 
   { to: "/app/crm/penawaran", label: "Penawaran", exact: false, section: "CRM", icon: FileText },
   { to: "/app/helpdesk", label: "Helpdesk", exact: false, section: "CRM", icon: LifeBuoy },
   { to: "/app/keuangan/catat", label: "Catat Transaksi", exact: false, section: "Keuangan", icon: PenLine },
+  { to: "/app/keuangan/kas-bank", label: "Kas & Bank", exact: false, section: "Keuangan", icon: Wallet },
   { to: "/app/keuangan/akun", label: "Bagan Akun", exact: false, section: "Keuangan", icon: ListTree },
   { to: "/app/keuangan/jurnal", label: "Jurnal Umum", exact: false, section: "Keuangan", icon: BookText },
   { to: "/app/keuangan/buku-besar", label: "Buku Besar", exact: false, section: "Keuangan", icon: BookOpen },
@@ -1411,6 +1412,18 @@ function CloseBooksCard({ tenantId }: { tenantId: string }) {
 
   const [date, setDate] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [closingOpen, setClosingOpen] = useState(false);
+  const closing = useMutation({
+    mutationFn: () => api.closingEntry(tenantId, date),
+    onSuccess: (res) => {
+      toast("success", `Jurnal penutup ${res.entryNo} diposting — laba/rugi bersih dipindahkan ke Laba Ditahan.`);
+      setClosingOpen(false);
+    },
+    onError: (err) => {
+      toast("error", (err as Error).message);
+      setClosingOpen(false);
+    },
+  });
   const close = useMutation({
     mutationFn: () => api.closeBooks(tenantId, date),
     onSuccess: (res) => {
@@ -1457,6 +1470,27 @@ function CloseBooksCard({ tenantId }: { tenantId: string }) {
           onConfirm={() => close.mutate()}
           onCancel={() => setConfirmOpen(false)}
         />
+
+        <div className="border-t border-slate-200 pt-3 dark:border-slate-700">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Jurnal penutup tahunan: pindahkan laba/rugi berjalan sampai tanggal di atas ke akun Laba Ditahan —
+            biasanya dilakukan sekali di akhir tahun buku, sebelum mengunci periode.
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <Button variant="secondary" disabled={!date || closing.isPending} onClick={() => setClosingOpen(true)}>
+              Posting Jurnal Penutup
+            </Button>
+          </div>
+          <ConfirmDialog
+            open={closingOpen}
+            title={`Posting jurnal penutup per ${date}?`}
+            description="Semua saldo pendapatan dan beban sampai tanggal itu dinolkan; laba/rugi bersihnya dipindahkan ke Laba Ditahan. Ini jurnal biasa (bisa dilihat di Jurnal Umum), tapi sebaiknya hanya dilakukan di akhir tahun buku."
+            confirmLabel="Ya, posting jurnal penutup"
+            busy={closing.isPending}
+            onConfirm={() => closing.mutate()}
+            onCancel={() => setClosingOpen(false)}
+          />
+        </div>
       </CardBody>
     </Card>
   );

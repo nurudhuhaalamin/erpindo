@@ -1,6 +1,10 @@
 import type {
   ApiAccount,
   ApiAgingRow,
+  ApiBankStatementItem,
+  ApiJournalTemplate,
+  BankImportInput,
+  JournalTemplateInput,
   ApiAuditLog,
   ApiBudgetReport,
   ApiEmployee,
@@ -163,6 +167,28 @@ export const api = {
       }[];
       balance: number;
     }>("GET", `/api/tenants/${tenantId}/ledger/${accountId}`),
+  journalTemplates: (tenantId: string) =>
+    request<{ templates: ApiJournalTemplate[] }>("GET", `/api/tenants/${tenantId}/journal-templates`),
+  createJournalTemplate: (tenantId: string, input: JournalTemplateInput) =>
+    request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/journal-templates`, input),
+  deleteJournalTemplate: (tenantId: string, id: string) =>
+    request<{ ok: true }>("DELETE", `/api/tenants/${tenantId}/journal-templates/${id}`),
+  postJournalTemplate: (tenantId: string, id: string) =>
+    request<{ ok: true; entryNo: string }>("POST", `/api/tenants/${tenantId}/journal-templates/${id}/post`),
+  bankReconImport: (tenantId: string, input: BankImportInput) =>
+    request<{ ok: true; imported: number; autoMatched: number }>("POST", `/api/tenants/${tenantId}/bank-recon/import`, input),
+  bankRecon: (tenantId: string, accountId: string) =>
+    request<{
+      items: ApiBankStatementItem[];
+      unmatchedLines: { id: string; entryNo: string; entryDate: string; description: string; amount: number }[];
+      summary: { total: number; matched: number; unmatched: number };
+    }>("GET", `/api/tenants/${tenantId}/bank-recon?accountId=${accountId}`),
+  bankReconMatch: (tenantId: string, itemId: string, journalLineId: string) =>
+    request<{ ok: true }>("POST", `/api/tenants/${tenantId}/bank-recon/${itemId}/match`, { journalLineId }),
+  bankReconUnmatch: (tenantId: string, itemId: string) =>
+    request<{ ok: true }>("POST", `/api/tenants/${tenantId}/bank-recon/${itemId}/unmatch`, {}),
+  closingEntry: (tenantId: string, asOf: string) =>
+    request<{ ok: true; entryNo: string; netProfit: number }>("POST", `/api/tenants/${tenantId}/closing-entry`, { asOf }),
   trialBalance: (tenantId: string) =>
     request<{ rows: ApiTrialBalanceRow[]; totalDebit: number; totalCredit: number; balanced: boolean }>(
       "GET",
