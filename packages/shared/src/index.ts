@@ -766,6 +766,8 @@ export type ApiEmployee = {
   bankAccount: string | null;
   joinDate: string | null;
   isActive: boolean;
+  /** Sisa cuti tahunan (hari) — dipotong saat cuti tahunan disetujui. */
+  leaveBalance: number;
 };
 
 export type ApiPayslip = {
@@ -784,6 +786,10 @@ export type ApiPayslip = {
   pph21: number;
   totalDeductions: number;
   net: number;
+  /** Total komponen ad-hoc periode ini (bonus/lembur positif, potongan negatif) — sudah termasuk bruto. */
+  adjustmentsTotal: number;
+  /** Cicilan kasbon yang dipotong dari netto (di luar pajak). */
+  loanDeduction: number;
 };
 
 export type ApiPayrollRun = {
@@ -797,6 +803,95 @@ export type ApiPayrollRun = {
   journalNo: string | null;
   createdAt: string;
   payslips: ApiPayslip[];
+};
+
+/** Komponen gaji ad-hoc satu periode (bonus/lembur positif, potongan negatif) — ikut PPh 21 & BPJS. */
+export const payrollAdjustmentSchema = z.object({
+  period: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Periode harus berformat YYYY-MM"),
+  employeeId: z.string().min(1, "Karyawan wajib dipilih"),
+  name: z.string().trim().min(2, "Nama komponen minimal 2 karakter").max(100),
+  amount: z
+    .number()
+    .int("Nominal harus bilangan bulat")
+    .refine((v) => v !== 0, "Nominal tidak boleh 0")
+    .refine((v) => Math.abs(v) <= 1_000_000_000_000, "Nominal terlalu besar"),
+});
+export type PayrollAdjustmentInput = z.infer<typeof payrollAdjustmentSchema>;
+
+export type ApiPayrollAdjustment = {
+  id: string;
+  period: string;
+  employeeId: string;
+  employeeName: string;
+  name: string;
+  amount: number;
+  /** Terisi setelah periode itu digaji — komponen sudah terpakai. */
+  runId: string | null;
+  createdAt: string;
+};
+
+/** Kasbon/pinjaman karyawan: dicairkan dari kas, cicilan otomatis memotong gaji tiap run. */
+export const employeeLoanSchema = z
+  .object({
+    employeeId: z.string().min(1, "Karyawan wajib dipilih"),
+    name: z.string().trim().min(2, "Keterangan minimal 2 karakter").max(100),
+    principal: amountSchema.refine((v) => v > 0, "Pokok pinjaman harus lebih dari 0"),
+    monthlyDeduction: amountSchema.refine((v) => v > 0, "Cicilan per bulan harus lebih dari 0"),
+    cashAccountId: z.string().min(1, "Akun kas/bank wajib dipilih"),
+    loanDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+  })
+  .refine((v) => v.monthlyDeduction <= v.principal, {
+    message: "Cicilan per bulan tidak boleh melebihi pokok pinjaman",
+    path: ["monthlyDeduction"],
+  });
+export type EmployeeLoanInput = z.infer<typeof employeeLoanSchema>;
+
+export type ApiEmployeeLoan = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  name: string;
+  principal: number;
+  monthlyDeduction: number;
+  balance: number;
+  status: "active" | "paid";
+  journalNo: string | null;
+  createdAt: string;
+};
+
+export const LEAVE_TYPES = ["annual", "sick", "permit"] as const;
+export type LeaveType = (typeof LEAVE_TYPES)[number];
+
+export const leaveRequestSchema = z
+  .object({
+    employeeId: z.string().min(1, "Karyawan wajib dipilih"),
+    type: z.enum(LEAVE_TYPES),
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+    note: z.string().trim().max(300).optional(),
+  })
+  .refine((v) => v.endDate >= v.startDate, {
+    message: "Tanggal selesai tidak boleh sebelum tanggal mulai",
+    path: ["endDate"],
+  });
+export type LeaveRequestInput = z.infer<typeof leaveRequestSchema>;
+
+export const decideLeaveSchema = z.object({
+  status: z.enum(["approved", "rejected"]),
+});
+export type DecideLeaveInput = z.infer<typeof decideLeaveSchema>;
+
+export type ApiLeaveRequest = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  type: LeaveType;
+  startDate: string;
+  endDate: string;
+  days: number;
+  status: "pending" | "approved" | "rejected";
+  note: string | null;
+  createdAt: string;
 };
 
 // ---------------------------------------------------------------------------

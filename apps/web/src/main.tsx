@@ -30,7 +30,7 @@ import { AgingPage, BalanceSheetPage, CashFlowPage, EfakturPage, IncomeStatement
 import { ContactsPage, ProductsPage, WarehousesPage } from "./pages/masterdata";
 import { ApprovalsPage } from "./pages/approvals";
 import { PosPage } from "./pages/pos";
-import { InvoicePrintPage, QuotationPrintPage } from "./pages/print";
+import { Form1721A1PrintPage, InvoicePrintPage, PayslipPrintPage, QuotationPrintPage } from "./pages/print";
 import {
   ForgotPasswordPage,
   InvitePage,
@@ -54,6 +54,8 @@ const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/undangan", component: InvitePage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/cetak/faktur", component: InvoicePrintPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/cetak/penawaran", component: QuotationPrintPage }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/cetak/slip-gaji", component: PayslipPrintPage }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/cetak/1721a1", component: Form1721A1PrintPage }),
   // Panduan pengguna: publik & code-split — kontennya tidak membebani bundle utama.
   createRoute({
     getParentRoute: () => rootRoute,

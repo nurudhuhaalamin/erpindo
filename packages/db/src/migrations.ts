@@ -799,6 +799,56 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `ALTER TABLE lead_activities ADD COLUMN due_at TEXT`,
     ],
   },
+  {
+    id: "0022_hr_extras",
+    statements: [
+      // Saldo cuti tahunan (hari) — dipotong saat pengajuan cuti tahunan disetujui.
+      `ALTER TABLE employees ADD COLUMN leave_balance INTEGER NOT NULL DEFAULT 12`,
+      // Slip menyimpan total komponen ad-hoc (bonus/lembur/potongan, ikut bruto &
+      // pajak) dan potongan cicilan kasbon (dipotong dari netto, di luar pajak).
+      `ALTER TABLE payslips ADD COLUMN adjustments_total INTEGER NOT NULL DEFAULT 0`,
+      `ALTER TABLE payslips ADD COLUMN loan_deduction INTEGER NOT NULL DEFAULT 0`,
+      // Komponen ad-hoc per periode; run_id terisi saat periode itu digaji.
+      `CREATE TABLE payroll_adjustments (
+        id TEXT PRIMARY KEY,
+        period TEXT NOT NULL,
+        employee_id TEXT NOT NULL REFERENCES employees(id),
+        name TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        run_id TEXT REFERENCES payroll_runs(id),
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX payroll_adjustments_period ON payroll_adjustments (period)`,
+      // Kasbon/pinjaman karyawan: pencairan berjurnal (Piutang Karyawan), cicilan
+      // otomatis memotong netto tiap run penggajian sampai lunas.
+      `CREATE TABLE employee_loans (
+        id TEXT PRIMARY KEY,
+        employee_id TEXT NOT NULL REFERENCES employees(id),
+        name TEXT NOT NULL,
+        principal INTEGER NOT NULL,
+        monthly_deduction INTEGER NOT NULL,
+        balance INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active',
+        journal_entry_id TEXT REFERENCES journal_entries(id),
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      // Cuti & izin: pengajuan + keputusan Owner/Admin; cuti tahunan yang disetujui
+      // memotong saldo cuti karyawan.
+      `CREATE TABLE leave_requests (
+        id TEXT PRIMARY KEY,
+        employee_id TEXT NOT NULL REFERENCES employees(id),
+        type TEXT NOT NULL,
+        start_date TEXT NOT NULL,
+        end_date TEXT NOT NULL,
+        days INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        note TEXT,
+        decided_by TEXT,
+        decided_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

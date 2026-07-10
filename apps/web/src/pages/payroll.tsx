@@ -1,6 +1,6 @@
-import { PTKP_STATUSES, type ApiEmployee, type ApiPayrollRun } from "@erpindo/shared";
+import { PTKP_STATUSES, type ApiEmployee, type ApiLeaveRequest, type ApiPayrollRun, type LeaveType } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { UserPlus, Users } from "lucide-react";
+import { CalendarDays, HandCoins, UserPlus, Users } from "lucide-react";
 import { useState } from "react";
 import { api, formatIDR } from "../api/client";
 import {
@@ -160,7 +160,9 @@ export function PayrollPage() {
                     <th className="pb-2 pr-3 font-medium">PTKP</th>
                     <th className="pb-2 pr-3 text-right font-medium">Gaji pokok</th>
                     <th className="pb-2 pr-3 text-right font-medium">Tunjangan</th>
-                    <th className="pb-2 font-medium">Status</th>
+                    <th className="pb-2 pr-3 text-right font-medium">Sisa cuti</th>
+                    <th className="pb-2 pr-3 font-medium">Status</th>
+                    <th className="pb-2 font-medium">1721-A1</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -171,7 +173,8 @@ export function PayrollPage() {
                       <td className="py-2 pr-3">{e.ptkpStatus}</td>
                       <td className="py-2 pr-3 text-right tabular-nums">{formatIDR(e.baseSalary)}</td>
                       <td className="py-2 pr-3 text-right tabular-nums">{formatIDR(e.allowances)}</td>
-                      <td className="py-2">
+                      <td className="py-2 pr-3 text-right tabular-nums">{e.leaveBalance} hari</td>
+                      <td className="py-2 pr-3">
                         {e.isActive ? <Badge tone="green">aktif</Badge> : <Badge tone="neutral">nonaktif</Badge>}
                         {isAdmin ? (
                           <button
@@ -181,6 +184,16 @@ export function PayrollPage() {
                             {e.isActive ? "nonaktifkan" : "aktifkan"}
                           </button>
                         ) : null}
+                      </td>
+                      <td className="py-2">
+                        <a
+                          href={`/cetak/1721a1?tenant=${tenant.tenantId}&employee=${e.id}&year=${new Date().getFullYear()}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-brand-700 hover:underline dark:text-brand-400"
+                        >
+                          Cetak
+                        </a>
                       </td>
                     </tr>
                   ))}
@@ -226,6 +239,8 @@ export function PayrollPage() {
         </Card>
       ) : null}
 
+      {isAdmin ? <AdjustmentsCard tenantId={tenant.tenantId} employees={employees} period={period} /> : null}
+
       {/* Riwayat penggajian */}
       <Card>
         <CardHeader title="Riwayat penggajian" />
@@ -237,17 +252,429 @@ export function PayrollPage() {
           ) : (
             <div className="space-y-3">
               {runsQuery.data!.runs.map((r) => (
-                <RunRow key={r.id} run={r} />
+                <RunRow key={r.id} run={r} tenantId={tenant.tenantId} />
               ))}
             </div>
           )}
         </CardBody>
       </Card>
+
+      <LoansCard tenantId={tenant.tenantId} employees={employees} isAdmin={isAdmin} cashAccounts={cashAccounts} />
+      <LeaveCard tenantId={tenant.tenantId} employees={employees} isAdmin={isAdmin} />
     </div>
   );
 }
 
-function RunRow({ run }: { run: ApiPayrollRun }) {
+/** Komponen gaji ad-hoc (bonus/lembur/potongan) untuk satu periode — ikut PPh 21 & jurnal. */
+function AdjustmentsCard({ tenantId, employees, period }: { tenantId: string; employees: ApiEmployee[]; period: string }) {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState({ employeeId: "", name: "", amount: "", kind: "plus" as "plus" | "minus" });
+
+  const listQuery = useQuery({
+    queryKey: ["payroll-adjustments", tenantId, period],
+    queryFn: () => api.payrollAdjustments(tenantId, period),
+    enabled: /^\d{4}-\d{2}$/.test(period),
+  });
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["payroll-adjustments", tenantId] });
+
+  const create = useMutation({
+    mutationFn: () =>
+      api.createPayrollAdjustment(tenantId, {
+        period,
+        employeeId: form.employeeId || employees.find((e) => e.isActive)?.id || "",
+        name: form.name.trim(),
+        amount: (form.kind === "minus" ? -1 : 1) * Math.abs(Math.round(Number(form.amount) || 0)),
+      }),
+    onSuccess: () => {
+      toast("success", "Komponen ditambahkan — akan ikut dihitung saat periode ini digaji.");
+      setForm({ employeeId: form.employeeId, name: "", amount: "", kind: "plus" });
+      invalidate();
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => api.deletePayrollAdjustment(tenantId, id),
+    onSuccess: () => {
+      toast("success", "Komponen dihapus.");
+      invalidate();
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  const adjustments = listQuery.data?.adjustments ?? [];
+  const activeEmployees = employees.filter((e) => e.isActive);
+
+  return (
+    <Card>
+      <CardHeader
+        title={`Bonus, lembur & potongan — periode ${period}`}
+        description="Komponen sekali jalan untuk periode di atas. Ikut menambah/mengurangi bruto sehingga PPh 21 & BPJS ikut menyesuaikan."
+      />
+      <CardBody className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <Label htmlFor="adj-emp">Karyawan</Label>
+            <Select id="adj-emp" value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })}>
+              {activeEmployees.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="adj-name">Nama komponen</Label>
+            <Input id="adj-name" placeholder="mis. Bonus kinerja / Lembur / Potongan absen" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </div>
+          <div>
+            <Label htmlFor="adj-kind">Jenis</Label>
+            <Select id="adj-kind" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value as "plus" | "minus" })}>
+              <option value="plus">Tambahan (bonus/lembur)</option>
+              <option value="minus">Potongan</option>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="adj-amount">Nominal (Rp)</Label>
+            <Input id="adj-amount" type="number" min={0} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <Button
+            onClick={() => create.mutate()}
+            disabled={create.isPending || form.name.trim().length < 2 || !(Number(form.amount) > 0) || activeEmployees.length === 0}
+          >
+            {create.isPending ? <Spinner /> : null} Tambah Komponen
+          </Button>
+        </div>
+
+        {adjustments.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                  <th className="pb-2 pr-3 font-medium">Karyawan</th>
+                  <th className="pb-2 pr-3 font-medium">Komponen</th>
+                  <th className="pb-2 pr-3 text-right font-medium">Nominal</th>
+                  <th className="pb-2 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {adjustments.map((a) => (
+                  <tr key={a.id} className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
+                    <td className="py-2 pr-3">{a.employeeName}</td>
+                    <td className="py-2 pr-3">{a.name}</td>
+                    <td className={`py-2 pr-3 text-right tabular-nums ${a.amount < 0 ? "text-red-600 dark:text-red-400" : ""}`}>
+                      {formatIDR(a.amount)}
+                    </td>
+                    <td className="py-2">
+                      {a.runId ? (
+                        <Badge tone="green">terpakai</Badge>
+                      ) : (
+                        <>
+                          <Badge tone="amber">menunggu run</Badge>
+                          <button
+                            onClick={() => remove.mutate(a.id)}
+                            className="ml-2 text-xs text-red-600 hover:underline dark:text-red-400"
+                          >
+                            hapus
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400">Belum ada komponen untuk periode ini.</p>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+/** Kasbon/pinjaman karyawan: dicairkan dari kas (berjurnal), cicilan otomatis memotong gaji tiap run. */
+function LoansCard({
+  tenantId,
+  employees,
+  isAdmin,
+  cashAccounts,
+}: {
+  tenantId: string;
+  employees: ApiEmployee[];
+  isAdmin: boolean;
+  cashAccounts: AccountRow[];
+}) {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState({ employeeId: "", name: "", principal: "", monthly: "", cashAccountId: "", date: today() });
+
+  const loansQuery = useQuery({
+    queryKey: ["employee-loans", tenantId],
+    queryFn: () => api.employeeLoans(tenantId),
+  });
+
+  const create = useMutation({
+    mutationFn: () =>
+      api.createEmployeeLoan(tenantId, {
+        employeeId: form.employeeId || employees.find((e) => e.isActive)?.id || "",
+        name: form.name.trim(),
+        principal: Math.round(Number(form.principal) || 0),
+        monthlyDeduction: Math.round(Number(form.monthly) || 0),
+        cashAccountId: form.cashAccountId || cashAccounts[0]?.id || "",
+        loanDate: form.date,
+      }),
+    onSuccess: (res) => {
+      toast("success", `Kasbon dicairkan (jurnal ${res.journalNo}). Cicilan otomatis memotong gaji tiap run.`);
+      setForm({ employeeId: form.employeeId, name: "", principal: "", monthly: "", cashAccountId: form.cashAccountId, date: today() });
+      queryClient.invalidateQueries({ queryKey: ["employee-loans", tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  const loans = loansQuery.data?.loans ?? [];
+  const activeEmployees = employees.filter((e) => e.isActive);
+
+  return (
+    <Card>
+      <CardHeader
+        title="Kasbon / pinjaman karyawan"
+        description="Pencairan tercatat sebagai Piutang Karyawan (berjurnal). Cicilan dipotong otomatis dari gaji netto tiap penggajian sampai lunas."
+      />
+      <CardBody className="space-y-4">
+        {isAdmin ? (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <div>
+                <Label htmlFor="loan-emp">Karyawan</Label>
+                <Select id="loan-emp" value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })}>
+                  {activeEmployees.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="loan-name">Keterangan</Label>
+                <Input id="loan-name" placeholder="mis. Kasbon renovasi rumah" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="loan-principal">Pokok (Rp)</Label>
+                <Input id="loan-principal" type="number" min={0} value={form.principal} onChange={(e) => setForm({ ...form, principal: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="loan-monthly">Cicilan/bulan (Rp)</Label>
+                <Input id="loan-monthly" type="number" min={0} value={form.monthly} onChange={(e) => setForm({ ...form, monthly: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="loan-cash">Cairkan dari</Label>
+                <Select id="loan-cash" value={form.cashAccountId} onChange={(e) => setForm({ ...form, cashAccountId: e.target.value })}>
+                  {cashAccounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.code} · {a.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button
+                onClick={() => create.mutate()}
+                disabled={
+                  create.isPending ||
+                  form.name.trim().length < 2 ||
+                  !(Number(form.principal) > 0) ||
+                  !(Number(form.monthly) > 0) ||
+                  Number(form.monthly) > Number(form.principal) ||
+                  activeEmployees.length === 0 ||
+                  cashAccounts.length === 0
+                }
+              >
+                {create.isPending ? <Spinner /> : <HandCoins className="size-4" aria-hidden />} Cairkan Kasbon
+              </Button>
+            </div>
+          </>
+        ) : null}
+
+        {loansQuery.isLoading ? (
+          <Spinner />
+        ) : loans.length === 0 ? (
+          <p className="text-sm text-slate-400">Belum ada kasbon.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                  <th className="pb-2 pr-3 font-medium">Karyawan</th>
+                  <th className="pb-2 pr-3 font-medium">Keterangan</th>
+                  <th className="pb-2 pr-3 text-right font-medium">Pokok</th>
+                  <th className="pb-2 pr-3 text-right font-medium">Cicilan/bulan</th>
+                  <th className="pb-2 pr-3 text-right font-medium">Sisa</th>
+                  <th className="pb-2 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loans.map((l) => (
+                  <tr key={l.id} className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
+                    <td className="py-2 pr-3">{l.employeeName}</td>
+                    <td className="py-2 pr-3">
+                      {l.name}
+                      {l.journalNo ? <span className="ml-1 text-xs text-slate-400">· jurnal {l.journalNo}</span> : null}
+                    </td>
+                    <td className="py-2 pr-3 text-right tabular-nums">{formatIDR(l.principal)}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums">{formatIDR(l.monthlyDeduction)}</td>
+                    <td className="py-2 pr-3 text-right font-medium tabular-nums">{formatIDR(l.balance)}</td>
+                    <td className="py-2">{l.status === "paid" ? <Badge tone="green">lunas</Badge> : <Badge tone="amber">berjalan</Badge>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+const LEAVE_LABEL: Record<LeaveType, string> = { annual: "Cuti tahunan", sick: "Sakit", permit: "Izin" };
+const LEAVE_STATUS_TONE = { pending: "amber", approved: "green", rejected: "red" } as const;
+const LEAVE_STATUS_LABEL = { pending: "menunggu", approved: "disetujui", rejected: "ditolak" } as const;
+
+/** Cuti & izin: pengajuan + persetujuan; cuti tahunan yang disetujui memotong saldo cuti. */
+function LeaveCard({ tenantId, employees, isAdmin }: { tenantId: string; employees: ApiEmployee[]; isAdmin: boolean }) {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState({ employeeId: "", type: "annual" as LeaveType, start: today(), end: today(), note: "" });
+
+  const listQuery = useQuery({
+    queryKey: ["leave-requests", tenantId],
+    queryFn: () => api.leaveRequests(tenantId),
+  });
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["leave-requests", tenantId] });
+    queryClient.invalidateQueries({ queryKey: ["employees", tenantId] });
+  };
+
+  const create = useMutation({
+    mutationFn: () =>
+      api.createLeaveRequest(tenantId, {
+        employeeId: form.employeeId || employees.find((e) => e.isActive)?.id || "",
+        type: form.type,
+        startDate: form.start,
+        endDate: form.end,
+        ...(form.note.trim() ? { note: form.note.trim() } : {}),
+      }),
+    onSuccess: (res) => {
+      toast("success", `Pengajuan ${LEAVE_LABEL[form.type].toLowerCase()} ${res.days} hari dicatat — menunggu persetujuan.`);
+      setForm({ ...form, note: "" });
+      invalidate();
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  const decide = useMutation({
+    mutationFn: (v: { id: string; status: "approved" | "rejected" }) =>
+      api.decideLeaveRequest(tenantId, v.id, { status: v.status }),
+    onSuccess: (_res, v) => {
+      toast("success", v.status === "approved" ? "Pengajuan disetujui." : "Pengajuan ditolak.");
+      invalidate();
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  const requests: ApiLeaveRequest[] = listQuery.data?.requests ?? [];
+  const activeEmployees = employees.filter((e) => e.isActive);
+
+  return (
+    <Card>
+      <CardHeader
+        title="Cuti & izin"
+        description="Catat pengajuan cuti tahunan/sakit/izin lalu setujui atau tolak. Cuti tahunan yang disetujui otomatis memotong saldo cuti (12 hari/tahun)."
+      />
+      <CardBody className="space-y-4">
+        {isAdmin ? (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <div>
+                <Label htmlFor="leave-emp">Karyawan</Label>
+                <Select id="leave-emp" value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })}>
+                  {activeEmployees.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.name} (sisa {e.leaveBalance})
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="leave-type">Jenis</Label>
+                <Select id="leave-type" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as LeaveType })}>
+                  <option value="annual">Cuti tahunan</option>
+                  <option value="sick">Sakit</option>
+                  <option value="permit">Izin</option>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="leave-start">Mulai</Label>
+                <Input id="leave-start" type="date" value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="leave-end">Selesai</Label>
+                <Input id="leave-end" type="date" value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="leave-note">Catatan (opsional)</Label>
+                <Input id="leave-note" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={() => create.mutate()} disabled={create.isPending || activeEmployees.length === 0 || form.end < form.start}>
+                {create.isPending ? <Spinner /> : <CalendarDays className="size-4" aria-hidden />} Ajukan
+              </Button>
+            </div>
+          </>
+        ) : null}
+
+        {listQuery.isLoading ? (
+          <Spinner />
+        ) : requests.length === 0 ? (
+          <p className="text-sm text-slate-400">Belum ada pengajuan cuti/izin.</p>
+        ) : (
+          <div className="space-y-2">
+            {requests.map((r) => (
+              <div key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800">
+                <span className="font-medium">{r.employeeName}</span>
+                <span>{LEAVE_LABEL[r.type]}</span>
+                <span className="text-slate-500 dark:text-slate-400">
+                  {r.startDate} s.d. {r.endDate} ({r.days} hari)
+                </span>
+                {r.note ? <span className="text-xs text-slate-400">“{r.note}”</span> : null}
+                <Badge tone={LEAVE_STATUS_TONE[r.status]}>{LEAVE_STATUS_LABEL[r.status]}</Badge>
+                {isAdmin && r.status === "pending" ? (
+                  <span className="ml-auto flex gap-2">
+                    <Button variant="secondary" className="h-8" onClick={() => decide.mutate({ id: r.id, status: "approved" })} disabled={decide.isPending}>
+                      Setujui
+                    </Button>
+                    <Button variant="ghost" className="h-8" onClick={() => decide.mutate({ id: r.id, status: "rejected" })} disabled={decide.isPending}>
+                      Tolak
+                    </Button>
+                  </span>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+function RunRow({ run, tenantId }: { run: ApiPayrollRun; tenantId: string }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
@@ -274,7 +701,8 @@ function RunRow({ run }: { run: ApiPayrollRun }) {
                 <th className="pb-1.5 pr-3 text-right font-medium">Bruto</th>
                 <th className="pb-1.5 pr-3 text-right font-medium">BPJS</th>
                 <th className="pb-1.5 pr-3 text-right font-medium">PPh 21 (TER)</th>
-                <th className="pb-1.5 text-right font-medium">Netto</th>
+                <th className="pb-1.5 pr-3 text-right font-medium">Netto</th>
+                <th className="pb-1.5 text-right font-medium">Slip</th>
               </tr>
             </thead>
             <tbody>
@@ -291,7 +719,17 @@ function RunRow({ run }: { run: ApiPayrollRun }) {
                   <td className="py-1.5 pr-3 text-right tabular-nums">
                     {formatIDR(p.pph21)} <span className="text-xs text-slate-400">({p.terCategory}/{p.terRate}%)</span>
                   </td>
-                  <td className="py-1.5 text-right font-medium tabular-nums">{formatIDR(p.net)}</td>
+                  <td className="py-1.5 pr-3 text-right font-medium tabular-nums">{formatIDR(p.net)}</td>
+                  <td className="py-1.5 text-right">
+                    <a
+                      href={`/cetak/slip-gaji?tenant=${tenantId}&run=${run.id}&employee=${p.employeeId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-brand-700 hover:underline dark:text-brand-400"
+                    >
+                      Cetak
+                    </a>
+                  </td>
                 </tr>
               ))}
             </tbody>

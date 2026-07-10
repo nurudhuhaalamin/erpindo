@@ -9,7 +9,10 @@ import type {
   ApiAuditLog,
   ApiBudgetReport,
   ApiEmployee,
+  ApiEmployeeLoan,
   ApiFixedAsset,
+  ApiLeaveRequest,
+  ApiPayrollAdjustment,
   ApiPayrollRun,
   ApiProject,
   ApiProjectDetail,
@@ -49,7 +52,10 @@ import type {
   CreateJournalEntryInput,
   CreatePaymentInput,
   CreateQuotationInput,
+  EmployeeLoanInput,
   LeadActivityInput,
+  LeaveRequestInput,
+  PayrollAdjustmentInput,
   LeadInput,
   MeResponse,
   ProductInput,
@@ -276,6 +282,25 @@ export const api = {
       `/api/tenants/${tenantId}/payroll-runs`,
       input,
     ),
+  payrollAdjustments: (tenantId: string, period?: string) =>
+    request<{ adjustments: ApiPayrollAdjustment[] }>(
+      "GET",
+      `/api/tenants/${tenantId}/payroll-adjustments${period ? `?period=${period}` : ""}`,
+    ),
+  createPayrollAdjustment: (tenantId: string, input: PayrollAdjustmentInput) =>
+    request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/payroll-adjustments`, input),
+  deletePayrollAdjustment: (tenantId: string, id: string) =>
+    request<{ ok: true }>("DELETE", `/api/tenants/${tenantId}/payroll-adjustments/${id}`),
+  employeeLoans: (tenantId: string) =>
+    request<{ loans: ApiEmployeeLoan[] }>("GET", `/api/tenants/${tenantId}/employee-loans`),
+  createEmployeeLoan: (tenantId: string, input: EmployeeLoanInput) =>
+    request<{ ok: true; id: string; journalNo: string }>("POST", `/api/tenants/${tenantId}/employee-loans`, input),
+  leaveRequests: (tenantId: string) =>
+    request<{ requests: ApiLeaveRequest[] }>("GET", `/api/tenants/${tenantId}/leave-requests`),
+  createLeaveRequest: (tenantId: string, input: LeaveRequestInput) =>
+    request<{ ok: true; id: string; days: number }>("POST", `/api/tenants/${tenantId}/leave-requests`, input),
+  decideLeaveRequest: (tenantId: string, id: string, input: { status: "approved" | "rejected" }) =>
+    request<{ ok: true }>("PATCH", `/api/tenants/${tenantId}/leave-requests/${id}`, input),
 
   // --- Aset Tetap ----------------------------------------------------------------
   assets: (tenantId: string) => request<{ assets: ApiFixedAsset[] }>("GET", `/api/tenants/${tenantId}/assets`),
