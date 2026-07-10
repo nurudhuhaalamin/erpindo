@@ -146,9 +146,11 @@ export function BudgetPage() {
 
   return (
     <div className="max-w-4xl space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Anggaran</h1>
-      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Tetapkan target pendapatan & beban per akun tiap bulan, lalu bandingkan dengan realisasi dari jurnal.</p>
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h1 className="text-2xl font-semibold">Anggaran</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Tetapkan target pendapatan & beban per akun tiap bulan, lalu bandingkan dengan realisasi dari jurnal.</p>
+        </div>
         {query.data ? (
           <ExportButton
             onClick={() =>
@@ -194,12 +196,12 @@ export function BudgetPage() {
               <BudgetTable title="Beban" rows={expense} period={period} editable={editable} />
 
               <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/40">
-                <div className="grid grid-cols-3 gap-2 text-sm">
+                <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
                   <div className="font-medium">Laba/rugi</div>
-                  <div className="text-right text-slate-500 dark:text-slate-400">
+                  <div className="text-slate-500 dark:text-slate-400 sm:text-right">
                     Anggaran: <span className="tabular-nums">{formatIDR(budgetProfit)}</span>
                   </div>
-                  <div className="text-right font-semibold tabular-nums">Realisasi: {formatIDR(actualProfit)}</div>
+                  <div className="font-semibold tabular-nums sm:text-right">Realisasi: {formatIDR(actualProfit)}</div>
                 </div>
               </div>
             </>

@@ -559,7 +559,7 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
 
   return (
     <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="font-mono text-xs font-semibold">{doc.docNo}</span>
           <span className="text-slate-500 dark:text-slate-400">{formatDate(doc.date)}</span>
@@ -573,7 +573,7 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
           )}
           {isForeign ? <Badge tone="brand">{doc.currency} @ {doc.exchangeRate.toLocaleString("id-ID")}</Badge> : null}
         </div>
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm sm:justify-end">
           <span className="font-semibold tabular-nums">
             {isForeign ? `${doc.currency} ${doc.foreignTotal.toLocaleString("id-ID")}` : formatIDR(doc.total)}
           </span>

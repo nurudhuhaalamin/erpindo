@@ -1,6 +1,6 @@
 import { PLAN_LABELS, PLAN_LIMITS, TRIAL_DAYS } from "@erpindo/shared";
 import { Link } from "@tanstack/react-router";
-import { Check, LifeBuoy, Moon, Sparkles, Sun, X } from "lucide-react";
+import { Check, LifeBuoy, Menu, Moon, Sparkles, Sun, X } from "lucide-react";
 import { useState } from "react";
 import { Button, useDarkMode } from "../../components/ui";
 import { COMPARISON, FAQ, FEATURE_GROUPS, formatRupiah, PLAN_CARDS, SHOWCASE, TRUST_POINTS } from "./sections";
@@ -10,28 +10,31 @@ import { COMPARISON, FAQ, FEATURE_GROUPS, formatRupiah, PLAN_CARDS, SHOWCASE, TR
  * gambar produk asli (WebP) dilayani statis dari /landing/*.
  */
 
+const NAV_LINKS = [
+  ["#fitur", "Fitur"],
+  ["#harga", "Harga"],
+  ["/panduan", "Panduan"],
+  ["#faq", "FAQ"],
+] as const;
+
 function Header() {
   const { dark, toggle } = useDarkMode();
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-slate-50/80 backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-3 sm:px-6">
         <span className="flex items-center gap-2 text-xl font-bold tracking-tight text-brand-700 dark:text-brand-400">
           <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-bold text-white">
             e
           </span>
           erpindo
         </span>
-        <nav className="flex items-center gap-1.5 sm:gap-2">
-          {[
-            ["#fitur", "Fitur"],
-            ["#harga", "Harga"],
-            ["/panduan", "Panduan"],
-            ["#faq", "FAQ"],
-          ].map(([href, label]) => (
+        <nav className="flex items-center gap-1 sm:gap-2">
+          {NAV_LINKS.map(([href, label]) => (
             <a
               key={href}
               href={href}
-              className="hidden rounded-lg px-3 py-2 text-sm text-slate-600 hover:text-slate-900 sm:block dark:text-slate-300 dark:hover:text-white"
+              className="hidden rounded-lg px-3 py-2 text-sm text-slate-600 hover:text-slate-900 md:block dark:text-slate-300 dark:hover:text-white"
             >
               {label}
             </a>
@@ -44,14 +47,43 @@ function Header() {
           >
             {dark ? <Sun className="size-4" aria-hidden /> : <Moon className="size-4" aria-hidden />}
           </button>
-          <Link to="/masuk">
+          <Link to="/masuk" className="hidden sm:block">
             <Button variant="ghost">Masuk</Button>
           </Link>
           <Link to="/daftar">
-            <Button>Coba Gratis</Button>
+            <Button className="px-3 sm:px-4">Coba Gratis</Button>
           </Link>
+          <button
+            onClick={() => setMenuOpen((o) => !o)}
+            className="rounded-lg p-2 text-slate-500 hover:bg-slate-200/60 md:hidden dark:text-slate-400 dark:hover:bg-slate-800"
+            aria-label={menuOpen ? "Tutup menu" : "Buka menu"}
+            aria-expanded={menuOpen}
+          >
+            {menuOpen ? <X className="size-5" aria-hidden /> : <Menu className="size-5" aria-hidden />}
+          </button>
         </nav>
       </div>
+      {menuOpen ? (
+        <nav className="border-t border-slate-200 bg-slate-50 px-4 py-2 md:hidden dark:border-slate-800 dark:bg-slate-950">
+          {NAV_LINKS.map(([href, label]) => (
+            <a
+              key={href}
+              href={href}
+              onClick={() => setMenuOpen(false)}
+              className="block rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-200/60 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              {label}
+            </a>
+          ))}
+          <Link
+            to="/masuk"
+            onClick={() => setMenuOpen(false)}
+            className="block rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-200/60 sm:hidden dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            Masuk
+          </Link>
+        </nav>
+      ) : null}
     </header>
   );
 }
@@ -260,7 +292,7 @@ function Pricing() {
           <span className="font-medium text-slate-900 dark:text-white">Semua fitur tersedia di setiap paket.</span> Anda
           hanya memilih jumlah pengguna & tingkat dukungan. Mulai gratis {TRIAL_DAYS} hari.
         </p>
-        <div className="mt-10 grid gap-6 lg:grid-cols-3">
+        <div className="mt-10 grid gap-6 md:grid-cols-3">
           {PLAN_CARDS.map((card) => {
             const limit = PLAN_LIMITS[card.plan];
             const unlimited = limit.maxUsers >= Number.MAX_SAFE_INTEGER;

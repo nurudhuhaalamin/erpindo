@@ -50,7 +50,8 @@
 | Fase 4c — Landing page baru | Hero dengan screenshot produk nyata, trust bar, showcase 5 alur bertab, seksi perbandingan vs Excel, FAQ 8, pipeline screenshot otomatis (WebP 534 KB total) | ✅ Selesai |
 | Fase 4d — Panduan lengkap | 23 modul panduan ber-screenshot asli di `/panduan` (publik, code-split, bisa dicari), versi Markdown di repo (`docs/panduan/`), dan tombol `?` di tiap halaman aplikasi yang membuka panduan terkait | ✅ Selesai |
 | Fase 4e — Asisten AI gratis | "Asisten erpindo" via Cloudflare Workers AI (kuota gratis 10rb neuron/hari, tanpa API key): chat cara pakai grounded panduan + draf jurnal dari bahasa alami (usulan seimbang, manusia yang memposting); kuota 50/hari/perusahaan; mundur anggun bila AI tak tersedia | ✅ Selesai |
-| **Fase 4f — Roadmap lanjutan per modul** | Dokumen [03-roadmap-lanjutan.md](./03-roadmap-lanjutan.md): 23 modul dinilai kondisi saat ini + quick wins + ide lanjutan berskor Dampak/Usaha/AI, ditutup urutan prioritas 6 bulan & analisis kuota AI gratis — **rangkaian Fase 4 lengkap** | ✅ **Selesai** |
+| Fase 4f — Roadmap lanjutan per modul | Dokumen [03-roadmap-lanjutan.md](./03-roadmap-lanjutan.md): 23 modul dinilai kondisi saat ini + quick wins + ide lanjutan berskor Dampak/Usaha/AI, ditutup urutan prioritas 6 bulan & analisis kuota AI gratis — rangkaian Fase 4 lengkap | ✅ Selesai |
+| **Fase 5a — Perbaikan kritis review pemilik** | Bug tombol keluar kartu di Penjualan/Pembelian HP, header 4 halaman laporan berantakan di layar sempit, menu hamburger landing, harga 3 kolom di tablet — diverifikasi matriks 108 screenshot (36 halaman × 3 ukuran layar). Jalur error AI dibuat terbaca (503 kini menyebut alasannya; kuota tak terpotong saat gagal) + alat probe produksi untuk mendiagnosa kenapa AI belum menjawab | ✅ **Selesai** |
 | Fase 2m — Manajemen dokumen (lampiran file) | Lampiran di faktur/kontak/jurnal (penyimpanan Cloudflare R2) | ⏸ **Menunggu Anda mengaktifkan R2 di dashboard Cloudflare** |
 | Fase 2b-2 — Pembayaran langganan | Checkout Midtrans/Xendit, aktivasi otomatis | ⏸ **Menunggu akun gateway dari Anda** |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
@@ -115,7 +116,7 @@
 54. **Dashboard modern & panduan mulai** *(baru — Fase 3e)*: grafik tren penjualan 30 hari dengan tooltip, widget faktur lewat jatuh tempo, feed aktivitas terakhir, dan **checklist "Mulai cepat"** berprogres untuk perusahaan baru (hilang otomatis saat lengkap). Halaman daftar/masuk bergaya split modern; setiap halaman kini punya paragraf pengantar; nama menu dan judul halaman konsisten (Maintenance menjadi Pemeliharaan).
 55. **Ekspor e-Faktur XML Coretax** *(baru — Fase 3f)*: satu klik "Unduh XML Coretax" di halaman Ekspor e-Faktur menghasilkan berkas XML yang **langsung bisa diimpor ke Coretax DJP** (format satu-satunya yang diterima sejak 2025). Sistem otomatis memakai kode transaksi yang benar — 04 dengan DPP nilai lain 11/12 untuk barang non-mewah (PMK 131/2024), 01 untuk tarif 12% penuh — menormalkan NPWP ke TIN 16 digit, dan mengecualikan faktur yang dibatalkan/non-PPN. CSV rekap tetap tersedia.
 
-Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (395 skenario ujian end-to-end + 24 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
+Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (397 skenario ujian end-to-end + 24 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
 
 ## Apakah sudah bisa diakses di internet?
 
