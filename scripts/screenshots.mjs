@@ -87,10 +87,14 @@ const EMAIL = "demo.screenshot@contoh.co.id";
 const PASSWORD = "rahasia-shot-123";
 const persistDir = path.join(tmpdir(), `erpindo-shots-${Date.now()}`);
 
+// Config dev = wrangler.jsonc minus binding "ai" (butuh kredensial remote).
+const { makeDevConfig } = await import(path.join(ROOT, "scripts/make-dev-config.mjs"));
+makeDevConfig();
+
 console.log(`Menyiapkan wrangler dev di :${PORT} (persist ${persistDir})...`);
 const dev = spawn(
   "pnpm",
-  ["exec", "wrangler", "dev", "-c", "../../wrangler.jsonc", "--port", String(PORT), "--persist-to", persistDir, "--show-interactive-dev-session=false"],
+  ["exec", "wrangler", "dev", "-c", "../../wrangler.dev.jsonc", "--port", String(PORT), "--persist-to", persistDir, "--show-interactive-dev-session=false"],
   { cwd: path.join(ROOT, "apps/api"), stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, CI: "1" } },
 );
 dev.stdout.on("data", () => {});

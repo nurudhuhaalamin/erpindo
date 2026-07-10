@@ -19,6 +19,10 @@ const persistDir = mkdtempSync(join(tmpdir(), "erpindo-smoke-"));
 const PORT = 8799;
 const BASE = `http://127.0.0.1:${PORT}`;
 
+// Config dev = wrangler.jsonc minus binding "ai" (butuh kredensial remote).
+const { makeDevConfig } = await import(join(apiDir, "../../scripts/make-dev-config.mjs"));
+makeDevConfig();
+
 let failures = 0;
 function check(name, cond, extra = "") {
   if (cond) {
@@ -37,7 +41,7 @@ const child = spawn(
     "wrangler",
     "dev",
     "-c",
-    "../../wrangler.jsonc",
+    "../../wrangler.dev.jsonc",
     "--port",
     String(PORT),
     "--persist-to",
@@ -2344,6 +2348,34 @@ try {
     "tenant tanpa NPWP DITOLAK 400 dengan pesan jelas",
     cxNoNpwp.status === 400 && /NPWP/.test(cxNoNpwp.json?.error ?? ""),
     `→ ${JSON.stringify(cxNoNpwp.json)}`,
+  );
+
+  // --- Asisten AI (Fase 4e) ---------------------------------------------------------
+  console.log("11w. Asisten AI (Workers AI)");
+  // Kontrak degradasi anggun: di lingkungan tanpa binding AI (dev/CI, config
+  // wrangler.dev.jsonc), endpoint WAJIB membalas 503 — di produksi 200.
+  // RBAC & auth tetap deterministik di kedua lingkungan.
+  const aiAnon = await fetch(`${BASE}/api/tenants/${tenantId}/ai/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "halo" }] }),
+  });
+  check("AI chat tanpa sesi DITOLAK 401", aiAnon.status === 401);
+  const aiChat = await owner("POST", `/api/tenants/${tenantId}/ai/chat`, {
+    messages: [{ role: "user", content: "Bagaimana cara ekspor XML Coretax?" }],
+  });
+  check(
+    "AI chat membalas 200 (produksi) ATAU 503 (binding absen) — degradasi anggun",
+    aiChat.status === 200 || aiChat.status === 503,
+    `→ ${aiChat.status}`,
+  );
+  const aiJurnalViewer = await viewer("POST", `/api/tenants/${tenantId}/ai/jurnal`, { prompt: "bayar listrik 500 ribu dari kas" });
+  check("viewer DITOLAK membuat draf jurnal AI (403)", aiJurnalViewer.status === 403);
+  const aiJurnal = await owner("POST", `/api/tenants/${tenantId}/ai/jurnal`, { prompt: "bayar listrik 500 ribu dari kas" });
+  check(
+    "AI draf jurnal membalas 200/422 (produksi) ATAU 503 (binding absen)",
+    [200, 422, 503].includes(aiJurnal.status),
+    `→ ${aiJurnal.status}`,
   );
 
   // --- Arus kas (Fase 2b-1) -------------------------------------------------------

@@ -204,6 +204,33 @@ export const renameAccountSchema = z.object({
   name: z.string().trim().min(2, "Nama akun minimal 2 karakter").max(100),
 });
 
+// --- Asisten AI (Workers AI) -------------------------------------------------
+
+export const aiChatSchema = z.object({
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string().trim().min(1).max(2_000),
+      }),
+    )
+    .min(1)
+    .max(20),
+});
+export type AiChatInput = z.infer<typeof aiChatSchema>;
+
+export const aiJurnalSchema = z.object({
+  prompt: z.string().trim().min(5, "Tulis deskripsi transaksi, mis. 'bayar listrik 500 ribu dari kas'").max(500),
+});
+export type AiJurnalInput = z.infer<typeof aiJurnalSchema>;
+
+/** Draf jurnal usulan AI — hanya usulan; manusia yang memposting lewat form Jurnal Umum. */
+export type ApiAiJournalDraft = {
+  entryDate: string;
+  memo: string;
+  lines: { accountId: string; accountCode: string; accountName: string; debit: number; credit: number }[];
+};
+
 /** Nominal rupiah bulat non-negatif (IDR tanpa sen), maksimal 1 triliun. */
 const amountSchema = z.number().int("Nominal harus bilangan bulat").min(0).max(1_000_000_000_000);
 

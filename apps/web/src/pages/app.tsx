@@ -63,6 +63,7 @@ import {
   useDarkMode,
   useToast,
 } from "../components/ui";
+import { Asisten } from "../components/asisten";
 
 // ---------------------------------------------------------------------------
 // Konteks workspace: user + tenant aktif (tenant pertama untuk Fase 0)
@@ -512,6 +513,7 @@ export function AppShell() {
           </main>
         </div>
       </div>
+      <Asisten tenantId={tenant.tenantId} isAdmin={tenant.role !== "viewer"} />
     </WorkspaceContext.Provider>
   );
 }

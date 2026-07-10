@@ -6,7 +6,7 @@ import {
 } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { api, formatDate, formatIDR } from "../api/client";
 import { useDebounced } from "./commerce";
 import {
@@ -239,6 +239,35 @@ export function JournalPage() {
   const [projectId, setProjectId] = useState("");
   const [lines, setLines] = useState<DraftLine[]>([emptyLine(), emptyLine()]);
   const [error, setError] = useState<string | null>(null);
+
+  // Prefill dari draf Asisten AI (sessionStorage) — sekali pakai; tetap
+  // ditinjau & diposting manual oleh pengguna.
+  useEffect(() => {
+    const raw = sessionStorage.getItem("erpindo-ai-draft");
+    if (!raw) return;
+    sessionStorage.removeItem("erpindo-ai-draft");
+    try {
+      const draft = JSON.parse(raw) as {
+        entryDate: string;
+        memo: string;
+        lines: { accountId: string; debit: number; credit: number }[];
+      };
+      setEntryDate(draft.entryDate);
+      setMemo(draft.memo);
+      setLines(
+        draft.lines.map((l) => ({
+          accountId: l.accountId,
+          description: "",
+          debit: l.debit ? String(l.debit) : "",
+          credit: l.credit ? String(l.credit) : "",
+        })),
+      );
+      toast("success", "Draf dari Asisten AI dimuat — periksa lalu posting.");
+    } catch {
+      /* draf rusak — abaikan */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const create = useMutation({
     mutationFn: (input: Parameters<typeof api.createJournalEntry>[1]) =>
