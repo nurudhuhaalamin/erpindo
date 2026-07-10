@@ -6,6 +6,7 @@ import {
   type ApiDashboard,
   type ApiEfakturReport,
   type ApiEfakturRow,
+  type ApiSalesAnalytics,
   type ApiStockCardRow,
 } from "@erpindo/shared";
 import { Hono } from "hono";
@@ -409,11 +410,71 @@ export const reportRoutes = new Hono<AppEnv>()
   // -------------------------------------------------------------------------
   // Dashboard: ringkasan angka nyata
   // -------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // Laporan penjualan analitik (Fase 5h): agregat per produk & per pelanggan
+  // untuk rentang tanggal. Dokumen void dikecualikan.
+  // -------------------------------------------------------------------------
+  .get("/:tenantId/reports/sales-analytics", requireAuth, requireTenantRole("viewer"), async (c) => {
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+    const today = new Date().toISOString().slice(0, 10);
+    const to = c.req.query("to") || today;
+    const from = c.req.query("from") || `${today.slice(0, 7)}-01`;
+
+    const [totalRow, byProductRes, byCustomerRes] = await Promise.all([
+      db
+        .prepare(`SELECT COALESCE(SUM(total), 0) AS total, COUNT(*) AS n FROM invoices WHERE voided_at IS NULL AND invoice_date BETWEEN ? AND ?`)
+        .bind(from, to)
+        .all<{ total: number; n: number }>(),
+      db
+        .prepare(
+          `SELECT p.id AS product_id, p.sku, p.name, SUM(il.qty) AS qty, SUM(il.amount) AS revenue
+           FROM invoice_lines il
+           JOIN invoices i ON i.id = il.invoice_id
+           JOIN products p ON p.id = il.product_id
+           WHERE i.voided_at IS NULL AND i.invoice_date BETWEEN ? AND ?
+           GROUP BY p.id ORDER BY revenue DESC`,
+        )
+        .bind(from, to)
+        .all<{ product_id: string; sku: string; name: string; qty: number; revenue: number }>(),
+      db
+        .prepare(
+          `SELECT k.id AS contact_id, k.name, COUNT(*) AS n, SUM(i.total) AS revenue
+           FROM invoices i JOIN contacts k ON k.id = i.contact_id
+           WHERE i.voided_at IS NULL AND i.invoice_date BETWEEN ? AND ?
+           GROUP BY k.id ORDER BY revenue DESC`,
+        )
+        .bind(from, to)
+        .all<{ contact_id: string; name: string; n: number; revenue: number }>(),
+    ]);
+
+    const body: ApiSalesAnalytics = {
+      from,
+      to,
+      totalRevenue: totalRow.results[0]?.total ?? 0,
+      invoiceCount: totalRow.results[0]?.n ?? 0,
+      byProduct: byProductRes.results.map((r) => ({
+        productId: r.product_id,
+        sku: r.sku,
+        name: r.name,
+        qty: r.qty,
+        revenue: r.revenue,
+      })),
+      byCustomer: byCustomerRes.results.map((r) => ({
+        contactId: r.contact_id,
+        name: r.name,
+        invoiceCount: r.n,
+        revenue: r.revenue,
+      })),
+    };
+    return c.json(body);
+  })
+
   .get("/:tenantId/dashboard", requireAuth, requireTenantRole("viewer"), async (c) => {
     const db = getTenantDb(c.env, c.get("tenant").dbRef);
     const monthPrefix = new Date().toISOString().slice(0, 7); // YYYY-MM
+    const lastMonthPrefix = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toISOString().slice(0, 7);
 
-    const [cashRows, salesRows, arRows, apRows, stockRows, leadRows] = await Promise.all([
+    const [cashRows, salesRows, lastMonthRows, arRows, apRows, stockRows, leadRows] = await Promise.all([
       db
         .prepare(
           `SELECT COALESCE(SUM(l.debit - l.credit), 0) AS balance
@@ -428,6 +489,10 @@ export const reportRoutes = new Hono<AppEnv>()
         .bind(`${monthPrefix}%`)
         .all<{ total: number; n: number }>(),
       db
+        .prepare(`SELECT COALESCE(SUM(total), 0) AS total FROM invoices WHERE voided_at IS NULL AND invoice_date LIKE ?`)
+        .bind(`${lastMonthPrefix}%`)
+        .all<{ total: number }>(),
+      db
         .prepare(`SELECT COALESCE(SUM(total - paid_amount - returned_amount), 0) AS outstanding FROM invoices WHERE status != 'paid' AND voided_at IS NULL`)
         .all<{ outstanding: number }>(),
       db
@@ -441,6 +506,7 @@ export const reportRoutes = new Hono<AppEnv>()
       cashAndBank: cashRows.results[0]?.balance ?? 0,
       salesThisMonth: salesRows.results[0]?.total ?? 0,
       salesCountThisMonth: salesRows.results[0]?.n ?? 0,
+      salesLastMonth: lastMonthRows.results[0]?.total ?? 0,
       receivableOutstanding: arRows.results[0]?.outstanding ?? 0,
       payableOutstanding: apRows.results[0]?.outstanding ?? 0,
       inventoryValue: stockRows.results[0]?.value ?? 0,

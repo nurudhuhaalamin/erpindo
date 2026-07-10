@@ -108,6 +108,7 @@ const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; 
   { to: "/app/keuangan/kurs", label: "Mata Uang", exact: false, section: "Keuangan", icon: Coins },
   { to: "/app/keuangan/umur-tagihan", label: "Umur Piutang/Hutang", exact: false, section: "Keuangan", icon: Hourglass },
   { to: "/app/keuangan/e-faktur", label: "Ekspor e-Faktur", exact: false, section: "Keuangan", icon: FileSpreadsheet },
+  { to: "/app/laporan/penjualan", label: "Laporan Penjualan", exact: false, section: "Keuangan", icon: LineChart },
   { to: "/app/master/produk", label: "Produk", exact: false, section: "Master Data", icon: Package },
   { to: "/app/master/kontak", label: "Kontak", exact: false, section: "Master Data", icon: Contact },
   { to: "/app/master/gudang", label: "Gudang", exact: false, section: "Master Data", icon: Warehouse },
@@ -874,7 +875,12 @@ export function DashboardPage() {
 
   const fmt = formatIDR;
 
-  const stats: { label: string; value?: number; hint?: string; icon: LucideIcon; chip: string; currency?: boolean }[] = [
+  const salesDelta =
+    dash.data && dash.data.salesLastMonth > 0
+      ? Math.round(((dash.data.salesThisMonth - dash.data.salesLastMonth) / dash.data.salesLastMonth) * 100)
+      : null;
+
+  const stats: { label: string; value?: number; hint?: string; delta?: number | null; icon: LucideIcon; chip: string; currency?: boolean }[] = [
     {
       label: "Kas & Bank",
       value: dash.data?.cashAndBank,
@@ -885,6 +891,7 @@ export function DashboardPage() {
       label: "Penjualan Bulan Ini",
       value: dash.data?.salesThisMonth,
       hint: dash.data ? `${dash.data.salesCountThisMonth} faktur` : undefined,
+      delta: salesDelta,
       icon: LineChart,
       chip: "bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-300",
     },
@@ -950,7 +957,14 @@ export function DashboardPage() {
                   {stat.currency === false ? stat.value.toLocaleString("id-ID") : fmt(stat.value)}
                 </div>
               )}
-              {stat.hint ? <div className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{stat.hint}</div> : null}
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs">
+                {stat.hint ? <span className="text-slate-400 dark:text-slate-500">{stat.hint}</span> : null}
+                {stat.delta !== undefined && stat.delta !== null ? (
+                  <span className={stat.delta >= 0 ? "font-medium text-emerald-600 dark:text-emerald-400" : "font-medium text-red-600 dark:text-red-400"}>
+                    {stat.delta >= 0 ? "▲" : "▼"} {Math.abs(stat.delta)}% vs bulan lalu
+                  </span>
+                ) : null}
+              </div>
             </CardBody>
           </Card>
         ))}

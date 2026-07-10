@@ -1,9 +1,9 @@
 import { AGING_BUCKETS, AGING_BUCKET_LABELS, type ApiReportLine } from "@erpindo/shared";
 import { useQuery } from "@tanstack/react-query";
-import { Download } from "lucide-react";
+import { Download, Inbox } from "lucide-react";
 import { useState } from "react";
 import { api, downloadCsv, downloadXml, formatDate, formatIDR } from "../api/client";
-import { Badge, Button, Card, CardBody, CardHeader, Input, Label, Select, Spinner, useToast } from "../components/ui";
+import { Badge, Button, Card, CardBody, CardHeader, EmptyState, Input, Label, Select, Spinner, useToast } from "../components/ui";
 import { useWorkspace } from "./app";
 
 export function ExportButton({ onClick, label = "Ekspor CSV" }: { onClick: () => void; label?: string }) {
@@ -587,6 +587,166 @@ export function BalanceSheetPage() {
           ) : null}
         </CardBody>
       </Card>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Laporan Penjualan analitik (Fase 5h): agregat per produk & per pelanggan
+// ---------------------------------------------------------------------------
+
+export function SalesReportPage() {
+  const { tenant } = useWorkspace();
+  const [from, setFrom] = useState(monthStart);
+  const [to, setTo] = useState(today);
+
+  const query = useQuery({
+    queryKey: ["sales-analytics", tenant.tenantId, from, to],
+    queryFn: () => api.salesAnalytics(tenant.tenantId, from, to),
+  });
+  const data = query.data;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Laporan Penjualan</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Produk terlaris dan pelanggan terbesar pada rentang tanggal — dari faktur (di luar yang dibatalkan).
+          </p>
+        </div>
+        <div className="flex flex-wrap items-end gap-2">
+          <div>
+            <Label htmlFor="sr-from">Dari</Label>
+            <Input id="sr-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="sr-to">Sampai</Label>
+            <Input id="sr-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          </div>
+        </div>
+      </div>
+
+      {query.isLoading || !data ? (
+        <Spinner />
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Card>
+              <CardBody>
+                <div className="text-sm text-slate-500 dark:text-slate-400">Total penjualan</div>
+                <div className="mt-1 text-xl font-semibold tabular-nums">{formatIDR(data.totalRevenue)}</div>
+              </CardBody>
+            </Card>
+            <Card>
+              <CardBody>
+                <div className="text-sm text-slate-500 dark:text-slate-400">Jumlah faktur</div>
+                <div className="mt-1 text-xl font-semibold tabular-nums">{data.invoiceCount.toLocaleString("id-ID")}</div>
+              </CardBody>
+            </Card>
+            <Card>
+              <CardBody>
+                <div className="text-sm text-slate-500 dark:text-slate-400">Rata-rata per faktur</div>
+                <div className="mt-1 text-xl font-semibold tabular-nums">
+                  {formatIDR(data.invoiceCount > 0 ? Math.round(data.totalRevenue / data.invoiceCount) : 0)}
+                </div>
+              </CardBody>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader
+              title="Per produk"
+              action={
+                data.byProduct.length > 0 ? (
+                  <ExportButton
+                    onClick={() =>
+                      downloadCsv(
+                        `penjualan-per-produk-${from}_${to}.csv`,
+                        ["SKU", "Produk", "Qty", "Omzet"],
+                        data.byProduct.map((r) => [r.sku, r.name, r.qty, r.revenue]),
+                      )
+                    }
+                  />
+                ) : undefined
+              }
+            />
+            <CardBody>
+              {data.byProduct.length === 0 ? (
+                <EmptyState icon={<Inbox className="size-6" aria-hidden />} title="Belum ada penjualan" description="Tidak ada faktur pada rentang tanggal ini." />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                        <th className="pb-2 pr-4 font-medium">SKU</th>
+                        <th className="pb-2 pr-4 font-medium">Produk</th>
+                        <th className="pb-2 pr-4 text-right font-medium">Qty</th>
+                        <th className="pb-2 text-right font-medium">Omzet</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.byProduct.map((r) => (
+                        <tr key={r.productId} className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
+                          <td className="py-2 pr-4 font-mono text-xs">{r.sku}</td>
+                          <td className="py-2 pr-4">{r.name}</td>
+                          <td className="py-2 pr-4 text-right tabular-nums">{r.qty.toLocaleString("id-ID")}</td>
+                          <td className="py-2 text-right tabular-nums">{formatIDR(r.revenue)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="Per pelanggan"
+              action={
+                data.byCustomer.length > 0 ? (
+                  <ExportButton
+                    onClick={() =>
+                      downloadCsv(
+                        `penjualan-per-pelanggan-${from}_${to}.csv`,
+                        ["Pelanggan", "Jumlah faktur", "Omzet"],
+                        data.byCustomer.map((r) => [r.name, r.invoiceCount, r.revenue]),
+                      )
+                    }
+                  />
+                ) : undefined
+              }
+            />
+            <CardBody>
+              {data.byCustomer.length === 0 ? (
+                <EmptyState icon={<Inbox className="size-6" aria-hidden />} title="Belum ada penjualan" description="Tidak ada faktur pada rentang tanggal ini." />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                        <th className="pb-2 pr-4 font-medium">Pelanggan</th>
+                        <th className="pb-2 pr-4 text-right font-medium">Faktur</th>
+                        <th className="pb-2 text-right font-medium">Omzet</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.byCustomer.map((r) => (
+                        <tr key={r.contactId} className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
+                          <td className="py-2 pr-4">{r.name}</td>
+                          <td className="py-2 pr-4 text-right tabular-nums">{r.invoiceCount.toLocaleString("id-ID")}</td>
+                          <td className="py-2 text-right tabular-nums">{formatIDR(r.revenue)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        </>
+      )}
     </div>
   );
 }
