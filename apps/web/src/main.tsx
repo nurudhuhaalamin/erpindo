@@ -23,6 +23,7 @@ import { ConsolidationPage } from "./pages/consolidation";
 import { ManufacturingPage } from "./pages/manufacturing";
 import { MaintenancePage } from "./pages/maintenance";
 import { HelpdeskPage } from "./pages/helpdesk";
+import { CatatPage } from "./pages/catat";
 import { AccountsPage, JournalPage, LedgerPage, TrialBalancePage } from "./pages/finance";
 import { AgingPage, BalanceSheetPage, CashFlowPage, EfakturPage, IncomeStatementPage } from "./pages/reports";
 import { ContactsPage, ProductsPage, WarehousesPage } from "./pages/masterdata";
@@ -75,6 +76,7 @@ const appChildren = [
   createRoute({ getParentRoute: () => appRoute, path: "/stok", component: StockPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/crm/leads", component: LeadsPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/crm/penawaran", component: QuotationsPage }),
+  createRoute({ getParentRoute: () => appRoute, path: "/keuangan/catat", component: CatatPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/keuangan/akun", component: AccountsPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/keuangan/jurnal", component: JournalPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/keuangan/buku-besar", component: LedgerPage }),

@@ -29,6 +29,7 @@ import {
   Menu,
   Moon,
   Package,
+  PenLine,
   PiggyBank,
   Receipt,
   Scale,
@@ -92,6 +93,7 @@ const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; 
   { to: "/app/crm/leads", label: "Pipeline", exact: false, section: "CRM", icon: Target },
   { to: "/app/crm/penawaran", label: "Penawaran", exact: false, section: "CRM", icon: FileText },
   { to: "/app/helpdesk", label: "Helpdesk", exact: false, section: "CRM", icon: LifeBuoy },
+  { to: "/app/keuangan/catat", label: "Catat Transaksi", exact: false, section: "Keuangan", icon: PenLine },
   { to: "/app/keuangan/akun", label: "Bagan Akun", exact: false, section: "Keuangan", icon: ListTree },
   { to: "/app/keuangan/jurnal", label: "Jurnal Umum", exact: false, section: "Keuangan", icon: BookText },
   { to: "/app/keuangan/buku-besar", label: "Buku Besar", exact: false, section: "Keuangan", icon: BookOpen },
@@ -136,6 +138,25 @@ function Avatar({ name }: { name: string }) {
  * disegarkan tiap menit.
  */
 /** Pemetaan rute aplikasi → slug modul panduan (untuk tombol bantuan topbar). */
+/** Mode Sederhana: sembunyikan menu akuntansi teknis (per pengguna, localStorage). */
+const SIMPLE_MODE_KEY = "erpindo-simple-mode";
+const SIMPLE_MODE_EVENT = "erpindo-simple-mode-change";
+const SIMPLE_HIDDEN = new Set([
+  "/app/keuangan/akun",
+  "/app/keuangan/jurnal",
+  "/app/keuangan/buku-besar",
+  "/app/keuangan/neraca-saldo",
+]);
+
+export function isSimpleMode(): boolean {
+  return localStorage.getItem(SIMPLE_MODE_KEY) === "1";
+}
+
+export function setSimpleMode(on: boolean): void {
+  localStorage.setItem(SIMPLE_MODE_KEY, on ? "1" : "0");
+  window.dispatchEvent(new Event(SIMPLE_MODE_EVENT));
+}
+
 const GUIDE_SLUG_BY_PREFIX: [prefix: string, slug: string][] = [
   ["/app/pos", "pos"],
   ["/app/penjualan", "penjualan"],
@@ -147,6 +168,7 @@ const GUIDE_SLUG_BY_PREFIX: [prefix: string, slug: string][] = [
   ["/app/master/kontak", "kontak"],
   ["/app/master", "produk"],
   ["/app/hr", "penggajian"],
+  ["/app/keuangan/catat", "akuntansi-pemula"],
   ["/app/keuangan/e-faktur", "pajak"],
   ["/app/keuangan/anggaran", "anggaran"],
   ["/app/keuangan/aset", "aset"],
@@ -276,6 +298,14 @@ export function AppShell() {
     onSuccess: () => navigate({ to: "/masuk" }),
   });
 
+  // Mode Sederhana: ikuti perubahan toggle dari halaman Pengaturan.
+  const [simpleMode, setSimpleModeState] = useState(isSimpleMode);
+  useEffect(() => {
+    const onChange = () => setSimpleModeState(isSimpleMode());
+    window.addEventListener(SIMPLE_MODE_EVENT, onChange);
+    return () => window.removeEventListener(SIMPLE_MODE_EVENT, onChange);
+  }, []);
+
   // Drawer mobile: tutup dengan Escape + kunci scroll body saat terbuka.
   useEffect(() => {
     if (!menuOpen) return;
@@ -320,11 +350,12 @@ export function AppShell() {
     );
   }
 
+  const navItems = simpleMode ? NAV_ITEMS.filter((item) => !SIMPLE_HIDDEN.has(item.to)) : NAV_ITEMS;
   const nav = (
     <nav className="flex flex-col gap-0.5 p-3">
-      {NAV_ITEMS.map((item, i) => (
+      {navItems.map((item, i) => (
         <div key={item.to}>
-          {item.section && NAV_ITEMS[i - 1]?.section !== item.section ? (
+          {item.section && navItems[i - 1]?.section !== item.section ? (
             <div className="mb-1 mt-4 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
               {item.section}
             </div>
@@ -999,6 +1030,7 @@ export function SettingsPage() {
       </div>
       <SubscriptionCard />
       <ProfileCard />
+      <DisplayModeCard />
       <SecurityCard />
       <CompanySettingsCard tenantId={tenant.tenantId} readOnly={!isAdmin} />
       {tenant.role === "owner" ? <NewCompanyCard /> : null}
@@ -1007,6 +1039,41 @@ export function SettingsPage() {
       {tenant.role === "owner" ? <CloseBooksCard tenantId={tenant.tenantId} /> : null}
       {tenant.role === "owner" ? <AuditLogCard tenantId={tenant.tenantId} /> : null}
     </div>
+  );
+}
+
+/** Toggle Mode Sederhana — untuk pengguna yang tidak akrab dengan istilah akuntansi. */
+function DisplayModeCard() {
+  const [simple, setSimple] = useState(isSimpleMode);
+  return (
+    <Card>
+      <CardHeader
+        title="Tampilan"
+        description="Sesuaikan menu dengan tingkat kenyamanan Anda terhadap istilah akuntansi."
+      />
+      <CardBody>
+        <label className="flex cursor-pointer items-start gap-3">
+          <input
+            id="simpleMode"
+            type="checkbox"
+            checked={simple}
+            onChange={(e) => {
+              setSimple(e.target.checked);
+              setSimpleMode(e.target.checked);
+            }}
+            className="mt-1 size-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+          />
+          <span>
+            <span className="font-medium">Mode Sederhana</span>
+            <span className="mt-0.5 block text-sm text-slate-500 dark:text-slate-400">
+              Sembunyikan menu akuntansi teknis (Jurnal Umum, Buku Besar, Neraca Saldo, Bagan Akun). Catat
+              transaksi lewat halaman "Catat Transaksi" berbahasa sehari-hari; laporan tetap tersedia. Bisa
+              dinyalakan/dimatikan kapan saja — hanya memengaruhi tampilan Anda, bukan data.
+            </span>
+          </span>
+        </label>
+      </CardBody>
+    </Card>
   );
 }
 
