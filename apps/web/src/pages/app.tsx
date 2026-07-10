@@ -237,6 +237,8 @@ function NotificationBell({ tenantId }: { tenantId: string }) {
     overdue_invoice: "bg-red-500",
     open_ticket: "bg-sky-500",
     pending_approval: "bg-brand-500",
+    crm_followup_due: "bg-violet-500",
+    crm_stale_lead: "bg-slate-400",
   };
 
   return (

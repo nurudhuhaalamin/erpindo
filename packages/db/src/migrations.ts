@@ -790,6 +790,15 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `CREATE INDEX idx_bank_stmt_account ON bank_statement_items(account_id, stmt_date)`,
     ],
   },
+  {
+    id: "0021_crm_extras",
+    statements: [
+      // Rencana tindak lanjut: aktivitas bisa diberi tenggat — masuk lonceng
+      // notifikasi saat jatuh tempo (kolom source lead & valid_until penawaran
+      // sudah ada sejak 0008).
+      `ALTER TABLE lead_activities ADD COLUMN due_at TEXT`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

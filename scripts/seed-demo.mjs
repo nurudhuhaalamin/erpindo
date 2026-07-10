@@ -330,13 +330,13 @@ for (const [i, sale] of [
 await step("tutup shift kasir", "POST", `${T}/pos/shift/${shift.id}/close`, { closingCash: 500_000 + posCash });
 
 // --- 11. CRM: lead, aktivitas, konversi → penawaran → faktur ----------------------
-const lead1 = await step("lead: Restoran Padang Sabana", "POST", `${T}/leads`, { name: "Restoran Padang Sabana", contactPerson: "Uda Rizal", phone: "0813-1111-2222", estValue: 12_000_000 });
+const lead1 = await step("lead: Restoran Padang Sabana", "POST", `${T}/leads`, { name: "Restoran Padang Sabana", contactPerson: "Uda Rizal", phone: "0813-1111-2222", estValue: 12_000_000, source: "Referensi" });
 await step("aktivitas lead: telepon", "POST", `${T}/leads/${lead1.id}/activities`, { type: "call", note: "Telepon perkenalan — tertarik paket sambal & keripik bulanan.", activityDate: daysAgo(9) });
 await step("aktivitas lead: meeting", "POST", `${T}/leads/${lead1.id}/activities`, { type: "meeting", note: "Demo produk di lokasi, minta penawaran resmi.", activityDate: daysAgo(6) });
 await step("lead naik tahap qualified", "PATCH", `${T}/leads/${lead1.id}`, { stage: "qualified" });
 const conv = await step("konversi lead → pelanggan", "POST", `${T}/leads/${lead1.id}/convert`);
 const quote = await step("penawaran untuk pelanggan baru", "POST", `${T}/quotations`, {
-  contactId: conv.contactId, quoteDate: daysAgo(4), taxRate: 11,
+  contactId: conv.contactId, quoteDate: daysAgo(4), validUntil: daysAgo(-26), taxRate: 11,
   lines: [
     { productId: sambal.id, qty: 12, unitPrice: 33_000 },
     { productId: keripik.id, qty: 24, unitPrice: 23_000 },
@@ -344,9 +344,14 @@ const quote = await step("penawaran untuk pelanggan baru", "POST", `${T}/quotati
 });
 await step("penawaran diterima", "PATCH", `${T}/quotations/${quote.id}/status`, { status: "accepted" });
 await step("konversi penawaran → faktur", "POST", `${T}/quotations/${quote.id}/convert`, { warehouseId: whUtama.id, invoiceDate: daysAgo(2) });
-await step("lead pipeline: Katering Berkah (baru)", "POST", `${T}/leads`, { name: "Katering Berkah Jaya", contactPerson: "Bu Nia", phone: "0812-8888-7777", estValue: 6_000_000 });
-const lead3 = await step("lead pipeline: Minimarket Bina Warga", "POST", `${T}/leads`, { name: "Minimarket Bina Warga", contactPerson: "Pak Dedi", estValue: 9_000_000 });
+await step("penawaran kedua (masih berlaku)", "POST", `${T}/quotations`, {
+  contactId: conv.contactId, quoteDate: daysAgo(1), validUntil: daysAgo(-14), taxRate: 11,
+  lines: [{ productId: sambal.id, qty: 30, unitPrice: 32_000 }],
+});
+await step("lead pipeline: Katering Berkah (baru)", "POST", `${T}/leads`, { name: "Katering Berkah Jaya", contactPerson: "Bu Nia", phone: "0812-8888-7777", estValue: 6_000_000, source: "Instagram" });
+const lead3 = await step("lead pipeline: Minimarket Bina Warga", "POST", `${T}/leads`, { name: "Minimarket Bina Warga", contactPerson: "Pak Dedi", estValue: 9_000_000, source: "WhatsApp" });
 await step("lead ketiga → contacted", "PATCH", `${T}/leads/${lead3.id}`, { stage: "contacted" });
+await step("aktivitas lead: follow-up bertenggat", "POST", `${T}/leads/${lead3.id}/activities`, { type: "note", note: "Kirim daftar harga grosir — tunggu keputusan Pak Dedi.", activityDate: daysAgo(1), dueAt: daysAgo(-2) });
 
 // --- 12. Anggaran bulan berjalan ---------------------------------------------------
 await step("anggaran pendapatan bulan ini", "PUT", `${T}/budgets`, { accountId: penjualanAcc.id, period: thisMonth, amount: 30_000_000 });

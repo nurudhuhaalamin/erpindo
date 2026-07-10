@@ -184,6 +184,27 @@ export const tenantRoutes = new Hono<AppEnv>()
       db.prepare(`SELECT COUNT(*) AS n FROM approval_requests WHERE status = 'pending'`).all<{ n: number }>(),
     ]);
 
+    // Pengingat CRM (Fase 5e): tindak lanjut ber-tenggat yang jatuh tempo dan
+    // lead aktif yang tak tersentuh lebih dari 7 hari.
+    const [dueFollowUps, staleLeads] = await Promise.all([
+      db
+        .prepare(
+          `SELECT a.due_at, a.note, l.name AS lead_name
+           FROM lead_activities a JOIN leads l ON l.id = a.lead_id
+           WHERE a.due_at IS NOT NULL AND a.due_at <= ?
+             AND l.stage NOT IN ('won', 'lost')
+           ORDER BY a.due_at LIMIT 10`,
+        )
+        .bind(today)
+        .all<{ due_at: string; note: string; lead_name: string }>(),
+      db
+        .prepare(
+          `SELECT COUNT(*) AS n FROM leads
+           WHERE stage NOT IN ('won', 'lost') AND updated_at < datetime('now', '-7 days')`,
+        )
+        .all<{ n: number }>(),
+    ]);
+
     const notifications: ApiNotification[] = [];
     for (const p of lowStock.results) {
       notifications.push({
@@ -217,6 +238,23 @@ export const tenantRoutes = new Hono<AppEnv>()
         title: `${pendingApprovals} pembelian menunggu persetujuan`,
         detail: "Pengajuan pembelian di atas ambang menunggu keputusan Owner.",
         href: "/app/persetujuan",
+      });
+    }
+    for (const f of dueFollowUps.results) {
+      notifications.push({
+        type: "crm_followup_due",
+        title: `Follow-up lead ${f.lead_name} jatuh tempo`,
+        detail: `${f.note} (tenggat ${f.due_at}).`,
+        href: "/app/crm/leads",
+      });
+    }
+    const stale = staleLeads.results[0]?.n ?? 0;
+    if (stale > 0) {
+      notifications.push({
+        type: "crm_stale_lead",
+        title: `${stale} lead belum di-follow-up lebih dari 7 hari`,
+        detail: "Lead aktif tanpa aktivitas baru — hubungi lagi sebelum dingin.",
+        href: "/app/crm/leads",
       });
     }
     return c.json({ notifications, count: notifications.length });
