@@ -20,27 +20,44 @@ import { requireAuth, requireTenantRole } from "../middleware/auth";
 const AI_MODEL = "@cf/meta/llama-3.1-8b-instruct";
 const DAILY_LIMIT = 50;
 
-const AI_UNAVAILABLE = { error: "Fitur AI belum tersedia di lingkungan ini. Coba lagi nanti." } as const;
+const AI_UNAVAILABLE_MSG = "Fitur AI belum tersedia di lingkungan ini. Coba lagi nanti.";
 
-/** Kuota harian per tenant di KV — melindungi jatah neuron gratis. */
-async function underQuota(env: Env, tenantId: string): Promise<boolean> {
-  const key = `ai:${tenantId}:${new Date().toISOString().slice(0, 10)}`;
+/** 503 dengan alasan singkat — memudahkan diagnosa produksi tanpa membuka log. */
+function unavailable(detail: string) {
+  return { error: AI_UNAVAILABLE_MSG, detail } as const;
+}
+
+function quotaKey(tenantId: string): string {
+  return `ai:${tenantId}:${new Date().toISOString().slice(0, 10)}`;
+}
+
+async function quotaExceeded(env: Env, tenantId: string): Promise<boolean> {
+  return Number((await env.RATE_KV.get(quotaKey(tenantId))) ?? 0) >= DAILY_LIMIT;
+}
+
+/** Dipanggil HANYA setelah model sukses — panggilan gagal tidak memakan kuota. */
+async function countQuota(env: Env, tenantId: string): Promise<void> {
+  const key = quotaKey(tenantId);
   const used = Number((await env.RATE_KV.get(key)) ?? 0);
-  if (used >= DAILY_LIMIT) return false;
   await env.RATE_KV.put(key, String(used + 1), { expirationTtl: 172_800 });
-  return true;
 }
 
 type ChatMessage = { role: string; content: string };
 
-async function runModel(env: Env, messages: ChatMessage[], maxTokens: number): Promise<string | null> {
-  if (!env.AI) return null;
+type ModelResult = { ok: true; text: string } | { ok: false; detail: string };
+
+async function runModel(env: Env, messages: ChatMessage[], maxTokens: number): Promise<ModelResult> {
+  if (!env.AI) return { ok: false, detail: "binding-absent" };
   try {
     const res = (await env.AI.run(AI_MODEL, { messages, max_tokens: maxTokens })) as { response?: string } | null;
-    return typeof res?.response === "string" ? res.response : null;
-  } catch {
-    // Termasuk dev lokal tanpa kredensial remote — perlakukan sama: layanan absen.
-    return null;
+    if (typeof res?.response !== "string") return { ok: false, detail: "empty-response" };
+    return { ok: true, text: res.response };
+  } catch (err) {
+    // Termasuk dev lokal tanpa kredensial remote. Alasan asli dicatat agar
+    // kegagalan produksi (mis. Workers AI belum aktif di akun) bisa didiagnosa.
+    console.error("[ai] model call failed:", err);
+    const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    return { ok: false, detail: msg.slice(0, 160) };
   }
 }
 
@@ -65,13 +82,13 @@ export const aiRoutes = new Hono<AppEnv>()
   // Chat bantuan: tanya-jawab cara pakai, grounded pada ringkasan panduan.
   // -------------------------------------------------------------------------
   .post("/:tenantId/ai/chat", requireAuth, requireTenantRole("viewer"), async (c) => {
-    if (!c.env.AI) return c.json(AI_UNAVAILABLE, 503);
+    if (!c.env.AI) return c.json(unavailable("binding-absent"), 503);
     const parsed = aiChatSchema.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success) {
       return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
     }
     const tenant = c.get("tenant");
-    if (!(await underQuota(c.env, tenant.id))) {
+    if (await quotaExceeded(c.env, tenant.id)) {
       return c.json({ error: `Kuota asisten AI hari ini habis (${DAILY_LIMIT} pertanyaan/hari). Coba lagi besok.` }, 429);
     }
 
@@ -91,22 +108,23 @@ export const aiRoutes = new Hono<AppEnv>()
       .filter(Boolean)
       .join("\n\n");
 
-    const reply = await runModel(c.env, [{ role: "system", content: system }, ...parsed.data.messages], 600);
-    if (reply === null) return c.json(AI_UNAVAILABLE, 503);
-    return c.json({ reply: reply.trim() });
+    const result = await runModel(c.env, [{ role: "system", content: system }, ...parsed.data.messages], 600);
+    if (!result.ok) return c.json(unavailable(result.detail), 503);
+    await countQuota(c.env, tenant.id);
+    return c.json({ reply: result.text.trim() });
   })
 
   // -------------------------------------------------------------------------
   // Draf jurnal dari bahasa alami — usulan tervalidasi, TIDAK diposting.
   // -------------------------------------------------------------------------
   .post("/:tenantId/ai/jurnal", requireAuth, requireTenantRole("admin"), async (c) => {
-    if (!c.env.AI) return c.json(AI_UNAVAILABLE, 503);
+    if (!c.env.AI) return c.json(unavailable("binding-absent"), 503);
     const parsed = aiJurnalSchema.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success) {
       return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
     }
     const tenant = c.get("tenant");
-    if (!(await underQuota(c.env, tenant.id))) {
+    if (await quotaExceeded(c.env, tenant.id)) {
       return c.json({ error: `Kuota asisten AI hari ini habis (${DAILY_LIMIT} permintaan/hari). Coba lagi besok.` }, 429);
     }
 
@@ -124,7 +142,7 @@ export const aiRoutes = new Hono<AppEnv>()
       `Daftar akun:\n${coa}`,
     ].join("\n\n");
 
-    const raw = await runModel(
+    const result = await runModel(
       c.env,
       [
         { role: "system", content: system },
@@ -132,7 +150,9 @@ export const aiRoutes = new Hono<AppEnv>()
       ],
       500,
     );
-    if (raw === null) return c.json(AI_UNAVAILABLE, 503);
+    if (!result.ok) return c.json(unavailable(result.detail), 503);
+    await countQuota(c.env, tenant.id);
+    const raw = result.text;
 
     // Model kadang membungkus JSON dengan pagar kode/teks — ambil objek pertama.
     const match = raw.match(/\{[\s\S]*\}/);

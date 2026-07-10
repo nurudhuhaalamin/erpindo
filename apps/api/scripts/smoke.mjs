@@ -2369,6 +2369,13 @@ try {
     aiChat.status === 200 || aiChat.status === 503,
     `→ ${aiChat.status}`,
   );
+  // 503 kini WAJIB membawa `detail` (alasan diagnosa — Fase 5a); di env smoke
+  // (config tanpa binding) alasannya pasti binding-absent.
+  check(
+    "AI chat 503 menyertakan detail 'binding-absent'",
+    aiChat.status === 200 || aiChat.json?.detail === "binding-absent",
+    `→ ${JSON.stringify(aiChat.json)}`,
+  );
   const aiJurnalViewer = await viewer("POST", `/api/tenants/${tenantId}/ai/jurnal`, { prompt: "bayar listrik 500 ribu dari kas" });
   check("viewer DITOLAK membuat draf jurnal AI (403)", aiJurnalViewer.status === 403);
   const aiJurnal = await owner("POST", `/api/tenants/${tenantId}/ai/jurnal`, { prompt: "bayar listrik 500 ribu dari kas" });
@@ -2376,6 +2383,11 @@ try {
     "AI draf jurnal membalas 200/422 (produksi) ATAU 503 (binding absen)",
     [200, 422, 503].includes(aiJurnal.status),
     `→ ${aiJurnal.status}`,
+  );
+  check(
+    "AI draf jurnal 503 menyertakan detail 'binding-absent'",
+    aiJurnal.status !== 503 || aiJurnal.json?.detail === "binding-absent",
+    `→ ${JSON.stringify(aiJurnal.json)}`,
   );
 
   // --- Arus kas (Fase 2b-1) -------------------------------------------------------

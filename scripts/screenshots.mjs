@@ -24,6 +24,46 @@ const PORT = Number(process.env.SHOT_PORT ?? 8839);
 const BASE = `http://127.0.0.1:${PORT}`;
 const SET = process.argv[2];
 
+/** Seluruh rute untuk audit visual (set "audit") — halaman penuh, 3 viewport. */
+const AUDIT_ROUTES = [
+  ["/", "landing"],
+  ["/masuk", "masuk"],
+  ["/daftar", "daftar"],
+  ["/panduan", "panduan-indeks"],
+  ["/panduan/pos", "panduan-modul"],
+  ["/app", "dashboard"],
+  ["/app/pos", "pos"],
+  ["/app/penjualan", "penjualan"],
+  ["/app/pembelian", "pembelian"],
+  ["/app/persetujuan", "persetujuan"],
+  ["/app/stok", "stok"],
+  ["/app/master/produk", "produk"],
+  ["/app/master/kontak", "kontak"],
+  ["/app/master/gudang", "gudang"],
+  ["/app/crm/leads", "crm-leads"],
+  ["/app/crm/penawaran", "crm-penawaran"],
+  ["/app/keuangan/akun", "akun"],
+  ["/app/keuangan/jurnal", "jurnal"],
+  ["/app/keuangan/buku-besar", "buku-besar"],
+  ["/app/keuangan/neraca-saldo", "neraca-saldo"],
+  ["/app/keuangan/laba-rugi", "laba-rugi"],
+  ["/app/keuangan/neraca", "neraca"],
+  ["/app/keuangan/umur-tagihan", "umur-tagihan"],
+  ["/app/keuangan/arus-kas", "arus-kas"],
+  ["/app/keuangan/e-faktur", "e-faktur"],
+  ["/app/keuangan/anggaran", "anggaran"],
+  ["/app/keuangan/aset", "aset"],
+  ["/app/keuangan/kurs", "kurs"],
+  ["/app/hr/penggajian", "penggajian"],
+  ["/app/proyek", "proyek"],
+  ["/app/kontrak", "kontrak"],
+  ["/app/konsolidasi", "konsolidasi"],
+  ["/app/manufaktur", "manufaktur"],
+  ["/app/maintenance", "maintenance"],
+  ["/app/helpdesk", "helpdesk"],
+  ["/app/pengaturan", "pengaturan"],
+];
+
 /** Manifest: kumpulan tangkapan per set. width = lebar akhir WebP. */
 const MANIFESTS = {
   landing: {
@@ -74,6 +114,20 @@ const MANIFESTS = {
       { route: "/app/helpdesk", name: "helpdesk-1", width: 1280, waitMs: 1000 },
       { route: "/app/persetujuan", name: "persetujuan-1", width: 1280, waitMs: 1000 },
     ],
+  },
+  // Audit visual QA: halaman PENUH pada 3 viewport. Keluaran ke AUDIT_OUT
+  // (default tmp) — TIDAK di-commit; alat review, bukan aset produk.
+  audit: {
+    outDir: process.env.AUDIT_OUT ?? path.join(tmpdir(), "erpindo-audit"),
+    viewports: [
+      { name: "390", width: 390, height: 844 },
+      { name: "768", width: 768, height: 1024 },
+      { name: "1280", width: 1280, height: 800 },
+    ],
+    theme: process.env.AUDIT_THEME === "dark" ? "dark" : "light",
+    quality: 70,
+    fullPage: true,
+    shots: AUDIT_ROUTES.map(([route, name]) => ({ route, name, waitMs: 900 })),
   },
 };
 
@@ -139,7 +193,11 @@ try {
     await import("sharp").catch(() => import(path.join(ROOT, "node_modules/.pnpm/node_modules/sharp/lib/index.js")))
   ).default;
   const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH ?? "/opt/pw-browsers/chromium" });
-  const ctx = await browser.newContext({ viewport: manifest.viewport, deviceScaleFactor: 2 });
+  const viewports = manifest.viewports ?? [{ name: "", ...manifest.viewport }];
+  const ctx = await browser.newContext({
+    viewport: { width: viewports[0].width, height: viewports[0].height },
+    deviceScaleFactor: manifest.viewports ? 1 : 2,
+  });
   const page = await ctx.newPage();
 
   await page.goto(`${BASE}/masuk`, { waitUntil: "networkidle" });
@@ -159,29 +217,54 @@ try {
     await page.evaluate((tid) => localStorage.setItem("erpindo-tenant", tid), demo.tenantId);
   }
 
-  const outAbs = path.join(ROOT, manifest.outDir);
+  const outAbs = path.isAbsolute(manifest.outDir) ? manifest.outDir : path.join(ROOT, manifest.outDir);
   mkdirSync(outAbs, { recursive: true });
   let total = 0;
-  for (const shot of manifest.shots) {
-    await page.goto(`${BASE}${shot.route}`, { waitUntil: "networkidle" });
-    await page.waitForTimeout(shot.waitMs);
-    // Banner verifikasi email tidak relevan untuk materi tangkapan layar.
-    await page.evaluate(() => {
-      for (const el of document.querySelectorAll("div")) {
-        if (el.childElementCount === 0 && el.textContent?.includes("belum diverifikasi")) {
-          (el.closest("[class*='rounded']") ?? el).remove();
-          break;
-        }
+  let count = 0;
+  for (const vp of viewports) {
+    await page.setViewportSize({ width: vp.width, height: vp.height });
+    for (const shot of manifest.shots) {
+      await page.goto(`${BASE}${shot.route}`, { waitUntil: "networkidle" });
+      await page.waitForTimeout(shot.waitMs);
+      if (manifest.fullPage) {
+        // Gulir sampai bawah agar gambar loading="lazy" ikut termuat.
+        await page.evaluate(async () => {
+          for (let y = 0; y < document.body.scrollHeight; y += 700) {
+            window.scrollTo(0, y);
+            await new Promise((r) => setTimeout(r, 60));
+          }
+          window.scrollTo(0, 0);
+        });
+        await page.waitForTimeout(400);
       }
-    });
-    const png = await page.screenshot({ fullPage: false });
-    const out = path.join(outAbs, `${shot.name}.webp`);
-    const buf = await sharp(png).resize({ width: shot.width * 2 }).webp({ quality: manifest.quality }).toBuffer();
-    await sharp(buf).toFile(out);
-    total += buf.length;
-    console.log(`  ✓ ${shot.name}.webp (${Math.round(buf.length / 1024)} KB)`);
+      // Banner verifikasi email tidak relevan untuk materi tangkapan layar.
+      await page.evaluate(() => {
+        for (const el of document.querySelectorAll("div")) {
+          if (el.childElementCount === 0 && el.textContent?.includes("belum diverifikasi")) {
+            (el.closest("[class*='rounded']") ?? el).remove();
+            break;
+          }
+        }
+      });
+      const png = await page.screenshot({ fullPage: manifest.fullPage ?? false });
+      const fname = vp.name ? `${vp.name}-${shot.name}.webp` : `${shot.name}.webp`;
+      let img = sharp(png);
+      // WebP maks 16383px per sisi — halaman daftar panjang dipotong; bagian
+      // atas 8000px sudah cukup untuk menilai tata letak.
+      const meta = await img.metadata();
+      if ((meta.height ?? 0) > 8000) {
+        img = img.extract({ left: 0, top: 0, width: meta.width, height: 8000 });
+      }
+      const buf = await (shot.width ? img.resize({ width: shot.width * 2 }) : img)
+        .webp({ quality: manifest.quality })
+        .toBuffer();
+      await sharp(buf).toFile(path.join(outAbs, fname));
+      total += buf.length;
+      count++;
+      console.log(`  ✓ ${fname} (${Math.round(buf.length / 1024)} KB)`);
+    }
   }
-  console.log(`Selesai: ${manifest.shots.length} gambar, total ${Math.round(total / 1024)} KB → ${manifest.outDir}`);
+  console.log(`Selesai: ${count} gambar, total ${Math.round(total / 1024)} KB → ${outAbs}`);
 
   await ctx.close();
   await browser.close();

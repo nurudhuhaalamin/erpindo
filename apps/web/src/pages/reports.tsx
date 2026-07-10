@@ -66,9 +66,11 @@ export function IncomeStatementPage() {
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Laba Rugi</h1>
-      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Pendapatan dikurangi beban untuk periode pilihan Anda — dihitung langsung dari jurnal.</p>
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h1 className="text-2xl font-semibold">Laba Rugi</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Pendapatan dikurangi beban untuk periode pilihan Anda — dihitung langsung dari jurnal.</p>
+        </div>
         {query.data ? (
           <ExportButton
             onClick={() =>
@@ -146,9 +148,11 @@ export function CashFlowPage() {
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Arus Kas</h1>
-      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Uang masuk dan keluar dari akun kas & bank untuk periode pilihan, dengan saldo awal dan akhir.</p>
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h1 className="text-2xl font-semibold">Arus Kas</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Uang masuk dan keluar dari akun kas & bank untuk periode pilihan, dengan saldo awal dan akhir.</p>
+        </div>
         {query.data ? (
           <ExportButton
             onClick={() =>
@@ -344,9 +348,11 @@ export function EfakturPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Ekspor e-Faktur</h1>
-      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Rekap faktur keluaran ber-PPN per periode — siap diunduh untuk pelaporan pajak.</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Ekspor e-Faktur</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Rekap faktur keluaran ber-PPN per periode — siap diunduh untuk pelaporan pajak.</p>
+        </div>
         {query.data && query.data.rows.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2">
             <Button className="h-9" onClick={downloadCoretaxXml} disabled={xmlBusy}>

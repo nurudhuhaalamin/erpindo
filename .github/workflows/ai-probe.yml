@@ -1,0 +1,29 @@
+# Alat ops: mendiagnosa Asisten AI di produksi (scripts/ai-probe.mjs).
+# Dipicu dengan push ke branch ops/ai-probe (integrasi GitHub yang dipakai tidak
+# punya izin workflow_dispatch). Runner GitHub dipakai karena punya akses
+# internet langsung ke *.workers.dev. Tanpa rahasia apa pun — akun probe acak
+# dibuat di runner dan kredensialnya tidak pernah dicetak.
+name: AI probe
+
+on:
+  push:
+    branches: [ops/ai-probe]
+
+jobs:
+  probe:
+    name: Probe /ai/chat produksi
+    runs-on: ubuntu-latest
+    env:
+      BASE_URL: https://erpindo.nurudhuhaalamin.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Cek kesehatan API
+        run: curl -sf --max-time 20 "$BASE_URL/api/health"
+
+      - name: Probe /ai/chat
+        run: node scripts/ai-probe.mjs
