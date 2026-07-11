@@ -36,6 +36,8 @@ export type JournalLineInput = {
   description?: string | null;
   debit: number;
   credit: number;
+  /** Dimensi opsional (Fase 7f): cost center per baris. */
+  costCenterId?: string | null;
 };
 
 /**
@@ -90,10 +92,10 @@ export async function postJournal(
   for (const line of input.lines) {
     await db
       .prepare(
-        `INSERT INTO journal_lines (id, entry_id, account_id, description, debit, credit)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO journal_lines (id, entry_id, account_id, description, debit, credit, cost_center_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
-      .bind(crypto.randomUUID(), id, line.accountId, line.description ?? null, line.debit, line.credit)
+      .bind(crypto.randomUUID(), id, line.accountId, line.description ?? null, line.debit, line.credit, line.costCenterId ?? null)
       .run();
   }
   return { id, entryNo };

@@ -157,6 +157,15 @@ const MANIFESTS = {
     fullPage: true,
     shots: [{ route: "/app/pengaturan", name: "rbac-peran-kustom", waitMs: 1600 }],
   },
+  // Set ad-hoc Fase 7f: halaman Dimensi & Rekonsiliasi.
+  so7f: {
+    outDir: process.env.SO7F_OUT ?? path.join(tmpdir(), "erpindo-so7f"),
+    viewport: { width: 1440, height: 1200 },
+    theme: "light",
+    quality: 85,
+    fullPage: true,
+    shots: [{ route: "/app/keuangan/dimensi", name: "dimensi-rekon", waitMs: 1600 }],
+  },
   // Audit visual QA: halaman PENUH pada 3 viewport. Keluaran ke AUDIT_OUT
   // (default tmp) — TIDAK di-commit; alat review, bukan aset produk.
   audit: {

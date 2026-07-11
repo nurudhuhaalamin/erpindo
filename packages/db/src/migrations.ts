@@ -1176,6 +1176,31 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `CREATE INDEX pph23_contact ON tax_pph23 (contact_id)`,
     ],
   },
+  {
+    id: "0032_dimensions",
+    statements: [
+      // Akuntansi dimensi (Fase 7f): cost center / departemen opsional per baris jurnal.
+      // Backward-compatible: kolom nullable; baris lama & jurnal otomatis tak terpengaruh.
+      `CREATE TABLE cost_centers (
+        id TEXT PRIMARY KEY,
+        code TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        is_archived INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `ALTER TABLE journal_lines ADD COLUMN cost_center_id TEXT`,
+      `CREATE INDEX journal_lines_cc ON journal_lines (cost_center_id)`,
+      // Rekonsiliasi bank v2 (Fase 7f): aturan auto-match tersimpan per akun.
+      `CREATE TABLE bank_match_rules (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id),
+        keyword TEXT NOT NULL,
+        date_tolerance INTEGER NOT NULL DEFAULT 3,
+        active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

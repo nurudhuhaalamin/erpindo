@@ -108,6 +108,7 @@ const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; 
   { to: "/app/keuangan/neraca", label: "Neraca", exact: false, section: "Keuangan", icon: Scale, module: "laporan" },
   { to: "/app/keuangan/arus-kas", label: "Arus Kas", exact: false, section: "Keuangan", icon: Wallet, module: "laporan" },
   { to: "/app/keuangan/anggaran", label: "Anggaran", exact: false, section: "Keuangan", icon: PiggyBank, module: "keuangan" },
+  { to: "/app/keuangan/dimensi", label: "Dimensi & Rekon", exact: false, section: "Keuangan", icon: Layers, module: "keuangan" },
   { to: "/app/keuangan/aset", label: "Aset Tetap", exact: false, section: "Keuangan", icon: Landmark, module: "keuangan" },
   { to: "/app/maintenance", label: "Pemeliharaan", exact: false, section: "Keuangan", icon: Wrench, module: "proyek" },
   { to: "/app/keuangan/kurs", label: "Mata Uang", exact: false, section: "Keuangan", icon: Coins, module: "keuangan" },
@@ -1136,6 +1137,11 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   "tenant.role_created": "Peran kustom dibuat",
   "tenant.role_updated": "Peran kustom diperbarui",
   "tenant.role_deleted": "Peran kustom dihapus",
+  // Akuntansi dimensi + rekonsiliasi v2
+  "dimension.cost_center.created": "Cost center dibuat",
+  "dimension.cost_center.archived": "Cost center diarsipkan",
+  "dimension.bank_rule.created": "Aturan auto-match bank dibuat",
+  "dimension.bank_rule.deleted": "Aturan auto-match bank dihapus",
   "tenant.member_removed": "Anggota dikeluarkan",
   // Akuntansi
   "accounting.account_created": "Akun COA dibuat",

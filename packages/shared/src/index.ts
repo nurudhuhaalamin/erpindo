@@ -74,6 +74,34 @@ export const assignRoleSchema = z
 export type AssignRoleInput = z.infer<typeof assignRoleSchema>;
 export type ApiMyPermissions = { role: Role; roleName: string; permissions: PermissionKey[] };
 
+// --- Akuntansi dimensi + rekonsiliasi v2 (Fase 7f) --------------------------
+export const costCenterSchema = z.object({
+  code: z.string().trim().min(1, "Kode wajib diisi").max(20),
+  name: z.string().trim().min(2, "Nama minimal 2 karakter").max(80),
+});
+export type CostCenterInput = z.infer<typeof costCenterSchema>;
+export type ApiCostCenter = { id: string; code: string; name: string; createdAt: string };
+/** Ringkasan laba/rugi per dimensi (cost center) suatu periode. */
+export type ApiDimensionRow = { costCenterId: string | null; code: string; name: string; income: number; expense: number; net: number };
+export type ApiDimensionReport = { from: string; to: string; rows: ApiDimensionRow[] };
+
+/** Aturan auto-match rekonsiliasi bank v2: kata kunci deskripsi + toleransi hari. */
+export const bankMatchRuleSchema = z.object({
+  accountId: z.string().min(1, "Pilih akun bank"),
+  keyword: z.string().trim().min(1, "Kata kunci wajib diisi").max(60),
+  dateTolerance: z.number().int().min(0).max(14).default(3),
+});
+export type BankMatchRuleInput = z.infer<typeof bankMatchRuleSchema>;
+export type ApiBankMatchRule = { id: string; accountId: string; keyword: string; dateTolerance: number; active: boolean; createdAt: string };
+
+/** Preset pemetaan kolom CSV rekening koran bank besar (Fase 7f). */
+export const BANK_CSV_PRESETS = [
+  { code: "generic", label: "Umum (tanggal, keterangan, jumlah)", dateCol: "tanggal", descCol: "keterangan", debitCol: "", creditCol: "", amountCol: "jumlah", dateFormat: "YYYY-MM-DD" },
+  { code: "bca", label: "BCA (mutasi rekening)", dateCol: "Tanggal", descCol: "Keterangan", debitCol: "Mutasi DB", creditCol: "Mutasi CR", amountCol: "", dateFormat: "DD/MM" },
+  { code: "mandiri", label: "Mandiri (rekening koran)", dateCol: "Tanggal Transaksi", descCol: "Uraian", debitCol: "Debet", creditCol: "Kredit", amountCol: "", dateFormat: "DD/MM/YYYY" },
+  { code: "bri", label: "BRI (mutasi)", dateCol: "Tanggal", descCol: "Uraian Transaksi", debitCol: "Debet", creditCol: "Kredit", amountCol: "", dateFormat: "DD-MM-YYYY" },
+] as const;
+
 export const TENANT_STATUSES = [
   "provisioning",
   "trial",
@@ -304,6 +332,8 @@ export const journalLineSchema = z.object({
   description: z.string().trim().max(200).optional(),
   debit: amountSchema.default(0),
   credit: amountSchema.default(0),
+  /** Dimensi opsional (Fase 7f): cost center / departemen per baris. */
+  costCenterId: z.string().optional(),
 });
 
 export const createJournalEntrySchema = z
