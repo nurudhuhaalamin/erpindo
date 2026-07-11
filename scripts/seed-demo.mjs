@@ -389,6 +389,26 @@ await step("pengajuan izin Budi (menunggu)", "POST", `${T}/leave-requests`, {
   employeeId: employees["Budi Santosa"].id, type: "permit", startDate: daysAgo(-3), endDate: daysAgo(-3), note: "Urusan keluarga",
 });
 
+// Absensi/kehadiran bulan berjalan: beberapa hari untuk beragam status (rekap kaya).
+const attDays = [`${thisMonth}-02`, `${thisMonth}-03`, `${thisMonth}-04`, `${thisMonth}-05`];
+const attPlan = [
+  ["Rina Kusuma", ["hadir", "hadir", "hadir", "hadir"]],
+  ["Agus Prabowo", ["hadir", "sakit", "hadir", "hadir"]],
+  ["Sari Melati", ["hadir", "hadir", "izin", "hadir"]],
+  ["Budi Santosa", ["hadir", "alfa", "hadir", "hadir"]],
+];
+for (const [name, statuses] of attPlan) {
+  for (let i = 0; i < attDays.length; i++) {
+    const status = statuses[i];
+    await step(`absensi ${name} ${attDays[i]}`, "POST", `${T}/attendance`, {
+      employeeId: employees[name].id,
+      date: attDays[i],
+      status,
+      ...(status === "hadir" ? { clockIn: "08:00", clockOut: "17:00" } : {}),
+    });
+  }
+}
+
 // --- 14. Aset tetap + penyusutan ----------------------------------------------------
 await step("aset: mobil boks", "POST", `${T}/assets`, {
   name: "Mobil Boks Operasional", category: "Kendaraan", acquisitionDate: daysAgo(58),

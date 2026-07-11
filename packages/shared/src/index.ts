@@ -900,6 +900,53 @@ export type ApiLeaveRequest = {
   createdAt: string;
 };
 
+// --- Absensi/kehadiran (Fase 6b) ---------------------------------------------
+
+export const ATTENDANCE_STATUSES = ["hadir", "izin", "sakit", "alfa", "cuti"] as const;
+export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
+
+export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
+  hadir: "Hadir",
+  izin: "Izin",
+  sakit: "Sakit",
+  alfa: "Alfa",
+  cuti: "Cuti",
+};
+
+/** Catat/koreksi kehadiran satu karyawan pada satu tanggal (upsert). */
+export const attendanceSchema = z.object({
+  employeeId: z.string().min(1, "Karyawan wajib dipilih"),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+  status: z.enum(ATTENDANCE_STATUSES),
+  clockIn: z.string().regex(/^\d{2}:\d{2}$/, "Jam tidak valid").optional().or(z.literal("")),
+  clockOut: z.string().regex(/^\d{2}:\d{2}$/, "Jam tidak valid").optional().or(z.literal("")),
+  note: z.string().trim().max(200).optional(),
+});
+export type AttendanceInput = z.infer<typeof attendanceSchema>;
+
+export type ApiAttendance = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  clockIn: string | null;
+  clockOut: string | null;
+  status: AttendanceStatus;
+  note: string | null;
+};
+
+/** Rekap bulanan per karyawan: jumlah hari per status. */
+export type ApiAttendanceRecap = {
+  employeeId: string;
+  employeeName: string;
+  hadir: number;
+  izin: number;
+  sakit: number;
+  alfa: number;
+  cuti: number;
+  total: number;
+};
+
 // ---------------------------------------------------------------------------
 // Aset Tetap (Fase 2p): register aset, penyusutan garis lurus, pelepasan
 // ---------------------------------------------------------------------------

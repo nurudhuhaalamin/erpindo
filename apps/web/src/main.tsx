@@ -14,6 +14,7 @@ import { AppShell, DashboardPage, SettingsPage } from "./pages/app";
 import { PurchasesPage, SalesPage, StockPage } from "./pages/commerce";
 import { LeadsPage, QuotationsPage } from "./pages/crm";
 import { BudgetPage } from "./pages/budget";
+import { AttendancePage } from "./pages/attendance";
 import { PayrollPage } from "./pages/payroll";
 import { AssetsPage } from "./pages/assets";
 import { ProjectsPage } from "./pages/projects";
@@ -97,6 +98,7 @@ const appChildren = [
   createRoute({ getParentRoute: () => appRoute, path: "/master/kontak", component: ContactsPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/master/gudang", component: WarehousesPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/hr/penggajian", component: PayrollPage }),
+  createRoute({ getParentRoute: () => appRoute, path: "/hr/absensi", component: AttendancePage }),
   createRoute({ getParentRoute: () => appRoute, path: "/keuangan/aset", component: AssetsPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/keuangan/kurs", component: CurrenciesPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/proyek", component: ProjectsPage }),
