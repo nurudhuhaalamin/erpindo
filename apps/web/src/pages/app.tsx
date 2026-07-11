@@ -13,6 +13,7 @@ import {
   CalendarCheck,
   CalendarClock,
   CheckSquare,
+  ClipboardList,
   Contact,
   Factory,
   FileSpreadsheet,
@@ -89,6 +90,7 @@ const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; 
   { to: "/app/pos", label: "Kasir (POS)", exact: false, section: "Transaksi", icon: Store },
   { to: "/app/penjualan", label: "Penjualan", exact: false, section: "Transaksi", icon: Receipt },
   { to: "/app/pembelian", label: "Pembelian", exact: false, section: "Transaksi", icon: ShoppingCart },
+  { to: "/app/pengadaan", label: "Pengadaan", exact: false, section: "Transaksi", icon: ClipboardList },
   { to: "/app/stok", label: "Stok", exact: false, section: "Transaksi", icon: Boxes },
   { to: "/app/manufaktur", label: "Manufaktur", exact: false, section: "Transaksi", icon: Factory },
   { to: "/app/crm/leads", label: "Pipeline", exact: false, section: "CRM", icon: Target },
@@ -1137,6 +1139,12 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   "approval.threshold_set": "Ambang persetujuan diatur",
   "approval.approved": "Pembelian disetujui",
   "approval.rejected": "Pembelian ditolak",
+  // Pengadaan
+  "procurement.requisition.created": "Permintaan pembelian dibuat",
+  "procurement.requisition.decided": "Permintaan pembelian diputuskan",
+  "procurement.po.created": "Pesanan pembelian dibuat",
+  "procurement.po.cancelled": "Pesanan pembelian dibatalkan",
+  "procurement.goods_received": "Barang diterima (GRN)",
   // POS
   "pos.shift_opened": "Shift kasir dibuka",
   "pos.sale": "Penjualan kasir (POS)",

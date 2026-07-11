@@ -1003,6 +1003,83 @@ try {
   const tbAfterApprovals = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah alur persetujuan", tbAfterApprovals.json?.balanced === true);
 
+  // --- Pengadaan / procure-to-pay (Fase 6d): PR → PO → penerimaan → faktur --------
+  console.log("11e2. Pengadaan (PR → PO → penerimaan → faktur pembelian)");
+  // Produk khusus pengadaan (BRG-002 dipakai asersi stok=14 di bagian lain).
+  const prodProc = await owner("POST", `/api/tenants/${tenantId}/products`, {
+    sku: "PRC-001", name: "Barang Pengadaan", unit: "pcs", sellPrice: 40_000, buyPrice: 20_000,
+  });
+
+  const viewerReq = await viewer("POST", `/api/tenants/${tenantId}/requisitions`, {
+    lines: [{ productId: prodProc.json.id, qty: 5 }],
+  });
+  check("viewer DITOLAK membuat permintaan (403)", viewerReq.status === 403);
+
+  const req = await owner("POST", `/api/tenants/${tenantId}/requisitions`, {
+    note: "Restok barang", lines: [{ productId: prodProc.json.id, qty: 5, note: "segera" }],
+  });
+  check("buat permintaan pembelian 201", req.status === 201 && Boolean(req.json?.reqNo));
+  const badProdReq = await owner("POST", `/api/tenants/${tenantId}/requisitions`, {
+    lines: [{ productId: "produk-tidak-ada", qty: 1 }],
+  });
+  check("permintaan produk tak dikenal 404", badProdReq.status === 404);
+  const approveReq = await owner("PATCH", `/api/tenants/${tenantId}/requisitions/${req.json.id}`, { status: "approved" });
+  check("setujui permintaan 200", approveReq.status === 200);
+
+  const po = await owner("POST", `/api/tenants/${tenantId}/purchase-orders`, {
+    requisitionId: req.json.id, contactId: supplier.json.id, orderDate: "2026-09-05",
+    warehouseId: whUtama.id, taxRate: 0,
+    lines: [{ productId: prodProc.json.id, qty: 5, unitPrice: 20_000 }],
+  });
+  check("buat pesanan dari permintaan 201", po.status === 201 && Boolean(po.json?.poNo));
+  const reqAfterPo = await owner("GET", `/api/tenants/${tenantId}/requisitions`);
+  check("permintaan jadi 'ordered' setelah dipesan", reqAfterPo.json?.requisitions?.find((r) => r.id === req.json.id)?.status === "ordered");
+  const viewerPo = await viewer("POST", `/api/tenants/${tenantId}/purchase-orders`, {
+    contactId: supplier.json.id, orderDate: "2026-09-05", warehouseId: whUtama.id, taxRate: 0,
+    lines: [{ productId: prodProc.json.id, qty: 1, unitPrice: 1000 }],
+  });
+  check("viewer DITOLAK membuat pesanan (403)", viewerPo.status === 403);
+
+  const poList = await owner("GET", `/api/tenants/${tenantId}/purchase-orders`);
+  const poRow = poList.json?.orders?.find((o) => o.id === po.json.id);
+  const poLineId = poRow?.lines?.[0]?.id;
+  check("pesanan tampil dengan status 'ordered' + total", poRow?.status === "ordered" && poRow?.total === 100_000, `→ ${JSON.stringify(poRow?.total)}`);
+
+  // Terima melebihi dipesan → 400.
+  const overRecv = await owner("POST", `/api/tenants/${tenantId}/purchase-orders/${po.json.id}/receive`, {
+    receiptDate: "2026-09-06", lines: [{ poLineId, qtyReceived: 99 }],
+  });
+  check("terima melebihi dipesan DITOLAK 400", overRecv.status === 400);
+  // Terima penuh → faktur pembelian + stok masuk.
+  const recv = await owner("POST", `/api/tenants/${tenantId}/purchase-orders/${po.json.id}/receive`, {
+    receiptDate: "2026-09-06", lines: [{ poLineId, qtyReceived: 5 }],
+  });
+  check("terima barang → faktur pembelian 201", recv.status === 201 && Boolean(recv.json?.purchaseNo), `→ ${JSON.stringify(recv.json)}`);
+  const dupRecv = await owner("POST", `/api/tenants/${tenantId}/purchase-orders/${po.json.id}/receive`, {
+    receiptDate: "2026-09-06", lines: [{ poLineId, qtyReceived: 1 }],
+  });
+  check("terima pesanan yang sudah diterima DITOLAK 409", dupRecv.status === 409);
+  const stockAfterProc = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  const barangQtyAfter = stockAfterProc.json?.levels?.find((l) => l.sku === "PRC-001" && l.warehouseId === whUtama.id)?.qty ?? 0;
+  check("stok bertambah jadi 5 setelah penerimaan", barangQtyAfter === 5, `→ ${barangQtyAfter}`);
+  const purchasesAfterProc = await owner("GET", `/api/tenants/${tenantId}/purchases`);
+  check("faktur pembelian hasil penerimaan muncul di daftar pembelian", purchasesAfterProc.json?.docs?.some((d) => d.docNo === recv.json.purchaseNo));
+  const grnList = await owner("GET", `/api/tenants/${tenantId}/goods-receipts`);
+  check("penerimaan (GRN) tercatat + tertaut faktur", grnList.json?.receipts?.some((g) => g.purchaseNo === recv.json.purchaseNo));
+
+  // Batalkan pesanan (buat PO segar tanpa PR).
+  const po2 = await owner("POST", `/api/tenants/${tenantId}/purchase-orders`, {
+    contactId: supplier.json.id, orderDate: "2026-09-05", warehouseId: whUtama.id, taxRate: 0,
+    lines: [{ productId: prodBarang.json.id, qty: 2, unitPrice: 20_000 }],
+  });
+  const cancelPo = await owner("POST", `/api/tenants/${tenantId}/purchase-orders/${po2.json.id}/cancel`);
+  check("batalkan pesanan 200", cancelPo.status === 200);
+  const cancelReceived = await owner("POST", `/api/tenants/${tenantId}/purchase-orders/${po.json.id}/cancel`);
+  check("batalkan pesanan yang sudah diterima DITOLAK 409", cancelReceived.status === 409);
+
+  const tbAfterProc = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah pengadaan", tbAfterProc.json?.balanced === true);
+
   // --- Lot & kedaluwarsa (Fase 2j) ----------------------------------------------
   console.log("11f. Batch/lot & kedaluwarsa (FEFO)");
 

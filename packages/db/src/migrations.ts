@@ -919,6 +919,68 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `CREATE INDEX project_tasks_assignee ON project_tasks (assignee_id)`,
     ],
   },
+  {
+    id: "0026_procurement",
+    statements: [
+      // Procure-to-pay: permintaan (PR) → pesanan (PO) → penerimaan (GRN).
+      // Stok & jurnal terjadi saat penerimaan lewat executePurchase (faktur pembelian).
+      `CREATE TABLE purchase_requisitions (
+        id TEXT PRIMARY KEY,
+        req_no TEXT NOT NULL,
+        note TEXT,
+        status TEXT NOT NULL DEFAULT 'submitted' CHECK (status IN ('submitted','approved','rejected','ordered')),
+        requested_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE TABLE purchase_requisition_lines (
+        id TEXT PRIMARY KEY,
+        requisition_id TEXT NOT NULL REFERENCES purchase_requisitions(id),
+        product_id TEXT NOT NULL REFERENCES products(id),
+        qty INTEGER NOT NULL,
+        note TEXT
+      )`,
+      `CREATE INDEX prl_requisition ON purchase_requisition_lines (requisition_id)`,
+      `CREATE TABLE purchase_orders (
+        id TEXT PRIMARY KEY,
+        po_no TEXT NOT NULL,
+        requisition_id TEXT REFERENCES purchase_requisitions(id),
+        contact_id TEXT NOT NULL REFERENCES contacts(id),
+        order_date TEXT NOT NULL,
+        expected_date TEXT,
+        warehouse_id TEXT NOT NULL REFERENCES warehouses(id),
+        tax_rate INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'ordered' CHECK (status IN ('ordered','received','cancelled')),
+        note TEXT,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE TABLE purchase_order_lines (
+        id TEXT PRIMARY KEY,
+        po_id TEXT NOT NULL REFERENCES purchase_orders(id),
+        product_id TEXT NOT NULL REFERENCES products(id),
+        qty INTEGER NOT NULL,
+        unit_price INTEGER NOT NULL
+      )`,
+      `CREATE INDEX pol_po ON purchase_order_lines (po_id)`,
+      `CREATE TABLE goods_receipts (
+        id TEXT PRIMARY KEY,
+        grn_no TEXT NOT NULL,
+        po_id TEXT NOT NULL REFERENCES purchase_orders(id),
+        receipt_date TEXT NOT NULL,
+        purchase_id TEXT REFERENCES purchases(id),
+        note TEXT,
+        received_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE TABLE goods_receipt_lines (
+        id TEXT PRIMARY KEY,
+        grn_id TEXT NOT NULL REFERENCES goods_receipts(id),
+        po_line_id TEXT NOT NULL REFERENCES purchase_order_lines(id),
+        qty_received INTEGER NOT NULL
+      )`,
+      `CREATE INDEX grl_grn ON goods_receipt_lines (grn_id)`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

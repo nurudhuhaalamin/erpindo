@@ -479,6 +479,134 @@ export type ApiCurrency = { code: string; name: string; rate: number; isBase: bo
 export const createPurchaseSchema = createInvoiceSchema;
 export type CreatePurchaseInput = z.infer<typeof createPurchaseSchema>;
 
+// ---------------------------------------------------------------------------
+// Procurement / procure-to-pay (Fase 6d): PR → PO → penerimaan (GRN) → faktur
+// ---------------------------------------------------------------------------
+
+export const REQUISITION_STATUSES = ["submitted", "approved", "rejected", "ordered"] as const;
+export type RequisitionStatus = (typeof REQUISITION_STATUSES)[number];
+export const REQUISITION_STATUS_LABELS: Record<RequisitionStatus, string> = {
+  submitted: "Diajukan",
+  approved: "Disetujui",
+  rejected: "Ditolak",
+  ordered: "Jadi pesanan",
+};
+
+export const PO_STATUSES = ["ordered", "received", "cancelled"] as const;
+export type PoStatus = (typeof PO_STATUSES)[number];
+export const PO_STATUS_LABELS: Record<PoStatus, string> = {
+  ordered: "Dipesan",
+  received: "Diterima",
+  cancelled: "Dibatalkan",
+};
+
+/** Permintaan pembelian (PR): daftar barang yang diminta, belum ada harga/pemasok. */
+export const requisitionSchema = z.object({
+  note: z.string().trim().max(300).optional(),
+  lines: z
+    .array(
+      z.object({
+        productId: z.string().min(1, "Produk wajib dipilih"),
+        qty: z.number().int().min(1, "Jumlah minimal 1"),
+        note: z.string().trim().max(150).optional(),
+      }),
+    )
+    .min(1, "Minimal 1 baris permintaan"),
+});
+export type RequisitionInput = z.infer<typeof requisitionSchema>;
+
+export const decideRequisitionSchema = z.object({ status: z.enum(["approved", "rejected"]) });
+
+/** Pesanan pembelian (PO) ke pemasok: harga per baris + pajak + gudang tujuan. */
+export const purchaseOrderSchema = z.object({
+  requisitionId: z.string().optional(),
+  contactId: z.string().min(1, "Pemasok wajib dipilih"),
+  orderDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+  expectedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  warehouseId: z.string().min(1, "Gudang wajib dipilih"),
+  taxRate: z
+    .number()
+    .int()
+    .refine((v): v is (typeof TAX_RATES)[number] => (TAX_RATES as readonly number[]).includes(v), "Tarif pajak tidak dikenal")
+    .default(0),
+  note: z.string().trim().max(300).optional(),
+  lines: z
+    .array(
+      z.object({
+        productId: z.string().min(1, "Produk wajib dipilih"),
+        qty: z.number().int().min(1, "Jumlah minimal 1"),
+        unitPrice: z.number().int().min(0, "Harga tidak boleh negatif"),
+      }),
+    )
+    .min(1, "Minimal 1 baris pesanan"),
+});
+export type PurchaseOrderInput = z.infer<typeof purchaseOrderSchema>;
+
+/** Penerimaan barang (GRN): jumlah diterima per baris PO → memicu faktur pembelian. */
+export const receiveGoodsSchema = z.object({
+  receiptDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+  note: z.string().trim().max(300).optional(),
+  lines: z
+    .array(
+      z.object({
+        poLineId: z.string().min(1),
+        qtyReceived: z.number().int().min(0),
+      }),
+    )
+    .min(1, "Minimal 1 baris penerimaan"),
+});
+export type ReceiveGoodsInput = z.infer<typeof receiveGoodsSchema>;
+
+export type ApiRequisitionLine = {
+  id: string;
+  productId: string;
+  productName: string;
+  qty: number;
+  note: string | null;
+};
+export type ApiRequisition = {
+  id: string;
+  reqNo: string;
+  note: string | null;
+  status: RequisitionStatus;
+  createdAt: string;
+  lines: ApiRequisitionLine[];
+};
+
+export type ApiPurchaseOrderLine = {
+  id: string;
+  productId: string;
+  productName: string;
+  qty: number;
+  unitPrice: number;
+};
+export type ApiPurchaseOrder = {
+  id: string;
+  poNo: string;
+  contactId: string;
+  contactName: string;
+  orderDate: string;
+  expectedDate: string | null;
+  warehouseId: string;
+  taxRate: number;
+  status: PoStatus;
+  note: string | null;
+  total: number;
+  purchaseNo: string | null;
+  createdAt: string;
+  lines: ApiPurchaseOrderLine[];
+};
+
+export type ApiGoodsReceipt = {
+  id: string;
+  grnNo: string;
+  poNo: string;
+  receiptDate: string;
+  purchaseNo: string | null;
+  note: string | null;
+  createdAt: string;
+};
+
 export const createPaymentSchema = z.object({
   refType: z.enum(["invoice", "purchase"]),
   refId: z.string().min(1),

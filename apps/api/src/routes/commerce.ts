@@ -233,7 +233,7 @@ async function approvalThreshold(db: SqlExecutor): Promise<number> {
  * Posting faktur pembelian (jurnal + baris + stok masuk). Dipakai jalur
  * langsung maupun saat Owner menyetujui permintaan — satu implementasi.
  */
-async function executePurchase(
+export async function executePurchase(
   db: SqlExecutor,
   input: CreatePurchaseInput,
   userId: string,

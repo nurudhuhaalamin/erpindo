@@ -3,6 +3,12 @@ import type {
   ApiAgingRow,
   ApiAttendance,
   ApiAttendanceRecap,
+  ApiGoodsReceipt,
+  ApiPurchaseOrder,
+  ApiRequisition,
+  PurchaseOrderInput,
+  ReceiveGoodsInput,
+  RequisitionInput,
   ApiBankStatementItem,
   ApiCrmSourceRow,
   ApiJournalTemplate,
@@ -400,6 +406,24 @@ export const api = {
     request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/projects/${id}/time-entries`, input),
   deleteTimeEntry: (tenantId: string, id: string, eid: string) =>
     request<{ ok: true }>("DELETE", `/api/tenants/${tenantId}/projects/${id}/time-entries/${eid}`),
+
+  // --- Procurement (PR → PO → penerimaan) ----------------------------------------
+  requisitions: (tenantId: string) =>
+    request<{ requisitions: ApiRequisition[] }>("GET", `/api/tenants/${tenantId}/requisitions`),
+  createRequisition: (tenantId: string, input: RequisitionInput) =>
+    request<{ ok: true; id: string; reqNo: string }>("POST", `/api/tenants/${tenantId}/requisitions`, input),
+  decideRequisition: (tenantId: string, id: string, status: "approved" | "rejected") =>
+    request<{ ok: true; status: string }>("PATCH", `/api/tenants/${tenantId}/requisitions/${id}`, { status }),
+  purchaseOrders: (tenantId: string) =>
+    request<{ orders: ApiPurchaseOrder[] }>("GET", `/api/tenants/${tenantId}/purchase-orders`),
+  createPurchaseOrder: (tenantId: string, input: PurchaseOrderInput) =>
+    request<{ ok: true; id: string; poNo: string }>("POST", `/api/tenants/${tenantId}/purchase-orders`, input),
+  cancelPurchaseOrder: (tenantId: string, id: string) =>
+    request<{ ok: true }>("POST", `/api/tenants/${tenantId}/purchase-orders/${id}/cancel`),
+  receiveGoods: (tenantId: string, id: string, input: ReceiveGoodsInput) =>
+    request<{ ok: true; grnNo: string; purchaseNo: string; total: number }>("POST", `/api/tenants/${tenantId}/purchase-orders/${id}/receive`, input),
+  goodsReceipts: (tenantId: string) =>
+    request<{ receipts: ApiGoodsReceipt[] }>("GET", `/api/tenants/${tenantId}/goods-receipts`),
 
   // --- Penjualan & Pembelian -----------------------------------------------------
   invoices: (tenantId: string, opts?: ListOpts) =>
