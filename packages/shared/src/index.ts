@@ -1018,13 +1018,36 @@ export const updateProjectStatusSchema = z.object({ status: z.enum(PROJECT_STATU
 export const PROJECT_TASK_STATUSES = ["todo", "in_progress", "done"] as const;
 export type ProjectTaskStatus = (typeof PROJECT_TASK_STATUSES)[number];
 
+export const PROJECT_TASK_PRIORITIES = ["low", "medium", "high"] as const;
+export type ProjectTaskPriority = (typeof PROJECT_TASK_PRIORITIES)[number];
+
+export const PROJECT_TASK_PRIORITY_LABELS: Record<ProjectTaskPriority, string> = {
+  low: "Rendah",
+  medium: "Sedang",
+  high: "Tinggi",
+};
+
 export const projectTaskSchema = z.object({
   name: z.string().trim().min(1, "Nama tugas wajib diisi").max(200),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  assigneeId: z.string().optional(),
+  priority: z.enum(PROJECT_TASK_PRIORITIES).optional(),
 });
 export type ProjectTaskInput = z.infer<typeof projectTaskSchema>;
 
 export const projectTaskStatusSchema = z.object({ status: z.enum(PROJECT_TASK_STATUSES) });
+
+/** Perbarui tugas: ubah sebagian bidang (status/prioritas/penanggung jawab/tenggat). */
+export const projectTaskUpdateSchema = z
+  .object({
+    status: z.enum(PROJECT_TASK_STATUSES).optional(),
+    priority: z.enum(PROJECT_TASK_PRIORITIES).optional(),
+    // string kosong / null = kosongkan penanggung jawab
+    assigneeId: z.string().nullable().optional(),
+    dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, "Tidak ada perubahan");
+export type ProjectTaskUpdateInput = z.infer<typeof projectTaskUpdateSchema>;
 
 export type ApiProject = {
   id: string;
@@ -1049,6 +1072,20 @@ export type ApiProjectTask = {
   name: string;
   status: ProjectTaskStatus;
   dueDate: string | null;
+  assigneeId: string | null;
+  assigneeName: string | null;
+  priority: ProjectTaskPriority;
+  sortOrder: number;
+};
+
+/** Beban kerja per penanggung jawab: jumlah tugas terbuka (belum selesai). */
+export type ApiProjectWorkload = {
+  assigneeId: string | null;
+  assigneeName: string;
+  todo: number;
+  inProgress: number;
+  done: number;
+  openTasks: number;
 };
 
 // --- Proyek lanjut (Fase 5g): termin penagihan, RAB, timesheet ---------------
@@ -1114,6 +1151,8 @@ export type ApiTimeEntry = {
 
 export type ApiProjectDetail = ApiProject & {
   tasks: ApiProjectTask[];
+  /** Beban kerja tugas terbuka per penanggung jawab (urut terbanyak). */
+  workload: ApiProjectWorkload[];
   entries: { entryNo: string; entryDate: string; memo: string | null; revenue: number; cost: number }[];
   milestones: ApiProjectMilestone[];
   budgets: ApiProjectBudget[];

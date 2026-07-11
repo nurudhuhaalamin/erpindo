@@ -4,7 +4,7 @@ import {
   projectMilestoneSchema,
   projectSchema,
   projectTaskSchema,
-  projectTaskStatusSchema,
+  projectTaskUpdateSchema,
   timeEntrySchema,
   updateProjectStatusSchema,
   type ApiProject,
@@ -12,9 +12,11 @@ import {
   type ApiProjectDetail,
   type ApiProjectMilestone,
   type ApiProjectTask,
+  type ApiProjectWorkload,
   type ApiTimeEntry,
   type CreateInvoiceInput,
   type ProjectStatus,
+  type ProjectTaskPriority,
 } from "@erpindo/shared";
 import type { SqlExecutor } from "@erpindo/db";
 import { Hono } from "hono";
@@ -199,9 +201,22 @@ export const projectRoutes = new Hono<AppEnv>()
     if (!row) return c.json({ error: "Proyek tidak ditemukan." }, 404);
 
     const { results: tasks } = await db
-      .prepare(`SELECT id, name, status, due_date FROM project_tasks WHERE project_id = ? ORDER BY created_at`)
+      .prepare(
+        `SELECT t.id, t.name, t.status, t.due_date, t.assignee_id, e.name AS assignee_name, t.priority, t.sort_order
+         FROM project_tasks t LEFT JOIN employees e ON e.id = t.assignee_id
+         WHERE t.project_id = ? ORDER BY t.sort_order, t.created_at`,
+      )
       .bind(id)
-      .all<{ id: string; name: string; status: ApiProjectTask["status"]; due_date: string | null }>();
+      .all<{
+        id: string;
+        name: string;
+        status: ApiProjectTask["status"];
+        due_date: string | null;
+        assignee_id: string | null;
+        assignee_name: string | null;
+        priority: ProjectTaskPriority;
+        sort_order: number;
+      }>();
 
     const { results: entries } = await db
       .prepare(
@@ -262,13 +277,41 @@ export const projectRoutes = new Hono<AppEnv>()
       note: t.note,
     }));
 
+    const apiTasks: ApiProjectTask[] = tasks.map((t) => ({
+      id: t.id,
+      name: t.name,
+      status: t.status,
+      dueDate: t.due_date,
+      assigneeId: t.assignee_id,
+      assigneeName: t.assignee_name,
+      priority: t.priority ?? "medium",
+      sortOrder: t.sort_order ?? 0,
+    }));
+
+    // Beban kerja: kelompokkan tugas per penanggung jawab (termasuk "Belum ditugaskan").
+    const workloadMap = new Map<string, ApiProjectWorkload>();
+    for (const t of apiTasks) {
+      const key = t.assigneeId ?? "__none__";
+      let w = workloadMap.get(key);
+      if (!w) {
+        w = { assigneeId: t.assigneeId, assigneeName: t.assigneeName ?? "Belum ditugaskan", todo: 0, inProgress: 0, done: 0, openTasks: 0 };
+        workloadMap.set(key, w);
+      }
+      if (t.status === "todo") w.todo += 1;
+      else if (t.status === "in_progress") w.inProgress += 1;
+      else w.done += 1;
+      if (t.status !== "done") w.openTasks += 1;
+    }
+    const workload = [...workloadMap.values()].sort((a, b) => b.openTasks - a.openTasks);
+
     const plannedCost = budgets.reduce((s, b) => s + b.plannedAmount, 0);
     const laborCost = timeEntries.reduce((s, t) => s + t.amount, 0);
     const progressPct = row.task_count > 0 ? Math.round((row.done_count / row.task_count) * 100) : 0;
 
     const detail: ApiProjectDetail = {
       ...toApi(row),
-      tasks: tasks.map((t) => ({ id: t.id, name: t.name, status: t.status, dueDate: t.due_date })),
+      tasks: apiTasks,
+      workload,
       entries: entries.map((e) => ({
         entryNo: e.entry_no,
         entryDate: e.entry_date,
@@ -298,25 +341,55 @@ export const projectRoutes = new Hono<AppEnv>()
     const { results } = await db.prepare(`SELECT id FROM projects WHERE id = ?`).bind(projectId).all<{ id: string }>();
     if (!results[0]) return c.json({ error: "Proyek tidak ditemukan." }, 404);
 
+    // Validasi penanggung jawab bila diisi.
+    const assigneeId = parsed.data.assigneeId && parsed.data.assigneeId.length > 0 ? parsed.data.assigneeId : null;
+    if (assigneeId) {
+      const { results: emp } = await db.prepare(`SELECT id FROM employees WHERE id = ?`).bind(assigneeId).all<{ id: string }>();
+      if (!emp[0]) return c.json({ error: "Penanggung jawab tidak ditemukan." }, 404);
+    }
+
+    // Tugas baru masuk ke akhir kolom todo (sort_order = maks + 1).
+    const { results: maxRows } = await db
+      .prepare(`SELECT COALESCE(MAX(sort_order), 0) AS m FROM project_tasks WHERE project_id = ?`)
+      .bind(projectId)
+      .all<{ m: number }>();
     const id = crypto.randomUUID();
     await db
-      .prepare(`INSERT INTO project_tasks (id, project_id, name, due_date) VALUES (?, ?, ?, ?)`)
-      .bind(id, projectId, parsed.data.name, parsed.data.dueDate ?? null)
+      .prepare(`INSERT INTO project_tasks (id, project_id, name, due_date, assignee_id, priority, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+      .bind(id, projectId, parsed.data.name, parsed.data.dueDate ?? null, assigneeId, parsed.data.priority ?? "medium", (maxRows[0]?.m ?? 0) + 1)
       .run();
     return c.json({ ok: true, id }, 201);
   })
 
   .patch("/:tenantId/projects/:id/tasks/:taskId", requireAuth, requireTenantRole("admin"), async (c) => {
-    const parsed = projectTaskStatusSchema.safeParse(await c.req.json().catch(() => ({})));
-    if (!parsed.success) return c.json({ error: "Status tidak valid." }, 400);
+    const parsed = projectTaskUpdateSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
     const db = getTenantDb(c.env, c.get("tenant").dbRef);
     const taskId = c.req.param("taskId");
 
     const { results } = await db.prepare(`SELECT id FROM project_tasks WHERE id = ?`).bind(taskId).all<{ id: string }>();
     if (!results[0]) return c.json({ error: "Tugas tidak ditemukan." }, 404);
 
-    await db.prepare(`UPDATE project_tasks SET status = ? WHERE id = ?`).bind(parsed.data.status, taskId).run();
-    return c.json({ ok: true, status: parsed.data.status });
+    const sets: string[] = [];
+    const vals: unknown[] = [];
+    if (parsed.data.status !== undefined) { sets.push("status = ?"); vals.push(parsed.data.status); }
+    if (parsed.data.priority !== undefined) { sets.push("priority = ?"); vals.push(parsed.data.priority); }
+    if (parsed.data.dueDate !== undefined) { sets.push("due_date = ?"); vals.push(parsed.data.dueDate); }
+    if (parsed.data.assigneeId !== undefined) {
+      const assigneeId = parsed.data.assigneeId && parsed.data.assigneeId.length > 0 ? parsed.data.assigneeId : null;
+      if (assigneeId) {
+        const { results: emp } = await db.prepare(`SELECT id FROM employees WHERE id = ?`).bind(assigneeId).all<{ id: string }>();
+        if (!emp[0]) return c.json({ error: "Penanggung jawab tidak ditemukan." }, 404);
+      }
+      sets.push("assignee_id = ?");
+      vals.push(assigneeId);
+    }
+    if (sets.length === 0) return c.json({ error: "Tidak ada perubahan." }, 400);
+
+    vals.push(taskId);
+    await db.prepare(`UPDATE project_tasks SET ${sets.join(", ")} WHERE id = ?`).bind(...vals).run();
+    // Echo status bila diubah (kompatibilitas dengan pemanggil lama).
+    return c.json(parsed.data.status !== undefined ? { ok: true, status: parsed.data.status } : { ok: true });
   })
 
   // -------------------------------------------------------------------------

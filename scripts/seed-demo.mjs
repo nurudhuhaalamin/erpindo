@@ -429,22 +429,22 @@ await step("jurnal termin proyek", "POST", `${T}/journal-entries`, {
     { accountId: penjualanAcc.id, debit: 0, credit: 7_500_000 },
   ],
 });
-await step("tugas proyek: desain kartu ucapan", "POST", `${T}/projects/${proj.id}/tasks`, { name: "Desain kartu ucapan korporat" });
-const task2 = await step("tugas proyek: nego vendor kotak", "POST", `${T}/projects/${proj.id}/tasks`, { name: "Negosiasi vendor kotak premium" });
+await step("tugas proyek: desain kartu ucapan", "POST", `${T}/projects/${proj.id}/tasks`, { name: "Desain kartu ucapan korporat", assigneeId: employees["Rina Kusuma"].id, priority: "high", dueDate: daysAgo(-2) });
+const task2 = await step("tugas proyek: nego vendor kotak", "POST", `${T}/projects/${proj.id}/tasks`, { name: "Negosiasi vendor kotak premium", assigneeId: employees["Agus Prabowo"].id, priority: "medium" });
 await step("tugas kedua selesai", "PATCH", `${T}/projects/${proj.id}/tasks/${task2.id}`, { status: "done" });
 await step("proyek kedua: Booth Pameran UMKM", "POST", `${T}/projects`, { code: "PRJ-EXPO", name: "Booth Pameran UMKM Jabar", budget: 5_000_000 });
 
 // Proyek jasa dengan pelanggan: termin penagihan, RAB, papan tugas, timesheet (Fase 5g).
-const projSvc = await step("proyek jasa: Desain Interior Kafe", "POST", `${T}/projects`, { code: "PRJ-INTERIOR", name: "Desain Interior Kafe Koperasi", contactId: custKoperasi.id, budget: 20_000_000 });
+const projSvc = await step("proyek jasa: Desain Interior Kafe", "POST", `${T}/projects`, { code: "PRJ-INTERIOR", name: "Desain Interior Kafe Koperasi", contactId: custKoperasi.id, budget: 20_000_000, startDate: daysAgo(20), endDate: daysAgo(-25) });
 await step("RAB material", "POST", `${T}/projects/${projSvc.id}/budgets`, { category: "Material & furnitur", plannedAmount: 12_000_000 });
 await step("RAB tenaga kerja", "POST", `${T}/projects/${projSvc.id}/budgets`, { category: "Tenaga kerja", plannedAmount: 6_000_000 });
 const termin1 = await step("termin uang muka 40%", "POST", `${T}/projects/${projSvc.id}/milestones`, { name: "Uang muka 40%", amount: 8_000_000 });
 await step("faktur dari termin uang muka", "POST", `${T}/projects/${projSvc.id}/milestones/${termin1.id}/invoice`, { invoiceDate: daysAgo(8), taxRate: 0, warehouseId: whUtama.id });
 await step("termin pelunasan 60%", "POST", `${T}/projects/${projSvc.id}/milestones`, { name: "Pelunasan 60%", amount: 12_000_000 });
-await step("tugas: survei lokasi", "POST", `${T}/projects/${projSvc.id}/tasks`, { name: "Survei lokasi & ukur ruang" });
-const projTask2 = await step("tugas: gambar kerja 3D", "POST", `${T}/projects/${projSvc.id}/tasks`, { name: "Buat gambar kerja 3D" });
+await step("tugas: survei lokasi", "POST", `${T}/projects/${projSvc.id}/tasks`, { name: "Survei lokasi & ukur ruang", assigneeId: employees["Agus Prabowo"].id, priority: "medium", dueDate: daysAgo(-1) });
+const projTask2 = await step("tugas: gambar kerja 3D", "POST", `${T}/projects/${projSvc.id}/tasks`, { name: "Buat gambar kerja 3D", assigneeId: employees["Rina Kusuma"].id, priority: "high", dueDate: daysAgo(-5) });
 await step("tugas 3D proses", "PATCH", `${T}/projects/${projSvc.id}/tasks/${projTask2.id}`, { status: "in_progress" });
-const projTask3 = await step("tugas: presentasi konsep", "POST", `${T}/projects/${projSvc.id}/tasks`, { name: "Presentasi konsep ke klien" });
+const projTask3 = await step("tugas: presentasi konsep", "POST", `${T}/projects/${projSvc.id}/tasks`, { name: "Presentasi konsep ke klien", assigneeId: employees["Rina Kusuma"].id, priority: "high" });
 await step("tugas presentasi selesai", "PATCH", `${T}/projects/${projSvc.id}/tasks/${projTask3.id}`, { status: "done" });
 await step("timesheet Rina", "POST", `${T}/projects/${projSvc.id}/time-entries`, { employeeId: employees["Rina Kusuma"].id, entryDate: daysAgo(6), hours: 8, hourlyRate: 75_000, note: "Survei & konsep desain" });
 await step("timesheet Agus", "POST", `${T}/projects/${projSvc.id}/time-entries`, { employeeId: employees["Agus Prabowo"].id, entryDate: daysAgo(4), hours: 6, hourlyRate: 50_000, note: "Bantu ukur ruang" });
