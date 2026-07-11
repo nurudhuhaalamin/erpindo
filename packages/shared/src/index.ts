@@ -2055,6 +2055,30 @@ export type ApiSalesAnalytics = {
 };
 
 // ---------------------------------------------------------------------------
+// Dashboard kustom, tren bulanan & laporan terjadwal (Fase 7h)
+// ---------------------------------------------------------------------------
+
+/** Satu bulan pada grafik tren bulanan: omzet & jumlah faktur. */
+export type ApiSalesMonthlyRow = { month: string; total: number; count: number };
+
+/** Snapshot laporan terjadwal (mis. rekap penjualan bulanan) yang ditulis Cron. */
+export type ApiReportSnapshot = {
+  id: string;
+  kind: string;
+  period: string;
+  title: string;
+  /** Ringkasan terurai dari payload JSON. */
+  summary: { totalRevenue: number; invoiceCount: number; topProduct: string | null; note?: string };
+  createdAt: string;
+};
+
+/** Jalankan rekap laporan terjadwal untuk satu periode secara manual (YYYY-MM). */
+export const runRecapSchema = z.object({
+  period: z.string().regex(/^\d{4}-\d{2}$/, "Periode tidak valid (YYYY-MM)"),
+});
+export type RunRecapInput = z.infer<typeof runRecapSchema>;
+
+// ---------------------------------------------------------------------------
 // Kartu stok, aging & tutup buku (Fase 1d)
 // ---------------------------------------------------------------------------
 

@@ -178,6 +178,15 @@ const MANIFESTS = {
       { route: "/app/manufaktur", name: "manufaktur-routing", waitMs: 1600 },
     ],
   },
+  // Set ad-hoc Fase 7h: Dashboard kustom (widget + tren bulanan + laporan terjadwal).
+  so7h: {
+    outDir: process.env.SO7H_OUT ?? path.join(tmpdir(), "erpindo-so7h"),
+    viewport: { width: 1440, height: 1500 },
+    theme: "light",
+    quality: 85,
+    fullPage: true,
+    shots: [{ route: "/app", name: "dashboard-kustom", waitMs: 1800 }],
+  },
   // Audit visual QA: halaman PENUH pada 3 viewport. Keluaran ke AUDIT_OUT
   // (default tmp) — TIDAK di-commit; alat review, bukan aset produk.
   audit: {

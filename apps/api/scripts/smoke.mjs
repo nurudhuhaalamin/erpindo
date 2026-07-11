@@ -3249,6 +3249,33 @@ try {
   owner = ownerAgain;
 
   // --- Siklus langganan: trial kedaluwarsa → past_due → baca-saja (Fase 2b-1) ------
+  // --- Dashboard kustom, tren bulanan, ekspor Excel & laporan terjadwal (Fase 7h) ---
+  // Dijalankan SEBELUM cron trial-expiry (bagian 14) selagi tenant utama masih
+  // dapat menulis; memakai faktur Juli yang sudah ada.
+  console.log("13b. Dashboard kustom: tren bulanan + laporan terjadwal (Fase 7h)");
+  const monthly7h = await owner("GET", `/api/tenants/${tenantId}/reports/sales-monthly?months=6`);
+  check("tren penjualan bulanan 200 + array", monthly7h.status === 200 && Array.isArray(monthly7h.json?.rows));
+  const analytics7h = await owner("GET", `/api/tenants/${tenantId}/reports/sales-analytics?from=2026-07-01&to=2026-07-31`);
+  check("data laporan penjualan (sumber ekspor Excel) 200", analytics7h.status === 200 && Array.isArray(analytics7h.json?.byProduct));
+  const snapList0 = await owner("GET", `/api/tenants/${tenantId}/report-snapshots`);
+  check("daftar laporan terjadwal 200 + array", snapList0.status === 200 && Array.isArray(snapList0.json?.snapshots));
+  const recapViewer = await viewer("POST", `/api/tenants/${tenantId}/report-snapshots/run`, { period: "2026-07" });
+  check("viewer DITOLAK menyusun rekap (403)", recapViewer.status === 403, `→ ${recapViewer.status}`);
+  const recapBad = await owner("POST", `/api/tenants/${tenantId}/report-snapshots/run`, { period: "2026/07" });
+  check("periode rekap tak valid DITOLAK 400", recapBad.status === 400);
+  const recap7h = await owner("POST", `/api/tenants/${tenantId}/report-snapshots/run`, { period: "2026-07" });
+  check(
+    "susun rekap Juli 200 + ada omzet & faktur",
+    recap7h.status === 200 && recap7h.json?.summary?.totalRevenue > 0 && recap7h.json?.summary?.invoiceCount >= 1,
+    `→ ${JSON.stringify(recap7h.json?.summary)}`,
+  );
+  const recap7h2 = await owner("POST", `/api/tenants/${tenantId}/report-snapshots/run`, { period: "2026-07" });
+  check("rekap idempoten (jalankan ulang 200)", recap7h2.status === 200);
+  const snapList1 = await owner("GET", `/api/tenants/${tenantId}/report-snapshots`);
+  const julSnaps = (snapList1.json?.snapshots ?? []).filter((s) => s.period === "2026-07");
+  check("rekap Juli tersimpan tepat 1 (idempoten UNIQUE kind+period)", julSnaps.length === 1, `→ ${julSnaps.length}`);
+  check("snapshot omzet konsisten dengan hasil run", julSnaps[0]?.summary?.totalRevenue === recap7h.json?.summary?.totalRevenue);
+
   console.log("14. Siklus langganan (trial berakhir)");
   // Semua tenant dibuat dengan TRIAL_DAYS_OVERRIDE=0 → trial sudah lewat.
   const cron = await fetch(`${BASE}/__scheduled?cron=17+1+*+*+*`);

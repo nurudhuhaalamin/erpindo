@@ -73,6 +73,8 @@ import type {
   ApiCurrency,
   ApiDashboard,
   ApiSalesAnalytics,
+  ApiSalesMonthlyRow,
+  ApiReportSnapshot,
   ApiAiJournalDraft,
   ApiEfakturReport,
   ApiIncomeStatement,
@@ -296,8 +298,21 @@ export const api = {
       "GET",
       `/api/tenants/${tenantId}/reports/sales-daily?days=${days}`,
     ),
+  salesMonthly: (tenantId: string, months = 6) =>
+    request<{ from: string; months: number; rows: ApiSalesMonthlyRow[] }>(
+      "GET",
+      `/api/tenants/${tenantId}/reports/sales-monthly?months=${months}`,
+    ),
   salesAnalytics: (tenantId: string, from: string, to: string) =>
     request<ApiSalesAnalytics>("GET", `/api/tenants/${tenantId}/reports/sales-analytics?from=${from}&to=${to}`),
+  reportSnapshots: (tenantId: string) =>
+    request<{ snapshots: ApiReportSnapshot[] }>("GET", `/api/tenants/${tenantId}/report-snapshots`),
+  runReportSnapshot: (tenantId: string, period: string) =>
+    request<{ ok: boolean; period: string; summary: ApiReportSnapshot["summary"] }>(
+      "POST",
+      `/api/tenants/${tenantId}/report-snapshots/run`,
+      { period },
+    ),
   cashFlow: (tenantId: string, from: string, to: string) =>
     request<ApiCashFlow>("GET", `/api/tenants/${tenantId}/reports/cash-flow?from=${from}&to=${to}`),
   aging: (tenantId: string, type: "receivable" | "payable") =>
@@ -883,6 +898,211 @@ export function downloadCsv(filename: string, headers: string[], rows: (string |
 /** Unduh teks XML sebagai berkas (dipakai ekspor Coretax). */
 export function downloadXml(filename: string, xml: string): void {
   const blob = new Blob([xml], { type: "application/xml;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---------------------------------------------------------------------------
+// Ekspor Excel (.xlsx) — penulis OOXML SpreadsheetML mandiri (Fase 7h).
+// Tanpa dependency: bangun ZIP (metode "store"/tanpa kompresi) + parts XML
+// minimal. Excel/LibreOffice menerima entri ZIP tak-terkompresi selama CRC32
+// & ukuran benar. Nilai number ditulis sebagai sel numerik, lainnya inline
+// string. Berdampingan dengan downloadCsv — bukan pengganti.
+// ---------------------------------------------------------------------------
+
+export type XlsxSheet = { name: string; headers: string[]; rows: (string | number)[][] };
+
+const CRC_TABLE: number[] = (() => {
+  const t: number[] = [];
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+
+function crc32(bytes: Uint8Array): number {
+  let c = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]!)! & 0xff]! ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+function xmlEscape(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/** Referensi sel A1 dari kolom (0-based) & baris (1-based). */
+function cellRef(col: number, row: number): string {
+  let s = "";
+  let c = col + 1;
+  while (c > 0) {
+    const rem = (c - 1) % 26;
+    s = String.fromCharCode(65 + rem) + s;
+    c = Math.floor((c - 1) / 26);
+  }
+  return `${s}${row}`;
+}
+
+function sheetXml(sheet: XlsxSheet): string {
+  const rowsXml: string[] = [];
+  const all = [sheet.headers, ...sheet.rows];
+  all.forEach((cells, r) => {
+    const rowNum = r + 1;
+    const cellsXml = cells
+      .map((v, c) => {
+        const ref = cellRef(c, rowNum);
+        if (typeof v === "number" && Number.isFinite(v)) {
+          return `<c r="${ref}"><v>${v}</v></c>`;
+        }
+        return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xmlEscape(String(v))}</t></is></c>`;
+      })
+      .join("");
+    rowsXml.push(`<row r="${rowNum}">${cellsXml}</row>`);
+  });
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rowsXml.join("")}</sheetData></worksheet>`;
+}
+
+/** Unduh beberapa sheet sebagai berkas .xlsx (dibuka Excel/LibreOffice/Sheets). */
+export function downloadXlsx(filename: string, sheets: XlsxSheet[]): void {
+  const enc = new TextEncoder();
+  const list = sheets.length > 0 ? sheets : [{ name: "Sheet1", headers: [], rows: [] }];
+  // Nama sheet aman & unik (Excel: ≤31 char, tanpa []:*?/\).
+  const safeNames = list.map((s, i) => {
+    const clean = (s.name || `Sheet${i + 1}`).replace(/[[\]:*?/\\]/g, " ").slice(0, 31) || `Sheet${i + 1}`;
+    return clean;
+  });
+
+  const parts: { path: string; data: Uint8Array }[] = [];
+  parts.push({
+    path: "[Content_Types].xml",
+    data: enc.encode(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
+        list
+          .map(
+            (_, i) =>
+              `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`,
+          )
+          .join("") +
+        `</Types>`,
+    ),
+  });
+  parts.push({
+    path: "_rels/.rels",
+    data: enc.encode(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
+    ),
+  });
+  parts.push({
+    path: "xl/workbook.xml",
+    data: enc.encode(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>` +
+        safeNames
+          .map((n, i) => `<sheet name="${xmlEscape(n)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`)
+          .join("") +
+        `</sheets></workbook>`,
+    ),
+  });
+  parts.push({
+    path: "xl/_rels/workbook.xml.rels",
+    data: enc.encode(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+        list
+          .map(
+            (_, i) =>
+              `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`,
+          )
+          .join("") +
+        `</Relationships>`,
+    ),
+  });
+  list.forEach((sheet, i) => {
+    parts.push({ path: `xl/worksheets/sheet${i + 1}.xml`, data: enc.encode(sheetXml(sheet)) });
+  });
+
+  // Bangun ZIP: local headers + central directory + EOCD. Metode 0 (store).
+  const chunks: Uint8Array[] = [];
+  const central: Uint8Array[] = [];
+  let offset = 0;
+
+  const u16 = (n: number) => new Uint8Array([n & 0xff, (n >>> 8) & 0xff]);
+  const u32 = (n: number) => new Uint8Array([n & 0xff, (n >>> 8) & 0xff, (n >>> 16) & 0xff, (n >>> 24) & 0xff]);
+  const concat = (arrs: Uint8Array[]) => {
+    const total = arrs.reduce((s, a) => s + a.length, 0);
+    const out = new Uint8Array(total);
+    let p = 0;
+    for (const a of arrs) {
+      out.set(a, p);
+      p += a.length;
+    }
+    return out;
+  };
+
+  for (const part of parts) {
+    const nameBytes = enc.encode(part.path);
+    const crc = crc32(part.data);
+    const size = part.data.length;
+    const local = concat([
+      u32(0x04034b50), // local file header signature
+      u16(20), // version needed
+      u16(0), // flags
+      u16(0), // method: store
+      u16(0), // mod time
+      u16(0x21), // mod date (arbitrary valid)
+      u32(crc),
+      u32(size),
+      u32(size),
+      u16(nameBytes.length),
+      u16(0), // extra len
+      nameBytes,
+      part.data,
+    ]);
+    chunks.push(local);
+
+    central.push(
+      concat([
+        u32(0x02014b50), // central dir header signature
+        u16(20), // version made by
+        u16(20), // version needed
+        u16(0),
+        u16(0),
+        u16(0),
+        u16(0x21),
+        u32(crc),
+        u32(size),
+        u32(size),
+        u16(nameBytes.length),
+        u16(0),
+        u16(0),
+        u16(0),
+        u16(0),
+        u32(0),
+        u32(offset),
+        nameBytes,
+      ]),
+    );
+    offset += local.length;
+  }
+
+  const centralBytes = concat(central);
+  const eocd = concat([
+    u32(0x06054b50),
+    u16(0),
+    u16(0),
+    u16(parts.length),
+    u16(parts.length),
+    u32(centralBytes.length),
+    u32(offset),
+    u16(0),
+  ]);
+
+  const blob = new Blob([concat(chunks), centralBytes, eocd], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
