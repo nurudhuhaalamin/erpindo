@@ -1201,6 +1201,38 @@ export const TENANT_MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    id: "0033_pm_manufacturing",
+    statements: [
+      // Proyek Gantt (Fase 7g): jadwal + dependensi + baseline per tugas (nullable, additive).
+      `ALTER TABLE project_tasks ADD COLUMN start_date TEXT`,
+      `ALTER TABLE project_tasks ADD COLUMN end_date TEXT`,
+      `ALTER TABLE project_tasks ADD COLUMN predecessor_id TEXT REFERENCES project_tasks(id)`,
+      `ALTER TABLE project_tasks ADD COLUMN baseline_start TEXT`,
+      `ALTER TABLE project_tasks ADD COLUMN baseline_end TEXT`,
+      // Manufaktur routing (Fase 7g): work center + tahapan routing per perintah produksi.
+      `CREATE TABLE work_centers (
+        id TEXT PRIMARY KEY,
+        code TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        hourly_rate INTEGER NOT NULL DEFAULT 0,
+        is_archived INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE TABLE production_routing_steps (
+        id TEXT PRIMARY KEY,
+        production_id TEXT NOT NULL REFERENCES production_orders(id),
+        work_center_id TEXT NOT NULL REFERENCES work_centers(id),
+        step_order INTEGER NOT NULL DEFAULT 0,
+        name TEXT NOT NULL,
+        standard_cost INTEGER NOT NULL DEFAULT 0,
+        actual_cost INTEGER,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','done')),
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX routing_steps_production ON production_routing_steps (production_id)`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

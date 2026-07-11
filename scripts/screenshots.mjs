@@ -166,6 +166,18 @@ const MANIFESTS = {
     fullPage: true,
     shots: [{ route: "/app/keuangan/dimensi", name: "dimensi-rekon", waitMs: 1600 }],
   },
+  // Set ad-hoc Fase 7g: Proyek (Gantt) + Manufaktur (routing).
+  so7g: {
+    outDir: process.env.SO7G_OUT ?? path.join(tmpdir(), "erpindo-so7g"),
+    viewport: { width: 1440, height: 1400 },
+    theme: "light",
+    quality: 85,
+    fullPage: true,
+    shots: [
+      { route: "/app/proyek", name: "proyek-gantt", waitMs: 1800 },
+      { route: "/app/manufaktur", name: "manufaktur-routing", waitMs: 1600 },
+    ],
+  },
   // Audit visual QA: halaman PENUH pada 3 viewport. Keluaran ke AUDIT_OUT
   // (default tmp) — TIDAK di-commit; alat review, bukan aset produk.
   audit: {

@@ -2558,6 +2558,32 @@ try {
   const tbAfterQc = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah karantina QC", tbAfterQc.json?.balanced === true);
 
+  // --- Manufaktur routing + Proyek Gantt (Fase 7g) -------------------------------
+  console.log("11o2. Manufaktur routing (work center) + Proyek Gantt");
+  const wcViewer = await viewer("POST", `/api/tenants/${tenantId}/work-centers`, { code: "X", name: "X" });
+  check("viewer DITOLAK membuat work center (403)", wcViewer.status === 403);
+  const wc = await owner("POST", `/api/tenants/${tenantId}/work-centers`, { code: "WC-CUT", name: "Pemotongan", hourlyRate: 50_000 });
+  check("buat work center 201", wc.status === 201 && Boolean(wc.json?.id));
+  const wcDup = await owner("POST", `/api/tenants/${tenantId}/work-centers`, { code: "WC-CUT", name: "Lain" });
+  check("kode work center duplikat DITOLAK 409", wcDup.status === 409);
+  const rtStep1 = await owner("POST", `/api/tenants/${tenantId}/production-orders/${ord1.json.id}/routing`, { workCenterId: wc.json.id, name: "Potong kayu", standardCost: 100_000 });
+  check("tambah tahap routing 201", rtStep1.status === 201 && Boolean(rtStep1.json?.id));
+  const badWc = await owner("POST", `/api/tenants/${tenantId}/production-orders/${ord1.json.id}/routing`, { workCenterId: "tidak-ada", name: "X", standardCost: 1 });
+  check("routing dengan work center tak dikenal DITOLAK 400", badWc.status === 400);
+  const stepDone = await owner("POST", `/api/tenants/${tenantId}/production-orders/${ord1.json.id}/routing/${rtStep1.json.id}/complete`, { actualCost: 120_000 });
+  check("catat biaya aktual + selesai 200", stepDone.status === 200);
+  const stepRedone = await owner("POST", `/api/tenants/${tenantId}/production-orders/${ord1.json.id}/routing/${rtStep1.json.id}/complete`, { actualCost: 1 });
+  check("selesaikan tahap yang sudah selesai DITOLAK 409", stepRedone.status === 409);
+  const routing = await owner("GET", `/api/tenants/${tenantId}/production-orders/${ord1.json.id}/routing`);
+  check("routing: standar 100rb, aktual 120rb, varian +20rb", routing.json?.totalStandard === 100_000 && routing.json?.totalActual === 120_000 && routing.json?.variance === 20_000, `→ ${JSON.stringify({ s: routing.json?.totalStandard, a: routing.json?.totalActual, v: routing.json?.variance })}`);
+
+  // Proyek Gantt: jadwal + baseline pada tugas yang sudah ada (projectId/task dari 11k).
+  const schedTask = await owner("PATCH", `/api/tenants/${tenantId}/projects/${projectId}/tasks/${task.json.id}`, { startDate: "2026-09-01", endDate: "2026-09-10", setBaseline: true });
+  check("tetapkan jadwal + baseline tugas 200", schedTask.status === 200);
+  const projAfter = await owner("GET", `/api/tenants/${tenantId}/projects/${projectId}`);
+  const schedTaskRow = projAfter.json?.tasks?.find((t) => t.id === task.json.id);
+  check("tugas menyimpan jadwal & baseline (Gantt)", schedTaskRow?.startDate === "2026-09-01" && schedTaskRow?.endDate === "2026-09-10" && schedTaskRow?.baselineStart === "2026-09-01" && schedTaskRow?.baselineEnd === "2026-09-10", `→ ${JSON.stringify(schedTaskRow && { s: schedTaskRow.startDate, e: schedTaskRow.endDate, bs: schedTaskRow.baselineStart })}`);
+
   // --- Maintenance / servis aset (Fase 2v) ---------------------------------------
   // Aset & jurnal bertanggal Agustus (di luar jendela arus kas Juli, setelah kunci 10 Jul).
   console.log("11p. Maintenance / servis aset (jadwal, work order, biaya)");

@@ -202,7 +202,8 @@ export const projectRoutes = new Hono<AppEnv>()
 
     const { results: tasks } = await db
       .prepare(
-        `SELECT t.id, t.name, t.status, t.due_date, t.assignee_id, e.name AS assignee_name, t.priority, t.sort_order
+        `SELECT t.id, t.name, t.status, t.due_date, t.assignee_id, e.name AS assignee_name, t.priority, t.sort_order,
+                t.start_date, t.end_date, t.predecessor_id, t.baseline_start, t.baseline_end
          FROM project_tasks t LEFT JOIN employees e ON e.id = t.assignee_id
          WHERE t.project_id = ? ORDER BY t.sort_order, t.created_at`,
       )
@@ -216,6 +217,11 @@ export const projectRoutes = new Hono<AppEnv>()
         assignee_name: string | null;
         priority: ProjectTaskPriority;
         sort_order: number;
+        start_date: string | null;
+        end_date: string | null;
+        predecessor_id: string | null;
+        baseline_start: string | null;
+        baseline_end: string | null;
       }>();
 
     const { results: entries } = await db
@@ -286,6 +292,11 @@ export const projectRoutes = new Hono<AppEnv>()
       assigneeName: t.assignee_name,
       priority: t.priority ?? "medium",
       sortOrder: t.sort_order ?? 0,
+      startDate: t.start_date,
+      endDate: t.end_date,
+      predecessorId: t.predecessor_id,
+      baselineStart: t.baseline_start,
+      baselineEnd: t.baseline_end,
     }));
 
     // Beban kerja: kelompokkan tugas per penanggung jawab (termasuk "Belum ditugaskan").
@@ -355,8 +366,8 @@ export const projectRoutes = new Hono<AppEnv>()
       .all<{ m: number }>();
     const id = crypto.randomUUID();
     await db
-      .prepare(`INSERT INTO project_tasks (id, project_id, name, due_date, assignee_id, priority, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)`)
-      .bind(id, projectId, parsed.data.name, parsed.data.dueDate ?? null, assigneeId, parsed.data.priority ?? "medium", (maxRows[0]?.m ?? 0) + 1)
+      .prepare(`INSERT INTO project_tasks (id, project_id, name, due_date, assignee_id, priority, sort_order, start_date, end_date, predecessor_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(id, projectId, parsed.data.name, parsed.data.dueDate ?? null, assigneeId, parsed.data.priority ?? "medium", (maxRows[0]?.m ?? 0) + 1, parsed.data.startDate ?? null, parsed.data.endDate ?? null, parsed.data.predecessorId ?? null)
       .run();
     return c.json({ ok: true, id }, 201);
   })
@@ -383,6 +394,16 @@ export const projectRoutes = new Hono<AppEnv>()
       }
       sets.push("assignee_id = ?");
       vals.push(assigneeId);
+    }
+    if (parsed.data.startDate !== undefined) { sets.push("start_date = ?"); vals.push(parsed.data.startDate); }
+    if (parsed.data.endDate !== undefined) { sets.push("end_date = ?"); vals.push(parsed.data.endDate); }
+    if (parsed.data.predecessorId !== undefined) { sets.push("predecessor_id = ?"); vals.push(parsed.data.predecessorId || null); }
+    // Simpan baseline = jadwal saat ini (setelah perubahan di atas diterapkan lewat COALESCE nilai baru).
+    if (parsed.data.setBaseline) {
+      sets.push("baseline_start = COALESCE(?, start_date)");
+      vals.push(parsed.data.startDate ?? null);
+      sets.push("baseline_end = COALESCE(?, end_date)");
+      vals.push(parsed.data.endDate ?? null);
     }
     if (sets.length === 0) return c.json({ error: "Tidak ada perubahan." }, 400);
 

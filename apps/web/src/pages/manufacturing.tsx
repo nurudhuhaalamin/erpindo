@@ -1,4 +1,4 @@
-import type { ApiBom, ApiProductionOrder } from "@erpindo/shared";
+import type { ApiBom, ApiProductionOrder, ApiRoutingStep } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Factory, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -420,6 +420,166 @@ export function ManufacturingPage() {
           )}
         </CardBody>
       </Card>
+
+      {isAdmin ? <WorkCentersCard /> : null}
+      <RoutingCard orders={ordersQuery.data?.orders ?? []} isAdmin={isAdmin} />
     </div>
+  );
+}
+
+/** Master work center / pusat kerja (Fase 7g). */
+function WorkCentersCard() {
+  const { tenant } = useWorkspace();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const query = useQuery({ queryKey: ["work-centers", tenant.tenantId], queryFn: () => api.workCenters(tenant.tenantId) });
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [rate, setRate] = useState("");
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["work-centers", tenant.tenantId] });
+  const create = useMutation({
+    mutationFn: () => api.createWorkCenter(tenant.tenantId, { code: code.trim(), name: name.trim(), hourlyRate: Number(rate) || 0 }),
+    onSuccess: () => { setCode(""); setName(""); setRate(""); invalidate(); toast("success", "Work center ditambahkan."); },
+    onError: (e: Error) => toast("error", e.message),
+  });
+  const items = query.data?.items ?? [];
+  return (
+    <Card>
+      <CardHeader title="Work center (pusat kerja)" description="Stasiun/tahap produksi dengan tarif per jam, dipakai untuk routing." />
+      <CardBody className="space-y-4">
+        <form className="grid gap-3 sm:grid-cols-[8rem_1fr_9rem_auto] sm:items-end" onSubmit={(e) => { e.preventDefault(); if (code.trim() && name.trim()) create.mutate(); }}>
+          <div><Label htmlFor="wc-code">Kode</Label><Input id="wc-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="WC-CUT" /></div>
+          <div><Label htmlFor="wc-name">Nama</Label><Input id="wc-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Pemotongan" /></div>
+          <div><Label htmlFor="wc-rate">Tarif/jam (Rp)</Label><Input id="wc-rate" type="number" min={0} value={rate} onChange={(e) => setRate(e.target.value)} placeholder="50000" /></div>
+          <Button type="submit" disabled={create.isPending || !code.trim() || !name.trim()}>{create.isPending ? <Spinner /> : null} Tambah</Button>
+        </form>
+        {items.length > 0 ? (
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {items.map((w) => (
+              <li key={w.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+                <span><span className="font-mono text-xs text-slate-400">{w.code}</span> {w.name}</span>
+                <span className="tabular-nums text-slate-500">{formatIDR(w.hourlyRate)}/jam</span>
+              </li>
+            ))}
+          </ul>
+        ) : <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada work center.</p>}
+      </CardBody>
+    </Card>
+  );
+}
+
+/** Routing per perintah produksi: tahapan + biaya standar vs aktual (WIP → selesai). */
+function RoutingCard({ orders, isAdmin }: { orders: ApiProductionOrder[]; isAdmin: boolean }) {
+  const { tenant } = useWorkspace();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [prodId, setProdId] = useState("");
+  const wcQuery = useQuery({ queryKey: ["work-centers", tenant.tenantId], queryFn: () => api.workCenters(tenant.tenantId) });
+  const routingQuery = useQuery({ queryKey: ["routing", tenant.tenantId, prodId], queryFn: () => api.productionRouting(tenant.tenantId, prodId), enabled: Boolean(prodId) });
+  const [wcId, setWcId] = useState("");
+  const [stepName, setStepName] = useState("");
+  const [stdCost, setStdCost] = useState("");
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["routing", tenant.tenantId, prodId] });
+
+  const addStep = useMutation({
+    mutationFn: () => api.addRoutingStep(tenant.tenantId, prodId, { workCenterId: wcId, name: stepName.trim(), standardCost: Number(stdCost) || 0 }),
+    onSuccess: () => { setStepName(""); setStdCost(""); invalidate(); toast("success", "Tahap routing ditambahkan."); },
+    onError: (e: Error) => toast("error", e.message),
+  });
+  const complete = useMutation({
+    mutationFn: (v: { stepId: string; actual: number }) => api.completeRoutingStep(tenant.tenantId, prodId, v.stepId, { actualCost: v.actual }),
+    onSuccess: () => { invalidate(); toast("success", "Biaya aktual dicatat."); },
+    onError: (e: Error) => toast("error", e.message),
+  });
+
+  const steps = routingQuery.data?.steps ?? [];
+  const wcs = wcQuery.data?.items ?? [];
+  return (
+    <Card>
+      <CardHeader title="Routing produksi (biaya standar vs aktual)" description="Tahapan proses per perintah produksi di tiap work center — bandingkan biaya standar dengan aktual (WIP)." />
+      <CardBody className="space-y-4">
+        <div>
+          <Label htmlFor="rt-prod">Perintah produksi</Label>
+          <Select id="rt-prod" className="max-w-md" value={prodId} onChange={(e) => setProdId(e.target.value)}>
+            <option value="">— pilih perintah produksi —</option>
+            {orders.map((o) => (<option key={o.id} value={o.id}>{o.orderNo} · {o.productName} ({o.qty})</option>))}
+          </Select>
+        </div>
+        {prodId ? (
+          <>
+            {isAdmin ? (
+              <form className="grid gap-2 sm:grid-cols-[1fr_1fr_9rem_auto] sm:items-end" onSubmit={(e) => { e.preventDefault(); if (wcId && stepName.trim()) addStep.mutate(); }}>
+                <div>
+                  <Label htmlFor="rt-wc">Work center</Label>
+                  <Select id="rt-wc" value={wcId} onChange={(e) => setWcId(e.target.value)}>
+                    <option value="">— pilih —</option>
+                    {wcs.map((w) => (<option key={w.id} value={w.id}>{w.code} · {w.name}</option>))}
+                  </Select>
+                </div>
+                <div><Label htmlFor="rt-name">Nama tahap</Label><Input id="rt-name" value={stepName} onChange={(e) => setStepName(e.target.value)} placeholder="Potong bahan" /></div>
+                <div><Label htmlFor="rt-std">Biaya standar</Label><Input id="rt-std" type="number" min={0} value={stdCost} onChange={(e) => setStdCost(e.target.value)} placeholder="100000" /></div>
+                <Button type="submit" disabled={addStep.isPending || !wcId || !stepName.trim()}>Tambah tahap</Button>
+              </form>
+            ) : null}
+            {steps.length === 0 ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada tahapan routing.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px] text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                      <th className="pb-2 pr-4 font-medium">#</th>
+                      <th className="pb-2 pr-4 font-medium">Tahap</th>
+                      <th className="pb-2 pr-4 font-medium">Work center</th>
+                      <th className="pb-2 pr-4 text-right font-medium">Standar</th>
+                      <th className="pb-2 pr-4 text-right font-medium">Aktual</th>
+                      <th className="pb-2 pr-4 font-medium">Status</th>
+                      {isAdmin ? <th className="pb-2 font-medium"></th> : null}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {steps.map((s) => (
+                      <RoutingRow key={s.id} step={s} isAdmin={isAdmin} onComplete={(actual) => complete.mutate({ stepId: s.id, actual })} busy={complete.isPending} />
+                    ))}
+                    <tr className="font-semibold">
+                      <td className="py-2 pr-4" colSpan={3}>Total (varian = aktual − standar)</td>
+                      <td className="py-2 pr-4 text-right tabular-nums">{formatIDR(routingQuery.data?.totalStandard ?? 0)}</td>
+                      <td className="py-2 pr-4 text-right tabular-nums">{formatIDR(routingQuery.data?.totalActual ?? 0)}</td>
+                      <td className={`py-2 pr-4 tabular-nums ${(routingQuery.data?.variance ?? 0) > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`} colSpan={isAdmin ? 2 : 1}>
+                        {(routingQuery.data?.variance ?? 0) >= 0 ? "+" : ""}{formatIDR(routingQuery.data?.variance ?? 0)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        ) : null}
+      </CardBody>
+    </Card>
+  );
+}
+
+function RoutingRow({ step, isAdmin, onComplete, busy }: { step: ApiRoutingStep; isAdmin: boolean; onComplete: (actual: number) => void; busy: boolean }) {
+  const [actual, setActual] = useState("");
+  return (
+    <tr className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
+      <td className="py-2 pr-4 text-slate-400">{step.stepOrder}</td>
+      <td className="py-2 pr-4">{step.name}</td>
+      <td className="py-2 pr-4 text-slate-500">{step.workCenterName}</td>
+      <td className="py-2 pr-4 text-right tabular-nums">{formatIDR(step.standardCost)}</td>
+      <td className="py-2 pr-4 text-right tabular-nums">{step.actualCost != null ? formatIDR(step.actualCost) : "—"}</td>
+      <td className="py-2 pr-4"><Badge tone={step.status === "done" ? "green" : "amber"}>{step.status === "done" ? "selesai" : "WIP"}</Badge></td>
+      {isAdmin ? (
+        <td className="py-2">
+          {step.status === "pending" ? (
+            <span className="flex items-center gap-1">
+              <Input type="number" min={0} value={actual} onChange={(e) => setActual(e.target.value)} placeholder="aktual" className="h-8 w-24" />
+              <Button className="h-8" onClick={() => onComplete(Number(actual) || 0)} disabled={busy || !actual}>Selesai</Button>
+            </span>
+          ) : null}
+        </td>
+      ) : null}
+    </tr>
   );
 }

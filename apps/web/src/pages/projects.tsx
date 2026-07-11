@@ -231,6 +231,7 @@ function ProjectRow({ project, isAdmin }: { project: ApiProject; isAdmin: boolea
           ) : (
             <>
               <ProjectTimeline detail={detail} />
+              <GanttChart projectId={project.id} tasks={detail.tasks} isAdmin={isAdmin} onChange={invalidate} />
               <TaskBoard projectId={project.id} tasks={detail.tasks} employees={employees} isAdmin={isAdmin} onChange={invalidate} />
               <WorkloadPanel detail={detail} />
               <MilestonesSection projectId={project.id} detail={detail} isAdmin={isAdmin} hasContact={Boolean(project.contactId)} onChange={invalidate} />
@@ -299,6 +300,99 @@ function ProjectTimeline({ detail }: { detail: ApiProjectDetail }) {
         <span>{past ? "lewat tenggat" : `${pct}% waktu berjalan`}</span>
         <span>{formatDate(detail.endDate)}</span>
       </div>
+    </div>
+  );
+}
+
+/** Gantt sederhana (Fase 7g): batang tugas per tanggal + baseline + dependensi. */
+function GanttChart({
+  projectId,
+  tasks,
+  isAdmin,
+  onChange,
+}: {
+  projectId: string;
+  tasks: ApiProjectTask[];
+  isAdmin: boolean;
+  onChange: () => void;
+}) {
+  const { tenant } = useWorkspace();
+  const toast = useToast();
+  const [edit, setEdit] = useState<{ id: string; start: string; end: string; predecessorId: string } | null>(null);
+
+  const save = useMutation({
+    mutationFn: (v: { id: string; startDate: string | null; endDate: string | null; predecessorId: string | null; setBaseline?: boolean }) =>
+      api.updateProjectTask(tenant.tenantId, projectId, v.id, v),
+    onSuccess: () => { setEdit(null); onChange(); },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  const scheduled = tasks.filter((t) => t.startDate && t.endDate);
+  const allDates = scheduled.flatMap((t) => [t.startDate!, t.endDate!, t.baselineStart, t.baselineEnd].filter(Boolean) as string[]);
+  const min = allDates.length ? Math.min(...allDates.map((d) => new Date(d).getTime())) : 0;
+  const max = allDates.length ? Math.max(...allDates.map((d) => new Date(d).getTime())) : 0;
+  const span = max > min ? max - min : 1;
+  const pos = (d: string) => ((new Date(d).getTime() - min) / span) * 100;
+  const taskName = (id: string | null) => tasks.find((t) => t.id === id)?.name;
+
+  return (
+    <div>
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Gantt (jadwal & dependensi)</div>
+      {scheduled.length === 0 ? (
+        <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada tugas berjadwal. {isAdmin ? "Klik “Jadwal” pada tugas di bawah untuk menetapkan tanggal mulai–selesai." : ""}</p>
+      ) : (
+        <div className="space-y-1.5">
+          {scheduled.map((t) => {
+            const left = pos(t.startDate!);
+            const width = Math.max(pos(t.endDate!) - left, 2);
+            const late = t.baselineEnd && new Date(t.endDate!).getTime() > new Date(t.baselineEnd).getTime();
+            return (
+              <div key={t.id} className="grid grid-cols-[10rem_1fr] items-center gap-2 text-xs">
+                <div className="truncate">
+                  {t.name}
+                  {t.predecessorId ? <span className="ml-1 text-slate-400" title={`Setelah: ${taskName(t.predecessorId) ?? ""}`}>↦</span> : null}
+                </div>
+                <div className="relative h-5 rounded bg-slate-100 dark:bg-slate-800/60">
+                  {t.baselineStart && t.baselineEnd ? (
+                    <div className="absolute top-3.5 h-1 rounded bg-slate-300 dark:bg-slate-600" style={{ left: `${pos(t.baselineStart)}%`, width: `${Math.max(pos(t.baselineEnd) - pos(t.baselineStart), 1)}%` }} title="Baseline (rencana)" />
+                  ) : null}
+                  <div
+                    className={`absolute top-0.5 flex h-3 items-center rounded px-1 text-[10px] text-white ${t.status === "done" ? "bg-emerald-500" : late ? "bg-red-500" : "bg-brand-500"}`}
+                    style={{ left: `${left}%`, width: `${width}%` }}
+                    title={`${formatDate(t.startDate!)} → ${formatDate(t.endDate!)}`}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {isAdmin ? (
+        <div className="mt-3 space-y-1.5">
+          {tasks.map((t) => (
+            <div key={t.id} className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="w-40 truncate text-slate-500 dark:text-slate-400">{t.name}</span>
+              {edit?.id === t.id ? (
+                <>
+                  <input type="date" className="rounded border border-slate-300 px-1.5 py-0.5 dark:border-slate-700 dark:bg-slate-900" value={edit.start} onChange={(e) => setEdit({ ...edit, start: e.target.value })} />
+                  <input type="date" className="rounded border border-slate-300 px-1.5 py-0.5 dark:border-slate-700 dark:bg-slate-900" value={edit.end} onChange={(e) => setEdit({ ...edit, end: e.target.value })} />
+                  <select className="rounded border border-slate-300 px-1.5 py-0.5 dark:border-slate-700 dark:bg-slate-900" value={edit.predecessorId} onChange={(e) => setEdit({ ...edit, predecessorId: e.target.value })}>
+                    <option value="">— tanpa dependensi —</option>
+                    {tasks.filter((o) => o.id !== t.id).map((o) => (<option key={o.id} value={o.id}>setelah: {o.name}</option>))}
+                  </select>
+                  <Button className="h-7" onClick={() => save.mutate({ id: t.id, startDate: edit.start || null, endDate: edit.end || null, predecessorId: edit.predecessorId || null })} disabled={save.isPending}>Simpan</Button>
+                  <Button className="h-7" variant="secondary" onClick={() => save.mutate({ id: t.id, startDate: edit.start || null, endDate: edit.end || null, predecessorId: edit.predecessorId || null, setBaseline: true })} disabled={save.isPending}>Simpan + Baseline</Button>
+                  <Button className="h-7" variant="ghost" onClick={() => setEdit(null)}>Batal</Button>
+                </>
+              ) : (
+                <button className="text-brand-600 hover:underline dark:text-brand-300" onClick={() => setEdit({ id: t.id, start: t.startDate ?? "", end: t.endDate ?? "", predecessorId: t.predecessorId ?? "" })}>
+                  {t.startDate ? `${formatDate(t.startDate)} → ${formatDate(t.endDate ?? t.startDate)}` : "Jadwal"}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
