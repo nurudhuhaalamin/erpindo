@@ -1,4 +1,4 @@
-import { PLAN_LABELS, PLAN_LIMITS, type ApiMembership, type MeResponse } from "@erpindo/shared";
+import { PERMISSIONS, PLAN_LABELS, PLAN_LIMITS, type ApiCustomRole, type ApiMembership, type MeResponse, type PermissionKey } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
@@ -86,44 +86,44 @@ export function useWorkspace(): Workspace {
 // Shell aplikasi: sidebar (desktop) / menu atas (mobile)
 // ---------------------------------------------------------------------------
 
-const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; icon: LucideIcon }[] = [
+const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; icon: LucideIcon; module?: PermissionKey }[] = [
   { to: "/app", label: "Dashboard", exact: true, icon: LayoutDashboard },
-  { to: "/app/pos", label: "Kasir (POS)", exact: false, section: "Transaksi", icon: Store },
-  { to: "/app/penjualan", label: "Penjualan", exact: false, section: "Transaksi", icon: Receipt },
-  { to: "/app/pesanan-penjualan", label: "Pesanan Penjualan", exact: false, section: "Transaksi", icon: ClipboardList },
-  { to: "/app/pembelian", label: "Pembelian", exact: false, section: "Transaksi", icon: ShoppingCart },
-  { to: "/app/pengadaan", label: "Pengadaan", exact: false, section: "Transaksi", icon: ClipboardList },
-  { to: "/app/stok", label: "Stok", exact: false, section: "Transaksi", icon: Boxes },
-  { to: "/app/manufaktur", label: "Manufaktur", exact: false, section: "Transaksi", icon: Factory },
-  { to: "/app/crm/leads", label: "Pipeline", exact: false, section: "CRM", icon: Target },
-  { to: "/app/crm/penawaran", label: "Penawaran", exact: false, section: "CRM", icon: FileText },
-  { to: "/app/helpdesk", label: "Helpdesk", exact: false, section: "CRM", icon: LifeBuoy },
-  { to: "/app/keuangan/catat", label: "Catat Transaksi", exact: false, section: "Keuangan", icon: PenLine },
-  { to: "/app/keuangan/kas-bank", label: "Kas & Bank", exact: false, section: "Keuangan", icon: Wallet },
-  { to: "/app/keuangan/akun", label: "Bagan Akun", exact: false, section: "Keuangan", icon: ListTree },
-  { to: "/app/keuangan/jurnal", label: "Jurnal Umum", exact: false, section: "Keuangan", icon: BookText },
-  { to: "/app/keuangan/buku-besar", label: "Buku Besar", exact: false, section: "Keuangan", icon: BookOpen },
-  { to: "/app/keuangan/neraca-saldo", label: "Neraca Saldo", exact: false, section: "Keuangan", icon: Scale },
-  { to: "/app/keuangan/laba-rugi", label: "Laba Rugi", exact: false, section: "Keuangan", icon: LineChart },
-  { to: "/app/keuangan/neraca", label: "Neraca", exact: false, section: "Keuangan", icon: Scale },
-  { to: "/app/keuangan/arus-kas", label: "Arus Kas", exact: false, section: "Keuangan", icon: Wallet },
-  { to: "/app/keuangan/anggaran", label: "Anggaran", exact: false, section: "Keuangan", icon: PiggyBank },
-  { to: "/app/keuangan/aset", label: "Aset Tetap", exact: false, section: "Keuangan", icon: Landmark },
-  { to: "/app/maintenance", label: "Pemeliharaan", exact: false, section: "Keuangan", icon: Wrench },
-  { to: "/app/keuangan/kurs", label: "Mata Uang", exact: false, section: "Keuangan", icon: Coins },
-  { to: "/app/keuangan/umur-tagihan", label: "Umur Piutang/Hutang", exact: false, section: "Keuangan", icon: Hourglass },
-  { to: "/app/keuangan/e-faktur", label: "Ekspor e-Faktur", exact: false, section: "Keuangan", icon: FileSpreadsheet },
-  { to: "/app/keuangan/pajak", label: "Pajak", exact: false, section: "Keuangan", icon: Percent },
-  { to: "/app/laporan/penjualan", label: "Laporan Penjualan", exact: false, section: "Keuangan", icon: LineChart },
-  { to: "/app/master/produk", label: "Produk", exact: false, section: "Master Data", icon: Package },
-  { to: "/app/master/kontak", label: "Kontak", exact: false, section: "Master Data", icon: Contact },
-  { to: "/app/master/gudang", label: "Gudang", exact: false, section: "Master Data", icon: Warehouse },
-  { to: "/app/hr/penggajian", label: "Penggajian", exact: false, section: "HR", icon: UsersRound },
-  { to: "/app/hr/absensi", label: "Absensi", exact: false, section: "HR", icon: CalendarCheck },
-  { to: "/app/proyek", label: "Proyek", exact: false, section: "Lainnya", icon: FolderKanban },
-  { to: "/app/kontrak", label: "Kontrak Berulang", exact: false, section: "Lainnya", icon: CalendarClock },
-  { to: "/app/konsolidasi", label: "Konsolidasi", exact: false, section: "Lainnya", icon: Layers },
-  { to: "/app/persetujuan", label: "Persetujuan", exact: false, section: "Lainnya", icon: CheckSquare },
+  { to: "/app/pos", label: "Kasir (POS)", exact: false, section: "Transaksi", icon: Store, module: "kasir" },
+  { to: "/app/penjualan", label: "Penjualan", exact: false, section: "Transaksi", icon: Receipt, module: "penjualan" },
+  { to: "/app/pesanan-penjualan", label: "Pesanan Penjualan", exact: false, section: "Transaksi", icon: ClipboardList, module: "penjualan" },
+  { to: "/app/pembelian", label: "Pembelian", exact: false, section: "Transaksi", icon: ShoppingCart, module: "pembelian" },
+  { to: "/app/pengadaan", label: "Pengadaan", exact: false, section: "Transaksi", icon: ClipboardList, module: "pembelian" },
+  { to: "/app/stok", label: "Stok", exact: false, section: "Transaksi", icon: Boxes, module: "stok" },
+  { to: "/app/manufaktur", label: "Manufaktur", exact: false, section: "Transaksi", icon: Factory, module: "proyek" },
+  { to: "/app/crm/leads", label: "Pipeline", exact: false, section: "CRM", icon: Target, module: "crm" },
+  { to: "/app/crm/penawaran", label: "Penawaran", exact: false, section: "CRM", icon: FileText, module: "crm" },
+  { to: "/app/helpdesk", label: "Helpdesk", exact: false, section: "CRM", icon: LifeBuoy, module: "crm" },
+  { to: "/app/keuangan/catat", label: "Catat Transaksi", exact: false, section: "Keuangan", icon: PenLine, module: "keuangan" },
+  { to: "/app/keuangan/kas-bank", label: "Kas & Bank", exact: false, section: "Keuangan", icon: Wallet, module: "keuangan" },
+  { to: "/app/keuangan/akun", label: "Bagan Akun", exact: false, section: "Keuangan", icon: ListTree, module: "keuangan" },
+  { to: "/app/keuangan/jurnal", label: "Jurnal Umum", exact: false, section: "Keuangan", icon: BookText, module: "keuangan" },
+  { to: "/app/keuangan/buku-besar", label: "Buku Besar", exact: false, section: "Keuangan", icon: BookOpen, module: "keuangan" },
+  { to: "/app/keuangan/neraca-saldo", label: "Neraca Saldo", exact: false, section: "Keuangan", icon: Scale, module: "keuangan" },
+  { to: "/app/keuangan/laba-rugi", label: "Laba Rugi", exact: false, section: "Keuangan", icon: LineChart, module: "laporan" },
+  { to: "/app/keuangan/neraca", label: "Neraca", exact: false, section: "Keuangan", icon: Scale, module: "laporan" },
+  { to: "/app/keuangan/arus-kas", label: "Arus Kas", exact: false, section: "Keuangan", icon: Wallet, module: "laporan" },
+  { to: "/app/keuangan/anggaran", label: "Anggaran", exact: false, section: "Keuangan", icon: PiggyBank, module: "keuangan" },
+  { to: "/app/keuangan/aset", label: "Aset Tetap", exact: false, section: "Keuangan", icon: Landmark, module: "keuangan" },
+  { to: "/app/maintenance", label: "Pemeliharaan", exact: false, section: "Keuangan", icon: Wrench, module: "proyek" },
+  { to: "/app/keuangan/kurs", label: "Mata Uang", exact: false, section: "Keuangan", icon: Coins, module: "keuangan" },
+  { to: "/app/keuangan/umur-tagihan", label: "Umur Piutang/Hutang", exact: false, section: "Keuangan", icon: Hourglass, module: "laporan" },
+  { to: "/app/keuangan/e-faktur", label: "Ekspor e-Faktur", exact: false, section: "Keuangan", icon: FileSpreadsheet, module: "pajak" },
+  { to: "/app/keuangan/pajak", label: "Pajak", exact: false, section: "Keuangan", icon: Percent, module: "pajak" },
+  { to: "/app/laporan/penjualan", label: "Laporan Penjualan", exact: false, section: "Keuangan", icon: LineChart, module: "laporan" },
+  { to: "/app/master/produk", label: "Produk", exact: false, section: "Master Data", icon: Package, module: "stok" },
+  { to: "/app/master/kontak", label: "Kontak", exact: false, section: "Master Data", icon: Contact, module: "penjualan" },
+  { to: "/app/master/gudang", label: "Gudang", exact: false, section: "Master Data", icon: Warehouse, module: "stok" },
+  { to: "/app/hr/penggajian", label: "Penggajian", exact: false, section: "HR", icon: UsersRound, module: "hr" },
+  { to: "/app/hr/absensi", label: "Absensi", exact: false, section: "HR", icon: CalendarCheck, module: "hr" },
+  { to: "/app/proyek", label: "Proyek", exact: false, section: "Lainnya", icon: FolderKanban, module: "proyek" },
+  { to: "/app/kontrak", label: "Kontrak Berulang", exact: false, section: "Lainnya", icon: CalendarClock, module: "proyek" },
+  { to: "/app/konsolidasi", label: "Konsolidasi", exact: false, section: "Lainnya", icon: Layers, module: "keuangan" },
+  { to: "/app/persetujuan", label: "Persetujuan", exact: false, section: "Lainnya", icon: CheckSquare, module: "persetujuan" },
   { to: "/app/pengaturan", label: "Pengaturan", exact: false, section: "Lainnya", icon: Settings },
 ];
 
@@ -304,6 +304,16 @@ export function AppShell() {
 
   const meQuery = useQuery({ queryKey: ["me"], queryFn: api.me, retry: false });
 
+  // Izin modul efektif (RBAC granular Fase 7e) — untuk menyaring menu sidebar.
+  const activeTenantId = meQuery.data
+    ? (meQuery.data.memberships.find((m) => m.tenantId === localStorage.getItem("erpindo-tenant"))?.tenantId ?? meQuery.data.memberships[0]?.tenantId)
+    : undefined;
+  const permQuery = useQuery({
+    queryKey: ["my-permissions", activeTenantId],
+    queryFn: () => api.myPermissions(activeTenantId as string),
+    enabled: Boolean(activeTenantId),
+  });
+
   const logout = useMutation({
     mutationFn: api.logout,
     onSuccess: () => navigate({ to: "/masuk" }),
@@ -361,7 +371,10 @@ export function AppShell() {
     );
   }
 
-  const navItems = simpleMode ? NAV_ITEMS.filter((item) => !SIMPLE_HIDDEN.has(item.to)) : NAV_ITEMS;
+  // Sembunyikan menu modul yang tak diizinkan peran (default tampil saat izin belum termuat).
+  const allowedModules = permQuery.data?.permissions;
+  const permitted = (item: (typeof NAV_ITEMS)[number]) => !item.module || !allowedModules || allowedModules.includes(item.module);
+  const navItems = (simpleMode ? NAV_ITEMS.filter((item) => !SIMPLE_HIDDEN.has(item.to)) : NAV_ITEMS).filter(permitted);
   const nav = (
     <nav className="flex flex-col gap-0.5 p-3">
       {navItems.map((item, i) => (
@@ -1059,6 +1072,7 @@ export function SettingsPage() {
       <CompanySettingsCard tenantId={tenant.tenantId} readOnly={!isAdmin} />
       {tenant.role === "owner" ? <NewCompanyCard /> : null}
       {isAdmin ? <MembersCard tenantId={tenant.tenantId} /> : null}
+      {tenant.role === "owner" ? <RolesCard tenantId={tenant.tenantId} /> : null}
       {tenant.role === "owner" ? <ApprovalThresholdCard tenantId={tenant.tenantId} /> : null}
       {tenant.role === "owner" ? <CloseBooksCard tenantId={tenant.tenantId} /> : null}
       {tenant.role === "owner" ? <AuditLogCard tenantId={tenant.tenantId} /> : null}
@@ -1119,6 +1133,9 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   "tenant.invite_accepted": "Undangan diterima",
   "tenant.settings_updated": "Pengaturan diubah",
   "tenant.member_role_changed": "Peran anggota diubah",
+  "tenant.role_created": "Peran kustom dibuat",
+  "tenant.role_updated": "Peran kustom diperbarui",
+  "tenant.role_deleted": "Peran kustom dihapus",
   "tenant.member_removed": "Anggota dikeluarkan",
   // Akuntansi
   "accounting.account_created": "Akun COA dibuat",
@@ -1833,6 +1850,118 @@ function NewCompanyCard() {
 
 const ROLE_LABELS: Record<string, string> = { owner: "Pemilik", admin: "Admin", viewer: "Viewer" };
 
+/** Kelola peran kustom (Fase 7e): nama + peran dasar + centang modul yang diizinkan. */
+function RolesCard({ tenantId }: { tenantId: string }) {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const query = useQuery({ queryKey: ["roles", tenantId], queryFn: () => api.roles(tenantId) });
+  const [editing, setEditing] = useState<ApiCustomRole | null>(null);
+  const [name, setName] = useState("");
+  const [baseRole, setBaseRole] = useState<"admin" | "viewer">("admin");
+  const [perms, setPerms] = useState<PermissionKey[]>([]);
+  const [toDelete, setToDelete] = useState<ApiCustomRole | null>(null);
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["roles", tenantId] });
+    queryClient.invalidateQueries({ queryKey: ["members", tenantId] });
+  };
+  const reset = () => { setEditing(null); setName(""); setBaseRole("admin"); setPerms([]); };
+
+  const save = useMutation({
+    mutationFn: () =>
+      editing
+        ? api.updateRole(tenantId, editing.id, { name, baseRole, permissions: perms })
+        : api.createRole(tenantId, { name, baseRole, permissions: perms }),
+    onSuccess: () => { toast("success", editing ? "Peran diperbarui." : "Peran kustom dibuat."); reset(); invalidate(); },
+    onError: (e: Error) => toast("error", e.message),
+  });
+  const del = useMutation({
+    mutationFn: (id: string) => api.deleteRole(tenantId, id),
+    onSuccess: () => { toast("success", "Peran dihapus."); setToDelete(null); invalidate(); },
+    onError: (e: Error) => toast("error", e.message),
+  });
+
+  function startEdit(r: ApiCustomRole) {
+    setEditing(r); setName(r.name); setBaseRole(r.baseRole); setPerms(r.permissions);
+  }
+  function togglePerm(key: PermissionKey) {
+    setPerms((prev) => (prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key]));
+  }
+
+  const roles = query.data?.roles ?? [];
+  return (
+    <Card>
+      <CardHeader title="Peran kustom" description="Buat peran dengan akses modul terbatas — mis. Kasir (hanya POS & Penjualan). Peran dasar menentukan hak baca/tulis." />
+      <CardBody className="space-y-5">
+        {roles.length > 0 ? (
+          <div className="space-y-2">
+            {roles.map((r) => (
+              <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800">
+                <div>
+                  <span className="font-medium">{r.name}</span>
+                  <Badge tone="neutral" >{r.baseRole === "admin" ? "Dasar: Admin" : "Dasar: Viewer"}</Badge>
+                  <span className="ml-1 text-xs text-slate-400">{r.permissions.length} modul · {r.memberCount} anggota</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="secondary" className="h-8" onClick={() => startEdit(r)}>Ubah</Button>
+                  <Button variant="ghost" className="h-8 text-red-600 dark:text-red-400" onClick={() => setToDelete(r)}>Hapus</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada peran kustom. Buat di bawah.</p>
+        )}
+
+        <div className="space-y-3 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+          <h4 className="text-sm font-semibold">{editing ? `Ubah peran — ${editing.name}` : "Buat peran kustom"}</h4>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="role-name">Nama peran</Label>
+              <Input id="role-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="mis. Kasir Toko" />
+            </div>
+            <div>
+              <Label htmlFor="role-base">Peran dasar (hak baca/tulis)</Label>
+              <Select id="role-base" value={baseRole} onChange={(e) => setBaseRole(e.target.value as "admin" | "viewer")}>
+                <option value="admin">Admin (boleh menulis)</option>
+                <option value="viewer">Viewer (baca-saja)</option>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-sm font-medium">Modul yang boleh diakses</p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {PERMISSIONS.map((p) => (
+                <label key={p.key} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                  <input type="checkbox" className="h-4 w-4 rounded border-slate-300" checked={perms.includes(p.key)} onChange={() => togglePerm(p.key)} />
+                  {p.label}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={() => save.mutate()} disabled={save.isPending || name.trim().length < 2 || perms.length === 0}>
+              {save.isPending ? <Spinner /> : null} {editing ? "Simpan" : "Buat peran"}
+            </Button>
+            {editing ? <Button variant="secondary" onClick={reset}>Batal</Button> : null}
+          </div>
+        </div>
+
+        <ConfirmDialog
+          open={toDelete !== null}
+          title="Hapus peran kustom?"
+          description={toDelete ? `Peran "${toDelete.name}" akan dihapus. Pastikan tidak ada anggota yang memakainya.` : undefined}
+          confirmLabel="Hapus"
+          danger
+          busy={del.isPending}
+          onConfirm={() => toDelete && del.mutate(toDelete.id)}
+          onCancel={() => setToDelete(null)}
+        />
+      </CardBody>
+    </Card>
+  );
+}
+
 function MembersCard({ tenantId }: { tenantId: string }) {
   const { me, tenant } = useWorkspace();
   const toast = useToast();
@@ -1841,6 +1970,9 @@ function MembersCard({ tenantId }: { tenantId: string }) {
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [removing, setRemoving] = useState<{ userId: string; name: string } | null>(null);
   const isOwner = tenant.role === "owner";
+
+  const rolesQuery = useQuery({ queryKey: ["roles", tenantId], queryFn: () => api.roles(tenantId), enabled: tenant.role === "owner" });
+  const customRoles = rolesQuery.data?.roles ?? [];
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["members", tenantId] });
 
@@ -1854,8 +1986,14 @@ function MembersCard({ tenantId }: { tenantId: string }) {
     onError: (err) => toast("error", (err as Error).message),
   });
 
-  const changeRole = useMutation({
-    mutationFn: (v: { userId: string; role: "owner" | "admin" | "viewer" }) => api.updateMemberRole(tenantId, v.userId, v.role),
+  // Nilai select: "preset:owner|admin|viewer" atau "custom:<id>".
+  const assign = useMutation({
+    mutationFn: (v: { userId: string; value: string }) => {
+      const [kind, val] = v.value.split(":");
+      return kind === "custom"
+        ? api.assignMemberRole(tenantId, v.userId, { customRoleId: val })
+        : api.assignMemberRole(tenantId, v.userId, { preset: val as "owner" | "admin" | "viewer" });
+    },
     onSuccess: () => {
       toast("success", "Peran anggota diperbarui.");
       invalidate();
@@ -1910,17 +2048,24 @@ function MembersCard({ tenantId }: { tenantId: string }) {
                       {canManage ? (
                         <Select
                           aria-label={`Peran ${m.name}`}
-                          className="h-8 w-28"
-                          value={m.role}
-                          onChange={(e) => changeRole.mutate({ userId: m.userId, role: e.target.value as "owner" | "admin" | "viewer" })}
-                          disabled={changeRole.isPending}
+                          className="h-8 w-40"
+                          value={m.customRoleId ? `custom:${m.customRoleId}` : `preset:${m.role}`}
+                          onChange={(e) => assign.mutate({ userId: m.userId, value: e.target.value })}
+                          disabled={assign.isPending}
                         >
-                          <option value="owner">Pemilik</option>
-                          <option value="admin">Admin</option>
-                          <option value="viewer">Viewer</option>
+                          <option value="preset:owner">Pemilik</option>
+                          <option value="preset:admin">Admin</option>
+                          <option value="preset:viewer">Viewer</option>
+                          {customRoles.length > 0 ? (
+                            <optgroup label="Peran kustom">
+                              {customRoles.map((r) => (
+                                <option key={r.id} value={`custom:${r.id}`}>{r.name}</option>
+                              ))}
+                            </optgroup>
+                          ) : null}
                         </Select>
                       ) : (
-                        <Badge tone={m.role === "owner" ? "brand" : "neutral"}>{ROLE_LABELS[m.role] ?? m.role}</Badge>
+                        <Badge tone={m.role === "owner" ? "brand" : "neutral"}>{m.roleName ?? ROLE_LABELS[m.role] ?? m.role}</Badge>
                       )}
                     </td>
                     {isOwner ? (

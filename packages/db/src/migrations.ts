@@ -81,6 +81,25 @@ export const CONTROL_PLANE_MIGRATIONS: Migration[] = [
       `ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0`,
     ],
   },
+  {
+    id: "0003_custom_roles",
+    statements: [
+      // RBAC granular (Fase 7e): peran kustom per tenant. base_role menjaga
+      // kompatibilitas requireTenantRole (baca/tulis per level); permissions =
+      // JSON array kunci modul yang boleh diakses. memberships.custom_role_id
+      // menunjuk peran kustom bila anggota memakainya (role tetap terisi base).
+      `CREATE TABLE custom_roles (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        base_role TEXT NOT NULL,
+        permissions TEXT NOT NULL DEFAULT '[]',
+        created_at TEXT NOT NULL
+      )`,
+      `CREATE INDEX custom_roles_tenant ON custom_roles (tenant_id)`,
+      `ALTER TABLE memberships ADD COLUMN custom_role_id TEXT`,
+    ],
+  },
 ];
 
 /**

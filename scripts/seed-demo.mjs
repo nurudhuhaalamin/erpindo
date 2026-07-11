@@ -490,6 +490,11 @@ await step("bukti potong PPh 23 sewa gudang (belum setor)", "POST", `${T}/tax/pp
   contactId: suppKopi.id, taxDate: daysAgo(2), objectType: "sewa", gross: 5_000_000, rate: 2, sourceAccountId: bank.id, note: "Sewa gudang bulan ini",
 });
 
+// --- 13b4. RBAC granular: peran kustom (izin modul terbatas) ----------------------
+await step("peran kustom: Kasir Toko", "POST", `${T}/roles`, { name: "Kasir Toko", baseRole: "admin", permissions: ["penjualan", "kasir", "stok"] });
+await step("peran kustom: Staf Keuangan", "POST", `${T}/roles`, { name: "Staf Keuangan", baseRole: "admin", permissions: ["keuangan", "laporan", "pajak"] });
+await step("peran kustom: Auditor (baca-saja)", "POST", `${T}/roles`, { name: "Auditor", baseRole: "viewer", permissions: ["keuangan", "laporan", "pajak", "persetujuan"] });
+
 // --- 13c. Approval workflow engine: aturan berjenjang + alur multi-langkah -----------
 await step("aturan approval: pembelian besar (Admin→Pemilik)", "POST", `${T}/approval-rules`, {
   name: "Pembelian besar", docType: "pembelian", minAmount: 5_000_000, approverRoles: ["admin", "owner"],

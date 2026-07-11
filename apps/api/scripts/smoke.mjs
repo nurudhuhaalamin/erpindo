@@ -1345,6 +1345,45 @@ try {
   const flowHist = history.json?.flows?.find((f) => f.id === flow.json.id);
   check("riwayat memuat alur dengan 2 langkah tersetujui", flowHist?.steps?.filter((s) => s.status === "approved").length === 2, `→ ${JSON.stringify(flowHist?.steps?.map((s) => s.status))}`);
 
+  // --- RBAC granular (Fase 7e): izin per modul + peran kustom ---------------------
+  console.log("11e4. RBAC granular (izin modul + peran kustom)");
+  const permOwner = await owner("GET", `/api/tenants/${tenantId}/my-permissions`);
+  check("izin Owner: semua 13 modul", permOwner.status === 200 && permOwner.json?.role === "owner" && permOwner.json?.permissions?.length === 13, `→ ${permOwner.json?.permissions?.length}`);
+  const permAdmin = await admin("GET", `/api/tenants/${tenantId}/my-permissions`);
+  check("izin Admin: 12 modul (tanpa kelola pengguna)", permAdmin.status === 200 && permAdmin.json?.permissions?.length === 12 && !permAdmin.json.permissions.includes("pengguna"), `→ ${permAdmin.json?.permissions?.length}`);
+  const permViewerPre = await viewer("GET", `/api/tenants/${tenantId}/my-permissions`);
+  check("izin Viewer: semua modul terlihat (baca-saja)", permViewerPre.status === 200 && permViewerPre.json?.role === "viewer" && permViewerPre.json?.permissions?.length === 13);
+
+  const roleViewerTry = await viewer("POST", `/api/tenants/${tenantId}/roles`, { name: "X", baseRole: "admin", permissions: ["penjualan"] });
+  check("viewer DITOLAK membuat peran kustom (403)", roleViewerTry.status === 403);
+  const kasirRole = await owner("POST", `/api/tenants/${tenantId}/roles`, { name: "Kasir Toko", baseRole: "admin", permissions: ["penjualan", "kasir"] });
+  check("buat peran kustom 'Kasir Toko' 201", kasirRole.status === 201 && Boolean(kasirRole.json?.id));
+
+  const membersList = await owner("GET", `/api/tenants/${tenantId}/members`);
+  const viewerMember = membersList.json?.members?.find((m) => m.role === "viewer");
+  check("daftar anggota memuat viewer", Boolean(viewerMember?.userId));
+  const assignKasir = await owner("PATCH", `/api/tenants/${tenantId}/members/${viewerMember.userId}/assign`, { customRoleId: kasirRole.json.id });
+  check("tetapkan peran kustom ke anggota 200", assignKasir.status === 200, `→ ${assignKasir.status}`);
+  const permViewerKasir = await viewer("GET", `/api/tenants/${tenantId}/my-permissions`);
+  check("izin anggota kini = peran kustom (base admin, 2 modul)", permViewerKasir.json?.role === "admin" && permViewerKasir.json?.roleName === "Kasir Toko" && permViewerKasir.json?.permissions?.length === 2, `→ ${JSON.stringify(permViewerKasir.json)}`);
+  const taxBlocked = await viewer("GET", `/api/tenants/${tenantId}/tax/pph-final/preview?period=2026-10`);
+  check("peran kustom tanpa izin 'pajak' DITOLAK akses Pajak (403)", taxBlocked.status === 403, `→ ${taxBlocked.status}`);
+
+  const pajakRole = await owner("POST", `/api/tenants/${tenantId}/roles`, { name: "Staf Pajak", baseRole: "admin", permissions: ["pajak", "laporan"] });
+  await owner("PATCH", `/api/tenants/${tenantId}/members/${viewerMember.userId}/assign`, { customRoleId: pajakRole.json.id });
+  const taxAllowed = await viewer("GET", `/api/tenants/${tenantId}/tax/pph-final/preview?period=2026-10`);
+  check("peran kustom dengan izin 'pajak' BOLEH akses Pajak (200)", taxAllowed.status === 200, `→ ${taxAllowed.status}`);
+
+  const delInUse = await owner("DELETE", `/api/tenants/${tenantId}/roles/${pajakRole.json.id}`);
+  check("hapus peran yang masih dipakai DITOLAK 409", delInUse.status === 409);
+  const restoreViewer = await owner("PATCH", `/api/tenants/${tenantId}/members/${viewerMember.userId}/assign`, { preset: "viewer" });
+  check("kembalikan anggota ke preset Viewer 200", restoreViewer.status === 200);
+  const delFreed = await owner("DELETE", `/api/tenants/${tenantId}/roles/${pajakRole.json.id}`);
+  check("hapus peran yang sudah tak dipakai 200", delFreed.status === 200);
+  await owner("DELETE", `/api/tenants/${tenantId}/roles/${kasirRole.json.id}`);
+  const permViewerPost = await viewer("GET", `/api/tenants/${tenantId}/my-permissions`);
+  check("anggota kembali jadi Viewer baca-saja (13 modul)", permViewerPost.json?.role === "viewer" && permViewerPost.json?.permissions?.length === 13);
+
   // --- Lot & kedaluwarsa (Fase 2j) ----------------------------------------------
   console.log("11f. Batch/lot & kedaluwarsa (FEFO)");
 
