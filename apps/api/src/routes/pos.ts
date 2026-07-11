@@ -1,4 +1,12 @@
-import { closeShiftSchema, openShiftSchema, posSaleSchema, type ApiPosShift } from "@erpindo/shared";
+import {
+  closeShiftSchema,
+  holdSaleSchema,
+  openShiftSchema,
+  posSaleSchema,
+  type ApiHeldSale,
+  type ApiPosShift,
+  type PosPaymentMethod,
+} from "@erpindo/shared";
 import { Hono } from "hono";
 import type { SqlExecutor } from "@erpindo/db";
 import type { AppEnv } from "../env";
@@ -40,12 +48,32 @@ async function walkInCustomerId(db: SqlExecutor): Promise<string> {
   return id;
 }
 
-async function shiftTotals(db: SqlExecutor, shiftId: string): Promise<{ count: number; total: number }> {
+/**
+ * Rekap shift: jumlah & total penjualan (semua metode) + total TUNAI yang masuk laci.
+ * Total tunai dihitung dari `pos_sale_payments` (metode tunai); faktur POS lama tanpa
+ * baris pembayaran diperlakukan sebagai tunai penuh (kompatibilitas).
+ */
+async function shiftTotals(db: SqlExecutor, shiftId: string): Promise<{ count: number; salesTotal: number; cashTotal: number }> {
   const { results } = await db
     .prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(total), 0) AS total FROM invoices WHERE pos_shift_id = ?`)
     .bind(shiftId)
     .all<{ n: number; total: number }>();
-  return { count: results[0]?.n ?? 0, total: results[0]?.total ?? 0 };
+  const { results: cashRows } = await db
+    .prepare(`SELECT COALESCE(SUM(amount), 0) AS c FROM pos_sale_payments WHERE shift_id = ? AND method = 'tunai'`)
+    .bind(shiftId)
+    .all<{ c: number }>();
+  const { results: legacyRows } = await db
+    .prepare(
+      `SELECT COALESCE(SUM(total), 0) AS c FROM invoices
+       WHERE pos_shift_id = ? AND id NOT IN (SELECT invoice_id FROM pos_sale_payments)`,
+    )
+    .bind(shiftId)
+    .all<{ c: number }>();
+  return {
+    count: results[0]?.n ?? 0,
+    salesTotal: results[0]?.total ?? 0,
+    cashTotal: (cashRows[0]?.c ?? 0) + (legacyRows[0]?.c ?? 0),
+  };
 }
 
 export const posRoutes = new Hono<AppEnv>()
@@ -79,8 +107,8 @@ export const posRoutes = new Hono<AppEnv>()
       openingCash: shift.opening_cash,
       openedAt: shift.opened_at,
       salesCount: totals.count,
-      cashSalesTotal: totals.total,
-      expectedCash: shift.opening_cash + totals.total,
+      cashSalesTotal: totals.cashTotal,
+      expectedCash: shift.opening_cash + totals.cashTotal,
     };
     return c.json({ shift: body });
   })
@@ -157,9 +185,26 @@ export const posRoutes = new Hono<AppEnv>()
     const taxAmount = Math.round((subtotal * input.taxRate) / 100);
     const total = subtotal + taxAmount;
     if (total === 0) return c.json({ error: "Total tidak boleh nol." }, 400);
-    if (input.cashReceived < total) {
-      return c.json({ error: "Uang yang diterima kurang dari total belanja." }, 400);
-    }
+
+    // Pembayaran: pakai `payments` bila ada, jika tidak fallback ke tunai tunggal (legacy).
+    const tenders: { method: PosPaymentMethod; amount: number }[] =
+      input.payments && input.payments.length > 0
+        ? input.payments
+        : [{ method: "tunai", amount: input.cashReceived ?? 0 }];
+    const tenderedTotal = tenders.reduce((s, p) => s + p.amount, 0);
+    if (tenderedTotal < total) return c.json({ error: "Total pembayaran kurang dari total belanja." }, 400);
+    const change = tenderedTotal - total;
+    // Kembalian hanya dari tunai — pastikan tunai yang diserahkan cukup menutup kembalian.
+    const cashTendered = tenders.filter((p) => p.method === "tunai").reduce((s, p) => s + p.amount, 0);
+    if (change > cashTendered) return c.json({ error: "Kembalian melebihi uang tunai yang diterima." }, 400);
+    // Nilai masuk pembukuan per metode: non-tunai = persis; tunai = tunai diserahkan − kembalian.
+    const applied = tenders.map((p) => ({
+      method: p.method,
+      tendered: p.amount,
+      amount: p.method === "tunai" ? p.amount - change : p.amount,
+    }));
+    const cashApplied = applied.filter((p) => p.method === "tunai").reduce((s, p) => s + p.amount, 0);
+    const nonCashApplied = applied.filter((p) => p.method !== "tunai").reduce((s, p) => s + p.amount, 0);
 
     const invoiceId = crypto.randomUUID();
     let totalCogs = 0;
@@ -178,8 +223,9 @@ export const posRoutes = new Hono<AppEnv>()
       throw err;
     }
 
-    const [kas, pendapatan, ppnKeluaran, hpp, persediaan] = await Promise.all([
+    const [kas, bank, pendapatan, ppnKeluaran, hpp, persediaan] = await Promise.all([
       accountIdByCode(db, SYS_ACCOUNTS.KAS),
+      accountIdByCode(db, SYS_ACCOUNTS.BANK),
       accountIdByCode(db, SYS_ACCOUNTS.PENDAPATAN),
       accountIdByCode(db, SYS_ACCOUNTS.PPN_KELUARAN),
       accountIdByCode(db, SYS_ACCOUNTS.HPP),
@@ -193,7 +239,9 @@ export const posRoutes = new Hono<AppEnv>()
       memo,
       createdBy: c.get("user").id,
       lines: [
-        { accountId: kas, description: memo, debit: total, credit: 0 },
+        // Kas untuk porsi tunai; Bank untuk porsi non-tunai (QRIS/kartu/e-wallet).
+        ...(cashApplied > 0 ? [{ accountId: kas, description: memo, debit: cashApplied, credit: 0 }] : []),
+        ...(nonCashApplied > 0 ? [{ accountId: bank, description: `${memo} (non-tunai)`, debit: nonCashApplied, credit: 0 }] : []),
         { accountId: pendapatan, description: memo, debit: 0, credit: subtotal },
         ...(taxAmount > 0 ? [{ accountId: ppnKeluaran, description: memo, debit: 0, credit: taxAmount }] : []),
         ...(totalCogs > 0
@@ -245,24 +293,87 @@ export const posRoutes = new Hono<AppEnv>()
         )
         .run();
     }
-    const paymentNo = await nextDocNo(db, "payments", "PAY");
-    await db
-      .prepare(
-        `INSERT INTO payments (id, payment_no, direction, ref_type, ref_id, account_id, amount, payment_date,
-                               journal_entry_id, created_by)
-         VALUES (?, ?, 'receive', 'invoice', ?, ?, ?, ?, ?, ?)`,
-      )
-      .bind(crypto.randomUUID(), paymentNo, invoiceId, kas, total, today, journal.id, c.get("user").id)
-      .run();
+    // Catat pembayaran akuntansi per akun (kas & bank) + rincian metode POS.
+    for (const [acct, amt] of [
+      [kas, cashApplied],
+      [bank, nonCashApplied],
+    ] as const) {
+      if (amt <= 0) continue;
+      const paymentNo = await nextDocNo(db, "payments", "PAY");
+      await db
+        .prepare(
+          `INSERT INTO payments (id, payment_no, direction, ref_type, ref_id, account_id, amount, payment_date,
+                                 journal_entry_id, created_by)
+           VALUES (?, ?, 'receive', 'invoice', ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(crypto.randomUUID(), paymentNo, invoiceId, acct, amt, today, journal.id, c.get("user").id)
+        .run();
+    }
+    for (const p of applied) {
+      if (p.amount <= 0) continue;
+      await db
+        .prepare(`INSERT INTO pos_sale_payments (id, invoice_id, shift_id, method, amount, tendered) VALUES (?, ?, ?, ?, ?, ?)`)
+        .bind(crypto.randomUUID(), invoiceId, input.shiftId, p.method, p.amount, p.tendered)
+        .run();
+    }
 
     await audit(c.env, {
       action: "pos.sale",
       userId: c.get("user").id,
       tenantId: tenant.id,
-      detail: { docNo, total },
+      detail: { docNo, total, methods: applied.map((p) => p.method).join("+") },
       ip: clientIp(c),
     });
-    return c.json({ ok: true, invoiceNo: docNo, total, change: input.cashReceived - total }, 201);
+    return c.json({ ok: true, invoiceNo: docNo, total, change }, 201);
+  })
+
+  // -------------------------------------------------------------------------
+  // Tahan transaksi (park): simpan/ambil/hapus keranjang sementara per shift.
+  // -------------------------------------------------------------------------
+  .get("/:tenantId/pos/held", requireAuth, requireTenantRole("viewer"), async (c) => {
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+    const shiftId = c.req.query("shiftId") ?? "";
+    const { results } = await db
+      .prepare(`SELECT id, label, cart, created_at FROM pos_held_sales WHERE shift_id = ? ORDER BY created_at DESC`)
+      .bind(shiftId)
+      .all<{ id: string; label: string; cart: string; created_at: string }>();
+    const held: ApiHeldSale[] = results.map((r) => {
+      const parsed = JSON.parse(r.cart) as { cart: unknown; taxRate?: number };
+      return {
+        id: r.id,
+        label: r.label,
+        cart: (parsed.cart ?? []) as ApiHeldSale["cart"],
+        taxRate: parsed.taxRate ?? 0,
+        createdAt: r.created_at,
+      };
+    });
+    return c.json({ held });
+  })
+
+  .post("/:tenantId/pos/held", requireAuth, requireTenantRole("admin"), async (c) => {
+    const parsed = holdSaleSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+    const { results: shifts } = await db
+      .prepare(`SELECT id FROM pos_shifts WHERE id = ? AND status = 'open'`)
+      .bind(parsed.data.shiftId)
+      .all<{ id: string }>();
+    if (!shifts[0]) return c.json({ error: "Shift tidak ditemukan atau sudah ditutup." }, 400);
+    const id = crypto.randomUUID();
+    await db
+      .prepare(`INSERT INTO pos_held_sales (id, shift_id, label, cart) VALUES (?, ?, ?, ?)`)
+      .bind(id, parsed.data.shiftId, parsed.data.label, JSON.stringify({ cart: parsed.data.cart, taxRate: parsed.data.taxRate ?? 0 }))
+      .run();
+    return c.json({ ok: true, id }, 201);
+  })
+
+  .delete("/:tenantId/pos/held/:id", requireAuth, requireTenantRole("admin"), async (c) => {
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+    const id = c.req.param("id");
+    const { results } = await db.prepare(`SELECT id FROM pos_held_sales WHERE id = ?`).bind(id).all<{ id: string }>();
+    if (!results[0]) return c.json({ error: "Transaksi tahan tidak ditemukan." }, 404);
+    await db.prepare(`DELETE FROM pos_held_sales WHERE id = ?`).bind(id).run();
+    return c.json({ ok: true });
   })
 
   // -------------------------------------------------------------------------
@@ -286,7 +397,7 @@ export const posRoutes = new Hono<AppEnv>()
     if (!shift) return c.json({ error: "Shift tidak ditemukan atau sudah ditutup." }, 400);
 
     const totals = await shiftTotals(db, shiftId);
-    const expected = shift.opening_cash + totals.total;
+    const expected = shift.opening_cash + totals.cashTotal;
     const difference = parsed.data.closingCash - expected;
 
     let journalId: string | null = null;

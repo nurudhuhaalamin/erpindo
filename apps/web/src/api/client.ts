@@ -30,6 +30,9 @@ import type {
   ApiProject,
   ApiProjectDetail,
   ApiPosShift,
+  ApiHeldSale,
+  HoldSaleInput,
+  PosPaymentMethod,
   ApiBalanceSheet,
   ApiBom,
   ApiCashFlow,
@@ -625,7 +628,8 @@ export const api = {
     input: {
       shiftId: string;
       taxRate: number;
-      cashReceived: number;
+      cashReceived?: number;
+      payments?: { method: PosPaymentMethod; amount: number }[];
       lines: { productId: string; qty: number; unitPrice: number; discountPct?: number }[];
     },
   ) =>
@@ -634,6 +638,12 @@ export const api = {
       `/api/tenants/${tenantId}/pos/sales`,
       input,
     ),
+  posHeld: (tenantId: string, shiftId: string) =>
+    request<{ held: ApiHeldSale[] }>("GET", `/api/tenants/${tenantId}/pos/held?shiftId=${encodeURIComponent(shiftId)}`),
+  posHold: (tenantId: string, input: HoldSaleInput) =>
+    request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/pos/held`, input),
+  posDeleteHeld: (tenantId: string, id: string) =>
+    request<{ ok: true }>("DELETE", `/api/tenants/${tenantId}/pos/held/${id}`),
   posCloseShift: (tenantId: string, shiftId: string, closingCash: number) =>
     request<{ ok: true; expected: number; closingCash: number; difference: number; salesCount: number }>(
       "POST",

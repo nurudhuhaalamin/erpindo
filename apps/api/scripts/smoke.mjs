@@ -881,6 +881,57 @@ try {
   const tbAfterPos = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah POS", tbAfterPos.json?.balanced === true);
 
+  // --- POS lanjut (Fase 7a): multi metode bayar + split + tahan transaksi ---------
+  console.log("11d2. POS lanjut (multi-bayar + tahan transaksi)");
+  // Produk khusus POS, distok lewat pembelian September (di luar jendela arus kas Juli
+  // & di luar asersi stok BRG-002), lalu dibayar tunai agar tak menyisakan hutang.
+  const prodPos = await owner("POST", `/api/tenants/${tenantId}/products`, {
+    sku: "POS-7A", name: "Produk POS", unit: "pcs", sellPrice: 150_000, buyPrice: 100_000,
+  });
+  const posBuy = await owner("POST", `/api/tenants/${tenantId}/purchases`, {
+    contactId: supplier.json.id, invoiceDate: "2026-09-15", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: prodPos.json.id, qty: 5, unitPrice: 100_000 }],
+  });
+  await owner("POST", `/api/tenants/${tenantId}/payments`, {
+    refType: "purchase", refId: posBuy.json.id, accountId: kas.id, amount: 500_000, paymentDate: "2026-09-15",
+  });
+  const shift2 = await owner("POST", `/api/tenants/${tenantId}/pos/shift/open`, { warehouseId: whUtama.id, openingCash: 0 });
+  check("buka shift kedua (kas awal 0)", shift2.status === 201);
+  // Split: tunai 100rb + QRIS 50rb untuk total 150rb → kembalian 0; hanya tunai masuk laci.
+  const splitSale = await owner("POST", `/api/tenants/${tenantId}/pos/sales`, {
+    shiftId: shift2.json.id, taxRate: 0,
+    payments: [{ method: "tunai", amount: 100_000 }, { method: "qris", amount: 50_000 }],
+    lines: [{ productId: prodPos.json.id, qty: 1, unitPrice: 150_000 }],
+  });
+  check("penjualan split tunai+QRIS 201 (kembalian 0)", splitSale.status === 201 && splitSale.json?.total === 150_000 && splitSale.json?.change === 0, `→ ${JSON.stringify(splitSale.json)}`);
+  const shift2State = await owner("GET", `/api/tenants/${tenantId}/pos/shift`);
+  check("kas laci shift hanya porsi TUNAI (100rb, bukan 150rb)", shift2State.json?.shift?.expectedCash === 100_000, `→ ${shift2State.json?.shift?.expectedCash}`);
+  const badOverpay = await owner("POST", `/api/tenants/${tenantId}/pos/sales`, {
+    shiftId: shift2.json.id, taxRate: 0,
+    payments: [{ method: "qris", amount: 200_000 }],
+    lines: [{ productId: prodPos.json.id, qty: 1, unitPrice: 150_000 }],
+  });
+  check("kembalian dari non-tunai DITOLAK 400", badOverpay.status === 400);
+  const underPay2 = await owner("POST", `/api/tenants/${tenantId}/pos/sales`, {
+    shiftId: shift2.json.id, taxRate: 0,
+    payments: [{ method: "kartu", amount: 100_000 }],
+    lines: [{ productId: prodPos.json.id, qty: 1, unitPrice: 150_000 }],
+  });
+  check("total pembayaran kurang DITOLAK 400", underPay2.status === 400);
+  const hold1 = await owner("POST", `/api/tenants/${tenantId}/pos/held`, {
+    shiftId: shift2.json.id, label: "Meja 3", cart: [{ productId: prodPos.json.id, qty: 2, unitPrice: 150_000 }], taxRate: 0,
+  });
+  check("tahan transaksi 201", hold1.status === 201);
+  const heldList = await owner("GET", `/api/tenants/${tenantId}/pos/held?shiftId=${shift2.json.id}`);
+  check("daftar tahan memuat 1 (Meja 3, 1 item)", heldList.json?.held?.length === 1 && heldList.json.held[0].label === "Meja 3" && heldList.json.held[0].cart?.length === 1, `→ ${JSON.stringify(heldList.json?.held)}`);
+  const delHeld = await owner("DELETE", `/api/tenants/${tenantId}/pos/held/${hold1.json.id}`);
+  check("hapus/panggil tahan 200", delHeld.status === 200);
+  const viewerHold = await viewer("POST", `/api/tenants/${tenantId}/pos/held`, { shiftId: shift2.json.id, label: "X", cart: [{ productId: prodPos.json.id, qty: 1, unitPrice: 1 }] });
+  check("viewer DITOLAK menahan transaksi (403)", viewerHold.status === 403);
+  await owner("POST", `/api/tenants/${tenantId}/pos/shift/${shift2.json.id}/close`, { closingCash: 100_000 });
+  const tbAfterPos2 = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah POS multi-bayar", tbAfterPos2.json?.balanced === true);
+
   const shiftByViewer = await viewer("POST", `/api/tenants/${tenantId}/pos/shift/open`, {
     warehouseId: whUtama.id,
     openingCash: 0,
@@ -2871,12 +2922,12 @@ try {
   // + jurnal pasca tutup buku 1rb (15/7). Tidak ada kas keluar.
   const cf = await owner("GET", `/api/tenants/${tenantId}/reports/cash-flow?from=2026-07-03&to=2026-07-31`);
   check(
-    "arus kas: saldo awal 50jt, masuk 3.150.500, keluar 10rb, akhir 53.140.500",
+    "arus kas: saldo awal 50jt, masuk 3.300.500, keluar 10rb, akhir 53.290.500",
     cf.status === 200 &&
       cf.json?.openingBalance === 50_000_000 &&
-      cf.json?.totalIn === 3_150_500 &&
+      cf.json?.totalIn === 3_300_500 &&
       cf.json?.totalOut === 10_000 &&
-      cf.json?.closingBalance === 53_140_500,
+      cf.json?.closingBalance === 53_290_500,
     `→ ${JSON.stringify(cf.json && { o: cf.json.openingBalance, i: cf.json.totalIn, out: cf.json.totalOut, c: cf.json.closingBalance })}`,
   );
 
