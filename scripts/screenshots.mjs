@@ -148,6 +148,15 @@ const MANIFESTS = {
     fullPage: true,
     shots: [{ route: "/app/keuangan/pajak", name: "pajak-umkm", waitMs: 1600 }],
   },
+  // Set ad-hoc Fase 7e: halaman Pengaturan (anggota + peran kustom RBAC).
+  so7e: {
+    outDir: process.env.SO7E_OUT ?? path.join(tmpdir(), "erpindo-so7e"),
+    viewport: { width: 1440, height: 1400 },
+    theme: "light",
+    quality: 85,
+    fullPage: true,
+    shots: [{ route: "/app/pengaturan", name: "rbac-peran-kustom", waitMs: 1600 }],
+  },
   // Audit visual QA: halaman PENUH pada 3 viewport. Keluaran ke AUDIT_OUT
   // (default tmp) — TIDAK di-commit; alat review, bukan aset produk.
   audit: {

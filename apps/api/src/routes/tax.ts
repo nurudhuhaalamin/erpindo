@@ -14,7 +14,7 @@ import type { AppEnv } from "../env";
 import { getLockedBefore, nextDocNo, postJournal } from "../lib/accounting";
 import { audit } from "../lib/audit";
 import { getTenantDb } from "../lib/tenantDb";
-import { requireAuth, requireTenantRole } from "../middleware/auth";
+import { requireAuth, requirePermission, requireTenantRole } from "../middleware/auth";
 import { clientIp } from "./auth";
 
 /**
@@ -54,7 +54,7 @@ async function assetAccount(db: SqlExecutor, id: string): Promise<boolean> {
 
 export const taxRoutes = new Hono<AppEnv>()
   // --- PPh Final 0,5% -------------------------------------------------------
-  .get("/:tenantId/tax/pph-final/preview", requireAuth, requireTenantRole("viewer"), async (c) => {
+  .get("/:tenantId/tax/pph-final/preview", requireAuth, requireTenantRole("viewer"), requirePermission("pajak"), async (c) => {
     const period = c.req.query("period") ?? "";
     if (!PERIOD_RE.test(period)) return c.json({ error: "Masa pajak harus format YYYY-MM." }, 400);
     const db = getTenantDb(c.env, c.get("tenant").dbRef);
@@ -65,7 +65,7 @@ export const taxRoutes = new Hono<AppEnv>()
     return c.json(preview);
   })
 
-  .get("/:tenantId/tax/pph-final", requireAuth, requireTenantRole("viewer"), async (c) => {
+  .get("/:tenantId/tax/pph-final", requireAuth, requireTenantRole("viewer"), requirePermission("pajak"), async (c) => {
     const db = getTenantDb(c.env, c.get("tenant").dbRef);
     const { results } = await db
       .prepare(`SELECT id, period, omzet, rate, amount, account_id, paid_date, created_at FROM tax_pph_final ORDER BY period DESC LIMIT 60`)
@@ -74,7 +74,7 @@ export const taxRoutes = new Hono<AppEnv>()
     return c.json({ records });
   })
 
-  .post("/:tenantId/tax/pph-final", requireAuth, requireTenantRole("admin"), async (c) => {
+  .post("/:tenantId/tax/pph-final", requireAuth, requireTenantRole("admin"), requirePermission("pajak"), async (c) => {
     const parsed = pphFinalSchema.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success) return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
     const tenant = c.get("tenant");
@@ -113,7 +113,7 @@ export const taxRoutes = new Hono<AppEnv>()
   })
 
   // --- PPh 23 (bukti potong) ------------------------------------------------
-  .get("/:tenantId/tax/pph23", requireAuth, requireTenantRole("viewer"), async (c) => {
+  .get("/:tenantId/tax/pph23", requireAuth, requireTenantRole("viewer"), requirePermission("pajak"), async (c) => {
     const db = getTenantDb(c.env, c.get("tenant").dbRef);
     const { results } = await db
       .prepare(
@@ -141,7 +141,7 @@ export const taxRoutes = new Hono<AppEnv>()
     return c.json({ records });
   })
 
-  .post("/:tenantId/tax/pph23", requireAuth, requireTenantRole("admin"), async (c) => {
+  .post("/:tenantId/tax/pph23", requireAuth, requireTenantRole("admin"), requirePermission("pajak"), async (c) => {
     const parsed = pph23Schema.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success) return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
     const tenant = c.get("tenant");
@@ -180,7 +180,7 @@ export const taxRoutes = new Hono<AppEnv>()
     return c.json({ ok: true, id, docNo, amount }, 201);
   })
 
-  .post("/:tenantId/tax/pph23/:id/deposit", requireAuth, requireTenantRole("admin"), async (c) => {
+  .post("/:tenantId/tax/pph23/:id/deposit", requireAuth, requireTenantRole("admin"), requirePermission("pajak"), async (c) => {
     const parsed = pph23DepositSchema.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success) return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
     const tenant = c.get("tenant");
@@ -213,7 +213,7 @@ export const taxRoutes = new Hono<AppEnv>()
   })
 
   // --- SPT Masa PPN 1111 ----------------------------------------------------
-  .get("/:tenantId/tax/spt-ppn", requireAuth, requireTenantRole("viewer"), async (c) => {
+  .get("/:tenantId/tax/spt-ppn", requireAuth, requireTenantRole("viewer"), requirePermission("pajak"), async (c) => {
     const period = c.req.query("period") ?? "";
     if (!PERIOD_RE.test(period)) return c.json({ error: "Masa pajak harus format YYYY-MM." }, 400);
     const db = getTenantDb(c.env, c.get("tenant").dbRef);

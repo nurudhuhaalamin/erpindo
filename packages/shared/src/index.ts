@@ -17,6 +17,63 @@ export const ROLE_LEVEL: Record<Role, number> = {
   owner: 3,
 };
 
+// ---------------------------------------------------------------------------
+// RBAC granular (Fase 7e): izin per modul. ADDITIVE — Owner/Admin/Viewer tetap
+// preset yang memetakan ke set izin; requireTenantRole lama tetap menegakkan
+// baca/tulis per level, izin modul mengatur AKSES modul (visibilitas + gate).
+// ---------------------------------------------------------------------------
+export const PERMISSIONS = [
+  { key: "penjualan", label: "Penjualan & Pesanan" },
+  { key: "pembelian", label: "Pembelian & Pengadaan" },
+  { key: "kasir", label: "Kasir (POS)" },
+  { key: "stok", label: "Stok & Produk" },
+  { key: "keuangan", label: "Keuangan & Akuntansi" },
+  { key: "pajak", label: "Pajak" },
+  { key: "laporan", label: "Laporan" },
+  { key: "hr", label: "HR & Penggajian" },
+  { key: "proyek", label: "Proyek & operasi" },
+  { key: "crm", label: "CRM & Penawaran" },
+  { key: "persetujuan", label: "Persetujuan" },
+  { key: "pengaturan", label: "Pengaturan perusahaan" },
+  { key: "pengguna", label: "Kelola pengguna & peran" },
+] as const;
+export type PermissionKey = (typeof PERMISSIONS)[number]["key"];
+export const PERMISSION_KEYS = PERMISSIONS.map((p) => p.key) as PermissionKey[];
+export const PERMISSION_LABELS: Record<string, string> = Object.fromEntries(PERMISSIONS.map((p) => [p.key, p.label]));
+
+/** Peta preset peran → izin modul. Owner = semua; Admin = semua kecuali kelola pengguna;
+ *  Viewer = semua modul terlihat (baca-saja ditegakkan oleh requireTenantRole). */
+export const PRESET_PERMISSIONS: Record<Role, PermissionKey[]> = {
+  owner: [...PERMISSION_KEYS],
+  admin: PERMISSION_KEYS.filter((k) => k !== "pengguna"),
+  viewer: [...PERMISSION_KEYS],
+};
+
+/** Peran kustom: nama + preset dasar (untuk kompatibilitas requireTenantRole) + izin modul. */
+export const customRoleSchema = z.object({
+  name: z.string().trim().min(2, "Nama peran minimal 2 karakter").max(40),
+  baseRole: z.enum(["admin", "viewer"]),
+  permissions: z.array(z.enum(PERMISSION_KEYS as [PermissionKey, ...PermissionKey[]])).min(1, "Pilih minimal satu modul"),
+});
+export type CustomRoleInput = z.infer<typeof customRoleSchema>;
+export type ApiCustomRole = {
+  id: string;
+  name: string;
+  baseRole: "admin" | "viewer";
+  permissions: PermissionKey[];
+  memberCount: number;
+  createdAt: string;
+};
+/** Penetapan peran anggota: preset (owner/admin/viewer) ATAU peran kustom. */
+export const assignRoleSchema = z
+  .object({
+    preset: z.enum(ROLES).optional(),
+    customRoleId: z.string().optional(),
+  })
+  .refine((v) => Boolean(v.preset) !== Boolean(v.customRoleId), "Pilih preset ATAU peran kustom (salah satu).");
+export type AssignRoleInput = z.infer<typeof assignRoleSchema>;
+export type ApiMyPermissions = { role: Role; roleName: string; permissions: PermissionKey[] };
+
 export const TENANT_STATUSES = [
   "provisioning",
   "trial",
@@ -164,6 +221,8 @@ export type ApiMember = {
   name: string;
   email: string;
   role: Role;
+  customRoleId: string | null;
+  roleName: string | null;
   joinedAt: string;
 };
 

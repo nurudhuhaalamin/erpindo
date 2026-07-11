@@ -1,14 +1,19 @@
 import {
   acceptInviteSchema,
+  assignRoleSchema,
   closeBooksSchema,
+  customRoleSchema,
   inviteSchema,
   PLAN_LABELS,
   PLAN_LIMITS,
   updateMemberRoleSchema,
   updateTenantSettingsSchema,
   type ApiAuditLog,
+  type ApiCustomRole,
   type ApiMember,
+  type ApiMyPermissions,
   type ApiNotification,
+  type PermissionKey,
   type Plan,
   type Role,
 } from "@erpindo/shared";
@@ -17,11 +22,19 @@ import type { AppEnv } from "../env";
 import { audit } from "../lib/audit";
 import { getMailer } from "../lib/mailer";
 import { getTenantDb } from "../lib/tenantDb";
-import { requireAuth, requireTenantRole } from "../middleware/auth";
+import { requireAuth, requireTenantRole, resolvePermissions } from "../middleware/auth";
 import { appOrigin, clientIp, consumeToken, createEmailToken } from "./auth";
 
 function now(): string {
   return new Date().toISOString();
+}
+
+function safeParsePerms(raw: string): PermissionKey[] {
+  try {
+    return JSON.parse(raw) as PermissionKey[];
+  } catch {
+    return [];
+  }
 }
 
 export const tenantRoutes = new Hono<AppEnv>()
@@ -32,18 +45,21 @@ export const tenantRoutes = new Hono<AppEnv>()
   .get("/:tenantId/members", requireAuth, requireTenantRole("admin"), async (c) => {
     const tenant = c.get("tenant");
     const { results } = await c.env.DB.prepare(
-      `SELECT u.id AS user_id, u.name, u.email, m.role, m.created_at
+      `SELECT u.id AS user_id, u.name, u.email, m.role, m.custom_role_id, r.name AS role_name, m.created_at
        FROM memberships m JOIN users u ON u.id = m.user_id
+       LEFT JOIN custom_roles r ON r.id = m.custom_role_id
        WHERE m.tenant_id = ? ORDER BY m.created_at`,
     )
       .bind(tenant.id)
-      .all<{ user_id: string; name: string; email: string; role: Role; created_at: string }>();
+      .all<{ user_id: string; name: string; email: string; role: Role; custom_role_id: string | null; role_name: string | null; created_at: string }>();
 
     const members: ApiMember[] = results.map((r) => ({
       userId: r.user_id,
       name: r.name,
       email: r.email,
       role: r.role,
+      customRoleId: r.custom_role_id,
+      roleName: r.role_name,
       joinedAt: r.created_at,
     }));
     return c.json({ members });
@@ -126,7 +142,8 @@ export const tenantRoutes = new Hono<AppEnv>()
       if ((owners?.n ?? 0) <= 1) return c.json({ error: "Tidak bisa menurunkan pemilik terakhir." }, 400);
     }
 
-    await c.env.DB.prepare(`UPDATE memberships SET role = ? WHERE tenant_id = ? AND user_id = ?`)
+    // Preset menghapus peran kustom (bila ada) agar izin kembali ke preset.
+    await c.env.DB.prepare(`UPDATE memberships SET role = ?, custom_role_id = NULL WHERE tenant_id = ? AND user_id = ?`)
       .bind(newRole, tenant.id, targetUserId)
       .run();
     await audit(c.env, {
@@ -168,6 +185,103 @@ export const tenantRoutes = new Hono<AppEnv>()
       detail: { targetUserId },
       ip: clientIp(c),
     });
+    return c.json({ ok: true });
+  })
+
+  // -------------------------------------------------------------------------
+  // RBAC granular (Fase 7e): peran kustom + izin efektif
+  // -------------------------------------------------------------------------
+  .get("/:tenantId/my-permissions", requireAuth, requireTenantRole("viewer"), async (c) => {
+    const resolved = await resolvePermissions(c.env, c.get("user").id, c.get("tenant").id);
+    if (!resolved) return c.json({ error: "Anda bukan anggota." }, 403);
+    const body: ApiMyPermissions = resolved;
+    return c.json(body);
+  })
+
+  .get("/:tenantId/roles", requireAuth, requireTenantRole("admin"), async (c) => {
+    const tenant = c.get("tenant");
+    const { results } = await c.env.DB.prepare(
+      `SELECT r.id, r.name, r.base_role, r.permissions, r.created_at,
+              (SELECT COUNT(*) FROM memberships m WHERE m.custom_role_id = r.id) AS member_count
+       FROM custom_roles r WHERE r.tenant_id = ? ORDER BY r.created_at DESC`,
+    )
+      .bind(tenant.id)
+      .all<{ id: string; name: string; base_role: "admin" | "viewer"; permissions: string; created_at: string; member_count: number }>();
+    const roles: ApiCustomRole[] = results.map((r) => ({
+      id: r.id,
+      name: r.name,
+      baseRole: r.base_role,
+      permissions: safeParsePerms(r.permissions),
+      memberCount: r.member_count,
+      createdAt: r.created_at,
+    }));
+    return c.json({ roles });
+  })
+
+  .post("/:tenantId/roles", requireAuth, requireTenantRole("owner"), async (c) => {
+    const parsed = customRoleSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
+    const tenant = c.get("tenant");
+    const id = crypto.randomUUID();
+    await c.env.DB.prepare(`INSERT INTO custom_roles (id, tenant_id, name, base_role, permissions, created_at) VALUES (?, ?, ?, ?, ?, ?)`)
+      .bind(id, tenant.id, parsed.data.name, parsed.data.baseRole, JSON.stringify(parsed.data.permissions), now())
+      .run();
+    await audit(c.env, { action: "tenant.role_created", userId: c.get("user").id, tenantId: tenant.id, detail: { name: parsed.data.name }, ip: clientIp(c) });
+    return c.json({ ok: true, id }, 201);
+  })
+
+  .patch("/:tenantId/roles/:roleId", requireAuth, requireTenantRole("owner"), async (c) => {
+    const parsed = customRoleSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
+    const tenant = c.get("tenant");
+    const roleId = c.req.param("roleId");
+    const existing = await c.env.DB.prepare(`SELECT id FROM custom_roles WHERE id = ? AND tenant_id = ?`).bind(roleId, tenant.id).first<{ id: string }>();
+    if (!existing) return c.json({ error: "Peran tidak ditemukan." }, 404);
+    await c.env.DB.prepare(`UPDATE custom_roles SET name = ?, base_role = ?, permissions = ? WHERE id = ?`)
+      .bind(parsed.data.name, parsed.data.baseRole, JSON.stringify(parsed.data.permissions), roleId)
+      .run();
+    // Sinkronkan base_role ke anggota yang memakai peran ini (kompat requireTenantRole).
+    await c.env.DB.prepare(`UPDATE memberships SET role = ? WHERE custom_role_id = ?`).bind(parsed.data.baseRole, roleId).run();
+    await audit(c.env, { action: "tenant.role_updated", userId: c.get("user").id, tenantId: tenant.id, detail: { roleId }, ip: clientIp(c) });
+    return c.json({ ok: true });
+  })
+
+  .delete("/:tenantId/roles/:roleId", requireAuth, requireTenantRole("owner"), async (c) => {
+    const tenant = c.get("tenant");
+    const roleId = c.req.param("roleId");
+    const used = await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM memberships WHERE custom_role_id = ?`).bind(roleId).first<{ n: number }>();
+    if ((used?.n ?? 0) > 0) return c.json({ error: "Peran masih dipakai anggota — pindahkan dulu." }, 409);
+    await c.env.DB.prepare(`DELETE FROM custom_roles WHERE id = ? AND tenant_id = ?`).bind(roleId, tenant.id).run();
+    await audit(c.env, { action: "tenant.role_deleted", userId: c.get("user").id, tenantId: tenant.id, detail: { roleId }, ip: clientIp(c) });
+    return c.json({ ok: true });
+  })
+
+  // Tetapkan peran (preset atau kustom) ke anggota — Owner.
+  .patch("/:tenantId/members/:userId/assign", requireAuth, requireTenantRole("owner"), async (c) => {
+    const parsed = assignRoleSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
+    const tenant = c.get("tenant");
+    const targetUserId = c.req.param("userId");
+    const target = await c.env.DB.prepare(`SELECT role FROM memberships WHERE tenant_id = ? AND user_id = ?`).bind(tenant.id, targetUserId).first<{ role: Role }>();
+    if (!target) return c.json({ error: "Anggota tidak ditemukan." }, 404);
+
+    if (parsed.data.preset) {
+      // Menurunkan owner terakhir → tolak.
+      if (target.role === "owner" && parsed.data.preset !== "owner") {
+        const owners = await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM memberships WHERE tenant_id = ? AND role = 'owner'`).bind(tenant.id).first<{ n: number }>();
+        if ((owners?.n ?? 0) <= 1) return c.json({ error: "Tidak bisa menurunkan pemilik terakhir." }, 400);
+      }
+      await c.env.DB.prepare(`UPDATE memberships SET role = ?, custom_role_id = NULL WHERE tenant_id = ? AND user_id = ?`).bind(parsed.data.preset, tenant.id, targetUserId).run();
+    } else {
+      const role = await c.env.DB.prepare(`SELECT base_role FROM custom_roles WHERE id = ? AND tenant_id = ?`).bind(parsed.data.customRoleId, tenant.id).first<{ base_role: "admin" | "viewer" }>();
+      if (!role) return c.json({ error: "Peran kustom tidak ditemukan." }, 404);
+      if (target.role === "owner") {
+        const owners = await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM memberships WHERE tenant_id = ? AND role = 'owner'`).bind(tenant.id).first<{ n: number }>();
+        if ((owners?.n ?? 0) <= 1) return c.json({ error: "Tidak bisa menurunkan pemilik terakhir." }, 400);
+      }
+      await c.env.DB.prepare(`UPDATE memberships SET role = ?, custom_role_id = ? WHERE tenant_id = ? AND user_id = ?`).bind(role.base_role, parsed.data.customRoleId, tenant.id, targetUserId).run();
+    }
+    await audit(c.env, { action: "tenant.member_role_changed", userId: c.get("user").id, tenantId: tenant.id, detail: { targetUserId, ...parsed.data }, ip: clientIp(c) });
     return c.json({ ok: true });
   })
 

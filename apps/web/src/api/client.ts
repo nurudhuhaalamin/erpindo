@@ -28,6 +28,10 @@ import type {
   PphFinalInput,
   Pph23Input,
   Pph23DepositInput,
+  ApiMyPermissions,
+  ApiCustomRole,
+  CustomRoleInput,
+  AssignRoleInput,
   SubmitApprovalInput,
   ApiBankStatementItem,
   ApiCrmSourceRow,
@@ -195,6 +199,15 @@ export const api = {
   removeMember: (tenantId: string, userId: string) =>
     request<{ ok: true }>("DELETE", `/api/tenants/${tenantId}/members/${userId}`),
   acceptInvite: (token: string) => request<{ ok: true; tenantId: string }>("POST", "/api/invites/accept", { token }),
+
+  // --- RBAC granular (izin per modul + peran kustom) -----------------------------
+  myPermissions: (tenantId: string) => request<ApiMyPermissions>("GET", `/api/tenants/${tenantId}/my-permissions`),
+  roles: (tenantId: string) => request<{ roles: ApiCustomRole[] }>("GET", `/api/tenants/${tenantId}/roles`),
+  createRole: (tenantId: string, input: CustomRoleInput) => request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/roles`, input),
+  updateRole: (tenantId: string, roleId: string, input: CustomRoleInput) => request<{ ok: true }>("PATCH", `/api/tenants/${tenantId}/roles/${roleId}`, input),
+  deleteRole: (tenantId: string, roleId: string) => request<{ ok: true }>("DELETE", `/api/tenants/${tenantId}/roles/${roleId}`),
+  assignMemberRole: (tenantId: string, userId: string, input: AssignRoleInput) =>
+    request<{ ok: true }>("PATCH", `/api/tenants/${tenantId}/members/${userId}/assign`, input),
   settings: (tenantId: string) =>
     request<{ settings: Record<string, string> }>("GET", `/api/tenants/${tenantId}/settings`),
   updateSettings: (
