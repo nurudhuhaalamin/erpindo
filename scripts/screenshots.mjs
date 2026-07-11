@@ -139,6 +139,15 @@ const MANIFESTS = {
       { route: "/app/master/produk", name: "produk-barcode-uom", waitMs: 1400 },
     ],
   },
+  // Set ad-hoc Fase 7d: halaman Pajak (PPh Final / PPh 23 / SPT PPN).
+  so7d: {
+    outDir: process.env.SO7D_OUT ?? path.join(tmpdir(), "erpindo-so7d"),
+    viewport: { width: 1440, height: 1000 },
+    theme: "light",
+    quality: 85,
+    fullPage: true,
+    shots: [{ route: "/app/keuangan/pajak", name: "pajak-umkm", waitMs: 1600 }],
+  },
   // Audit visual QA: halaman PENUH pada 3 viewport. Keluaran ke AUDIT_OUT
   // (default tmp) — TIDAK di-commit; alat review, bukan aset produk.
   audit: {

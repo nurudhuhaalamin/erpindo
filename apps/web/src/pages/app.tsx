@@ -32,6 +32,7 @@ import {
   Moon,
   Package,
   PenLine,
+  Percent,
   PiggyBank,
   Receipt,
   Scale,
@@ -112,6 +113,7 @@ const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; 
   { to: "/app/keuangan/kurs", label: "Mata Uang", exact: false, section: "Keuangan", icon: Coins },
   { to: "/app/keuangan/umur-tagihan", label: "Umur Piutang/Hutang", exact: false, section: "Keuangan", icon: Hourglass },
   { to: "/app/keuangan/e-faktur", label: "Ekspor e-Faktur", exact: false, section: "Keuangan", icon: FileSpreadsheet },
+  { to: "/app/keuangan/pajak", label: "Pajak", exact: false, section: "Keuangan", icon: Percent },
   { to: "/app/laporan/penjualan", label: "Laporan Penjualan", exact: false, section: "Keuangan", icon: LineChart },
   { to: "/app/master/produk", label: "Produk", exact: false, section: "Master Data", icon: Package },
   { to: "/app/master/kontak", label: "Kontak", exact: false, section: "Master Data", icon: Contact },
@@ -1160,6 +1162,10 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   // Stok lanjut (nomor seri)
   "stock.serial.added": "Nomor seri ditambahkan",
   "stock.serial.status": "Status nomor seri diubah",
+  // Pajak UMKM
+  "tax.pph_final.paid": "Setoran PPh Final dicatat",
+  "tax.pph23.withheld": "Bukti potong PPh 23 dibuat",
+  "tax.pph23.deposited": "PPh 23 disetor",
   // POS
   "pos.shift_opened": "Shift kasir dibuka",
   "pos.sale": "Penjualan kasir (POS)",

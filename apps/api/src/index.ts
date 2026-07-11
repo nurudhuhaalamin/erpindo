@@ -27,6 +27,7 @@ import { payrollRoutes } from "./routes/payroll";
 import { procurementRoutes } from "./routes/procurement";
 import { salesOrderRoutes } from "./routes/salesOrders";
 import { stockAdvancedRoutes } from "./routes/stockAdvanced";
+import { taxRoutes } from "./routes/tax";
 import { projectRoutes } from "./routes/projects";
 import { inviteRoutes, tenantRoutes } from "./routes/tenants";
 
@@ -74,6 +75,7 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", approvalEngineRoutes)
   .route("/api/tenants", salesOrderRoutes)
   .route("/api/tenants", stockAdvancedRoutes)
+  .route("/api/tenants", taxRoutes)
   .route("/api/tenants", currencyRoutes)
   .route("/api/tenants", contractRoutes)
   .route("/api/tenants", manufacturingRoutes)

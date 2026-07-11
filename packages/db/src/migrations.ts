@@ -1120,6 +1120,43 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `CREATE INDEX ps_product ON product_serials (product_id)`,
     ],
   },
+  {
+    id: "0031_umkm_tax",
+    statements: [
+      // Pajak UMKM (Fase 7d): PPh Final 0,5% (PP 55/2022) per bulan + PPh 23 (bukti potong).
+      `CREATE TABLE tax_pph_final (
+        id TEXT PRIMARY KEY,
+        period TEXT NOT NULL UNIQUE,
+        omzet INTEGER NOT NULL,
+        rate REAL NOT NULL DEFAULT 0.5,
+        amount INTEGER NOT NULL,
+        account_id TEXT NOT NULL REFERENCES accounts(id),
+        journal_entry_id TEXT REFERENCES journal_entries(id),
+        paid_date TEXT NOT NULL,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      // PPh 23 dipotong dari pihak lain (jasa/sewa/royalti/dll) → bukti potong + hutang PPh 23.
+      `CREATE TABLE tax_pph23 (
+        id TEXT PRIMARY KEY,
+        doc_no TEXT NOT NULL,
+        contact_id TEXT NOT NULL REFERENCES contacts(id),
+        tax_date TEXT NOT NULL,
+        object_type TEXT NOT NULL,
+        gross INTEGER NOT NULL,
+        rate REAL NOT NULL,
+        amount INTEGER NOT NULL,
+        source_account_id TEXT NOT NULL REFERENCES accounts(id),
+        journal_entry_id TEXT REFERENCES journal_entries(id),
+        deposited INTEGER NOT NULL DEFAULT 0,
+        deposit_journal_id TEXT REFERENCES journal_entries(id),
+        note TEXT,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX pph23_contact ON tax_pph23 (contact_id)`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */
