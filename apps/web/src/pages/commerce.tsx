@@ -559,8 +559,8 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
 
   return (
     <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2 text-sm">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
           <span className="font-mono text-xs font-semibold">{doc.docNo}</span>
           <span className="text-slate-500 dark:text-slate-400">{formatDate(doc.date)}</span>
           <span>{doc.contactName}</span>
@@ -573,28 +573,31 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
           )}
           {isForeign ? <Badge tone="brand">{doc.currency} @ {doc.exchangeRate.toLocaleString("id-ID")}</Badge> : null}
         </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm sm:justify-end">
-          <span className="font-semibold tabular-nums">
-            {isForeign ? `${doc.currency} ${doc.foreignTotal.toLocaleString("id-ID")}` : formatIDR(doc.total)}
-          </span>
+        <span className="text-base font-semibold tabular-nums">
+          {isForeign ? `${doc.currency} ${doc.foreignTotal.toLocaleString("id-ID")}` : formatIDR(doc.total)}
+        </span>
+      </div>
+
+      {(mode === "sale" || (isAdmin && !isVoided && (remaining > 0 || doc.status !== "paid" || (doc.paidAmount === 0 && doc.returnedAmount === 0)))) ? (
+        <div className="mt-2.5 flex flex-wrap gap-2 border-t border-slate-100 pt-2.5 dark:border-slate-800/60">
           {mode === "sale" ? (
             <a
               href={`/cetak/faktur?tenant=${tenant.tenantId}&id=${doc.id}`}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-300 px-3 text-sm hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
             >
               <Printer className="size-4" aria-hidden /> Cetak
             </a>
           ) : null}
           {isAdmin && !isVoided && remaining > 0 ? (
-            <Button variant="ghost" className="h-8" onClick={() => setReturnOpen((o) => !o)}>
+            <Button variant="secondary" className="h-8" onClick={() => setReturnOpen((o) => !o)}>
               Retur
             </Button>
           ) : null}
           {isAdmin && !isVoided && doc.paidAmount === 0 && doc.returnedAmount === 0 ? (
             <Button
-              variant="ghost"
+              variant="secondary"
               className="h-8 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
               onClick={() => setVoidOpen(true)}
             >
@@ -602,12 +605,12 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
             </Button>
           ) : null}
           {isAdmin && !isVoided && doc.status !== "paid" ? (
-            <Button variant="secondary" className="h-8" onClick={() => setPayOpen((o) => !o)}>
+            <Button className="h-8" onClick={() => setPayOpen((o) => !o)}>
               {mode === "sale" ? "Terima Pembayaran" : "Bayar"}
             </Button>
           ) : null}
         </div>
-      </div>
+      ) : null}
 
       <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">
         {doc.lines.map((l) => (

@@ -233,6 +233,29 @@ try {
   const members = await owner("GET", `/api/tenants/${tenantId}/members`);
   check("owner melihat 2 anggota", members.status === 200 && members.json?.members?.length === 2);
 
+  // --- Kelola peran anggota (Fase 6a) ---------------------------------------------
+  const ownerRow = members.json.members.find((m) => m.role === "owner");
+  const viewerRow = members.json.members.find((m) => m.role === "viewer");
+
+  const viewerChangeRole = await viewer("PATCH", `/api/tenants/${tenantId}/members/${ownerRow.userId}`, { role: "viewer" });
+  check("viewer DITOLAK ubah peran anggota (403)", viewerChangeRole.status === 403);
+
+  const promote = await owner("PATCH", `/api/tenants/${tenantId}/members/${viewerRow.userId}`, { role: "admin" });
+  check("owner ubah peran anggota → admin 200", promote.status === 200 && promote.json?.role === "admin");
+  const membersAfter = await owner("GET", `/api/tenants/${tenantId}/members`);
+  check("peran anggota tersimpan sebagai admin", membersAfter.json?.members?.find((m) => m.userId === viewerRow.userId)?.role === "admin");
+  const demoteBack = await owner("PATCH", `/api/tenants/${tenantId}/members/${viewerRow.userId}`, { role: "viewer" });
+  check("owner kembalikan peran → viewer 200", demoteBack.status === 200);
+
+  const selfDemote = await owner("PATCH", `/api/tenants/${tenantId}/members/${ownerRow.userId}`, { role: "admin" });
+  check("turunkan pemilik terakhir DITOLAK 400", selfDemote.status === 400);
+  const selfRemove = await owner("DELETE", `/api/tenants/${tenantId}/members/${ownerRow.userId}`);
+  check("keluarkan diri sendiri DITOLAK 400", selfRemove.status === 400);
+  const removeUnknown = await owner("DELETE", `/api/tenants/${tenantId}/members/user-tidak-ada`);
+  check("keluarkan anggota tak dikenal DITOLAK 404", removeUnknown.status === 404);
+  // Uji hapus 200 dilakukan di bawah memakai 'outsider' yang sudah terdaftar
+  // (tanpa registrasi baru agar tidak menabrak rate-limit register).
+
   const outsider = makeClient();
   await outsider("POST", "/api/auth/register", {
     companyName: "CV Pihak Luar",
@@ -242,6 +265,20 @@ try {
   });
   const crossTenant = await outsider("GET", `/api/tenants/${tenantId}/settings`);
   check("NON-anggota DITOLAK akses tenant lain (403) — isolasi tenant", crossTenant.status === 403);
+
+  // Uji hapus anggota 200 memakai 'outsider' yang sudah punya akun (tanpa registrasi
+  // baru) — undang, terima, lalu keluarkan; jumlah anggota kembali ke 2.
+  const inviteOutsider = await owner("POST", `/api/tenants/${tenantId}/invites`, { email: "luar@contoh.com", role: "viewer" });
+  await outsider("POST", "/api/invites/accept", { token: inviteOutsider.json.inviteUrl.split("token=")[1] });
+  const members3 = await owner("GET", `/api/tenants/${tenantId}/members`);
+  check("anggota jadi 3 setelah undangan diterima", members3.json?.members?.length === 3);
+  const outsiderRow = members3.json.members.find((m) => m.email === "luar@contoh.com");
+  const removeOutsider = await owner("DELETE", `/api/tenants/${tenantId}/members/${outsiderRow.userId}`);
+  check("owner keluarkan anggota 200", removeOutsider.status === 200);
+  const members4 = await owner("GET", `/api/tenants/${tenantId}/members`);
+  check("anggota kembali 2 setelah dikeluarkan", members4.json?.members?.length === 2);
+  const outsiderAfterRemoval = await outsider("GET", `/api/tenants/${tenantId}/settings`);
+  check("anggota yang dikeluarkan kehilangan akses (403)", outsiderAfterRemoval.status === 403);
 
   // --- Modul Keuangan & Master Data (Fase 1a) ---------------------------------
   console.log("6. Bagan Akun (COA)");

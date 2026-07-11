@@ -23,7 +23,7 @@ import { requireAuth, requireTenantRole } from "../middleware/auth";
 // resmi yang direkomendasikan (multibahasa, cepat); varian -fast llama
 // dinyatakan tetap aktif oleh Cloudflare.
 const AI_MODELS = ["@cf/zai-org/glm-4.7-flash", "@cf/meta/llama-3.1-8b-instruct-fast"];
-const DAILY_LIMIT = 50;
+const DAILY_LIMIT = 100;
 
 const AI_UNAVAILABLE_MSG = "Fitur AI belum tersedia di lingkungan ini. Coba lagi nanti.";
 
@@ -36,15 +36,21 @@ function quotaKey(tenantId: string): string {
   return `ai:${tenantId}:${new Date().toISOString().slice(0, 10)}`;
 }
 
-async function quotaExceeded(env: Env, tenantId: string): Promise<boolean> {
-  return Number((await env.RATE_KV.get(quotaKey(tenantId))) ?? 0) >= DAILY_LIMIT;
+async function quotaUsed(env: Env, tenantId: string): Promise<number> {
+  return Number((await env.RATE_KV.get(quotaKey(tenantId))) ?? 0);
 }
 
-/** Dipanggil HANYA setelah model sukses — panggilan gagal tidak memakan kuota. */
-async function countQuota(env: Env, tenantId: string): Promise<void> {
+async function quotaExceeded(env: Env, tenantId: string): Promise<boolean> {
+  return (await quotaUsed(env, tenantId)) >= DAILY_LIMIT;
+}
+
+/** Dipanggil HANYA setelah model sukses — panggilan gagal tidak memakan kuota.
+ * Mengembalikan sisa kuota hari ini agar UI bisa menampilkannya. */
+async function countQuota(env: Env, tenantId: string): Promise<number> {
   const key = quotaKey(tenantId);
-  const used = Number((await env.RATE_KV.get(key)) ?? 0);
-  await env.RATE_KV.put(key, String(used + 1), { expirationTtl: 172_800 });
+  const used = (await quotaUsed(env, tenantId)) + 1;
+  await env.RATE_KV.put(key, String(used), { expirationTtl: 172_800 });
+  return Math.max(DAILY_LIMIT - used, 0);
 }
 
 type ChatMessage = { role: string; content: string };
@@ -128,8 +134,8 @@ export const aiRoutes = new Hono<AppEnv>()
 
     const result = await runModel(c.env, [{ role: "system", content: system }, ...parsed.data.messages], 600);
     if (!result.ok) return c.json(unavailable(result.detail), 503);
-    await countQuota(c.env, tenant.id);
-    return c.json({ reply: result.text.trim() });
+    const quotaRemaining = await countQuota(c.env, tenant.id);
+    return c.json({ reply: result.text.trim(), quotaRemaining });
   })
 
   // -------------------------------------------------------------------------
@@ -169,7 +175,7 @@ export const aiRoutes = new Hono<AppEnv>()
       500,
     );
     if (!result.ok) return c.json(unavailable(result.detail), 503);
-    await countQuota(c.env, tenant.id);
+    const quotaRemaining = await countQuota(c.env, tenant.id);
     const raw = result.text;
 
     // Model kadang membungkus JSON dengan pagar kode/teks — ambil objek pertama.
@@ -204,5 +210,5 @@ export const aiRoutes = new Hono<AppEnv>()
       memo: draftParsed.data.memo,
       lines,
     };
-    return c.json({ draft });
+    return c.json({ draft, quotaRemaining });
   });
