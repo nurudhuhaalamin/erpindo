@@ -6,6 +6,7 @@ import { getMailer } from "./lib/mailer";
 import { getTenantDb } from "./lib/tenantDb";
 import { accountingRoutes } from "./routes/accounting";
 import { aiRoutes } from "./routes/ai";
+import { approvalEngineRoutes } from "./routes/approvalsEngine";
 import { assetRoutes, runDepreciation } from "./routes/assets";
 import { authRoutes } from "./routes/auth";
 import { budgetRoutes } from "./routes/budgets";
@@ -68,6 +69,7 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", assetRoutes)
   .route("/api/tenants", projectRoutes)
   .route("/api/tenants", procurementRoutes)
+  .route("/api/tenants", approvalEngineRoutes)
   .route("/api/tenants", currencyRoutes)
   .route("/api/tenants", contractRoutes)
   .route("/api/tenants", manufacturingRoutes)

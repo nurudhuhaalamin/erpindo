@@ -63,6 +63,7 @@
 | **Fase 6b — HR Absensi/kehadiran** | Menu baru **HR › Absensi**: catat kehadiran harian (hadir/izin/sakit/alfa/cuti + jam masuk/keluar), **rekap bulanan per karyawan** + ekspor CSV, daftar catatan. Satu catatan per karyawan per tanggal (koreksi menimpa) | ✅ **Selesai** |
 | **Fase 6c — Proyek jadi PM serius** | Papan tugas kini punya **penanggung jawab** & **prioritas** (Tinggi/Sedang/Rendah), **beban kerja per orang**, **daftar tugas dengan tenggat** (terlambat disorot), dan **garis waktu proyek** (mulai→selesai) | ✅ **Selesai** |
 | **Fase 6d — Pengadaan lengkap (procure-to-pay)** | Menu baru **Transaksi › Pengadaan**: alur **permintaan (PR) → pesanan (PO) → penerimaan (GRN)** → otomatis jadi **faktur pembelian & stok masuk**. Status terlacak per tahap, setujui/tolak permintaan, batalkan pesanan | ✅ **Selesai** |
+| **Fase 6e — Approval workflow engine** | **Engine persetujuan berjenjang konfigurable**: aturan per jenis dokumen + ambang + urutan approver (mis. Admin → Pemilik); ajukan → setujui berurutan per peran; antrean per pengguna + riwayat + jejak langkah. **Fase 6 selesai** — lihat laporan akhir | ✅ **Selesai** |
 | Fase 2m — Manajemen dokumen (lampiran file) | Lampiran di faktur/kontak/jurnal (penyimpanan Cloudflare R2) | ⏸ **Menunggu Anda mengaktifkan R2 di dashboard Cloudflare** |
 | Fase 2b-2 — Pembayaran langganan | Checkout Midtrans/Xendit, aktivasi otomatis | ⏸ **Menunggu akun gateway dari Anda** |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
@@ -127,7 +128,7 @@
 54. **Dashboard modern & panduan mulai** *(baru — Fase 3e)*: grafik tren penjualan 30 hari dengan tooltip, widget faktur lewat jatuh tempo, feed aktivitas terakhir, dan **checklist "Mulai cepat"** berprogres untuk perusahaan baru (hilang otomatis saat lengkap). Halaman daftar/masuk bergaya split modern; setiap halaman kini punya paragraf pengantar; nama menu dan judul halaman konsisten (Maintenance menjadi Pemeliharaan).
 55. **Ekspor e-Faktur XML Coretax** *(baru — Fase 3f)*: satu klik "Unduh XML Coretax" di halaman Ekspor e-Faktur menghasilkan berkas XML yang **langsung bisa diimpor ke Coretax DJP** (format satu-satunya yang diterima sejak 2025). Sistem otomatis memakai kode transaksi yang benar — 04 dengan DPP nilai lain 11/12 untuk barang non-mewah (PMK 131/2024), 01 untuk tarif 12% penuh — menormalkan NPWP ke TIN 16 digit, dan mengecualikan faktur yang dibatalkan/non-PPN. CSV rekap tetap tersedia.
 
-Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (509 skenario ujian end-to-end + 24 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
+Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (523 skenario ujian end-to-end + 24 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
 
 ## Apakah sudah bisa diakses di internet?
 

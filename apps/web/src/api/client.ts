@@ -1,14 +1,19 @@
 import type {
   ApiAccount,
   ApiAgingRow,
+  ApiApprovalFlow,
+  ApiApprovalRule,
   ApiAttendance,
   ApiAttendanceRecap,
   ApiGoodsReceipt,
   ApiPurchaseOrder,
   ApiRequisition,
+  ApprovalRuleInput,
+  DecideStepInput,
   PurchaseOrderInput,
   ReceiveGoodsInput,
   RequisitionInput,
+  SubmitApprovalInput,
   ApiBankStatementItem,
   ApiCrmSourceRow,
   ApiJournalTemplate,
@@ -424,6 +429,22 @@ export const api = {
     request<{ ok: true; grnNo: string; purchaseNo: string; total: number }>("POST", `/api/tenants/${tenantId}/purchase-orders/${id}/receive`, input),
   goodsReceipts: (tenantId: string) =>
     request<{ receipts: ApiGoodsReceipt[] }>("GET", `/api/tenants/${tenantId}/goods-receipts`),
+
+  // --- Approval workflow engine --------------------------------------------------
+  approvalRules: (tenantId: string) =>
+    request<{ rules: ApiApprovalRule[] }>("GET", `/api/tenants/${tenantId}/approval-rules`),
+  createApprovalRule: (tenantId: string, input: ApprovalRuleInput) =>
+    request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/approval-rules`, input),
+  updateApprovalRule: (tenantId: string, id: string, input: Partial<ApprovalRuleInput> & { active?: boolean }) =>
+    request<{ ok: true }>("PATCH", `/api/tenants/${tenantId}/approval-rules/${id}`, input),
+  deleteApprovalRule: (tenantId: string, id: string) =>
+    request<{ ok: true }>("DELETE", `/api/tenants/${tenantId}/approval-rules/${id}`),
+  approvalFlows: (tenantId: string, queueMe = false) =>
+    request<{ flows: ApiApprovalFlow[] }>("GET", `/api/tenants/${tenantId}/approval-flows${queueMe ? "?queue=me" : ""}`),
+  submitApproval: (tenantId: string, input: SubmitApprovalInput) =>
+    request<{ ok: true; flowNo: string; status: string; autoApproved?: boolean }>("POST", `/api/tenants/${tenantId}/approval-flows`, input),
+  decideApprovalStep: (tenantId: string, id: string, input: DecideStepInput) =>
+    request<{ ok: true; status: string }>("POST", `/api/tenants/${tenantId}/approval-flows/${id}/steps/decide`, input),
 
   // --- Penjualan & Pembelian -----------------------------------------------------
   invoices: (tenantId: string, opts?: ListOpts) =>
