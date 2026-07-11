@@ -1775,6 +1775,34 @@ try {
   const detailProg = await owner("GET", `/api/tenants/${tenantId}/projects/${projSvcId}`);
   check("progres proyek = 50% (1 dari 2 tugas selesai)", detailProg.json?.progressPct === 50, `→ ${detailProg.json?.progressPct}`);
 
+  // --- Proyek PM serius (Fase 6c): penanggung jawab, prioritas, beban kerja -------
+  const pmTask = await owner("POST", `/api/tenants/${tenantId}/projects/${projSvcId}/tasks`, {
+    name: "Pasang instalasi listrik", assigneeId: andiId, priority: "high", dueDate: "2026-09-30",
+  });
+  check("tambah tugas dengan PJ + prioritas 201", pmTask.status === 201);
+  const badAssignTask = await owner("POST", `/api/tenants/${tenantId}/projects/${projSvcId}/tasks`, {
+    name: "Tugas PJ salah", assigneeId: "karyawan-tidak-ada",
+  });
+  check("tambah tugas PJ tak dikenal 404", badAssignTask.status === 404);
+  const detailPm = await owner("GET", `/api/tenants/${tenantId}/projects/${projSvcId}`);
+  const pmTaskRow = detailPm.json?.tasks?.find((t) => t.id === pmTask.json?.id);
+  check("tugas memuat penanggung jawab & prioritas", pmTaskRow?.assigneeName === "Andi Karyawan" && pmTaskRow?.priority === "high", `→ ${JSON.stringify(pmTaskRow)}`);
+  check("beban kerja (workload) tersedia & terisi", Array.isArray(detailPm.json?.workload) && detailPm.json.workload.length >= 1);
+  const andiWorkload = detailPm.json?.workload?.find((w) => w.assigneeId === andiId);
+  check("beban kerja Andi: 1 tugas terbuka (high)", andiWorkload?.openTasks === 1 && andiWorkload?.todo === 1, `→ ${JSON.stringify(andiWorkload)}`);
+  // Perbarui: ubah prioritas & kosongkan PJ.
+  const pmUpdate = await owner("PATCH", `/api/tenants/${tenantId}/projects/${projSvcId}/tasks/${pmTask.json?.id}`, {
+    priority: "low", assigneeId: null,
+  });
+  check("perbarui prioritas + kosongkan PJ 200", pmUpdate.status === 200);
+  const badAssignUpdate = await owner("PATCH", `/api/tenants/${tenantId}/projects/${projSvcId}/tasks/${pmTask.json?.id}`, { assigneeId: "karyawan-tidak-ada" });
+  check("perbarui PJ tak dikenal 404", badAssignUpdate.status === 404);
+  const detailPm2 = await owner("GET", `/api/tenants/${tenantId}/projects/${projSvcId}`);
+  const pmTaskRow2 = detailPm2.json?.tasks?.find((t) => t.id === pmTask.json?.id);
+  check("PJ dikosongkan & prioritas jadi low", pmTaskRow2?.assigneeId === null && pmTaskRow2?.priority === "low", `→ ${JSON.stringify(pmTaskRow2)}`);
+  const viewerTaskUpd = await viewer("PATCH", `/api/tenants/${tenantId}/projects/${projSvcId}/tasks/${pmTask.json?.id}`, { priority: "high" });
+  check("viewer DITOLAK memperbarui tugas (403)", viewerTaskUpd.status === 403);
+
   const tbAfterProjectExtras = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah termin & faktur proyek", tbAfterProjectExtras.json?.balanced === true);
 

@@ -63,6 +63,8 @@ import type {
   PayrollAdjustmentInput,
   ProjectBudgetInput,
   ProjectMilestoneInput,
+  ProjectTaskInput,
+  ProjectTaskUpdateInput,
   TimeEntryInput,
   LeadInput,
   MeResponse,
@@ -374,10 +376,12 @@ export const api = {
   ) => request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/projects`, input),
   setProjectStatus: (tenantId: string, id: string, status: string) =>
     request<{ ok: true; status: string }>("PATCH", `/api/tenants/${tenantId}/projects/${id}/status`, { status }),
-  addProjectTask: (tenantId: string, id: string, input: { name: string; dueDate?: string }) =>
+  addProjectTask: (tenantId: string, id: string, input: ProjectTaskInput) =>
     request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/projects/${id}/tasks`, input),
   setTaskStatus: (tenantId: string, id: string, taskId: string, status: string) =>
-    request<{ ok: true; status: string }>("PATCH", `/api/tenants/${tenantId}/projects/${id}/tasks/${taskId}`, { status }),
+    request<{ ok: true }>("PATCH", `/api/tenants/${tenantId}/projects/${id}/tasks/${taskId}`, { status }),
+  updateProjectTask: (tenantId: string, id: string, taskId: string, input: ProjectTaskUpdateInput) =>
+    request<{ ok: true }>("PATCH", `/api/tenants/${tenantId}/projects/${id}/tasks/${taskId}`, input),
   addMilestone: (tenantId: string, id: string, input: ProjectMilestoneInput) =>
     request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/projects/${id}/milestones`, input),
   invoiceMilestone: (tenantId: string, id: string, mid: string, input: InvoiceMilestoneInput) =>

@@ -1,6 +1,14 @@
-import type { ApiEmployee, ApiProject, ApiProjectDetail, ApiProjectTask } from "@erpindo/shared";
+import {
+  PROJECT_TASK_PRIORITIES,
+  PROJECT_TASK_PRIORITY_LABELS,
+  type ApiEmployee,
+  type ApiProject,
+  type ApiProjectDetail,
+  type ApiProjectTask,
+  type ProjectTaskPriority,
+} from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, FolderKanban, Plus, Receipt, Timer } from "lucide-react";
+import { CalendarClock, FileText, FolderKanban, Plus, Receipt, Timer, UserRound } from "lucide-react";
 import { useState } from "react";
 import { api, formatDate, formatIDR } from "../api/client";
 import {
@@ -23,6 +31,7 @@ const STATUS_TONE = { active: "green", on_hold: "amber", completed: "neutral" } 
 const STATUS_LABEL = { active: "berjalan", on_hold: "ditunda", completed: "selesai" } as const;
 const TASK_TONE = { todo: "neutral", in_progress: "brand", done: "green" } as const;
 const TASK_LABEL = { todo: "belum", in_progress: "proses", done: "selesai" } as const;
+const PRIORITY_TONE: Record<ProjectTaskPriority, "red" | "amber" | "neutral"> = { high: "red", medium: "amber", low: "neutral" };
 const TASK_COLUMNS: { key: ApiProjectTask["status"]; label: string }[] = [
   { key: "todo", label: "Belum dikerjakan" },
   { key: "in_progress", label: "Sedang proses" },
@@ -149,6 +158,12 @@ function ProjectRow({ project, isAdmin }: { project: ApiProject; isAdmin: boolea
     queryFn: () => api.project(tenant.tenantId, project.id),
     enabled: open,
   });
+  const employeesQuery = useQuery({
+    queryKey: ["employees", tenant.tenantId],
+    queryFn: () => api.employees(tenant.tenantId),
+    enabled: open,
+  });
+  const employees = (employeesQuery.data?.employees ?? []).filter((e) => e.isActive);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["projects", tenant.tenantId] });
@@ -215,7 +230,9 @@ function ProjectRow({ project, isAdmin }: { project: ApiProject; isAdmin: boolea
             <Spinner />
           ) : (
             <>
-              <TaskBoard projectId={project.id} tasks={detail.tasks} isAdmin={isAdmin} onChange={invalidate} />
+              <ProjectTimeline detail={detail} />
+              <TaskBoard projectId={project.id} tasks={detail.tasks} employees={employees} isAdmin={isAdmin} onChange={invalidate} />
+              <WorkloadPanel detail={detail} />
               <MilestonesSection projectId={project.id} detail={detail} isAdmin={isAdmin} hasContact={Boolean(project.contactId)} onChange={invalidate} />
               <BudgetSection projectId={project.id} detail={detail} isAdmin={isAdmin} onChange={invalidate} />
               <TimesheetSection projectId={project.id} detail={detail} isAdmin={isAdmin} onChange={invalidate} />
@@ -260,27 +277,62 @@ function ProjectRow({ project, isAdmin }: { project: ApiProject; isAdmin: boolea
   );
 }
 
-/** Papan tugas todo/proses/selesai dengan drag-and-drop (admin) + progres otomatis. */
+/** Garis waktu proyek: batang mulai→selesai dengan penanda hari ini. */
+function ProjectTimeline({ detail }: { detail: ApiProjectDetail }) {
+  if (!detail.startDate || !detail.endDate) return null;
+  const start = new Date(detail.startDate).getTime();
+  const end = new Date(detail.endDate).getTime();
+  if (!(end > start)) return null;
+  const now = Date.now();
+  const pct = Math.max(0, Math.min(100, Math.round(((now - start) / (end - start)) * 100)));
+  const past = now > end;
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+        <CalendarClock className="size-3.5" aria-hidden /> Garis waktu
+      </div>
+      <div className="relative h-2 rounded-full bg-slate-200 dark:bg-slate-700">
+        <div className={`absolute left-0 top-0 h-full rounded-full ${past ? "bg-red-500" : "bg-brand-500"}`} style={{ width: `${pct}%` }} />
+      </div>
+      <div className="mt-1 flex justify-between text-xs text-slate-500 dark:text-slate-400">
+        <span>{formatDate(detail.startDate)}</span>
+        <span>{past ? "lewat tenggat" : `${pct}% waktu berjalan`}</span>
+        <span>{formatDate(detail.endDate)}</span>
+      </div>
+    </div>
+  );
+}
+
+/** Papan tugas todo/proses/selesai dengan drag-and-drop + penanggung jawab & prioritas. */
 function TaskBoard({
   projectId,
   tasks,
+  employees,
   isAdmin,
   onChange,
 }: {
   projectId: string;
   tasks: ApiProjectTask[];
+  employees: ApiEmployee[];
   isAdmin: boolean;
   onChange: () => void;
 }) {
   const { tenant } = useWorkspace();
   const toast = useToast();
-  const [taskName, setTaskName] = useState("");
+  const [form, setForm] = useState({ name: "", assigneeId: "", priority: "medium" as ProjectTaskPriority, dueDate: "" });
   const [dragOver, setDragOver] = useState<string | null>(null);
+  const todayStr = today();
 
   const addTask = useMutation({
-    mutationFn: () => api.addProjectTask(tenant.tenantId, projectId, { name: taskName.trim() }),
+    mutationFn: () =>
+      api.addProjectTask(tenant.tenantId, projectId, {
+        name: form.name.trim(),
+        priority: form.priority,
+        ...(form.assigneeId ? { assigneeId: form.assigneeId } : {}),
+        ...(form.dueDate ? { dueDate: form.dueDate } : {}),
+      }),
     onSuccess: () => {
-      setTaskName("");
+      setForm({ name: "", assigneeId: "", priority: "medium", dueDate: "" });
       onChange();
     },
     onError: (err) => toast("error", (err as Error).message),
@@ -290,16 +342,42 @@ function TaskBoard({
     onSuccess: onChange,
     onError: (err) => toast("error", (err as Error).message),
   });
+  const update = useMutation({
+    mutationFn: (v: { id: string; assigneeId?: string | null; priority?: ProjectTaskPriority }) =>
+      api.updateProjectTask(tenant.tenantId, projectId, v.id, v),
+    onSuccess: onChange,
+    onError: (err) => toast("error", (err as Error).message),
+  });
 
   return (
     <div>
       <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Papan tugas</div>
       {isAdmin ? (
-        <div className="mb-3 flex gap-2">
-          <Input aria-label="Nama tugas" placeholder="Tambah tugas…" value={taskName} onChange={(e) => setTaskName(e.target.value)} />
-          <Button onClick={() => addTask.mutate()} disabled={addTask.isPending || !taskName.trim()}>
-            Tambah
-          </Button>
+        <div className="mb-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="lg:col-span-2">
+            <Input aria-label="Nama tugas" placeholder="Tambah tugas…" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </div>
+          <Select aria-label="Penanggung jawab" value={form.assigneeId} onChange={(e) => setForm({ ...form, assigneeId: e.target.value })}>
+            <option value="">Tanpa PJ</option>
+            {employees.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name}
+              </option>
+            ))}
+          </Select>
+          <Select aria-label="Prioritas" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as ProjectTaskPriority })}>
+            {PROJECT_TASK_PRIORITIES.map((p) => (
+              <option key={p} value={p}>
+                {PROJECT_TASK_PRIORITY_LABELS[p]}
+              </option>
+            ))}
+          </Select>
+          <div className="flex gap-2">
+            <Input aria-label="Tenggat" type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+            <Button onClick={() => addTask.mutate()} disabled={addTask.isPending || !form.name.trim()}>
+              Tambah
+            </Button>
+          </div>
         </div>
       ) : null}
       <div className="overflow-x-auto">
@@ -328,17 +406,57 @@ function TaskBoard({
                   <Badge tone={TASK_TONE[col.key]}>{items.length}</Badge>
                 </div>
                 <div className="space-y-1.5">
-                  {items.map((t) => (
-                    <div
-                      key={t.id}
-                      draggable={isAdmin}
-                      onDragStart={isAdmin ? (e) => e.dataTransfer.setData("text/task-id", t.id) : undefined}
-                      className={`rounded-md border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900 ${isAdmin ? "cursor-grab active:cursor-grabbing" : ""}`}
-                    >
-                      {t.name}
-                      {t.dueDate ? <div className="text-xs text-slate-400">tenggat {t.dueDate}</div> : null}
-                    </div>
-                  ))}
+                  {items.map((t) => {
+                    const overdue = t.dueDate && t.status !== "done" && t.dueDate < todayStr;
+                    return (
+                      <div
+                        key={t.id}
+                        draggable={isAdmin}
+                        onDragStart={isAdmin ? (e) => e.dataTransfer.setData("text/task-id", t.id) : undefined}
+                        className={`rounded-md border bg-white p-2 text-sm dark:bg-slate-900 ${overdue ? "border-red-300 dark:border-red-500/40" : "border-slate-200 dark:border-slate-700"} ${isAdmin ? "cursor-grab active:cursor-grabbing" : ""}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="min-w-0">{t.name}</span>
+                          <Badge tone={PRIORITY_TONE[t.priority]}>{PROJECT_TASK_PRIORITY_LABELS[t.priority]}</Badge>
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-400">
+                          <span className="inline-flex items-center gap-1">
+                            <UserRound className="size-3" aria-hidden /> {t.assigneeName ?? "Belum ditugaskan"}
+                          </span>
+                          {t.dueDate ? <span className={overdue ? "font-medium text-red-500" : ""}>tenggat {t.dueDate}</span> : null}
+                        </div>
+                        {isAdmin ? (
+                          <div className="mt-1.5 flex gap-1.5">
+                            <select
+                              aria-label="Ubah penanggung jawab"
+                              className="min-w-0 flex-1 rounded border border-slate-200 bg-transparent px-1 py-0.5 text-xs dark:border-slate-700"
+                              value={t.assigneeId ?? ""}
+                              onChange={(e) => update.mutate({ id: t.id, assigneeId: e.target.value || null })}
+                            >
+                              <option value="">Tanpa PJ</option>
+                              {employees.map((e) => (
+                                <option key={e.id} value={e.id}>
+                                  {e.name}
+                                </option>
+                              ))}
+                            </select>
+                            <select
+                              aria-label="Ubah prioritas"
+                              className="rounded border border-slate-200 bg-transparent px-1 py-0.5 text-xs dark:border-slate-700"
+                              value={t.priority}
+                              onChange={(e) => update.mutate({ id: t.id, priority: e.target.value as ProjectTaskPriority })}
+                            >
+                              {PROJECT_TASK_PRIORITIES.map((p) => (
+                                <option key={p} value={p}>
+                                  {PROJECT_TASK_PRIORITY_LABELS[p]}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                   {items.length === 0 ? (
                     <div className="rounded-md border border-dashed border-slate-200 p-2 text-center text-xs text-slate-400 dark:border-slate-700">
                       kosong
@@ -351,6 +469,57 @@ function TaskBoard({
         </div>
       </div>
       {isAdmin ? <p className="mt-1.5 text-xs text-slate-400">Seret kartu untuk memindahkan tahap. Progres proyek dihitung dari tugas selesai.</p> : null}
+    </div>
+  );
+}
+
+/** Beban kerja per penanggung jawab + daftar tugas jatuh tempo/terlambat. */
+function WorkloadPanel({ detail }: { detail: ApiProjectDetail }) {
+  const todayStr = today();
+  const dueTasks = detail.tasks
+    .filter((t) => t.status !== "done" && t.dueDate)
+    .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""));
+
+  if (detail.workload.length === 0) return null;
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <div>
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Beban kerja per orang</div>
+        <div className="space-y-1.5">
+          {detail.workload.map((w) => (
+            <div key={w.assigneeId ?? "none"} className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-slate-200 p-2 text-sm dark:border-slate-700">
+              <span className="inline-flex items-center gap-1 font-medium">
+                <UserRound className="size-3.5 text-slate-400" aria-hidden /> {w.assigneeName}
+              </span>
+              <span className="ml-auto flex items-center gap-1.5 text-xs">
+                <Badge tone="brand">{w.openTasks} terbuka</Badge>
+                <span className="text-slate-400">belum {w.todo} · proses {w.inProgress} · selesai {w.done}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div>
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Tugas dengan tenggat</div>
+        {dueTasks.length === 0 ? (
+          <p className="text-sm text-slate-400">Tidak ada tugas terbuka dengan tenggat.</p>
+        ) : (
+          <div className="space-y-1.5">
+            {dueTasks.map((t) => {
+              const overdue = (t.dueDate ?? "") < todayStr;
+              return (
+                <div key={t.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-md border border-slate-200 p-2 text-sm dark:border-slate-700">
+                  <span className="min-w-0 flex-1 truncate">{t.name}</span>
+                  <span className="text-xs text-slate-400">{t.assigneeName ?? "—"}</span>
+                  <span className={`text-xs ${overdue ? "font-semibold text-red-500" : "text-slate-500 dark:text-slate-400"}`}>
+                    {overdue ? "terlambat " : ""}{t.dueDate}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

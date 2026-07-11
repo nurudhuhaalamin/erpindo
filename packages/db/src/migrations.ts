@@ -908,6 +908,17 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `CREATE INDEX attendance_emp_date ON attendance (employee_id, date)`,
     ],
   },
+  {
+    id: "0025_project_pm",
+    statements: [
+      // Manajemen proyek serius: penanggung jawab tugas, prioritas, urutan kanban.
+      // ALTER backward-compatible — tugas lama tetap valid (assignee kosong, prioritas 'medium').
+      `ALTER TABLE project_tasks ADD COLUMN assignee_id TEXT REFERENCES employees(id)`,
+      `ALTER TABLE project_tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'`,
+      `ALTER TABLE project_tasks ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0`,
+      `CREATE INDEX project_tasks_assignee ON project_tasks (assignee_id)`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */
