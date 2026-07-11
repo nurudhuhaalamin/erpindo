@@ -1048,6 +1048,54 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `CREATE INDEX phs_shift ON pos_held_sales (shift_id)`,
     ],
   },
+  {
+    id: "0029_sales_orders",
+    statements: [
+      // Penjualan bertahap (Fase 7b): pesanan pelanggan (SO) → surat jalan (DO) → faktur.
+      // SO & faktur tak menggerakkan stok; stok keluar TEPAT SEKALI di surat jalan (DO).
+      `CREATE TABLE sales_orders (
+        id TEXT PRIMARY KEY,
+        so_no TEXT NOT NULL,
+        contact_id TEXT NOT NULL REFERENCES contacts(id),
+        order_date TEXT NOT NULL,
+        expected_date TEXT,
+        warehouse_id TEXT NOT NULL REFERENCES warehouses(id),
+        tax_rate INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','delivered','invoiced','cancelled')),
+        dp_amount INTEGER NOT NULL DEFAULT 0,
+        invoice_id TEXT REFERENCES invoices(id),
+        note TEXT,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE TABLE sales_order_lines (
+        id TEXT PRIMARY KEY,
+        so_id TEXT NOT NULL REFERENCES sales_orders(id),
+        product_id TEXT NOT NULL REFERENCES products(id),
+        qty INTEGER NOT NULL,
+        unit_price INTEGER NOT NULL,
+        discount_pct REAL NOT NULL DEFAULT 0
+      )`,
+      `CREATE INDEX sol_so ON sales_order_lines (so_id)`,
+      `CREATE TABLE delivery_orders (
+        id TEXT PRIMARY KEY,
+        do_no TEXT NOT NULL,
+        so_id TEXT NOT NULL REFERENCES sales_orders(id),
+        delivery_date TEXT NOT NULL,
+        journal_entry_id TEXT REFERENCES journal_entries(id),
+        note TEXT,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE TABLE delivery_order_lines (
+        id TEXT PRIMARY KEY,
+        do_id TEXT NOT NULL REFERENCES delivery_orders(id),
+        product_id TEXT NOT NULL REFERENCES products(id),
+        qty INTEGER NOT NULL
+      )`,
+      `CREATE INDEX dol_do ON delivery_order_lines (do_id)`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

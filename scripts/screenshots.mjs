@@ -115,6 +115,18 @@ const MANIFESTS = {
       { route: "/app/persetujuan", name: "persetujuan-1", width: 1280, waitMs: 1000 },
     ],
   },
+  // Set ad-hoc Fase 7b: satu tangkapan halaman Pesanan Penjualan untuk pemilik.
+  so7b: {
+    outDir: process.env.SO7B_OUT ?? path.join(tmpdir(), "erpindo-so7b"),
+    viewport: { width: 1440, height: 960 },
+    theme: "light",
+    quality: 85,
+    fullPage: true,
+    shots: [
+      { route: "/app/pesanan-penjualan", name: "pesanan-penjualan", waitMs: 1500 },
+      { route: "/app/pesanan-penjualan", name: "pesanan-penjualan-mobile", width: 420, waitMs: 1500 },
+    ],
+  },
   // Audit visual QA: halaman PENUH pada 3 viewport. Keluaran ke AUDIT_OUT
   // (default tmp) — TIDAK di-commit; alat review, bukan aset produk.
   audit: {

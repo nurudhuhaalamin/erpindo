@@ -8,11 +8,16 @@ import type {
   ApiGoodsReceipt,
   ApiPurchaseOrder,
   ApiRequisition,
+  ApiSalesOrder,
   ApprovalRuleInput,
   DecideStepInput,
+  DeliverOrderInput,
+  InvoiceFromSoInput,
   PurchaseOrderInput,
   ReceiveGoodsInput,
   RequisitionInput,
+  SalesOrderInput,
+  SoDownPaymentInput,
   SubmitApprovalInput,
   ApiBankStatementItem,
   ApiCrmSourceRow,
@@ -432,6 +437,20 @@ export const api = {
     request<{ ok: true; grnNo: string; purchaseNo: string; total: number }>("POST", `/api/tenants/${tenantId}/purchase-orders/${id}/receive`, input),
   goodsReceipts: (tenantId: string) =>
     request<{ receipts: ApiGoodsReceipt[] }>("GET", `/api/tenants/${tenantId}/goods-receipts`),
+
+  // --- Penjualan bertahap (SO → Surat Jalan → Faktur) ----------------------------
+  salesOrders: (tenantId: string) =>
+    request<{ orders: ApiSalesOrder[] }>("GET", `/api/tenants/${tenantId}/sales-orders`),
+  createSalesOrder: (tenantId: string, input: SalesOrderInput) =>
+    request<{ ok: true; id: string; soNo: string }>("POST", `/api/tenants/${tenantId}/sales-orders`, input),
+  cancelSalesOrder: (tenantId: string, id: string) =>
+    request<{ ok: true }>("POST", `/api/tenants/${tenantId}/sales-orders/${id}/cancel`),
+  soDownPayment: (tenantId: string, id: string, input: SoDownPaymentInput) =>
+    request<{ ok: true }>("POST", `/api/tenants/${tenantId}/sales-orders/${id}/down-payment`, input),
+  deliverSalesOrder: (tenantId: string, id: string, input: DeliverOrderInput) =>
+    request<{ ok: true; doNo: string }>("POST", `/api/tenants/${tenantId}/sales-orders/${id}/deliver`, input),
+  invoiceSalesOrder: (tenantId: string, id: string, input: InvoiceFromSoInput) =>
+    request<{ ok: true; invoiceNo: string; total: number }>("POST", `/api/tenants/${tenantId}/sales-orders/${id}/invoice`, input),
 
   // --- Approval workflow engine --------------------------------------------------
   approvalRules: (tenantId: string) =>

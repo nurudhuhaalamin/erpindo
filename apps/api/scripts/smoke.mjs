@@ -932,6 +932,78 @@ try {
   const tbAfterPos2 = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah POS multi-bayar", tbAfterPos2.json?.balanced === true);
 
+  // --- Penjualan bertahap (Fase 7b): SO → Surat Jalan (DO) → Faktur ---------------
+  console.log("11d3. Penjualan bertahap (SO → Surat Jalan → Faktur)");
+  // Produk & tanggal khusus (September) agar tak menyentuh asersi stok BRG-002 & arus kas Juli.
+  const prodSo = await owner("POST", `/api/tenants/${tenantId}/products`, {
+    sku: "SO-7B", name: "Produk Pesanan", unit: "pcs", sellPrice: 200_000, buyPrice: 120_000,
+  });
+  await owner("POST", `/api/tenants/${tenantId}/purchases`, {
+    contactId: supplier.json.id, invoiceDate: "2026-09-16", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: prodSo.json.id, qty: 20, unitPrice: 120_000 }],
+  });
+  const soBody = {
+    contactId: customer.json.id, orderDate: "2026-09-16", warehouseId: whUtama.id, taxRate: 11,
+    lines: [{ productId: prodSo.json.id, qty: 5, unitPrice: 200_000 }],
+  };
+  const viewerSo = await viewer("POST", `/api/tenants/${tenantId}/sales-orders`, soBody);
+  check("viewer DITOLAK membuat pesanan penjualan (403)", viewerSo.status === 403);
+  const so1 = await owner("POST", `/api/tenants/${tenantId}/sales-orders`, soBody);
+  check("buat pesanan penjualan 201 (SO bernomor)", so1.status === 201 && Boolean(so1.json?.soNo), `→ ${JSON.stringify(so1.json)}`);
+
+  // Faktur sebelum surat jalan DITOLAK (harus dikirim dulu).
+  const invBeforeDeliver = await owner("POST", `/api/tenants/${tenantId}/sales-orders/${so1.json.id}/invoice`, { invoiceDate: "2026-09-20" });
+  check("faktur sebelum surat jalan DITOLAK 409", invBeforeDeliver.status === 409, `→ ${invBeforeDeliver.status}`);
+
+  // Uang muka (DP) 300rb via kas.
+  const dp = await owner("POST", `/api/tenants/${tenantId}/sales-orders/${so1.json.id}/down-payment`, {
+    amount: 300_000, accountId: kas.id, paymentDate: "2026-09-17",
+  });
+  check("uang muka pesanan 200", dp.status === 200, `→ ${JSON.stringify(dp.json)}`);
+
+  const stockBeforeDeliver = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  const soStockPre = stockBeforeDeliver.json?.levels?.find((l) => l.sku === "SO-7B" && l.warehouseId === whUtama.id)?.qty;
+  check("stok awal produk pesanan = 20 (dari pembelian)", soStockPre === 20, `→ ${soStockPre}`);
+
+  // Surat jalan: stok KELUAR di sini (5 pcs) + jurnal HPP.
+  const deliver = await owner("POST", `/api/tenants/${tenantId}/sales-orders/${so1.json.id}/deliver`, { deliveryDate: "2026-09-18" });
+  check("surat jalan (DO) 201 dengan nomor", deliver.status === 201 && Boolean(deliver.json?.doNo), `→ ${JSON.stringify(deliver.json)}`);
+  const stockAfterDeliver = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  const soStockDeliver = stockAfterDeliver.json?.levels?.find((l) => l.sku === "SO-7B" && l.warehouseId === whUtama.id)?.qty;
+  check("stok BERKURANG 5 saat surat jalan (20 → 15)", soStockDeliver === 15, `→ ${soStockDeliver}`);
+
+  // Pesanan terkirim tidak boleh dibatalkan.
+  const cancelDelivered = await owner("POST", `/api/tenants/${tenantId}/sales-orders/${so1.json.id}/cancel`, {});
+  check("batalkan pesanan yang sudah dikirim DITOLAK 409", cancelDelivered.status === 409, `→ ${cancelDelivered.status}`);
+
+  // Faktur dari pesanan terkirim: pendapatan diakui, stok TIDAK bergerak lagi (skipStock).
+  const soInvoice = await owner("POST", `/api/tenants/${tenantId}/sales-orders/${so1.json.id}/invoice`, { invoiceDate: "2026-09-20", dueDate: "2026-10-20" });
+  check("faktur dari pesanan terkirim 201 (total 1.110.000 = 1jt + PPN 110rb)", soInvoice.status === 201 && soInvoice.json?.total === 1_110_000, `→ ${JSON.stringify(soInvoice.json)}`);
+  const stockAfterInvoice = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  const soStockInvoice = stockAfterInvoice.json?.levels?.find((l) => l.sku === "SO-7B" && l.warehouseId === whUtama.id)?.qty;
+  check("stok TIDAK bergerak lagi saat faktur (tetap 15)", soStockInvoice === 15, `→ ${soStockInvoice}`);
+
+  // Uang muka terpakai → faktur sebagian terbayar.
+  const soInvList = await owner("GET", `/api/tenants/${tenantId}/invoices`);
+  const soInvDoc = soInvList.json?.docs?.find((d) => d.docNo === soInvoice.json.invoiceNo);
+  check("uang muka 300rb diterapkan ke faktur (paidAmount 300rb, status posted)", soInvDoc?.paidAmount === 300_000 && soInvDoc?.status === "posted", `→ ${JSON.stringify(soInvDoc && { p: soInvDoc.paidAmount, s: soInvDoc.status })}`);
+
+  // Kirim ulang pesanan yang sudah difakturkan DITOLAK.
+  const reDeliver = await owner("POST", `/api/tenants/${tenantId}/sales-orders/${so1.json.id}/deliver`, { deliveryDate: "2026-09-21" });
+  check("kirim ulang pesanan yang sudah difakturkan DITOLAK 409", reDeliver.status === 409, `→ ${reDeliver.status}`);
+
+  // Pesanan kedua yang masih terbuka boleh dibatalkan.
+  const so2 = await owner("POST", `/api/tenants/${tenantId}/sales-orders`, soBody);
+  const cancelOpen = await owner("POST", `/api/tenants/${tenantId}/sales-orders/${so2.json.id}/cancel`, {});
+  check("batalkan pesanan terbuka 200", cancelOpen.status === 200, `→ ${cancelOpen.status}`);
+
+  const soList = await owner("GET", `/api/tenants/${tenantId}/sales-orders`);
+  const so1Row = soList.json?.orders?.find((o) => o.id === so1.json.id);
+  check("daftar pesanan: SO pertama berstatus 'invoiced' + ada nomor faktur & surat jalan", so1Row?.status === "invoiced" && Boolean(so1Row?.invoiceNo) && Boolean(so1Row?.deliveryNo), `→ ${JSON.stringify(so1Row && { s: so1Row.status, inv: so1Row.invoiceNo, dl: so1Row.deliveryNo })}`);
+
+  const tbAfterSo = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah alur penjualan bertahap", tbAfterSo.json?.balanced === true);
+
   const shiftByViewer = await viewer("POST", `/api/tenants/${tenantId}/pos/shift/open`, {
     warehouseId: whUtama.id,
     openingCash: 0,
