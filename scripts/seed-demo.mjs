@@ -495,6 +495,26 @@ await step("peran kustom: Kasir Toko", "POST", `${T}/roles`, { name: "Kasir Toko
 await step("peran kustom: Staf Keuangan", "POST", `${T}/roles`, { name: "Staf Keuangan", baseRole: "admin", permissions: ["keuangan", "laporan", "pajak"] });
 await step("peran kustom: Auditor (baca-saja)", "POST", `${T}/roles`, { name: "Auditor", baseRole: "viewer", permissions: ["keuangan", "laporan", "pajak", "persetujuan"] });
 
+// --- 13b5. Akuntansi dimensi: cost center + jurnal bertag + aturan rekonsiliasi -----
+const ccBdg = await step("cost center: Cabang Bandung", "POST", `${T}/cost-centers`, { code: "CAB-BDG", name: "Cabang Bandung" });
+const ccJkt = await step("cost center: Cabang Jakarta", "POST", `${T}/cost-centers`, { code: "CAB-JKT", name: "Cabang Jakarta" });
+const bebanOpr = acc("5-4000");
+await step("jurnal beban operasional Cabang Bandung (dimensi)", "POST", `${T}/journal-entries`, {
+  entryDate: daysAgo(6), memo: "Listrik & air Cabang Bandung",
+  lines: [
+    { accountId: bebanOpr.id, debit: 1_200_000, credit: 0, costCenterId: ccBdg.id },
+    { accountId: bank.id, debit: 0, credit: 1_200_000 },
+  ],
+});
+await step("jurnal beban operasional Cabang Jakarta (dimensi)", "POST", `${T}/journal-entries`, {
+  entryDate: daysAgo(5), memo: "Listrik & air Cabang Jakarta",
+  lines: [
+    { accountId: bebanOpr.id, debit: 1_800_000, credit: 0, costCenterId: ccJkt.id },
+    { accountId: bank.id, debit: 0, credit: 1_800_000 },
+  ],
+});
+await step("aturan auto-match rekonsiliasi: biaya administrasi", "POST", `${T}/bank-match-rules`, { accountId: bank.id, keyword: "BIAYA ADM", dateTolerance: 2 });
+
 // --- 13c. Approval workflow engine: aturan berjenjang + alur multi-langkah -----------
 await step("aturan approval: pembelian besar (Admin→Pemilik)", "POST", `${T}/approval-rules`, {
   name: "Pembelian besar", docType: "pembelian", minAmount: 5_000_000, approverRoles: ["admin", "owner"],

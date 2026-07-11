@@ -208,8 +208,8 @@ export function AccountsPage() {
 // Jurnal Umum — form multi-baris + daftar jurnal terposting
 // ---------------------------------------------------------------------------
 
-type DraftLine = { accountId: string; description: string; debit: string; credit: string };
-const emptyLine = (): DraftLine => ({ accountId: "", description: "", debit: "", credit: "" });
+type DraftLine = { accountId: string; description: string; debit: string; credit: string; costCenterId: string };
+const emptyLine = (): DraftLine => ({ accountId: "", description: "", debit: "", credit: "", costCenterId: "" });
 
 export function JournalPage() {
   const { tenant } = useWorkspace();
@@ -234,6 +234,11 @@ export function JournalPage() {
     queryFn: () => api.projects(tenant.tenantId),
   });
   const activeProjects = (projectsQuery.data?.projects ?? []).filter((p) => p.status !== "completed");
+  const costCentersQuery = useQuery({
+    queryKey: ["cost-centers", tenant.tenantId],
+    queryFn: () => api.costCenters(tenant.tenantId),
+  });
+  const costCenters = costCentersQuery.data?.items ?? [];
 
   const [entryDate, setEntryDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [memo, setMemo] = useState("");
@@ -285,6 +290,7 @@ export function JournalPage() {
           description: "",
           debit: l.debit ? String(l.debit) : "",
           credit: l.credit ? String(l.credit) : "",
+          costCenterId: "",
         })),
       );
       toast("success", "Draf dari Asisten AI dimuat — periksa lalu posting.");
@@ -328,6 +334,7 @@ export function JournalPage() {
           description: l.description || undefined,
           debit: Number(l.debit) || 0,
           credit: Number(l.credit) || 0,
+          ...(l.costCenterId ? { costCenterId: l.costCenterId } : {}),
         })),
     });
   }
@@ -378,7 +385,7 @@ export function JournalPage() {
 
             <div className="space-y-2">
               {lines.map((line, i) => (
-                <div key={i} className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_8rem_8rem_2.5rem]">
+                <div key={i} className={`grid grid-cols-2 gap-2 ${costCenters.length > 0 ? "sm:grid-cols-[1fr_1fr_9rem_7rem_7rem_2.5rem]" : "sm:grid-cols-[1fr_1fr_8rem_8rem_2.5rem]"}`}>
                   <Select
                     aria-label={`Akun baris ${i + 1}`}
                     value={line.accountId}
@@ -397,6 +404,18 @@ export function JournalPage() {
                     value={line.description}
                     onChange={(e) => setLine(i, { description: e.target.value })}
                   />
+                  {costCenters.length > 0 ? (
+                    <Select
+                      aria-label={`Dimensi baris ${i + 1}`}
+                      value={line.costCenterId}
+                      onChange={(e) => setLine(i, { costCenterId: e.target.value })}
+                    >
+                      <option value="">— dimensi —</option>
+                      {costCenters.map((cc) => (
+                        <option key={cc.id} value={cc.id}>{cc.code} · {cc.name}</option>
+                      ))}
+                    </Select>
+                  ) : null}
                   <Input
                     aria-label={`Debit baris ${i + 1}`}
                     type="number"
@@ -489,6 +508,7 @@ export function JournalPage() {
                 description: "",
                 debit: l.debit ? String(l.debit) : "",
                 credit: l.credit ? String(l.credit) : "",
+                costCenterId: "",
               })),
             );
             toast("success", `Template "${t.name}" dimuat ke form — periksa lalu posting.`);

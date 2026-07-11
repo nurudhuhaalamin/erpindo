@@ -32,6 +32,11 @@ import type {
   ApiCustomRole,
   CustomRoleInput,
   AssignRoleInput,
+  ApiCostCenter,
+  CostCenterInput,
+  ApiDimensionReport,
+  ApiBankMatchRule,
+  BankMatchRuleInput,
   SubmitApprovalInput,
   ApiBankStatementItem,
   ApiCrmSourceRow,
@@ -502,6 +507,15 @@ export const api = {
     request<{ ok: true }>("POST", `/api/tenants/${tenantId}/tax/pph23/${id}/deposit`, input),
   sptPpn: (tenantId: string, period: string) =>
     request<ApiSptPpn>("GET", `/api/tenants/${tenantId}/tax/spt-ppn?period=${period}`),
+
+  // --- Akuntansi dimensi + rekonsiliasi v2 ---------------------------------------
+  costCenters: (tenantId: string) => request<{ items: ApiCostCenter[] }>("GET", `/api/tenants/${tenantId}/cost-centers`),
+  createCostCenter: (tenantId: string, input: CostCenterInput) => request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/cost-centers`, input),
+  archiveCostCenter: (tenantId: string, id: string) => request<{ ok: true }>("POST", `/api/tenants/${tenantId}/cost-centers/${id}/archive`),
+  dimensionReport: (tenantId: string, from: string, to: string) => request<ApiDimensionReport>("GET", `/api/tenants/${tenantId}/reports/dimension?from=${from}&to=${to}`),
+  bankMatchRules: (tenantId: string) => request<{ rules: ApiBankMatchRule[] }>("GET", `/api/tenants/${tenantId}/bank-match-rules`),
+  createBankMatchRule: (tenantId: string, input: BankMatchRuleInput) => request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/bank-match-rules`, input),
+  deleteBankMatchRule: (tenantId: string, id: string) => request<{ ok: true }>("DELETE", `/api/tenants/${tenantId}/bank-match-rules/${id}`),
 
   // --- Approval workflow engine --------------------------------------------------
   approvalRules: (tenantId: string) =>

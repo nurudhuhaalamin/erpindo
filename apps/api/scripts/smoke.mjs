@@ -1384,6 +1384,54 @@ try {
   const permViewerPost = await viewer("GET", `/api/tenants/${tenantId}/my-permissions`);
   check("anggota kembali jadi Viewer baca-saja (13 modul)", permViewerPost.json?.role === "viewer" && permViewerPost.json?.permissions?.length === 13);
 
+  // --- Akuntansi dimensi + rekonsiliasi bank v2 (Fase 7f) -------------------------
+  console.log("11e5. Akuntansi dimensi (cost center) + rekonsiliasi v2");
+  const ccViewer = await viewer("POST", `/api/tenants/${tenantId}/cost-centers`, { code: "X", name: "X" });
+  check("viewer DITOLAK membuat cost center (403)", ccViewer.status === 403);
+  const cc = await owner("POST", `/api/tenants/${tenantId}/cost-centers`, { code: "CAB-UJI", name: "Cabang Uji" });
+  check("buat cost center 201", cc.status === 201 && Boolean(cc.json?.id));
+  const ccDup = await owner("POST", `/api/tenants/${tenantId}/cost-centers`, { code: "CAB-UJI", name: "Lain" });
+  check("kode cost center duplikat DITOLAK 409", ccDup.status === 409);
+
+  const accsForDim = await owner("GET", `/api/tenants/${tenantId}/accounts`);
+  const bebanAcc = accsForDim.json?.accounts?.find((a) => a.code === "5-4000");
+  const bankAcc = accsForDim.json?.accounts?.find((a) => a.code === "1-1100");
+  // Jurnal Oktober terisolasi: Beban 500rb ditandai cost center / Kas 500rb.
+  const dimJrn = await owner("POST", `/api/tenants/${tenantId}/journal-entries`, {
+    entryDate: "2026-10-12", memo: "Beban operasional Cabang Uji",
+    lines: [
+      { accountId: bebanAcc.id, debit: 500_000, credit: 0, costCenterId: cc.json.id },
+      { accountId: kas.id, debit: 0, credit: 500_000 },
+    ],
+  });
+  check("jurnal dengan dimensi cost center 201", dimJrn.status === 201, `→ ${JSON.stringify(dimJrn.json)}`);
+  const dimBad = await owner("POST", `/api/tenants/${tenantId}/journal-entries`, {
+    entryDate: "2026-10-12", memo: "x",
+    lines: [
+      { accountId: bebanAcc.id, debit: 1_000, credit: 0, costCenterId: "tidak-ada" },
+      { accountId: kas.id, debit: 0, credit: 1_000 },
+    ],
+  });
+  check("jurnal dengan cost center tak dikenal DITOLAK 400", dimBad.status === 400);
+  const dimRep = await owner("GET", `/api/tenants/${tenantId}/reports/dimension?from=2026-10-01&to=2026-10-31`);
+  const ccRow = dimRep.json?.rows?.find((r) => r.costCenterId === cc.json.id);
+  check("laporan dimensi: Cabang Uji beban 500rb (laba -500rb)", dimRep.status === 200 && ccRow?.expense === 500_000 && ccRow?.net === -500_000, `→ ${JSON.stringify(ccRow)}`);
+  const ccArchive = await owner("POST", `/api/tenants/${tenantId}/cost-centers/${cc.json.id}/archive`);
+  check("arsipkan cost center 200", ccArchive.status === 200);
+
+  // Rekonsiliasi bank v2: aturan auto-match.
+  const brViewer = await viewer("POST", `/api/tenants/${tenantId}/bank-match-rules`, { accountId: bankAcc.id, keyword: "X" });
+  check("viewer DITOLAK membuat aturan auto-match (403)", brViewer.status === 403);
+  const br = await owner("POST", `/api/tenants/${tenantId}/bank-match-rules`, { accountId: bankAcc.id, keyword: "BIAYA ADM", dateTolerance: 2 });
+  check("buat aturan auto-match 201", br.status === 201 && Boolean(br.json?.id));
+  const brList = await owner("GET", `/api/tenants/${tenantId}/bank-match-rules`);
+  check("daftar aturan memuat aturan baru", brList.json?.rules?.some((r) => r.id === br.json.id && r.keyword === "BIAYA ADM"));
+  const brDel = await owner("DELETE", `/api/tenants/${tenantId}/bank-match-rules/${br.json.id}`);
+  check("hapus aturan auto-match 200", brDel.status === 200);
+
+  const tbAfterDim = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah alur dimensi", tbAfterDim.json?.balanced === true);
+
   // --- Lot & kedaluwarsa (Fase 2j) ----------------------------------------------
   console.log("11f. Batch/lot & kedaluwarsa (FEFO)");
 

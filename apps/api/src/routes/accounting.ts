@@ -255,6 +255,13 @@ export const accountingRoutes = new Hono<AppEnv>()
       if (!results[0]) return c.json({ error: "Proyek tidak ditemukan." }, 400);
     }
 
+    // Validasi dimensi (cost center) opsional per baris (Fase 7f).
+    const ccIds = [...new Set(input.lines.map((l) => l.costCenterId).filter((x): x is string => Boolean(x)))];
+    if (ccIds.length > 0) {
+      const { results } = await db.prepare(`SELECT id FROM cost_centers WHERE is_archived = 0 AND id IN (${ccIds.map(() => "?").join(",")})`).bind(...ccIds).all<{ id: string }>();
+      if (results.length !== ccIds.length) return c.json({ error: "Ada cost center yang tidak ditemukan." }, 400);
+    }
+
     let entryId: string;
     let entryNo: string;
     try {
@@ -268,6 +275,7 @@ export const accountingRoutes = new Hono<AppEnv>()
           description: l.description,
           debit: l.debit,
           credit: l.credit,
+          costCenterId: l.costCenterId,
         })),
       }));
     } catch (err) {
