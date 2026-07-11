@@ -258,7 +258,7 @@ function NotificationBell({ tenantId }: { tenantId: string }) {
         ) : null}
       </button>
       {open ? (
-        <div className="absolute right-0 z-50 mt-2 w-80 max-w-[85vw] overflow-hidden rounded-card border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+        <div className="fixed right-2 top-16 z-50 w-[calc(100vw-1rem)] max-w-sm overflow-hidden rounded-card border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:absolute sm:right-0 sm:top-auto sm:mt-2 sm:w-80">
           <div className="border-b border-slate-200 px-4 py-2.5 text-sm font-semibold dark:border-slate-800">
             Notifikasi
           </div>
@@ -1095,26 +1095,128 @@ function DisplayModeCard() {
 }
 
 const AUDIT_ACTION_LABELS: Record<string, string> = {
+  // Autentikasi & akun
   "auth.register": "Registrasi perusahaan",
   "auth.login": "Login",
   "auth.login_failed": "Login gagal",
+  "auth.totp_failed": "Kode 2FA salah",
   "auth.email_verified": "Email diverifikasi",
   "auth.password_reset": "Password direset",
+  "auth.password_changed": "Password diganti",
+  "auth.profile_updated": "Profil diperbarui",
   "auth.totp_enabled": "2FA diaktifkan",
   "auth.totp_disabled": "2FA dinonaktifkan",
+  // Perusahaan & tim
+  "tenant.company_created": "Perusahaan dibuat",
   "tenant.invite_sent": "Undangan dikirim",
   "tenant.invite_accepted": "Undangan diterima",
   "tenant.settings_updated": "Pengaturan diubah",
+  "tenant.member_role_changed": "Peran anggota diubah",
+  "tenant.member_removed": "Anggota dikeluarkan",
+  // Akuntansi
   "accounting.account_created": "Akun COA dibuat",
+  "accounting.account_renamed": "Akun COA diubah nama",
   "accounting.account_archived": "Akun COA diarsipkan",
   "accounting.journal_posted": "Jurnal diposting",
   "accounting.books_closed": "Tutup buku",
+  "accounting.template_created": "Template jurnal dibuat",
+  "accounting.bank_imported": "Impor mutasi bank",
+  "accounting.closing_entry": "Jurnal penutup",
+  // Penjualan, pembelian, pembayaran, stok
   "sales.invoice_posted": "Faktur penjualan",
+  "sales.invoice_voided": "Faktur penjualan dibatalkan",
   "purchase.posted": "Faktur pembelian",
+  "purchase.voided": "Faktur pembelian dibatalkan",
   "payment.recorded": "Pembayaran dicatat",
   "inventory.adjusted": "Penyesuaian stok",
+  "inventory.transferred": "Transfer stok antar gudang",
+  // Persetujuan
+  "approval.requested": "Persetujuan diminta",
+  "approval.threshold_set": "Ambang persetujuan diatur",
+  "approval.approved": "Pembelian disetujui",
+  "approval.rejected": "Pembelian ditolak",
+  // POS
+  "pos.shift_opened": "Shift kasir dibuka",
+  "pos.sale": "Penjualan kasir (POS)",
+  "pos.shift_closed": "Shift kasir ditutup",
+  // CRM
+  "crm.lead.created": "Lead dibuat",
+  "crm.lead.updated": "Lead diperbarui",
+  "crm.activity.logged": "Aktivitas lead dicatat",
+  "crm.lead.converted": "Lead jadi pelanggan",
+  "crm.quotation.created": "Penawaran dibuat",
+  "crm.quotation.status": "Status penawaran diubah",
+  "crm.quotation.converted": "Penawaran jadi faktur",
+  // HR
+  "hr.employee.created": "Karyawan ditambahkan",
+  "hr.employee.updated": "Karyawan diperbarui",
+  "hr.payroll.run": "Penggajian dijalankan",
+  "hr.adjustment.created": "Komponen gaji ditambahkan",
+  "hr.adjustment.deleted": "Komponen gaji dihapus",
+  "hr.loan.created": "Kasbon dicairkan",
+  "hr.leave.requested": "Cuti/izin diajukan",
+  "hr.leave.decided": "Cuti/izin diputuskan",
+  // Proyek
+  "project.created": "Proyek dibuat",
+  "project.status": "Status proyek diubah",
+  "project.milestone.invoiced": "Termin proyek difakturkan",
+  // Aset, kontrak, mata uang, anggaran
+  "asset.registered": "Aset didaftarkan",
+  "asset.depreciated": "Penyusutan aset",
+  "asset.disposed": "Aset dilepas",
+  "contract.created": "Kontrak dibuat",
+  "contract.status": "Status kontrak diubah",
+  "contract.billed": "Kontrak ditagih",
+  "currency.set": "Kurs ditetapkan",
+  "budget.set": "Anggaran ditetapkan",
+  // Manufaktur, maintenance, helpdesk
+  "manufacturing.bom_saved": "BoM disimpan",
+  "manufacturing.order_created": "Perintah produksi dibuat",
+  "manufacturing.produced": "Produksi selesai",
+  "manufacturing.qc_inspected": "Inspeksi QC",
+  "maintenance.schedule_created": "Jadwal servis dibuat",
+  "maintenance.generated": "Work order otomatis dibuat",
+  "maintenance.work_order_created": "Work order dibuat",
+  "maintenance.work_order_completed": "Work order selesai",
+  "helpdesk.ticket_created": "Tiket dukungan dibuat",
+  "helpdesk.ticket_replied": "Tiket dibalas",
+  "helpdesk.ticket_updated": "Tiket diperbarui",
+  // Sistem
   "billing.trial_expired": "Trial berakhir",
 };
+
+/** Kunci detail JSON → label ramah untuk ringkasan audit log. */
+const AUDIT_DETAIL_LABELS: Record<string, string> = {
+  docNo: "No", invoiceNo: "No", entryNo: "Jurnal", runNo: "No", shiftNo: "Shift",
+  requestNo: "No", quoteNo: "Penawaran", ticketNo: "Tiket", code: "Kode", name: "Nama",
+  total: "Total", amount: "Nominal", netProfit: "Laba bersih", totalGross: "Bruto",
+  totalNet: "Netto", period: "Periode", role: "Peran", email: "Email", status: "Status",
+  employees: "Karyawan", type: "Jenis", days: "Hari", principal: "Pokok",
+  count: "Jumlah baris", autoMatched: "Cocok otomatis", targetUserId: "Anggota", stage: "Tahap",
+};
+
+const AUDIT_RUPIAH_KEYS = new Set(["total", "amount", "netProfit", "totalGross", "totalNet", "principal", "outstanding", "value"]);
+
+/** Ubah detail JSON mentah audit menjadi teks ramah, mis. "No INV-00031 · Total Rp832.500". */
+function friendlyAuditDetail(raw: string | null): string {
+  if (!raw) return "";
+  let obj: Record<string, unknown>;
+  try {
+    obj = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return raw;
+  }
+  const parts: string[] = [];
+  for (const [key, val] of Object.entries(obj)) {
+    if (val === null || val === undefined || typeof val === "object") continue;
+    if (key === "id" || key === "ip") continue;
+    const label = AUDIT_DETAIL_LABELS[key] ?? key;
+    const value = typeof val === "number" && AUDIT_RUPIAH_KEYS.has(key) ? formatIDR(val) : String(val);
+    parts.push(`${label} ${value}`);
+    if (parts.length >= 3) break;
+  }
+  return parts.join(" · ");
+}
 
 function AuditLogCard({ tenantId }: { tenantId: string }) {
   const query = useQuery({ queryKey: ["audit-logs", tenantId], queryFn: () => api.auditLogs(tenantId) });
@@ -1129,23 +1231,24 @@ function AuditLogCard({ tenantId }: { tenantId: string }) {
         {query.isLoading ? (
           <Spinner />
         ) : (
-          <div className="max-h-96 overflow-x-auto overflow-y-auto">
-            <table className="w-full text-sm">
-              <tbody>
-                {(query.data?.logs ?? []).map((log) => (
-                  <tr key={log.id} className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
-                    <td className="whitespace-nowrap py-2 pr-4 text-xs text-slate-500 dark:text-slate-400">
-                      {log.createdAt.slice(0, 16).replace("T", " ")}
-                    </td>
-                    <td className="py-2 pr-4">{AUDIT_ACTION_LABELS[log.action] ?? log.action}</td>
-                    <td className="py-2 pr-4 text-slate-500 dark:text-slate-400">{log.userName ?? "sistem"}</td>
-                    <td className="max-w-64 truncate py-2 font-mono text-xs text-slate-400" title={log.detail ?? ""}>
-                      {log.detail ?? ""}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="max-h-96 divide-y divide-slate-100 overflow-y-auto dark:divide-slate-800/60">
+            {(query.data?.logs ?? []).map((log) => {
+              const detail = friendlyAuditDetail(log.detail);
+              return (
+                <div key={log.id} className="flex flex-col gap-0.5 py-2.5 sm:flex-row sm:items-baseline sm:gap-3">
+                  <span className="order-2 shrink-0 text-xs text-slate-400 dark:text-slate-500 sm:order-1 sm:w-28">
+                    {log.createdAt.slice(0, 16).replace("T", " ")}
+                  </span>
+                  <div className="order-1 min-w-0 flex-1 sm:order-2">
+                    <div className="flex flex-wrap items-baseline gap-x-2">
+                      <span className="font-medium">{AUDIT_ACTION_LABELS[log.action] ?? log.action}</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">oleh {log.userName ?? "sistem"}</span>
+                    </div>
+                    {detail ? <div className="text-xs text-slate-500 dark:text-slate-400">{detail}</div> : null}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </CardBody>
@@ -1695,18 +1798,44 @@ function NewCompanyCard() {
   );
 }
 
+const ROLE_LABELS: Record<string, string> = { owner: "Pemilik", admin: "Admin", viewer: "Viewer" };
+
 function MembersCard({ tenantId }: { tenantId: string }) {
+  const { me, tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["members", tenantId], queryFn: () => api.members(tenantId) });
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<{ userId: string; name: string } | null>(null);
+  const isOwner = tenant.role === "owner";
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["members", tenantId] });
 
   const invite = useMutation({
     mutationFn: (input: { email: string; role: "admin" | "viewer" }) => api.invite(tenantId, input),
     onSuccess: (res) => {
       toast("success", "Undangan dikirim.");
       setInviteUrl(res.inviteUrl);
-      queryClient.invalidateQueries({ queryKey: ["members", tenantId] });
+      invalidate();
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  const changeRole = useMutation({
+    mutationFn: (v: { userId: string; role: "owner" | "admin" | "viewer" }) => api.updateMemberRole(tenantId, v.userId, v.role),
+    onSuccess: () => {
+      toast("success", "Peran anggota diperbarui.");
+      invalidate();
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  const remove = useMutation({
+    mutationFn: (userId: string) => api.removeMember(tenantId, userId),
+    onSuccess: () => {
+      toast("success", "Anggota dikeluarkan.");
+      setRemoving(null);
+      invalidate();
     },
     onError: (err) => toast("error", (err as Error).message),
   });
@@ -1720,30 +1849,76 @@ function MembersCard({ tenantId }: { tenantId: string }) {
 
   return (
     <Card>
-      <CardHeader title="Anggota tim" description="Undang rekan kerja dan atur peran mereka." />
+      <CardHeader title="Anggota tim" description="Undang rekan kerja, atur peran, atau keluarkan anggota. Pemilik dapat mengubah peran." />
       <CardBody className="space-y-5">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-800 dark:text-slate-400">
                 <th className="pb-2 pr-4 font-medium">Nama</th>
-                <th className="pb-2 pr-4 font-medium">Email</th>
-                <th className="pb-2 font-medium">Peran</th>
+                <th className="hidden pb-2 pr-4 font-medium sm:table-cell">Email</th>
+                <th className="pb-2 pr-4 font-medium">Peran</th>
+                {isOwner ? <th className="pb-2 font-medium"></th> : null}
               </tr>
             </thead>
             <tbody>
-              {(query.data?.members ?? []).map((m) => (
-                <tr key={m.userId} className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
-                  <td className="py-2.5 pr-4">{m.name}</td>
-                  <td className="py-2.5 pr-4 text-slate-500 dark:text-slate-400">{m.email}</td>
-                  <td className="py-2.5">
-                    <Badge tone={m.role === "owner" ? "brand" : "neutral"}>{m.role}</Badge>
-                  </td>
-                </tr>
-              ))}
+              {(query.data?.members ?? []).map((m) => {
+                const isSelf = m.userId === me.user.id;
+                const canManage = isOwner && !isSelf;
+                return (
+                  <tr key={m.userId} className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
+                    <td className="py-2.5 pr-4">
+                      {m.name}
+                      {isSelf ? <span className="ml-1 text-xs text-slate-400">(Anda)</span> : null}
+                      <div className="text-xs text-slate-400 sm:hidden">{m.email}</div>
+                    </td>
+                    <td className="hidden py-2.5 pr-4 text-slate-500 dark:text-slate-400 sm:table-cell">{m.email}</td>
+                    <td className="py-2.5 pr-4">
+                      {canManage ? (
+                        <Select
+                          aria-label={`Peran ${m.name}`}
+                          className="h-8 w-28"
+                          value={m.role}
+                          onChange={(e) => changeRole.mutate({ userId: m.userId, role: e.target.value as "owner" | "admin" | "viewer" })}
+                          disabled={changeRole.isPending}
+                        >
+                          <option value="owner">Pemilik</option>
+                          <option value="admin">Admin</option>
+                          <option value="viewer">Viewer</option>
+                        </Select>
+                      ) : (
+                        <Badge tone={m.role === "owner" ? "brand" : "neutral"}>{ROLE_LABELS[m.role] ?? m.role}</Badge>
+                      )}
+                    </td>
+                    {isOwner ? (
+                      <td className="py-2.5 text-right">
+                        {canManage ? (
+                          <button
+                            onClick={() => setRemoving({ userId: m.userId, name: m.name })}
+                            className="text-xs text-red-600 hover:underline dark:text-red-400"
+                          >
+                            Keluarkan
+                          </button>
+                        ) : null}
+                      </td>
+                    ) : null}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+
+        <ConfirmDialog
+          open={removing !== null}
+          title="Keluarkan anggota?"
+          description={`${removing?.name ?? ""} akan kehilangan akses ke perusahaan ini. Tindakan ini bisa diulang dengan mengundang kembali.`}
+          confirmLabel="Keluarkan"
+          danger
+          onCancel={() => setRemoving(null)}
+          onConfirm={() => removing && remove.mutate(removing.userId)}
+          busy={remove.isPending}
+        />
 
         <form onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex-1">

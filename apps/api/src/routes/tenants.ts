@@ -4,6 +4,7 @@ import {
   inviteSchema,
   PLAN_LABELS,
   PLAN_LIMITS,
+  updateMemberRoleSchema,
   updateTenantSettingsSchema,
   type ApiAuditLog,
   type ApiMember,
@@ -100,6 +101,74 @@ export const tenantRoutes = new Hono<AppEnv>()
     // inviteUrl ikut dikembalikan agar bisa disalin dari UI selama layanan
     // email produksi belum dikonfigurasi.
     return c.json({ ok: true, inviteUrl }, 201);
+  })
+
+  // Ubah peran anggota (Owner) — tak boleh menghilangkan owner terakhir.
+  .patch("/:tenantId/members/:userId", requireAuth, requireTenantRole("owner"), async (c) => {
+    const parsed = updateMemberRoleSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: "Peran tidak valid." }, 400);
+    const tenant = c.get("tenant");
+    const targetUserId = c.req.param("userId");
+    const newRole = parsed.data.role;
+
+    const target = await c.env.DB.prepare(`SELECT role FROM memberships WHERE tenant_id = ? AND user_id = ?`)
+      .bind(tenant.id, targetUserId)
+      .first<{ role: Role }>();
+    if (!target) return c.json({ error: "Anggota tidak ditemukan." }, 404);
+
+    // Menurunkan owner terakhir menghilangkan pemilik → tolak.
+    if (target.role === "owner" && newRole !== "owner") {
+      const owners = await c.env.DB.prepare(
+        `SELECT COUNT(*) AS n FROM memberships WHERE tenant_id = ? AND role = 'owner'`,
+      )
+        .bind(tenant.id)
+        .first<{ n: number }>();
+      if ((owners?.n ?? 0) <= 1) return c.json({ error: "Tidak bisa menurunkan pemilik terakhir." }, 400);
+    }
+
+    await c.env.DB.prepare(`UPDATE memberships SET role = ? WHERE tenant_id = ? AND user_id = ?`)
+      .bind(newRole, tenant.id, targetUserId)
+      .run();
+    await audit(c.env, {
+      action: "tenant.member_role_changed",
+      userId: c.get("user").id,
+      tenantId: tenant.id,
+      detail: { targetUserId, role: newRole },
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true, role: newRole });
+  })
+
+  // Keluarkan anggota (Owner) — tak boleh diri sendiri / owner terakhir.
+  .delete("/:tenantId/members/:userId", requireAuth, requireTenantRole("owner"), async (c) => {
+    const tenant = c.get("tenant");
+    const targetUserId = c.req.param("userId");
+    if (targetUserId === c.get("user").id) return c.json({ error: "Tidak bisa mengeluarkan diri sendiri." }, 400);
+
+    const target = await c.env.DB.prepare(`SELECT role FROM memberships WHERE tenant_id = ? AND user_id = ?`)
+      .bind(tenant.id, targetUserId)
+      .first<{ role: Role }>();
+    if (!target) return c.json({ error: "Anggota tidak ditemukan." }, 404);
+    if (target.role === "owner") {
+      const owners = await c.env.DB.prepare(
+        `SELECT COUNT(*) AS n FROM memberships WHERE tenant_id = ? AND role = 'owner'`,
+      )
+        .bind(tenant.id)
+        .first<{ n: number }>();
+      if ((owners?.n ?? 0) <= 1) return c.json({ error: "Tidak bisa mengeluarkan pemilik terakhir." }, 400);
+    }
+
+    await c.env.DB.prepare(`DELETE FROM memberships WHERE tenant_id = ? AND user_id = ?`)
+      .bind(tenant.id, targetUserId)
+      .run();
+    await audit(c.env, {
+      action: "tenant.member_removed",
+      userId: c.get("user").id,
+      tenantId: tenant.id,
+      detail: { targetUserId },
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true });
   })
 
   // -------------------------------------------------------------------------

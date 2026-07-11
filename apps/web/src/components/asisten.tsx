@@ -20,6 +20,7 @@ export function Asisten({ tenantId, isAdmin }: { tenantId: string; isAdmin: bool
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [quota, setQuota] = useState<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -40,9 +41,10 @@ export function Asisten({ tenantId, isAdmin }: { tenantId: string; isAdmin: bool
         setMessages(history);
         const res = await api.aiChat(tenantId, history.slice(-8));
         setMessages([...history, { role: "assistant", content: res.reply }]);
+        if (typeof res.quotaRemaining === "number") setQuota(res.quotaRemaining);
       } else {
         setMessages((m) => [...m, { role: "user", content: `Draf jurnal: ${text}` }]);
-        const { draft } = await api.aiJurnal(tenantId, text);
+        const { draft, quotaRemaining } = await api.aiJurnal(tenantId, text);
         const ringkas = draft.lines
           .map((l) => `${l.accountCode} ${l.accountName}: ${l.debit ? `D ${formatIDR(l.debit)}` : `K ${formatIDR(l.credit)}`}`)
           .join("\n");
@@ -50,13 +52,16 @@ export function Asisten({ tenantId, isAdmin }: { tenantId: string; isAdmin: bool
           ...m,
           { role: "assistant", content: `Usulan jurnal "${draft.memo}":\n${ringkas}\n\nDraf dimuat ke form Jurnal Umum — periksa lalu posting.` },
         ]);
+        if (typeof quotaRemaining === "number") setQuota(quotaRemaining);
         sessionStorage.setItem("erpindo-ai-draft", JSON.stringify(draft));
         navigate({ to: "/app/keuangan/jurnal" });
       }
     } catch (err) {
       const status = err instanceof ApiRequestError ? err.status : 0;
-      if (status === 503) {
-        setNotice("Fitur AI belum aktif di lingkungan ini — fitur lain tetap berjalan normal.");
+      if (status === 408) {
+        setNotice("Asisten AI lama merespons (mungkin sedang sibuk). Coba lagi sebentar.");
+      } else if (status === 503) {
+        setNotice("Fitur AI sedang tidak tersedia — fitur lain tetap berjalan normal. Coba lagi nanti.");
       } else if (status === 429) {
         setNotice((err as Error).message);
       } else {
@@ -150,6 +155,9 @@ export function Asisten({ tenantId, isAdmin }: { tenantId: string; isAdmin: bool
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
                 {notice}
               </div>
+            ) : null}
+            {quota !== null && !busy ? (
+              <p className="text-right text-[11px] text-slate-400 dark:text-slate-500">Sisa kuota AI hari ini: {quota}</p>
             ) : null}
           </div>
 

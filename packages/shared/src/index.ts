@@ -108,6 +108,12 @@ export const inviteSchema = z.object({
 });
 export type InviteInput = z.infer<typeof inviteSchema>;
 
+/** Ubah peran anggota tim (Owner). "owner" = alih kepemilikan. */
+export const updateMemberRoleSchema = z.object({
+  role: z.enum(ROLES),
+});
+export type UpdateMemberRoleInput = z.infer<typeof updateMemberRoleSchema>;
+
 export const acceptInviteSchema = z.object({ token: z.string().min(1) });
 
 export const updateTenantSettingsSchema = z.object({

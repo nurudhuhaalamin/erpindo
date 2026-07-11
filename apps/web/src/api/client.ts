@@ -80,13 +80,28 @@ export class ApiRequestError extends Error {
   }
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(path, {
-    method,
-    credentials: "same-origin",
-    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+async function request<T>(method: string, path: string, body?: unknown, opts?: { timeoutMs?: number }): Promise<T> {
+  // Timeout klien opsional (mis. panggilan AI yang bisa lambat/menggantung di
+  // server) — tanpa ini UI bisa "menggantung" selamanya bila server tak merespons.
+  const controller = opts?.timeoutMs ? new AbortController() : undefined;
+  const timer = controller ? setTimeout(() => controller.abort(), opts!.timeoutMs) : undefined;
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      method,
+      credentials: "same-origin",
+      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller?.signal,
+    });
+  } catch (err) {
+    if (controller?.signal.aborted) {
+      throw new ApiRequestError(408, "Permintaan terlalu lama — coba lagi.");
+    }
+    throw new ApiRequestError(0, err instanceof Error ? err.message : "Gagal terhubung ke server.");
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
   const json = (await res.json().catch(() => null)) as
     | (Record<string, unknown> & { error?: string; issues?: Record<string, string[]>; twoFactorRequired?: boolean })
     | null;
@@ -141,6 +156,10 @@ export const api = {
   members: (tenantId: string) => request<{ members: ApiMember[] }>("GET", `/api/tenants/${tenantId}/members`),
   invite: (tenantId: string, input: { email: string; role: "admin" | "viewer" }) =>
     request<{ ok: true; inviteUrl: string }>("POST", `/api/tenants/${tenantId}/invites`, input),
+  updateMemberRole: (tenantId: string, userId: string, role: "owner" | "admin" | "viewer") =>
+    request<{ ok: true; role: string }>("PATCH", `/api/tenants/${tenantId}/members/${userId}`, { role }),
+  removeMember: (tenantId: string, userId: string) =>
+    request<{ ok: true }>("DELETE", `/api/tenants/${tenantId}/members/${userId}`),
   acceptInvite: (token: string) => request<{ ok: true; tenantId: string }>("POST", "/api/invites/accept", { token }),
   settings: (tenantId: string) =>
     request<{ settings: Record<string, string> }>("GET", `/api/tenants/${tenantId}/settings`),
@@ -232,9 +251,9 @@ export const api = {
     requestText(`/api/tenants/${tenantId}/reports/efaktur-xml?from=${from}&to=${to}`),
 
   aiChat: (tenantId: string, messages: { role: "user" | "assistant"; content: string }[]) =>
-    request<{ reply: string }>("POST", `/api/tenants/${tenantId}/ai/chat`, { messages }),
+    request<{ reply: string; quotaRemaining?: number }>("POST", `/api/tenants/${tenantId}/ai/chat`, { messages }, { timeoutMs: 35_000 }),
   aiJurnal: (tenantId: string, prompt: string) =>
-    request<{ draft: ApiAiJournalDraft }>("POST", `/api/tenants/${tenantId}/ai/jurnal`, { prompt }),
+    request<{ draft: ApiAiJournalDraft; quotaRemaining?: number }>("POST", `/api/tenants/${tenantId}/ai/jurnal`, { prompt }, { timeoutMs: 35_000 }),
   stockCard: (tenantId: string, productId: string, warehouseId: string) =>
     request<{ rows: ApiStockCardRow[]; balance: number }>(
       "GET",

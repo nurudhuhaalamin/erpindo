@@ -56,20 +56,29 @@ if (!tenantId) {
   process.exit(1);
 }
 
-const chat = await api("POST", `/api/tenants/${tenantId}/ai/chat`, {
+/** Panggil endpoint AI + ukur latensi (kunci diagnosa "berpikir… abadi"). */
+async function timed(label, path, body) {
+  const t0 = Date.now();
+  const res = await api("POST", path, body);
+  const ms = Date.now() - t0;
+  console.log(`\n=== HASIL PROBE ${label} ===`);
+  console.log(`HTTP ${res.status} · ${ms} ms`);
+  console.log(JSON.stringify(res.json, null, 2));
+  if (res.status === 200) {
+    console.log(`✅ ${label} AKTIF (${ms} ms)${ms > 20_000 ? " — TAPI LAMBAT (>20 dtk)! Ini penyebab UI 'berpikir…' lama." : ""}`);
+  } else if (res.status === 503) {
+    console.log(`❌ ${label} 503 — alasan: ${res.json?.detail ?? "(tanpa detail)"}`);
+    process.exitCode = 1;
+  } else {
+    console.log(`⚠ ${label} status tak terduga (${res.status}).`);
+    process.exitCode = 1;
+  }
+  return { ms, status: res.status };
+}
+
+await timed("/ai/chat", `/api/tenants/${tenantId}/ai/chat`, {
   messages: [{ role: "user", content: "Bagaimana cara membuat faktur penjualan?" }],
 });
-console.log(`\n=== HASIL PROBE /ai/chat ===`);
-console.log(`HTTP ${chat.status}`);
-console.log(JSON.stringify(chat.json, null, 2));
-
-if (chat.status === 200) {
-  console.log("\n✅ AI AKTIF — model menjawab di produksi.");
-} else if (chat.status === 503) {
-  const detail = chat.json?.detail ?? "(tanpa detail — kode lama masih terpasang?)";
-  console.log(`\n❌ AI 503 — alasan: ${detail}`);
-  process.exitCode = 1;
-} else {
-  console.log("\n⚠ Status tak terduga.");
-  process.exitCode = 1;
-}
+await timed("/ai/jurnal", `/api/tenants/${tenantId}/ai/jurnal`, {
+  prompt: "bayar listrik 500 ribu dari kas",
+});
