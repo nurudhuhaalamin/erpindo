@@ -1020,6 +1020,34 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `CREATE INDEX afs_flow ON approval_flow_steps (flow_id)`,
     ],
   },
+  {
+    id: "0028_pos_multipay",
+    statements: [
+      // POS lanjut (Fase 7a): pembayaran multi-metode per penjualan + tahan transaksi.
+      // amount = nilai yang masuk pembukuan (tunai = kas yang tinggal di laci setelah kembalian);
+      // tendered = nominal yang diserahkan pelanggan (tunai bisa lebih untuk kembalian).
+      `CREATE TABLE pos_sale_payments (
+        id TEXT PRIMARY KEY,
+        invoice_id TEXT NOT NULL REFERENCES invoices(id),
+        shift_id TEXT NOT NULL REFERENCES pos_shifts(id),
+        method TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        tendered INTEGER NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX psp_shift ON pos_sale_payments (shift_id)`,
+      `CREATE INDEX psp_invoice ON pos_sale_payments (invoice_id)`,
+      // Transaksi ditahan (park): keranjang disimpan sementara per shift.
+      `CREATE TABLE pos_held_sales (
+        id TEXT PRIMARY KEY,
+        shift_id TEXT NOT NULL REFERENCES pos_shifts(id),
+        label TEXT NOT NULL,
+        cart TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX phs_shift ON pos_held_sales (shift_id)`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

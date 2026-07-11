@@ -1,3 +1,4 @@
+import { POS_PAYMENT_METHOD_LABELS, POS_PAYMENT_METHODS, type PosPaymentMethod } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { api, formatIDR } from "../api/client";
@@ -84,11 +85,12 @@ export function PosPage() {
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [taxRate, setTaxRate] = useState(0);
-  const [cashReceived, setCashReceived] = useState("");
+  const [tenders, setTenders] = useState<{ method: PosPaymentMethod; amount: string }[]>([]);
   const [openingCash, setOpeningCash] = useState("");
   const [openWh, setOpenWh] = useState("");
   const [closingCash, setClosingCash] = useState("");
   const [closing, setClosing] = useState(false);
+  const [holdLabel, setHoldLabel] = useState("");
 
   const invalidateShift = () => queryClient.invalidateQueries({ queryKey: ["pos-shift", tenant.tenantId] });
 
@@ -105,12 +107,18 @@ export function PosPage() {
     onError: (err) => toast("error", (err as Error).message),
   });
 
+  const heldQuery = useQuery({
+    queryKey: ["pos-held", tenant.tenantId, shiftQuery.data?.shift?.id],
+    queryFn: () => api.posHeld(tenant.tenantId, shiftQuery.data!.shift!.id),
+    enabled: Boolean(shiftQuery.data?.shift?.id),
+  });
+
   const sale = useMutation({
     mutationFn: () =>
       api.posSale(tenant.tenantId, {
         shiftId: shiftQuery.data!.shift!.id,
         taxRate,
-        cashReceived: Number(cashReceived) || 0,
+        payments: tenders.filter((t) => Number(t.amount) > 0).map((t) => ({ method: t.method, amount: Number(t.amount) })),
         lines: cart.map((i) => ({
           productId: i.productId,
           qty: i.qty,
@@ -129,17 +137,48 @@ export function PosPage() {
         taxRate,
         taxAmount,
         total,
-        cashReceived: Number(cashReceived) || 0,
+        cashReceived: tenders.filter((t) => t.method === "tunai").reduce((s, t) => s + (Number(t.amount) || 0), 0),
         change: res.change,
       });
       setCart([]);
-      setCashReceived("");
+      setTenders([]);
       invalidateShift();
       queryClient.invalidateQueries({ queryKey: ["stock", tenant.tenantId] });
       queryClient.invalidateQueries({ queryKey: ["invoices", tenant.tenantId] });
     },
     onError: (err) => toast("error", (err as Error).message),
   });
+
+  const hold = useMutation({
+    mutationFn: () =>
+      api.posHold(tenant.tenantId, {
+        shiftId: shiftQuery.data!.shift!.id,
+        label: holdLabel.trim() || `Tahan ${new Date().toLocaleTimeString("id-ID")}`,
+        cart: cart.map((i) => ({ productId: i.productId, qty: i.qty, unitPrice: i.unitPrice, ...(i.discountPct > 0 ? { discountPct: i.discountPct } : {}) })),
+        taxRate,
+      }),
+    onSuccess: () => {
+      toast("success", "Transaksi ditahan.");
+      setCart([]);
+      setTenders([]);
+      setHoldLabel("");
+      heldQuery.refetch();
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  const deleteHeld = useMutation({
+    mutationFn: (id: string) => api.posDeleteHeld(tenant.tenantId, id),
+    onSuccess: () => heldQuery.refetch(),
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  function recallHeld(h: { id: string; cart: { productId: string; qty: number; unitPrice: number; discountPct?: number }[]; taxRate: number }) {
+    const names = new Map((productsQuery.data?.items ?? []).map((p) => [(p as ProductRow).id, (p as ProductRow).name]));
+    setCart(h.cart.map((c) => ({ productId: c.productId, name: names.get(c.productId) ?? "Produk", unitPrice: c.unitPrice, qty: c.qty, discountPct: c.discountPct ?? 0 })));
+    setTaxRate(h.taxRate);
+    deleteHeld.mutate(h.id);
+  }
 
   const closeShift = useMutation({
     mutationFn: () => api.posCloseShift(tenant.tenantId, shiftQuery.data!.shift!.id, Number(closingCash) || 0),
@@ -160,7 +199,23 @@ export function PosPage() {
   const subtotal = useMemo(() => cart.reduce((s, i) => s + itemAmount(i), 0), [cart]);
   const taxAmount = Math.round((subtotal * taxRate) / 100);
   const total = subtotal + taxAmount;
-  const change = (Number(cashReceived) || 0) - total;
+  const tenderedTotal = tenders.reduce((s, t) => s + (Number(t.amount) || 0), 0);
+  const cashTendered = tenders.filter((t) => t.method === "tunai").reduce((s, t) => s + (Number(t.amount) || 0), 0);
+  const remaining = Math.max(0, total - tenderedTotal);
+  const change = Math.max(0, tenderedTotal - total);
+  // Boleh bayar bila total tertutup & kembalian tak melebihi tunai yang diterima.
+  const canPay = cart.length > 0 && tenderedTotal >= total && change <= cashTendered;
+
+  function addTender(method: PosPaymentMethod) {
+    // Prefill sisa yang harus dibayar (untuk tunai boleh diubah lebih besar untuk kembalian).
+    setTenders((t) => [...t, { method, amount: remaining > 0 ? String(remaining) : "" }]);
+  }
+  function setTenderAmount(idx: number, amount: string) {
+    setTenders((t) => t.map((x, i) => (i === idx ? { ...x, amount } : x)));
+  }
+  function removeTender(idx: number) {
+    setTenders((t) => t.filter((_, i) => i !== idx));
+  }
 
   function addToCart(p: ProductRow) {
     setCart((c) => {
@@ -357,30 +412,68 @@ export function PosPage() {
               </div>
             </div>
 
-            <div>
-              <Label htmlFor="pos-cash">Tunai diterima (Rp)</Label>
-              <Input
-                id="pos-cash"
-                type="number"
-                min={0}
-                value={cashReceived}
-                onChange={(e) => setCashReceived(e.target.value)}
-                placeholder={String(total)}
-              />
-              {change >= 0 && cashReceived !== "" ? (
-                <p className="mt-1 text-sm">
-                  Kembalian: <strong className="tabular-nums">{formatIDR(change)}</strong>
-                </p>
-              ) : null}
+            {/* Pembayaran multi-metode */}
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-1.5">
+                {POS_PAYMENT_METHODS.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => addTender(m)}
+                    disabled={cart.length === 0}
+                    className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium hover:border-brand-400 hover:bg-brand-50 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-brand-950/30"
+                  >
+                    + {POS_PAYMENT_METHOD_LABELS[m]}
+                  </button>
+                ))}
+              </div>
+              {tenders.map((t, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="w-20 text-xs text-slate-500 dark:text-slate-400">{POS_PAYMENT_METHOD_LABELS[t.method]}</span>
+                  <Input aria-label={`Nominal ${POS_PAYMENT_METHOD_LABELS[t.method]}`} type="number" min={0} className="flex-1" value={t.amount} onChange={(e) => setTenderAmount(i, e.target.value)} />
+                  <button type="button" aria-label="Hapus pembayaran" className="text-slate-400 hover:text-red-600" onClick={() => removeTender(i)}>
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <div className="flex justify-between text-sm">
+                {remaining > 0 ? (
+                  <span className="text-amber-600 dark:text-amber-400">Sisa: {formatIDR(remaining)}</span>
+                ) : (
+                  <span className="text-emerald-600 dark:text-emerald-400">Lunas</span>
+                )}
+                {change > 0 ? <span>Kembalian: <strong className="tabular-nums">{formatIDR(change)}</strong></span> : null}
+              </div>
             </div>
 
-            <Button
-              className="h-12 w-full text-base"
-              onClick={() => sale.mutate()}
-              disabled={cart.length === 0 || change < 0 || sale.isPending}
-            >
+            <Button className="h-12 w-full text-base" onClick={() => sale.mutate()} disabled={!canPay || sale.isPending}>
               {sale.isPending ? <Spinner /> : null} Bayar & Cetak Struk
             </Button>
+
+            {/* Tahan transaksi */}
+            <div className="flex items-center gap-2 border-t border-slate-200 pt-3 dark:border-slate-800">
+              <Input aria-label="Nama tahan" placeholder="Nama tahan (opsional)" className="flex-1" value={holdLabel} onChange={(e) => setHoldLabel(e.target.value)} />
+              <Button variant="secondary" className="h-9" onClick={() => hold.mutate()} disabled={cart.length === 0 || hold.isPending}>
+                Tahan
+              </Button>
+            </div>
+            {(heldQuery.data?.held ?? []).length > 0 ? (
+              <div className="space-y-1.5">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Transaksi ditahan</div>
+                {(heldQuery.data?.held ?? []).map((h) => (
+                  <div key={h.id} className="flex items-center gap-2 rounded-lg border border-slate-200 p-2 text-sm dark:border-slate-800">
+                    <span className="min-w-0 flex-1 truncate">{h.label}</span>
+                    <span className="text-xs text-slate-400">{h.cart.length} item</span>
+                    <Button variant="ghost" className="h-7" onClick={() => recallHeld(h)}>
+                      Panggil
+                    </Button>
+                    <button type="button" aria-label="Hapus tahan" className="text-slate-400 hover:text-red-600" onClick={() => deleteHeld.mutate(h.id)}>
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </CardBody>
         </Card>
       </div>

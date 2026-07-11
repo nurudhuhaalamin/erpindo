@@ -327,6 +327,17 @@ for (const [i, sale] of [
   const s = await step(`penjualan POS #${i + 1}`, "POST", `${T}/pos/sales`, { shiftId: shift.id, taxRate: 0, cashReceived: sale.cash, lines: sale.lines });
   posCash += s.total ?? 0;
 }
+// Penjualan split (tunai + QRIS) — hanya porsi tunai yang masuk laci.
+await step("penjualan POS split (tunai+QRIS)", "POST", `${T}/pos/sales`, {
+  shiftId: shift.id, taxRate: 0,
+  payments: [{ method: "tunai", amount: 15_000 }, { method: "qris", amount: 10_000 }],
+  lines: [{ productId: keripik.id, qty: 1, unitPrice: 25_000 }],
+});
+posCash += 15_000; // porsi tunai
+// Satu transaksi ditahan untuk demo (belum dibayar).
+await step("tahan transaksi POS (Meja 5)", "POST", `${T}/pos/held`, {
+  shiftId: shift.id, label: "Meja 5", cart: [{ productId: kopi.id, qty: 2, unitPrice: 85_000 }], taxRate: 0,
+});
 await step("tutup shift kasir", "POST", `${T}/pos/shift/${shift.id}/close`, { closingCash: 500_000 + posCash });
 
 // --- 11. CRM: lead, aktivitas, konversi → penawaran → faktur ----------------------
