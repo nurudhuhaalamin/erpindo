@@ -1045,6 +1045,55 @@ try {
   });
   check("buat permintaan pembelian dari usulan 201", roPr.status === 201 && Boolean(roPr.json?.reqNo), `→ ${JSON.stringify(roPr.json)}`);
 
+  // --- Pajak UMKM (Fase 7d): PPh Final 0,5% + PPh 23 + SPT Masa PPN ----------------
+  console.log("11d5. Pajak UMKM (PPh Final + PPh 23 + SPT PPN)");
+  // Masa Oktober terisolasi (tak ada transaksi lain) agar omzet/PPN deterministik.
+  const prodTax = await owner("POST", `/api/tenants/${tenantId}/products`, {
+    sku: "TAX-7D", name: "Produk Pajak", unit: "pcs", sellPrice: 200_000, buyPrice: 100_000,
+  });
+  await owner("POST", `/api/tenants/${tenantId}/purchases`, {
+    contactId: supplier.json.id, invoiceDate: "2026-10-05", taxRate: 11, warehouseId: whUtama.id,
+    lines: [{ productId: prodTax.json.id, qty: 10, unitPrice: 100_000 }],
+  });
+  const taxSale = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id, invoiceDate: "2026-10-06", taxRate: 11, warehouseId: whUtama.id,
+    lines: [{ productId: prodTax.json.id, qty: 5, unitPrice: 200_000 }],
+  });
+  check("faktur PPN Oktober (DPP 1jt + PPN 110rb)", taxSale.status === 201 && taxSale.json?.total === 1_110_000);
+
+  // PPh Final 0,5%.
+  const pfPrev = await owner("GET", `/api/tenants/${tenantId}/tax/pph-final/preview?period=2026-10`);
+  check("preview PPh Final: omzet 1jt → PPh 5.000", pfPrev.status === 200 && pfPrev.json?.omzet === 1_000_000 && pfPrev.json?.amount === 5_000, `→ ${JSON.stringify(pfPrev.json)}`);
+  const pfViewer = await viewer("POST", `/api/tenants/${tenantId}/tax/pph-final`, { period: "2026-10", accountId: kas.id, paidDate: "2026-10-10" });
+  check("viewer DITOLAK setor PPh Final (403)", pfViewer.status === 403);
+  const pfPay = await owner("POST", `/api/tenants/${tenantId}/tax/pph-final`, { period: "2026-10", accountId: kas.id, paidDate: "2026-10-10" });
+  check("setor PPh Final 201 (amount 5.000)", pfPay.status === 201 && pfPay.json?.amount === 5_000, `→ ${JSON.stringify(pfPay.json)}`);
+  const pfDup = await owner("POST", `/api/tenants/${tenantId}/tax/pph-final`, { period: "2026-10", accountId: kas.id, paidDate: "2026-10-10" });
+  check("setor PPh Final masa yang sama DITOLAK 409", pfDup.status === 409);
+  const pfZero = await owner("POST", `/api/tenants/${tenantId}/tax/pph-final`, { period: "2026-11", accountId: kas.id, paidDate: "2026-11-10" });
+  check("setor PPh Final masa tanpa omzet DITOLAK 400", pfZero.status === 400);
+
+  // PPh 23 (bukti potong) + setor.
+  const p23Viewer = await viewer("POST", `/api/tenants/${tenantId}/tax/pph23`, { contactId: supplier.json.id, taxDate: "2026-10-07", objectType: "jasa", gross: 10_000_000, rate: 2, sourceAccountId: kas.id });
+  check("viewer DITOLAK membuat bukti potong (403)", p23Viewer.status === 403);
+  const p23 = await owner("POST", `/api/tenants/${tenantId}/tax/pph23`, { contactId: supplier.json.id, taxDate: "2026-10-07", objectType: "jasa", gross: 10_000_000, rate: 2, sourceAccountId: kas.id });
+  check("buat bukti potong PPh 23 (2% × 10jt = 200rb)", p23.status === 201 && p23.json?.amount === 200_000 && Boolean(p23.json?.docNo), `→ ${JSON.stringify(p23.json)}`);
+  const p23Deposit = await owner("POST", `/api/tenants/${tenantId}/tax/pph23/${p23.json.id}/deposit`, { accountId: kas.id, depositDate: "2026-10-08" });
+  check("setor PPh 23 200", p23Deposit.status === 200);
+  const p23Redeposit = await owner("POST", `/api/tenants/${tenantId}/tax/pph23/${p23.json.id}/deposit`, { accountId: kas.id, depositDate: "2026-10-08" });
+  check("setor ulang PPh 23 DITOLAK 409", p23Redeposit.status === 409);
+
+  // SPT Masa PPN 1111 (masa Oktober terisolasi).
+  const spt = await owner("GET", `/api/tenants/${tenantId}/tax/spt-ppn?period=2026-10`);
+  check(
+    "SPT Masa PPN Oktober: keluaran 110rb, masukan 110rb, netto 0",
+    spt.status === 200 && spt.json?.totalOutputPpn === 110_000 && spt.json?.totalInputPpn === 110_000 && spt.json?.net === 0 && spt.json?.output?.length === 1 && spt.json?.input?.length === 1,
+    `→ ${JSON.stringify(spt.json && { o: spt.json.totalOutputPpn, i: spt.json.totalInputPpn, net: spt.json.net })}`,
+  );
+
+  const tbAfterTax = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah alur pajak", tbAfterTax.json?.balanced === true);
+
   const shiftByViewer = await viewer("POST", `/api/tenants/${tenantId}/pos/shift/open`, {
     warehouseId: whUtama.id,
     openingCash: 0,

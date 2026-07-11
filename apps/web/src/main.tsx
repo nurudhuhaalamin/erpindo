@@ -32,6 +32,7 @@ import { AccountsPage, JournalPage, LedgerPage, TrialBalancePage } from "./pages
 import { AgingPage, BalanceSheetPage, CashFlowPage, EfakturPage, IncomeStatementPage, SalesReportPage } from "./pages/reports";
 import { ContactsPage, ProductsPage, WarehousesPage } from "./pages/masterdata";
 import { ApprovalsPage } from "./pages/approvals";
+import { PajakPage } from "./pages/pajak";
 import { PosPage } from "./pages/pos";
 import { Form1721A1PrintPage, InvoicePrintPage, PayslipPrintPage, QuotationPrintPage } from "./pages/print";
 import {
@@ -96,6 +97,7 @@ const appChildren = [
   createRoute({ getParentRoute: () => appRoute, path: "/keuangan/umur-tagihan", component: AgingPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/keuangan/arus-kas", component: CashFlowPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/keuangan/e-faktur", component: EfakturPage }),
+  createRoute({ getParentRoute: () => appRoute, path: "/keuangan/pajak", component: PajakPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/laporan/penjualan", component: SalesReportPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/keuangan/anggaran", component: BudgetPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/master/produk", component: ProductsPage }),

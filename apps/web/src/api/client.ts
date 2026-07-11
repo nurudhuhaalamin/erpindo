@@ -21,6 +21,13 @@ import type {
   ApiReorderSuggestion,
   ApiProductSerial,
   SerialInput,
+  ApiPphFinal,
+  ApiPphFinalPreview,
+  ApiPph23,
+  ApiSptPpn,
+  PphFinalInput,
+  Pph23Input,
+  Pph23DepositInput,
   SubmitApprovalInput,
   ApiBankStatementItem,
   ApiCrmSourceRow,
@@ -466,6 +473,22 @@ export const api = {
     request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/products/${productId}/serials`, input),
   setSerialStatus: (tenantId: string, productId: string, serialId: string, status: "in_stock" | "sold") =>
     request<{ ok: true }>("PATCH", `/api/tenants/${tenantId}/products/${productId}/serials/${serialId}`, { status }),
+
+  // --- Pajak UMKM (PPh Final, PPh 23, SPT Masa PPN) ------------------------------
+  pphFinalPreview: (tenantId: string, period: string) =>
+    request<ApiPphFinalPreview>("GET", `/api/tenants/${tenantId}/tax/pph-final/preview?period=${period}`),
+  pphFinalList: (tenantId: string) =>
+    request<{ records: ApiPphFinal[] }>("GET", `/api/tenants/${tenantId}/tax/pph-final`),
+  payPphFinal: (tenantId: string, input: PphFinalInput) =>
+    request<{ ok: true; id: string; amount: number }>("POST", `/api/tenants/${tenantId}/tax/pph-final`, input),
+  pph23List: (tenantId: string) =>
+    request<{ records: ApiPph23[] }>("GET", `/api/tenants/${tenantId}/tax/pph23`),
+  createPph23: (tenantId: string, input: Pph23Input) =>
+    request<{ ok: true; id: string; docNo: string; amount: number }>("POST", `/api/tenants/${tenantId}/tax/pph23`, input),
+  depositPph23: (tenantId: string, id: string, input: Pph23DepositInput) =>
+    request<{ ok: true }>("POST", `/api/tenants/${tenantId}/tax/pph23/${id}/deposit`, input),
+  sptPpn: (tenantId: string, period: string) =>
+    request<ApiSptPpn>("GET", `/api/tenants/${tenantId}/tax/spt-ppn?period=${period}`),
 
   // --- Approval workflow engine --------------------------------------------------
   approvalRules: (tenantId: string) =>

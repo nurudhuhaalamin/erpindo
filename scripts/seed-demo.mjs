@@ -480,6 +480,16 @@ await step("pesanan penjualan Toko Priangan (menunggu kirim)", "POST", `${T}/sal
   lines: [{ productId: kopi.id, qty: 4, unitPrice: 85_000 }],
 });
 
+// --- 13b3. Pajak UMKM: PPh Final 0,5% + bukti potong PPh 23 -----------------------
+await step(`setor PPh Final 0,5% masa ${thisMonth}`, "POST", `${T}/tax/pph-final`, { period: thisMonth, accountId: bank.id, paidDate: daysAgo(0) });
+const bpJasa = await step("bukti potong PPh 23 jasa audit", "POST", `${T}/tax/pph23`, {
+  contactId: suppKopi.id, taxDate: daysAgo(4), objectType: "jasa", gross: 8_000_000, rate: 2, sourceAccountId: bank.id, note: "Jasa audit tahunan",
+});
+await step("setor PPh 23 ke kas negara", "POST", `${T}/tax/pph23/${bpJasa.id}/deposit`, { accountId: bank.id, depositDate: daysAgo(1) });
+await step("bukti potong PPh 23 sewa gudang (belum setor)", "POST", `${T}/tax/pph23`, {
+  contactId: suppKopi.id, taxDate: daysAgo(2), objectType: "sewa", gross: 5_000_000, rate: 2, sourceAccountId: bank.id, note: "Sewa gudang bulan ini",
+});
+
 // --- 13c. Approval workflow engine: aturan berjenjang + alur multi-langkah -----------
 await step("aturan approval: pembelian besar (Admin→Pemilik)", "POST", `${T}/approval-rules`, {
   name: "Pembelian besar", docType: "pembelian", minAmount: 5_000_000, approverRoles: ["admin", "owner"],

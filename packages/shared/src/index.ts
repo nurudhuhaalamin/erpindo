@@ -412,6 +412,83 @@ export type ApiReorderSuggestion = {
   buyPrice: number;
 };
 
+// --- Pajak UMKM (Fase 7d) ---------------------------------------------------
+const TAX_PERIOD_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+/** PPh Final UMKM 0,5% (PP 55/2022): setoran per masa (bulan). */
+export const pphFinalSchema = z.object({
+  period: z.string().regex(TAX_PERIOD_RE, "Masa pajak harus format YYYY-MM"),
+  accountId: z.string().min(1, "Pilih akun kas/bank"),
+  paidDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal setor wajib diisi"),
+});
+export type PphFinalInput = z.infer<typeof pphFinalSchema>;
+export type ApiPphFinal = {
+  id: string;
+  period: string;
+  omzet: number;
+  rate: number;
+  amount: number;
+  accountId: string;
+  paidDate: string;
+  createdAt: string;
+};
+export type ApiPphFinalPreview = { period: string; omzet: number; rate: number; amount: number; alreadyRecorded: boolean };
+
+/** Objek pemotongan PPh 23 + tarif lazim (%). */
+export const PPH23_OBJECTS = [
+  { code: "jasa", label: "Jasa (teknik/manajemen/konsultan/lainnya)", rate: 2 },
+  { code: "sewa", label: "Sewa & penghasilan lain terkait harta", rate: 2 },
+  { code: "royalti", label: "Royalti", rate: 15 },
+  { code: "bunga", label: "Bunga", rate: 15 },
+  { code: "dividen", label: "Dividen", rate: 15 },
+] as const;
+export type Pph23ObjectCode = (typeof PPH23_OBJECTS)[number]["code"];
+export const PPH23_OBJECT_LABELS: Record<string, string> = Object.fromEntries(PPH23_OBJECTS.map((o) => [o.code, o.label]));
+
+export const pph23Schema = z.object({
+  contactId: z.string().min(1, "Pilih rekanan"),
+  taxDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal wajib diisi"),
+  objectType: z.enum(PPH23_OBJECTS.map((o) => o.code) as [string, ...string[]]),
+  gross: amountSchema.refine((n) => n >= 1, "Dasar pengenaan minimal 1"),
+  rate: z.number().min(0).max(100),
+  sourceAccountId: z.string().min(1, "Pilih akun sumber (hutang/kas/bank)"),
+  note: z.string().trim().max(200).optional().or(z.literal("")),
+});
+export type Pph23Input = z.infer<typeof pph23Schema>;
+export const pph23DepositSchema = z.object({
+  accountId: z.string().min(1, "Pilih akun kas/bank"),
+  depositDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal setor wajib diisi"),
+});
+export type Pph23DepositInput = z.infer<typeof pph23DepositSchema>;
+export type ApiPph23 = {
+  id: string;
+  docNo: string;
+  contactId: string;
+  contactName: string;
+  contactNpwp: string | null;
+  taxDate: string;
+  objectType: string;
+  gross: number;
+  rate: number;
+  amount: number;
+  deposited: boolean;
+  note: string | null;
+  createdAt: string;
+};
+
+/** SPT Masa PPN 1111: rekap keluaran (A) & masukan (B). */
+export type ApiSptPpnRow = { docNo: string; date: string; partnerName: string; partnerNpwp: string | null; dpp: number; ppn: number };
+export type ApiSptPpn = {
+  period: string;
+  output: ApiSptPpnRow[];
+  input: ApiSptPpnRow[];
+  totalOutputDpp: number;
+  totalOutputPpn: number;
+  totalInputDpp: number;
+  totalInputPpn: number;
+  net: number;
+};
+
 /** Notifikasi operasional (lonceng di topbar) — dihitung on-demand dari data nyata. */
 export type ApiNotification = {
   type: "low_stock" | "overdue_invoice" | "open_ticket" | "pending_approval" | "crm_followup_due" | "crm_stale_lead";
