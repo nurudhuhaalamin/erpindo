@@ -1096,6 +1096,30 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `CREATE INDEX dol_do ON delivery_order_lines (do_id)`,
     ],
   },
+  {
+    id: "0030_stock_advanced",
+    statements: [
+      // Stok lanjut (Fase 7c): barcode, multi-satuan (UOM), nomor seri.
+      // Kolom produk baru — backward-compatible (nilai default aman untuk data lama).
+      `ALTER TABLE products ADD COLUMN barcode TEXT`,
+      // Satuan besar (mis. "dus") + faktor konversi (1 satuan besar = uom_factor satuan dasar).
+      `ALTER TABLE products ADD COLUMN uom_secondary TEXT`,
+      `ALTER TABLE products ADD COLUMN uom_factor INTEGER NOT NULL DEFAULT 1`,
+      // Produk terpilih melacak nomor seri (barang bernilai tinggi/garansi).
+      `ALTER TABLE products ADD COLUMN track_serial INTEGER NOT NULL DEFAULT 0`,
+      // Registri nomor seri per produk (in_stock → sold). Ringan, terpisah dari stock_levels.
+      `CREATE TABLE product_serials (
+        id TEXT PRIMARY KEY,
+        product_id TEXT NOT NULL REFERENCES products(id),
+        serial_no TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'in_stock' CHECK (status IN ('in_stock','sold')),
+        note TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE (product_id, serial_no)
+      )`,
+      `CREATE INDEX ps_product ON product_serials (product_id)`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

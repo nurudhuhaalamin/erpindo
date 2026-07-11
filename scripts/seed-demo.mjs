@@ -172,8 +172,8 @@ const penjualanAcc = accountsRes.accounts.find((a) => a.type === "income");
 async function product(p) {
   return step(`produk ${p.sku}`, "POST", `${T}/products`, p);
 }
-const kopi = await product({ sku: "KOPI-250", name: "Kopi Arabika Gayo 250g", unit: "pcs", sellPrice: 85_000, buyPrice: 55_000, minStock: 20 });
-const teh = await product({ sku: "TEH-100", name: "Teh Melati Premium 100g", unit: "pcs", sellPrice: 45_000, buyPrice: 28_000, minStock: 15 });
+const kopi = await product({ sku: "KOPI-250", name: "Kopi Arabika Gayo 250g", unit: "pcs", sellPrice: 85_000, buyPrice: 55_000, minStock: 20, barcode: "8990011112220", uomSecondary: "dus", uomFactor: 20 });
+const teh = await product({ sku: "TEH-100", name: "Teh Melati Premium 100g", unit: "pcs", sellPrice: 45_000, buyPrice: 28_000, minStock: 15, barcode: "8990011113330", uomSecondary: "dus", uomFactor: 24 });
 const gula = await product({ sku: "GULA-1L", name: "Gula Aren Cair 1L", unit: "btl", sellPrice: 60_000, buyPrice: 38_000 });
 const keripik = await product({ sku: "KRPK-200", name: "Keripik Singkong Balado 200g", unit: "pcs", sellPrice: 25_000, buyPrice: 14_000, minStock: 30 });
 const sambal = await product({ sku: "SMBL-140", name: "Sambal Bawang Botol 140g", unit: "btl", sellPrice: 35_000, buyPrice: 20_000, trackExpiry: true });
@@ -184,6 +184,11 @@ const pita = await product({ sku: "BHN-PITA", name: "Pita Satin Emas", unit: "ro
 const hampers = await product({ sku: "HAMPERS-01", name: "Paket Hampers Nusantara", unit: "paket", sellPrice: 250_000, buyPrice: 0 });
 const jasaKirim = await product({ sku: "JASA-KIRIM", name: "Jasa Pengiriman Same-Day", unit: "kali", sellPrice: 25_000, isService: true });
 const jasaKonsul = await product({ sku: "JASA-RACIK", name: "Jasa Racik Hampers Kustom", unit: "jam", sellPrice: 150_000, isService: true });
+// Stok lanjut (Fase 7c): barang bernilai tinggi bernomor seri + barang titik-pesan.
+const mesin = await product({ sku: "MSN-SANGRAI", name: "Mesin Sangrai Kopi 3kg", unit: "unit", sellPrice: 18_500_000, buyPrice: 14_000_000, trackSerial: true, barcode: "8990022220001" });
+await product({ sku: "FLT-V60", name: "Filter Kertas V60 (isi 100)", unit: "pak", sellPrice: 35_000, buyPrice: 20_000, minStock: 40 });
+await step("daftar nomor seri mesin #1", "POST", `${T}/products/${mesin.id}/serials`, { serialNo: "MSN-2026-0001", note: "Garansi 2 tahun" });
+await step("daftar nomor seri mesin #2", "POST", `${T}/products/${mesin.id}/serials`, { serialNo: "MSN-2026-0002", note: "Garansi 2 tahun" });
 
 // --- 4. Kontak ----------------------------------------------------------------
 async function contact(k) {

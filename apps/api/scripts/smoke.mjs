@@ -1004,6 +1004,47 @@ try {
   const tbAfterSo = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah alur penjualan bertahap", tbAfterSo.json?.balanced === true);
 
+  // --- Stok lanjut (Fase 7c): barcode, multi-satuan, nomor seri, titik pesan ------
+  console.log("11d4. Stok lanjut (barcode + UOM + nomor seri + titik pesan)");
+  const prodSerial = await owner("POST", `/api/tenants/${tenantId}/products`, {
+    sku: "SER-7C", name: "Mesin Espresso", unit: "unit", sellPrice: 12_000_000, buyPrice: 9_000_000,
+    barcode: "8991234567890", uomSecondary: "dus", uomFactor: 6, trackSerial: true,
+  });
+  check("buat produk barcode + UOM + lacak seri 201", prodSerial.status === 201, `→ ${prodSerial.status}`);
+  const lookup = await owner("GET", `/api/tenants/${tenantId}/products/lookup?barcode=8991234567890`);
+  check("pindai barcode menemukan produk", lookup.status === 200 && lookup.json?.product?.id === prodSerial.json.id && lookup.json?.product?.sku === "SER-7C", `→ ${JSON.stringify(lookup.json?.product)}`);
+  const lookupMiss = await owner("GET", `/api/tenants/${tenantId}/products/lookup?barcode=0000000000000`);
+  check("pindai barcode tak dikenal → 404", lookupMiss.status === 404);
+
+  const ser1 = await owner("POST", `/api/tenants/${tenantId}/products/${prodSerial.json.id}/serials`, { serialNo: "SN-0001" });
+  check("tambah nomor seri SN-0001 201", ser1.status === 201);
+  const serDup = await owner("POST", `/api/tenants/${tenantId}/products/${prodSerial.json.id}/serials`, { serialNo: "SN-0001" });
+  check("nomor seri duplikat DITOLAK 409", serDup.status === 409);
+  await owner("POST", `/api/tenants/${tenantId}/products/${prodSerial.json.id}/serials`, { serialNo: "SN-0002", note: "garansi 2 tahun" });
+  const serList = await owner("GET", `/api/tenants/${tenantId}/products/${prodSerial.json.id}/serials`);
+  check("daftar seri: 2 unit, keduanya tersedia", serList.json?.serials?.length === 2 && serList.json.serials.every((s) => s.status === "in_stock"), `→ ${JSON.stringify(serList.json?.serials?.map((s) => s.serialNo))}`);
+  const serSold = await owner("PATCH", `/api/tenants/${tenantId}/products/${prodSerial.json.id}/serials/${ser1.json.id}`, { status: "sold" });
+  check("tandai seri terjual 200", serSold.status === 200);
+  const serList2 = await owner("GET", `/api/tenants/${tenantId}/products/${prodSerial.json.id}/serials`);
+  check("SN-0001 kini 'sold', 1 tersedia", serList2.json?.serials?.find((s) => s.serialNo === "SN-0001")?.status === "sold" && serList2.json.serials.filter((s) => s.status === "in_stock").length === 1);
+  const serViewer = await viewer("POST", `/api/tenants/${tenantId}/products/${prodSerial.json.id}/serials`, { serialNo: "SN-X" });
+  check("viewer DITOLAK menambah nomor seri (403)", serViewer.status === 403);
+
+  // Titik pesan otomatis → usulan pembelian (produk baru, min_stock>0, tanpa stok).
+  const prodReorder = await owner("POST", `/api/tenants/${tenantId}/products`, {
+    sku: "RORDER-7C", name: "Filter Kertas V60", unit: "pak", sellPrice: 35_000, buyPrice: 20_000, minStock: 10,
+  });
+  const reorder = await owner("GET", `/api/tenants/${tenantId}/reorder-suggestions`);
+  const roRow = reorder.json?.suggestions?.find((s) => s.sku === "RORDER-7C");
+  check("usulan pembelian memuat produk di bawah titik pesan (usulan 20 = 2× ambang)", reorder.status === 200 && roRow?.suggestedQty === 20 && roRow?.qty === 0 && roRow?.shortfall === 10, `→ ${JSON.stringify(roRow)}`);
+  const reorderViewer = await viewer("GET", `/api/tenants/${tenantId}/reorder-suggestions`);
+  check("viewer boleh membaca usulan pembelian (200)", reorderViewer.status === 200);
+  // Sambungkan ke Pengadaan: buat permintaan pembelian dari usulan.
+  const roPr = await owner("POST", `/api/tenants/${tenantId}/requisitions`, {
+    note: "Usulan otomatis titik pesan", lines: [{ productId: prodReorder.json.id, qty: roRow.suggestedQty }],
+  });
+  check("buat permintaan pembelian dari usulan 201", roPr.status === 201 && Boolean(roPr.json?.reqNo), `→ ${JSON.stringify(roPr.json)}`);
+
   const shiftByViewer = await viewer("POST", `/api/tenants/${tenantId}/pos/shift/open`, {
     warehouseId: whUtama.id,
     openingCash: 0,

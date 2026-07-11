@@ -18,6 +18,9 @@ import type {
   RequisitionInput,
   SalesOrderInput,
   SoDownPaymentInput,
+  ApiReorderSuggestion,
+  ApiProductSerial,
+  SerialInput,
   SubmitApprovalInput,
   ApiBankStatementItem,
   ApiCrmSourceRow,
@@ -451,6 +454,18 @@ export const api = {
     request<{ ok: true; doNo: string }>("POST", `/api/tenants/${tenantId}/sales-orders/${id}/deliver`, input),
   invoiceSalesOrder: (tenantId: string, id: string, input: InvoiceFromSoInput) =>
     request<{ ok: true; invoiceNo: string; total: number }>("POST", `/api/tenants/${tenantId}/sales-orders/${id}/invoice`, input),
+
+  // --- Stok lanjut (titik pesan, barcode, nomor seri) ----------------------------
+  reorderSuggestions: (tenantId: string) =>
+    request<{ suggestions: ApiReorderSuggestion[] }>("GET", `/api/tenants/${tenantId}/reorder-suggestions`),
+  lookupBarcode: (tenantId: string, barcode: string) =>
+    request<{ product: { id: string; sku: string; name: string; unit: string; sellPrice: number; buyPrice: number } }>("GET", `/api/tenants/${tenantId}/products/lookup?barcode=${encodeURIComponent(barcode)}`),
+  productSerials: (tenantId: string, productId: string) =>
+    request<{ serials: ApiProductSerial[] }>("GET", `/api/tenants/${tenantId}/products/${productId}/serials`),
+  addProductSerial: (tenantId: string, productId: string, input: SerialInput) =>
+    request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/products/${productId}/serials`, input),
+  setSerialStatus: (tenantId: string, productId: string, serialId: string, status: "in_stock" | "sold") =>
+    request<{ ok: true }>("PATCH", `/api/tenants/${tenantId}/products/${productId}/serials/${serialId}`, { status }),
 
   // --- Approval workflow engine --------------------------------------------------
   approvalRules: (tenantId: string) =>

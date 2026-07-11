@@ -127,6 +127,18 @@ const MANIFESTS = {
       { route: "/app/pesanan-penjualan", name: "pesanan-penjualan-mobile", width: 420, waitMs: 1500 },
     ],
   },
+  // Set ad-hoc Fase 7c: Stok (usulan pembelian) + Produk (barcode/UOM/seri).
+  so7c: {
+    outDir: process.env.SO7C_OUT ?? path.join(tmpdir(), "erpindo-so7c"),
+    viewport: { width: 1440, height: 1100 },
+    theme: "light",
+    quality: 85,
+    fullPage: true,
+    shots: [
+      { route: "/app/stok", name: "stok-usulan-pembelian", waitMs: 1600 },
+      { route: "/app/master/produk", name: "produk-barcode-uom", waitMs: 1400 },
+    ],
+  },
   // Audit visual QA: halaman PENUH pada 3 viewport. Keluaran ke AUDIT_OUT
   // (default tmp) — TIDAK di-commit; alat review, bukan aset produk.
   audit: {
