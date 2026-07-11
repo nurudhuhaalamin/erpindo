@@ -1142,6 +1142,11 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   "dimension.cost_center.archived": "Cost center diarsipkan",
   "dimension.bank_rule.created": "Aturan auto-match bank dibuat",
   "dimension.bank_rule.deleted": "Aturan auto-match bank dihapus",
+  // Manufaktur routing (Fase 7g)
+  "manufacturing.work_center.created": "Work center dibuat",
+  "manufacturing.work_center.archived": "Work center diarsipkan",
+  "manufacturing.routing.added": "Tahap routing ditambahkan",
+  "manufacturing.routing.completed": "Tahap routing diselesaikan",
   "tenant.member_removed": "Anggota dikeluarkan",
   // Akuntansi
   "accounting.account_created": "Akun COA dibuat",

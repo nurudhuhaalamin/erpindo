@@ -575,6 +575,9 @@ const projTask3 = await step("tugas: presentasi konsep", "POST", `${T}/projects/
 await step("tugas presentasi selesai", "PATCH", `${T}/projects/${projSvc.id}/tasks/${projTask3.id}`, { status: "done" });
 await step("timesheet Rina", "POST", `${T}/projects/${projSvc.id}/time-entries`, { employeeId: employees["Rina Kusuma"].id, entryDate: daysAgo(6), hours: 8, hourlyRate: 75_000, note: "Survei & konsep desain" });
 await step("timesheet Agus", "POST", `${T}/projects/${projSvc.id}/time-entries`, { employeeId: employees["Agus Prabowo"].id, entryDate: daysAgo(4), hours: 6, hourlyRate: 50_000, note: "Bantu ukur ruang" });
+// Gantt (Fase 7g): jadwal + baseline + dependensi tugas.
+await step("jadwal Gantt: gambar kerja 3D", "PATCH", `${T}/projects/${projSvc.id}/tasks/${projTask2.id}`, { startDate: daysAgo(10), endDate: daysAgo(-3), setBaseline: true });
+await step("jadwal Gantt: presentasi setelah 3D", "PATCH", `${T}/projects/${projSvc.id}/tasks/${projTask3.id}`, { startDate: daysAgo(-2), endDate: daysAgo(-6), predecessorId: projTask2.id, setBaseline: true });
 
 // --- 16. Multi mata uang + faktur valas -------------------------------------------------
 await step("kurs USD 16.200", "PUT", `${T}/currencies`, { code: "USD", name: "Dolar AS", rate: 16_200 });
@@ -608,6 +611,12 @@ await step("BoM Paket Hampers", "PUT", `${T}/boms`, {
 });
 const prodOrder = await step("perintah produksi 6 hampers", "POST", `${T}/production-orders`, { productId: hampers.id, warehouseId: whUtama.id, qty: 6 });
 await step("produksi selesai", "POST", `${T}/production-orders/${prodOrder.id}/complete`);
+// Routing (Fase 7g): work center + tahapan biaya standar vs aktual.
+const wcRakit = await step("work center: Perakitan Hampers", "POST", `${T}/work-centers`, { code: "WC-RAKIT", name: "Perakitan Hampers", hourlyRate: 40_000 });
+const wcPack = await step("work center: Pengemasan", "POST", `${T}/work-centers`, { code: "WC-PACK", name: "Pengemasan & Pita", hourlyRate: 30_000 });
+const rsRakit = await step("routing: rakit isi hampers", "POST", `${T}/production-orders/${prodOrder.id}/routing`, { workCenterId: wcRakit.id, name: "Rakit isi hampers", standardCost: 240_000 });
+await step("routing rakit selesai (aktual)", "POST", `${T}/production-orders/${prodOrder.id}/routing/${rsRakit.id}/complete`, { actualCost: 265_000 });
+await step("routing: kemas & pita (WIP)", "POST", `${T}/production-orders/${prodOrder.id}/routing`, { workCenterId: wcPack.id, name: "Kemas & pasang pita", standardCost: 180_000 });
 await step("QC lulus", "POST", `${T}/production-orders/${prodOrder.id}/qc`, { result: "passed" });
 await step("jual 3 hampers hasil produksi", "POST", `${T}/invoices`, {
   contactId: custKoperasi.id, invoiceDate: daysAgo(1), taxRate: 11, warehouseId: whUtama.id,

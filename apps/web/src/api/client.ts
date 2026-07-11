@@ -37,6 +37,11 @@ import type {
   ApiDimensionReport,
   ApiBankMatchRule,
   BankMatchRuleInput,
+  ApiWorkCenter,
+  WorkCenterInput,
+  ApiRoutingStep,
+  RoutingStepInput,
+  RoutingActualInput,
   SubmitApprovalInput,
   ApiBankStatementItem,
   ApiCrmSourceRow,
@@ -516,6 +521,17 @@ export const api = {
   bankMatchRules: (tenantId: string) => request<{ rules: ApiBankMatchRule[] }>("GET", `/api/tenants/${tenantId}/bank-match-rules`),
   createBankMatchRule: (tenantId: string, input: BankMatchRuleInput) => request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/bank-match-rules`, input),
   deleteBankMatchRule: (tenantId: string, id: string) => request<{ ok: true }>("DELETE", `/api/tenants/${tenantId}/bank-match-rules/${id}`),
+
+  // --- Manufaktur routing (work center + tahapan) --------------------------------
+  workCenters: (tenantId: string) => request<{ items: ApiWorkCenter[] }>("GET", `/api/tenants/${tenantId}/work-centers`),
+  createWorkCenter: (tenantId: string, input: WorkCenterInput) => request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/work-centers`, input),
+  archiveWorkCenter: (tenantId: string, id: string) => request<{ ok: true }>("POST", `/api/tenants/${tenantId}/work-centers/${id}/archive`),
+  productionRouting: (tenantId: string, productionId: string) =>
+    request<{ steps: ApiRoutingStep[]; totalStandard: number; totalActual: number; variance: number }>("GET", `/api/tenants/${tenantId}/production-orders/${productionId}/routing`),
+  addRoutingStep: (tenantId: string, productionId: string, input: RoutingStepInput) =>
+    request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/production-orders/${productionId}/routing`, input),
+  completeRoutingStep: (tenantId: string, productionId: string, stepId: string, input: RoutingActualInput) =>
+    request<{ ok: true }>("POST", `/api/tenants/${tenantId}/production-orders/${productionId}/routing/${stepId}/complete`, input),
 
   // --- Approval workflow engine --------------------------------------------------
   approvalRules: (tenantId: string) =>

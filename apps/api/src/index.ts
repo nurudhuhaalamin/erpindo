@@ -29,6 +29,7 @@ import { salesOrderRoutes } from "./routes/salesOrders";
 import { stockAdvancedRoutes } from "./routes/stockAdvanced";
 import { taxRoutes } from "./routes/tax";
 import { dimensionRoutes } from "./routes/dimensions";
+import { manufacturingRoutingRoutes } from "./routes/manufacturingRouting";
 import { projectRoutes } from "./routes/projects";
 import { inviteRoutes, tenantRoutes } from "./routes/tenants";
 
@@ -81,6 +82,7 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", currencyRoutes)
   .route("/api/tenants", contractRoutes)
   .route("/api/tenants", manufacturingRoutes)
+  .route("/api/tenants", manufacturingRoutingRoutes)
   .route("/api/tenants", maintenanceRoutes)
   .route("/api/tenants", helpdeskRoutes)
   .route("/api/consolidation", consolidationRoutes)

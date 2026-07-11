@@ -1452,24 +1452,34 @@ export const PROJECT_TASK_PRIORITY_LABELS: Record<ProjectTaskPriority, string> =
   high: "Tinggi",
 };
 
+const dateOpt = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 export const projectTaskSchema = z.object({
   name: z.string().trim().min(1, "Nama tugas wajib diisi").max(200),
-  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  dueDate: dateOpt.optional(),
   assigneeId: z.string().optional(),
   priority: z.enum(PROJECT_TASK_PRIORITIES).optional(),
+  // Jadwal Gantt (Fase 7g): mulai/selesai + dependensi (predecessor).
+  startDate: dateOpt.optional(),
+  endDate: dateOpt.optional(),
+  predecessorId: z.string().optional(),
 });
 export type ProjectTaskInput = z.infer<typeof projectTaskSchema>;
 
 export const projectTaskStatusSchema = z.object({ status: z.enum(PROJECT_TASK_STATUSES) });
 
-/** Perbarui tugas: ubah sebagian bidang (status/prioritas/penanggung jawab/tenggat). */
+/** Perbarui tugas: ubah sebagian bidang (status/prioritas/penanggung jawab/tenggat/jadwal). */
 export const projectTaskUpdateSchema = z
   .object({
     status: z.enum(PROJECT_TASK_STATUSES).optional(),
     priority: z.enum(PROJECT_TASK_PRIORITIES).optional(),
     // string kosong / null = kosongkan penanggung jawab
     assigneeId: z.string().nullable().optional(),
-    dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+    dueDate: dateOpt.nullable().optional(),
+    startDate: dateOpt.nullable().optional(),
+    endDate: dateOpt.nullable().optional(),
+    predecessorId: z.string().nullable().optional(),
+    // Simpan baseline (rencana) = jadwal saat ini.
+    setBaseline: z.boolean().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, "Tidak ada perubahan");
 export type ProjectTaskUpdateInput = z.infer<typeof projectTaskUpdateSchema>;
@@ -1501,6 +1511,40 @@ export type ApiProjectTask = {
   assigneeName: string | null;
   priority: ProjectTaskPriority;
   sortOrder: number;
+  startDate: string | null;
+  endDate: string | null;
+  predecessorId: string | null;
+  baselineStart: string | null;
+  baselineEnd: string | null;
+};
+
+// --- Manufaktur: work center + routing (Fase 7g) ----------------------------
+export const workCenterSchema = z.object({
+  code: z.string().trim().min(1, "Kode wajib diisi").max(20),
+  name: z.string().trim().min(2, "Nama minimal 2 karakter").max(80),
+  hourlyRate: amountSchema.default(0),
+});
+export type WorkCenterInput = z.infer<typeof workCenterSchema>;
+export type ApiWorkCenter = { id: string; code: string; name: string; hourlyRate: number; createdAt: string };
+
+export const routingStepSchema = z.object({
+  workCenterId: z.string().min(1, "Pilih work center"),
+  name: z.string().trim().min(1, "Nama tahap wajib diisi").max(120),
+  standardCost: amountSchema.default(0),
+});
+export type RoutingStepInput = z.infer<typeof routingStepSchema>;
+export const routingActualSchema = z.object({ actualCost: amountSchema });
+export type RoutingActualInput = z.infer<typeof routingActualSchema>;
+export type ApiRoutingStep = {
+  id: string;
+  productionId: string;
+  workCenterId: string;
+  workCenterName: string;
+  stepOrder: number;
+  name: string;
+  standardCost: number;
+  actualCost: number | null;
+  status: "pending" | "done";
 };
 
 /** Beban kerja per penanggung jawab: jumlah tugas terbuka (belum selesai). */
