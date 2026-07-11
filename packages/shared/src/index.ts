@@ -607,6 +607,94 @@ export type ApiGoodsReceipt = {
   createdAt: string;
 };
 
+// ---------------------------------------------------------------------------
+// Approval workflow engine (Fase 6e): aturan berjenjang + alur multi-langkah
+// ---------------------------------------------------------------------------
+
+export const APPROVAL_DOC_TYPES = ["pembelian", "pesanan_pembelian", "pengeluaran", "jurnal"] as const;
+export type ApprovalDocType = (typeof APPROVAL_DOC_TYPES)[number];
+export const APPROVAL_DOC_TYPE_LABELS: Record<ApprovalDocType, string> = {
+  pembelian: "Pembelian",
+  pesanan_pembelian: "Pesanan pembelian",
+  pengeluaran: "Pengeluaran kas",
+  jurnal: "Jurnal",
+};
+
+/** Peran yang bisa jadi approver (viewer tak pernah menyetujui). */
+export const APPROVAL_ROLES = ["admin", "owner"] as const;
+export type ApprovalRole = (typeof APPROVAL_ROLES)[number];
+export const APPROVAL_ROLE_LABELS: Record<ApprovalRole, string> = {
+  admin: "Admin",
+  owner: "Pemilik",
+};
+
+export const APPROVAL_STATUSES = ["pending", "approved", "rejected"] as const;
+export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];
+export const APPROVAL_STATUS_LABELS: Record<ApprovalStatus, string> = {
+  pending: "Menunggu",
+  approved: "Disetujui",
+  rejected: "Ditolak",
+};
+
+/** Aturan persetujuan: alur di atas ambang untuk jenis dokumen tertentu, disetujui berurutan per peran. */
+export const approvalRuleSchema = z.object({
+  name: z.string().trim().min(2, "Nama aturan minimal 2 karakter").max(100),
+  docType: z.enum(APPROVAL_DOC_TYPES),
+  minAmount: z.number().int().min(0, "Ambang tidak boleh negatif"),
+  approverRoles: z.array(z.enum(APPROVAL_ROLES)).min(1, "Minimal 1 approver").max(4, "Maksimal 4 langkah"),
+});
+export type ApprovalRuleInput = z.infer<typeof approvalRuleSchema>;
+
+export const updateApprovalRuleSchema = approvalRuleSchema.partial().extend({ active: z.boolean().optional() });
+
+/** Ajukan alur persetujuan generik. */
+export const submitApprovalSchema = z.object({
+  docType: z.enum(APPROVAL_DOC_TYPES),
+  title: z.string().trim().min(2, "Judul minimal 2 karakter").max(150),
+  amount: z.number().int().min(1, "Nominal minimal Rp 1"),
+});
+export type SubmitApprovalInput = z.infer<typeof submitApprovalSchema>;
+
+export const decideStepSchema = z.object({
+  decision: z.enum(["approve", "reject"]),
+  note: z.string().trim().max(300).optional(),
+});
+export type DecideStepInput = z.infer<typeof decideStepSchema>;
+
+export type ApiApprovalRule = {
+  id: string;
+  name: string;
+  docType: ApprovalDocType;
+  minAmount: number;
+  approverRoles: ApprovalRole[];
+  active: boolean;
+  createdAt: string;
+};
+
+export type ApiApprovalStep = {
+  id: string;
+  stepOrder: number;
+  approverRole: ApprovalRole;
+  status: ApprovalStatus;
+  decidedBy: string | null;
+  decidedByName: string | null;
+  decidedAt: string | null;
+  note: string | null;
+};
+
+export type ApiApprovalFlow = {
+  id: string;
+  flowNo: string;
+  docType: ApprovalDocType;
+  title: string;
+  amount: number;
+  status: ApprovalStatus;
+  currentStep: number;
+  requestedByName: string | null;
+  createdAt: string;
+  steps: ApiApprovalStep[];
+};
+
 export const createPaymentSchema = z.object({
   refType: z.enum(["invoice", "purchase"]),
   refId: z.string().min(1),

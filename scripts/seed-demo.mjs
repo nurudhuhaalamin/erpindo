@@ -438,6 +438,27 @@ await step("permintaan pembelian kemasan (menunggu)", "POST", `${T}/requisitions
   lines: [{ productId: kotak.id, qty: 50 }, { productId: pita.id, qty: 20 }],
 });
 
+// --- 13c. Approval workflow engine: aturan berjenjang + alur multi-langkah -----------
+await step("aturan approval: pembelian besar (Admin→Pemilik)", "POST", `${T}/approval-rules`, {
+  name: "Pembelian besar", docType: "pembelian", minAmount: 5_000_000, approverRoles: ["admin", "owner"],
+});
+await step("aturan approval: pengeluaran ≥ 1jt (Pemilik)", "POST", `${T}/approval-rules`, {
+  name: "Pengeluaran kas", docType: "pengeluaran", minAmount: 1_000_000, approverRoles: ["owner"],
+});
+// Alur menunggu (di atas ambang → butuh persetujuan berjenjang).
+await step("ajukan alur: beli laptop tim (8jt)", "POST", `${T}/approval-flows`, {
+  docType: "pembelian", title: "Pembelian 4 laptop tim operasional", amount: 8_000_000,
+});
+// Alur pengeluaran lalu disetujui Pemilik → selesai.
+const flowExp = await step("ajukan alur: sewa gudang (2jt)", "POST", `${T}/approval-flows`, {
+  docType: "pengeluaran", title: "Sewa gudang tambahan bulan ini", amount: 2_000_000,
+});
+await step("Pemilik setujui pengeluaran", "POST", `${T}/approval-flows/${flowExp.id}/steps/decide`, { decision: "approve" });
+// Alur kecil di bawah ambang → otomatis disetujui (tanpa aturan).
+await step("ajukan alur: ATK kantor (300rb, auto)", "POST", `${T}/approval-flows`, {
+  docType: "pengeluaran", title: "Beli ATK kantor", amount: 300_000,
+});
+
 // --- 14. Aset tetap + penyusutan ----------------------------------------------------
 await step("aset: mobil boks", "POST", `${T}/assets`, {
   name: "Mobil Boks Operasional", category: "Kendaraan", acquisitionDate: daysAgo(58),

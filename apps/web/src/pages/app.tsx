@@ -1139,6 +1139,11 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   "approval.threshold_set": "Ambang persetujuan diatur",
   "approval.approved": "Pembelian disetujui",
   "approval.rejected": "Pembelian ditolak",
+  "approval.rule.created": "Aturan persetujuan dibuat",
+  "approval.rule.updated": "Aturan persetujuan diperbarui",
+  "approval.rule.deleted": "Aturan persetujuan dihapus",
+  "approval.flow.submitted": "Alur persetujuan diajukan",
+  "approval.flow.decided": "Alur persetujuan diputuskan",
   // Pengadaan
   "procurement.requisition.created": "Permintaan pembelian dibuat",
   "procurement.requisition.decided": "Permintaan pembelian diputuskan",

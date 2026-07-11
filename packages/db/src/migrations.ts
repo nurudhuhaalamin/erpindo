@@ -981,6 +981,45 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `CREATE INDEX grl_grn ON goods_receipt_lines (grn_id)`,
     ],
   },
+  {
+    id: "0027_approval_engine",
+    statements: [
+      // Approval workflow engine (Fase 6e): aturan berjenjang generik + alur multi-langkah.
+      // Berdampingan dengan approval pembelian ambang-tunggal lama (approval_requests) — tak diubah.
+      `CREATE TABLE approval_rules (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        doc_type TEXT NOT NULL,
+        min_amount INTEGER NOT NULL DEFAULT 0,
+        approver_roles TEXT NOT NULL,
+        active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE TABLE approval_flows (
+        id TEXT PRIMARY KEY,
+        flow_no TEXT NOT NULL,
+        doc_type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
+        current_step INTEGER NOT NULL DEFAULT 1,
+        rule_id TEXT REFERENCES approval_rules(id),
+        requested_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE TABLE approval_flow_steps (
+        id TEXT PRIMARY KEY,
+        flow_id TEXT NOT NULL REFERENCES approval_flows(id),
+        step_order INTEGER NOT NULL,
+        approver_role TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
+        decided_by TEXT,
+        decided_at TEXT,
+        note TEXT
+      )`,
+      `CREATE INDEX afs_flow ON approval_flow_steps (flow_id)`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

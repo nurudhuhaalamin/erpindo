@@ -1080,6 +1080,58 @@ try {
   const tbAfterProc = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah pengadaan", tbAfterProc.json?.balanced === true);
 
+  // --- Approval workflow engine (Fase 6e): aturan berjenjang + multi-langkah -------
+  console.log("11e3. Approval workflow engine (aturan + alur multi-langkah)");
+  const viewerRule = await viewer("POST", `/api/tenants/${tenantId}/approval-rules`, {
+    name: "X", docType: "pembelian", minAmount: 1, approverRoles: ["owner"],
+  });
+  check("viewer DITOLAK membuat aturan (403)", viewerRule.status === 403);
+  const rule = await owner("POST", `/api/tenants/${tenantId}/approval-rules`, {
+    name: "Pembelian besar", docType: "pembelian", minAmount: 5_000_000, approverRoles: ["admin", "owner"],
+  });
+  check("buat aturan approval 2-langkah 201", rule.status === 201);
+  const rulesList = await owner("GET", `/api/tenants/${tenantId}/approval-rules`);
+  check("aturan tersimpan dengan urutan approver [admin, owner]", rulesList.json?.rules?.some((r) => r.id === rule.json.id && r.approverRoles?.join(",") === "admin,owner"));
+
+  // Alur di bawah ambang → auto-approved (tanpa aturan cocok).
+  const autoFlow = await admin("POST", `/api/tenants/${tenantId}/approval-flows`, {
+    docType: "pembelian", title: "Beli ATK", amount: 200_000,
+  });
+  check("ajukan alur di bawah ambang → auto 'approved'", autoFlow.status === 201 && autoFlow.json?.status === "approved" && autoFlow.json?.autoApproved === true, `→ ${JSON.stringify(autoFlow.json)}`);
+
+  // Alur di atas ambang → pending, 2 langkah (admin lalu owner).
+  const flow = await admin("POST", `/api/tenants/${tenantId}/approval-flows`, {
+    docType: "pembelian", title: "Beli 4 laptop tim", amount: 8_000_000,
+  });
+  check("ajukan alur di atas ambang → 'pending' 2 langkah", flow.status === 201 && flow.json?.status === "pending" && flow.json?.steps === 2, `→ ${JSON.stringify(flow.json)}`);
+  // Owner mencoba memutus langkah-1 (milik admin) → 403.
+  const ownerWrongStep = await owner("POST", `/api/tenants/${tenantId}/approval-flows/${flow.json.id}/steps/decide`, { decision: "approve" });
+  check("Pemilik DITOLAK memutus langkah admin (403)", ownerWrongStep.status === 403);
+  // Antrean admin memuat alur ini; antrean owner belum.
+  const adminQueue = await admin("GET", `/api/tenants/${tenantId}/approval-flows?queue=me`);
+  check("antrean admin memuat alur langkah-1", adminQueue.json?.flows?.some((f) => f.id === flow.json.id));
+  const ownerQueueEmpty = await owner("GET", `/api/tenants/${tenantId}/approval-flows?queue=me`);
+  check("antrean owner belum memuat alur (masih langkah admin)", !ownerQueueEmpty.json?.flows?.some((f) => f.id === flow.json.id));
+  // Admin setujui langkah-1 → maju ke langkah owner.
+  const step1 = await admin("POST", `/api/tenants/${tenantId}/approval-flows/${flow.json.id}/steps/decide`, { decision: "approve" });
+  check("admin setujui langkah-1 → maju (pending)", step1.status === 200 && step1.json?.status === "pending" && step1.json?.currentStep === 2, `→ ${JSON.stringify(step1.json)}`);
+  const ownerQueue2 = await owner("GET", `/api/tenants/${tenantId}/approval-flows?queue=me`);
+  check("kini antrean owner memuat alur langkah-2", ownerQueue2.json?.flows?.some((f) => f.id === flow.json.id));
+  // Owner setujui langkah-2 → alur approved.
+  const step2 = await owner("POST", `/api/tenants/${tenantId}/approval-flows/${flow.json.id}/steps/decide`, { decision: "approve" });
+  check("owner setujui langkah terakhir → 'approved'", step2.status === 200 && step2.json?.status === "approved");
+  const decideDone = await owner("POST", `/api/tenants/${tenantId}/approval-flows/${flow.json.id}/steps/decide`, { decision: "approve" });
+  check("memutus alur yang sudah selesai DITOLAK 409", decideDone.status === 409);
+  // Jalur reject.
+  const flow2 = await admin("POST", `/api/tenants/${tenantId}/approval-flows`, {
+    docType: "pembelian", title: "Beli mesin mahal", amount: 9_000_000,
+  });
+  const rejectStep = await admin("POST", `/api/tenants/${tenantId}/approval-flows/${flow2.json.id}/steps/decide`, { decision: "reject", note: "Tunda dulu" });
+  check("tolak di langkah-1 → alur 'rejected'", rejectStep.status === 200 && rejectStep.json?.status === "rejected");
+  const history = await owner("GET", `/api/tenants/${tenantId}/approval-flows`);
+  const flowHist = history.json?.flows?.find((f) => f.id === flow.json.id);
+  check("riwayat memuat alur dengan 2 langkah tersetujui", flowHist?.steps?.filter((s) => s.status === "approved").length === 2, `→ ${JSON.stringify(flowHist?.steps?.map((s) => s.status))}`);
+
   // --- Lot & kedaluwarsa (Fase 2j) ----------------------------------------------
   console.log("11f. Batch/lot & kedaluwarsa (FEFO)");
 
