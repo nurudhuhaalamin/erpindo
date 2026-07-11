@@ -12,6 +12,7 @@ import { createRoot } from "react-dom/client";
 import { ToastProvider } from "./components/ui";
 import { AppShell, DashboardPage, SettingsPage } from "./pages/app";
 import { PurchasesPage, SalesPage, StockPage } from "./pages/commerce";
+import { ProcurementPage } from "./pages/procurement";
 import { LeadsPage, QuotationsPage } from "./pages/crm";
 import { BudgetPage } from "./pages/budget";
 import { AttendancePage } from "./pages/attendance";
@@ -78,6 +79,7 @@ const appChildren = [
   createRoute({ getParentRoute: () => appRoute, path: "/persetujuan", component: ApprovalsPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/penjualan", component: SalesPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/pembelian", component: PurchasesPage }),
+  createRoute({ getParentRoute: () => appRoute, path: "/pengadaan", component: ProcurementPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/stok", component: StockPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/crm/leads", component: LeadsPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/crm/penawaran", component: QuotationsPage }),

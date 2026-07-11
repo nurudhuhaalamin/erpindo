@@ -409,6 +409,35 @@ for (const [name, statuses] of attPlan) {
   }
 }
 
+// --- 13b. Pengadaan (procure-to-pay): PR → PO → penerimaan → faktur ------------------
+const req1 = await step("permintaan pembelian bahan baku", "POST", `${T}/requisitions`, {
+  note: "Restok kopi & keripik untuk hampers",
+  lines: [
+    { productId: kopi.id, qty: 20, note: "stok menipis" },
+    { productId: keripik.id, qty: 30 },
+  ],
+});
+await step("setujui permintaan pembelian", "PATCH", `${T}/requisitions/${req1.id}`, { status: "approved" });
+const po1 = await step("pesanan pembelian ke CV Petani Kopi", "POST", `${T}/purchase-orders`, {
+  requisitionId: req1.id, contactId: suppKopi.id, orderDate: daysAgo(9), expectedDate: daysAgo(-2),
+  warehouseId: whUtama.id, taxRate: 11,
+  lines: [
+    { productId: kopi.id, qty: 20, unitPrice: 55_000 },
+    { productId: keripik.id, qty: 30, unitPrice: 14_000 },
+  ],
+});
+const poDetail = await step("ambil pesanan untuk penerimaan", "GET", `${T}/purchase-orders`);
+const po1Full = poDetail.orders.find((o) => o.id === po1.id);
+await step("terima barang PO (faktur + stok masuk)", "POST", `${T}/purchase-orders/${po1.id}/receive`, {
+  receiptDate: daysAgo(7),
+  lines: po1Full.lines.map((l) => ({ poLineId: l.id, qtyReceived: l.qty })),
+});
+// Permintaan menunggu keputusan (untuk demo antrean).
+await step("permintaan pembelian kemasan (menunggu)", "POST", `${T}/requisitions`, {
+  note: "Kotak & pita untuk batch berikutnya",
+  lines: [{ productId: kotak.id, qty: 50 }, { productId: pita.id, qty: 20 }],
+});
+
 // --- 14. Aset tetap + penyusutan ----------------------------------------------------
 await step("aset: mobil boks", "POST", `${T}/assets`, {
   name: "Mobil Boks Operasional", category: "Kendaraan", acquisitionDate: daysAgo(58),
