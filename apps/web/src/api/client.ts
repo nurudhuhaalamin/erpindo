@@ -1,6 +1,8 @@
 import type {
   ApiAccount,
   ApiAgingRow,
+  ApiAttendance,
+  ApiAttendanceRecap,
   ApiBankStatementItem,
   ApiCrmSourceRow,
   ApiJournalTemplate,
@@ -57,6 +59,7 @@ import type {
   InvoiceMilestoneInput,
   LeadActivityInput,
   LeaveRequestInput,
+  AttendanceInput,
   PayrollAdjustmentInput,
   ProjectBudgetInput,
   ProjectMilestoneInput,
@@ -327,6 +330,17 @@ export const api = {
     request<{ ok: true; id: string; days: number }>("POST", `/api/tenants/${tenantId}/leave-requests`, input),
   decideLeaveRequest: (tenantId: string, id: string, input: { status: "approved" | "rejected" }) =>
     request<{ ok: true }>("PATCH", `/api/tenants/${tenantId}/leave-requests/${id}`, input),
+
+  // --- Absensi/kehadiran ---------------------------------------------------------
+  attendance: (tenantId: string, month: string) =>
+    request<{ month: string; records: ApiAttendance[]; recap: ApiAttendanceRecap[] }>(
+      "GET",
+      `/api/tenants/${tenantId}/attendance?month=${encodeURIComponent(month)}`,
+    ),
+  recordAttendance: (tenantId: string, input: AttendanceInput) =>
+    request<{ ok: true }>("POST", `/api/tenants/${tenantId}/attendance`, input),
+  deleteAttendance: (tenantId: string, id: string) =>
+    request<{ ok: true }>("DELETE", `/api/tenants/${tenantId}/attendance/${id}`),
 
   // --- Aset Tetap ----------------------------------------------------------------
   assets: (tenantId: string) => request<{ assets: ApiFixedAsset[] }>("GET", `/api/tenants/${tenantId}/assets`),

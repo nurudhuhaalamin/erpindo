@@ -889,6 +889,25 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `CREATE INDEX time_entries_project ON time_entries (project_id)`,
     ],
   },
+  {
+    id: "0024_hr_attendance",
+    statements: [
+      // Absensi/kehadiran harian per karyawan — satu baris per karyawan per tanggal
+      // (upsert saat dikoreksi). status: hadir/izin/sakit/alfa/cuti; jam masuk/keluar opsional.
+      `CREATE TABLE attendance (
+        id TEXT PRIMARY KEY,
+        employee_id TEXT NOT NULL REFERENCES employees(id),
+        date TEXT NOT NULL,
+        clock_in TEXT,
+        clock_out TEXT,
+        status TEXT NOT NULL DEFAULT 'hadir',
+        note TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE (employee_id, date)
+      )`,
+      `CREATE INDEX attendance_emp_date ON attendance (employee_id, date)`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

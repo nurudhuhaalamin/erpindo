@@ -1519,6 +1519,48 @@ try {
   const bigApprove = await owner("PATCH", `/api/tenants/${tenantId}/leave-requests/${bigLeave.json?.id}`, { status: "approved" });
   check("setujui cuti melebihi saldo DITOLAK 400", bigApprove.status === 400);
 
+  // Absensi/kehadiran (Fase 6b): upsert per karyawan+tanggal, rekap bulanan, hapus, RBAC.
+  const attMonth = "2026-09";
+  const viewerAtt = await viewer("POST", `/api/tenants/${tenantId}/attendance`, {
+    employeeId: andiId, date: `${attMonth}-01`, status: "hadir",
+  });
+  check("viewer DITOLAK mencatat kehadiran (403)", viewerAtt.status === 403);
+  const att1 = await owner("POST", `/api/tenants/${tenantId}/attendance`, {
+    employeeId: andiId, date: `${attMonth}-01`, status: "hadir", clockIn: "08:00", clockOut: "17:00",
+  });
+  check("catat kehadiran hadir 201", att1.status === 201);
+  const att2 = await owner("POST", `/api/tenants/${tenantId}/attendance`, {
+    employeeId: andiId, date: `${attMonth}-02`, status: "sakit", note: "Demam",
+  });
+  check("catat kehadiran sakit 201", att2.status === 201);
+  const badStatusAtt = await owner("POST", `/api/tenants/${tenantId}/attendance`, {
+    employeeId: andiId, date: `${attMonth}-03`, status: "bolos",
+  });
+  check("status kehadiran tak dikenal DITOLAK 400", badStatusAtt.status === 400);
+  const unknownEmpAtt = await owner("POST", `/api/tenants/${tenantId}/attendance`, {
+    employeeId: "tidak-ada", date: `${attMonth}-03`, status: "hadir",
+  });
+  check("kehadiran karyawan tak dikenal 404", unknownEmpAtt.status === 404);
+  const attList = await owner("GET", `/api/tenants/${tenantId}/attendance?month=${attMonth}`);
+  check("daftar kehadiran memuat 2 catatan Andi", attList.status === 200 && attList.json?.records?.filter((r) => r.employeeId === andiId).length === 2);
+  const andiRecap = attList.json?.recap?.find((r) => r.employeeId === andiId);
+  check("rekap Andi: 1 hadir + 1 sakit", andiRecap?.hadir === 1 && andiRecap?.sakit === 1 && andiRecap?.total === 2, `→ ${JSON.stringify(andiRecap)}`);
+  // Upsert: catat ulang tanggal yang sama → menimpa, bukan menambah baris.
+  const attUpsert = await owner("POST", `/api/tenants/${tenantId}/attendance`, {
+    employeeId: andiId, date: `${attMonth}-01`, status: "izin",
+  });
+  check("upsert kehadiran tanggal sama 201", attUpsert.status === 201);
+  const attList2 = await owner("GET", `/api/tenants/${tenantId}/attendance?month=${attMonth}`);
+  const andiRecap2 = attList2.json?.recap?.find((r) => r.employeeId === andiId);
+  check("upsert menimpa: total tetap 2, kini 1 izin + 1 sakit", andiRecap2?.total === 2 && andiRecap2?.izin === 1 && andiRecap2?.hadir === 0, `→ ${JSON.stringify(andiRecap2)}`);
+  const attToDelete = attList2.json?.records?.find((r) => r.employeeId === andiId && r.date === `${attMonth}-02`);
+  const delAtt = await owner("DELETE", `/api/tenants/${tenantId}/attendance/${attToDelete?.id}`);
+  check("hapus catatan kehadiran 200", delAtt.status === 200);
+  const delUnknownAtt = await owner("DELETE", `/api/tenants/${tenantId}/attendance/tidak-ada`);
+  check("hapus kehadiran tak dikenal 404", delUnknownAtt.status === 404);
+  const attList3 = await owner("GET", `/api/tenants/${tenantId}/attendance?month=${attMonth}`);
+  check("setelah hapus tersisa 1 catatan Andi", attList3.json?.records?.filter((r) => r.employeeId === andiId).length === 1);
+
   const tbAfterHr = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah kasbon & penggajian bonus", tbAfterHr.json?.balanced === true);
 

@@ -1,4 +1,5 @@
 import {
+  attendanceSchema,
   calculatePayslip,
   decideLeaveSchema,
   employeeLoanSchema,
@@ -6,12 +7,15 @@ import {
   leaveRequestSchema,
   payrollAdjustmentSchema,
   runPayrollSchema,
+  type ApiAttendance,
+  type ApiAttendanceRecap,
   type ApiEmployee,
   type ApiEmployeeLoan,
   type ApiLeaveRequest,
   type ApiPayrollAdjustment,
   type ApiPayrollRun,
   type ApiPayslip,
+  type AttendanceStatus,
   type LeaveType,
   type PtkpStatus,
 } from "@erpindo/shared";
@@ -728,6 +732,151 @@ export const payrollRoutes = new Hono<AppEnv>()
       userId: c.get("user").id,
       tenantId: tenant.id,
       detail: { id, status: parsed.data.status },
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true });
+  })
+
+  // --- Absensi/kehadiran (Fase 6b) ------------------------------------------
+  // Satu baris per karyawan per tanggal (upsert saat dikoreksi). GET daftar +
+  // rekap bulanan per karyawan; POST catat/koreksi; DELETE hapus satu catatan.
+
+  .get("/:tenantId/attendance", requireAuth, requireTenantRole("viewer"), async (c) => {
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+    // Filter bulan (YYYY-MM); default bulan berjalan. Rekap hanya untuk bulan itu.
+    const rawMonth = c.req.query("month") ?? "";
+    const month = /^\d{4}-\d{2}$/.test(rawMonth) ? rawMonth : new Date().toISOString().slice(0, 7);
+    const prefix = `${month}-%`;
+
+    const { results } = await db
+      .prepare(
+        `SELECT a.id, a.employee_id, e.name AS employee_name, a.date, a.clock_in, a.clock_out,
+                a.status, a.note
+         FROM attendance a JOIN employees e ON e.id = a.employee_id
+         WHERE a.date LIKE ?
+         ORDER BY a.date DESC, e.name ASC LIMIT 500`,
+      )
+      .bind(prefix)
+      .all<{
+        id: string;
+        employee_id: string;
+        employee_name: string;
+        date: string;
+        clock_in: string | null;
+        clock_out: string | null;
+        status: AttendanceStatus;
+        note: string | null;
+      }>();
+    const records: ApiAttendance[] = results.map((r) => ({
+      id: r.id,
+      employeeId: r.employee_id,
+      employeeName: r.employee_name,
+      date: r.date,
+      clockIn: r.clock_in,
+      clockOut: r.clock_out,
+      status: r.status,
+      note: r.note,
+    }));
+
+    // Rekap per karyawan aktif — hitung jumlah hari per status untuk bulan tsb.
+    const { results: recapRows } = await db
+      .prepare(
+        `SELECT e.id AS employee_id, e.name AS employee_name,
+                SUM(CASE WHEN a.status = 'hadir' THEN 1 ELSE 0 END) AS hadir,
+                SUM(CASE WHEN a.status = 'izin'  THEN 1 ELSE 0 END) AS izin,
+                SUM(CASE WHEN a.status = 'sakit' THEN 1 ELSE 0 END) AS sakit,
+                SUM(CASE WHEN a.status = 'alfa'  THEN 1 ELSE 0 END) AS alfa,
+                SUM(CASE WHEN a.status = 'cuti'  THEN 1 ELSE 0 END) AS cuti,
+                COUNT(a.id) AS total
+         FROM employees e
+         LEFT JOIN attendance a ON a.employee_id = e.id AND a.date LIKE ?
+         WHERE e.is_active = 1
+         GROUP BY e.id, e.name
+         ORDER BY e.name ASC`,
+      )
+      .bind(prefix)
+      .all<{
+        employee_id: string;
+        employee_name: string;
+        hadir: number;
+        izin: number;
+        sakit: number;
+        alfa: number;
+        cuti: number;
+        total: number;
+      }>();
+    const recap: ApiAttendanceRecap[] = recapRows.map((r) => ({
+      employeeId: r.employee_id,
+      employeeName: r.employee_name,
+      hadir: r.hadir,
+      izin: r.izin,
+      sakit: r.sakit,
+      alfa: r.alfa,
+      cuti: r.cuti,
+      total: r.total,
+    }));
+
+    return c.json({ month, records, recap });
+  })
+
+  .post("/:tenantId/attendance", requireAuth, requireTenantRole("admin"), async (c) => {
+    const parsed = attendanceSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) {
+      return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
+    }
+    const tenant = c.get("tenant");
+    const db = getTenantDb(c.env, tenant.dbRef);
+    const input = parsed.data;
+
+    const { results: emp } = await db
+      .prepare(`SELECT id FROM employees WHERE id = ? AND is_active = 1`)
+      .bind(input.employeeId)
+      .all<{ id: string }>();
+    if (!emp[0]) return c.json({ error: "Karyawan tidak ditemukan atau nonaktif." }, 404);
+
+    const clockIn = input.clockIn ? input.clockIn : null;
+    const clockOut = input.clockOut ? input.clockOut : null;
+    const note = input.note && input.note.length > 0 ? input.note : null;
+
+    // Upsert per (employee_id, date): koreksi menimpa catatan lama tanggal itu.
+    const id = crypto.randomUUID();
+    await db
+      .prepare(
+        `INSERT INTO attendance (id, employee_id, date, clock_in, clock_out, status, note)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (employee_id, date) DO UPDATE SET
+           clock_in = excluded.clock_in,
+           clock_out = excluded.clock_out,
+           status = excluded.status,
+           note = excluded.note`,
+      )
+      .bind(id, input.employeeId, input.date, clockIn, clockOut, input.status, note)
+      .run();
+    await audit(c.env, {
+      action: "hr.attendance.recorded",
+      userId: c.get("user").id,
+      tenantId: tenant.id,
+      detail: { employeeId: input.employeeId, date: input.date, status: input.status },
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true }, 201);
+  })
+
+  .delete("/:tenantId/attendance/:id", requireAuth, requireTenantRole("admin"), async (c) => {
+    const tenant = c.get("tenant");
+    const db = getTenantDb(c.env, tenant.dbRef);
+    const id = c.req.param("id");
+    const { results } = await db
+      .prepare(`SELECT employee_id, date FROM attendance WHERE id = ?`)
+      .bind(id)
+      .all<{ employee_id: string; date: string }>();
+    if (!results[0]) return c.json({ error: "Catatan kehadiran tidak ditemukan." }, 404);
+    await db.prepare(`DELETE FROM attendance WHERE id = ?`).bind(id).run();
+    await audit(c.env, {
+      action: "hr.attendance.deleted",
+      userId: c.get("user").id,
+      tenantId: tenant.id,
+      detail: { id, employeeId: results[0].employee_id, date: results[0].date },
       ip: clientIp(c),
     });
     return c.json({ ok: true });
