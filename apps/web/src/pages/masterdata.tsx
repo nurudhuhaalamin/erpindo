@@ -231,7 +231,83 @@ type ProductRow = {
   track_expiry: number;
   is_service: number;
   min_stock: number;
+  barcode: string | null;
+  uom_secondary: string | null;
+  uom_factor: number;
+  track_serial: number;
 };
+
+/** Registri nomor seri untuk produk yang melacak seri (Fase 7c). */
+function SerialManager({ product }: { product: ProductRow }) {
+  const { tenant } = useWorkspace();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [serialNo, setSerialNo] = useState("");
+  const key = ["serials", tenant.tenantId, product.id] as const;
+  const query = useQuery({ queryKey: key, queryFn: () => api.productSerials(tenant.tenantId, product.id) });
+
+  const add = useMutation({
+    mutationFn: () => api.addProductSerial(tenant.tenantId, product.id, { serialNo: serialNo.trim() }),
+    onSuccess: () => {
+      setSerialNo("");
+      queryClient.invalidateQueries({ queryKey: key });
+      toast("success", "Nomor seri ditambahkan.");
+    },
+    onError: (e: Error) => toast("error", e.message),
+  });
+  const setStatus = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: "in_stock" | "sold" }) => api.setSerialStatus(tenant.tenantId, product.id, id, status),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
+    onError: (e: Error) => toast("error", e.message),
+  });
+
+  const serials = query.data?.serials ?? [];
+  const available = serials.filter((s) => s.status === "in_stock").length;
+  return (
+    <div className="mt-4 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">Nomor seri — {product.name}</h3>
+        <span className="text-xs text-slate-400">{available} tersedia / {serials.length} total</span>
+      </div>
+      <form
+        className="mt-3 flex flex-wrap gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (serialNo.trim()) add.mutate();
+        }}
+      >
+        <Input id="serial-no" value={serialNo} onChange={(e) => setSerialNo(e.target.value)} placeholder="Masukkan nomor seri unit" className="flex-1" />
+        <Button type="submit" disabled={add.isPending || !serialNo.trim()}>
+          {add.isPending ? <Spinner /> : null} Tambah seri
+        </Button>
+      </form>
+      {query.isLoading ? (
+        <div className="mt-3"><Spinner /></div>
+      ) : serials.length === 0 ? (
+        <p className="mt-3 text-sm text-slate-400">Belum ada nomor seri. Tambahkan unit satu per satu di atas.</p>
+      ) : (
+        <ul className="mt-3 space-y-1.5">
+          {serials.map((s) => (
+            <li key={s.id} className="flex items-center justify-between gap-2 text-sm">
+              <span className="font-mono text-xs">{s.serialNo}</span>
+              <span className="flex items-center gap-2">
+                <Badge tone={s.status === "in_stock" ? "green" : "neutral"}>{s.status === "in_stock" ? "Tersedia" : "Terjual"}</Badge>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setStatus.mutate({ id: s.id, status: s.status === "in_stock" ? "sold" : "in_stock" })}
+                  disabled={setStatus.isPending}
+                >
+                  {s.status === "in_stock" ? "Tandai terjual" : "Kembalikan"}
+                </Button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 export function ProductsPage() {
   const {
@@ -253,6 +329,10 @@ export function ProductsPage() {
       trackExpiry: raw.trackExpiry === "on",
       isService: raw.isService === "on",
       minStock: Number(raw.minStock) || 0,
+      barcode: raw.barcode || "",
+      uomSecondary: raw.uomSecondary || "",
+      uomFactor: Number(raw.uomFactor) || 1,
+      trackSerial: raw.trackSerial === "on",
     });
     if (!parsed.success) {
       setIssues(parsed.error.flatten().fieldErrors as Record<string, string[]>);
@@ -365,7 +445,31 @@ export function ProductsPage() {
                 />
                 Jasa (tanpa stok) — faktur tidak menggerakkan stok/HPP; cocok untuk layanan, sewa, langganan
               </label>
+              <div className="sm:col-span-3">
+                <Label htmlFor="p-barcode">Barcode / kode batang</Label>
+                <Input id="p-barcode" name="barcode" placeholder="opsional — untuk pindai di kasir" defaultValue={editing?.barcode ?? ""} />
+                <FieldError messages={issues.barcode} />
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="p-uom2">Satuan besar (opsional)</Label>
+                <Input id="p-uom2" name="uomSecondary" placeholder="mis. dus" defaultValue={editing?.uom_secondary ?? ""} />
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="p-uomf">1 satuan besar = … satuan dasar</Label>
+                <Input id="p-uomf" name="uomFactor" type="number" min={1} placeholder="mis. 24" defaultValue={editing?.uom_factor && editing.uom_factor > 1 ? editing.uom_factor : ""} />
+                <FieldError messages={issues.uomFactor} />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-slate-600 sm:col-span-3 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  name="trackSerial"
+                  className="h-4 w-4 rounded border-slate-300"
+                  defaultChecked={editing ? editing.track_serial === 1 : false}
+                />
+                Lacak nomor seri — untuk barang bernilai tinggi/garansi (elektronik, mesin)
+              </label>
             </form>
+            {editing && editing.track_serial === 1 ? <SerialManager product={editing} /> : null}
           </CardBody>
         </Card>
       ) : null}
@@ -391,7 +495,8 @@ export function ProductsPage() {
                     <th className={th}>Satuan</th>
                     <th className={`${th} text-right`}>Harga Jual</th>
                     <th className={`${th} text-right`}>Harga Beli</th>
-                    <th className={th}>Exp</th>
+                    <th className={`${th} hidden sm:table-cell`}>Barcode</th>
+                    <th className={th}>Label</th>
                     {isAdmin ? <th className={th}></th> : null}
                   </tr>
                 </thead>
@@ -399,11 +504,21 @@ export function ProductsPage() {
                   {((query.data?.items ?? []) as ProductRow[]).map((p) => (
                     <tr key={p.id}>
                       <td className={`${td} font-mono text-xs`}>{p.sku}</td>
-                      <td className={td}>{p.name}</td>
+                      <td className={td}>
+                        {p.name}
+                        {p.uom_secondary && p.uom_factor > 1 ? (
+                          <span className="ml-1 text-xs text-slate-400">· 1 {p.uom_secondary} = {p.uom_factor} {p.unit}</span>
+                        ) : null}
+                      </td>
                       <td className={td}>{p.unit}</td>
                       <td className={`${td} text-right tabular-nums`}>{formatIDR(p.sell_price)}</td>
                       <td className={`${td} text-right tabular-nums`}>{formatIDR(p.buy_price)}</td>
-                      <td className={td}>{p.track_expiry ? <Badge tone="amber">FEFO</Badge> : "—"}</td>
+                      <td className={`${td} hidden font-mono text-xs sm:table-cell`}>{p.barcode || "—"}</td>
+                      <td className={`${td} space-x-1`}>
+                        {p.track_expiry ? <Badge tone="amber">FEFO</Badge> : null}
+                        {p.track_serial ? <Badge tone="brand">Seri</Badge> : null}
+                        {!p.track_expiry && !p.track_serial ? "—" : null}
+                      </td>
                       {isAdmin ? (
                         <td className={`${td} text-right`}>
                           <RowActions onEdit={() => setEditing(p)} onArchive={() => setToArchive(p)} />

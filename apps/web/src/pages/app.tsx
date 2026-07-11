@@ -1157,6 +1157,9 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   "sales.so.down_payment": "Uang muka diterima",
   "sales.so.delivered": "Surat jalan dibuat (barang keluar)",
   "sales.so.invoiced": "Pesanan difakturkan",
+  // Stok lanjut (nomor seri)
+  "stock.serial.added": "Nomor seri ditambahkan",
+  "stock.serial.status": "Status nomor seri diubah",
   // POS
   "pos.shift_opened": "Shift kasir dibuka",
   "pos.sale": "Penjualan kasir (POS)",

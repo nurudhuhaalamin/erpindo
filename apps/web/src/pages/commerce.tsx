@@ -1061,6 +1061,74 @@ function LotsCard() {
   );
 }
 
+/**
+ * Titik pesan otomatis (Fase 7c): produk dengan stok ≤ minimum → usulan qty beli.
+ * Sekali klik membuat Permintaan Pembelian (PR) yang diteruskan ke modul Pengadaan.
+ */
+function ReorderCard() {
+  const { tenant } = useWorkspace();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const query = useQuery({ queryKey: ["reorder", tenant.tenantId], queryFn: () => api.reorderSuggestions(tenant.tenantId) });
+  const suggestions = query.data?.suggestions ?? [];
+
+  const createPr = useMutation({
+    mutationFn: () =>
+      api.createRequisition(tenant.tenantId, {
+        note: "Usulan otomatis dari titik pesan (stok menipis)",
+        lines: suggestions.map((s) => ({ productId: s.productId, qty: s.suggestedQty, note: `Stok ${s.qty} ≤ minimum ${s.minStock}` })),
+      }),
+    onSuccess: (r) => {
+      queryClient.invalidateQueries({ queryKey: ["requisitions", tenant.tenantId] });
+      toast("success", `Permintaan pembelian ${r.reqNo} dibuat — lanjutkan di menu Pengadaan.`);
+    },
+    onError: (e: Error) => toast("error", e.message),
+  });
+
+  if (query.isLoading || suggestions.length === 0) return null;
+  return (
+    <Card>
+      <CardHeader
+        title="Usulan pembelian otomatis"
+        description="Produk dengan total stok di bawah/di ambang minimum. Buat permintaan pembelian sekali klik."
+        action={
+          <Button className="h-9" onClick={() => createPr.mutate()} disabled={createPr.isPending}>
+            {createPr.isPending ? <Spinner /> : null} Buat permintaan pembelian
+          </Button>
+        }
+      />
+      <CardBody>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-slate-800">
+                <th className={th}>SKU</th>
+                <th className={th}>Produk</th>
+                <th className={`${th} text-right`}>Stok</th>
+                <th className={`${th} text-right`}>Minimum</th>
+                <th className={`${th} text-right`}>Usulan beli</th>
+              </tr>
+            </thead>
+            <tbody>
+              {suggestions.map((s) => (
+                <tr key={s.productId}>
+                  <td className="border-b border-slate-100 py-2.5 pr-4 font-mono text-xs dark:border-slate-800/60">{s.sku}</td>
+                  <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">{s.name}</td>
+                  <td className="border-b border-slate-100 py-2.5 pr-4 text-right tabular-nums dark:border-slate-800/60">
+                    <Badge tone={s.qty <= 0 ? "red" : "amber"}>{s.qty} {s.unit}</Badge>
+                  </td>
+                  <td className="border-b border-slate-100 py-2.5 pr-4 text-right tabular-nums dark:border-slate-800/60">{s.minStock}</td>
+                  <td className="border-b border-slate-100 py-2.5 pr-4 text-right font-medium tabular-nums dark:border-slate-800/60">{s.suggestedQty} {s.unit}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
+
 export function StockPage() {
   const { tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
@@ -1077,6 +1145,7 @@ export function StockPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Stok</h1>
       <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Level stok per gudang beserta nilai persediaan, kartu stok, transfer antar gudang, dan opname.</p>
+      {isAdmin ? <ReorderCard /> : null}
       {isAdmin ? <StockAdjustmentForm /> : null}
       {isAdmin ? <StockTransferForm /> : null}
       <LotsCard />

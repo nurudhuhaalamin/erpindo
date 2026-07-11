@@ -366,8 +366,51 @@ export const productSchema = z.object({
   isService: z.boolean().default(false),
   /** Ambang stok menipis (0 = tanpa peringatan): total stok ≤ nilai ini memicu notifikasi. */
   minStock: z.number().int().min(0).max(1_000_000).default(0),
+  /** Kode batang (barcode/EAN) untuk pindai di kasir & pencarian cepat. */
+  barcode: z.string().trim().max(60).optional().or(z.literal("")),
+  /** Satuan besar opsional (mis. "dus") untuk konversi tampilan. */
+  uomSecondary: z.string().trim().max(20).optional().or(z.literal("")),
+  /** 1 satuan besar = uomFactor satuan dasar (mis. 1 dus = 24 pcs). */
+  uomFactor: z.number().int().min(1).max(100_000).default(1),
+  /** Produk melacak nomor seri (barang bernilai tinggi/garansi). */
+  trackSerial: z.boolean().default(false),
 });
 export type ProductInput = z.infer<typeof productSchema>;
+
+/** Nomor seri unit (Fase 7c). */
+export const serialSchema = z.object({
+  serialNo: z.string().trim().min(1, "Nomor seri wajib diisi").max(80),
+  note: z.string().trim().max(200).optional().or(z.literal("")),
+});
+export type SerialInput = z.infer<typeof serialSchema>;
+export const SERIAL_STATUSES = ["in_stock", "sold"] as const;
+export type SerialStatus = (typeof SERIAL_STATUSES)[number];
+export const SERIAL_STATUS_LABELS: Record<SerialStatus, string> = {
+  in_stock: "Tersedia",
+  sold: "Terjual",
+};
+export type ApiProductSerial = {
+  id: string;
+  productId: string;
+  serialNo: string;
+  status: SerialStatus;
+  note: string | null;
+  createdAt: string;
+};
+export const serialStatusSchema = z.object({ status: z.enum(SERIAL_STATUSES) });
+
+/** Usulan pembelian dari titik pesan otomatis (Fase 7c). */
+export type ApiReorderSuggestion = {
+  productId: string;
+  sku: string;
+  name: string;
+  unit: string;
+  minStock: number;
+  qty: number;
+  shortfall: number;
+  suggestedQty: number;
+  buyPrice: number;
+};
 
 /** Notifikasi operasional (lonceng di topbar) — dihitung on-demand dari data nyata. */
 export type ApiNotification = {

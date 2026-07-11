@@ -223,6 +223,10 @@ export const masterDataRoutes = new Hono<AppEnv>()
         track_expiry: p.trackExpiry ? 1 : 0,
         is_service: p.isService ? 1 : 0,
         min_stock: p.minStock,
+        barcode: p.barcode ? p.barcode : null,
+        uom_secondary: p.uomSecondary ? p.uomSecondary : null,
+        uom_factor: p.uomFactor,
+        track_serial: p.trackSerial ? 1 : 0,
       }),
     }),
   )
