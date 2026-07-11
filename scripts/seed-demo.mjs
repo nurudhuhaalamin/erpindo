@@ -449,6 +449,32 @@ await step("permintaan pembelian kemasan (menunggu)", "POST", `${T}/requisitions
   lines: [{ productId: kotak.id, qty: 50 }, { productId: pita.id, qty: 20 }],
 });
 
+// --- 13b2. Penjualan bertahap: SO → uang muka → surat jalan → faktur -----------------
+const soHotel = await step("pesanan penjualan Hotel Parahyangan (SO)", "POST", `${T}/sales-orders`, {
+  contactId: custHotel.id, orderDate: daysAgo(6), expectedDate: daysAgo(-4),
+  warehouseId: whUtama.id, taxRate: 11,
+  note: "Pesanan kopi & teh untuk acara akhir tahun",
+  lines: [
+    { productId: kopi.id, qty: 3, unitPrice: 85_000 },
+    { productId: teh.id, qty: 2, unitPrice: 45_000 },
+  ],
+});
+await step("uang muka pesanan (DP 150rb)", "POST", `${T}/sales-orders/${soHotel.id}/down-payment`, {
+  amount: 150_000, accountId: bank.id, paymentDate: daysAgo(5),
+});
+await step("surat jalan pesanan (stok keluar)", "POST", `${T}/sales-orders/${soHotel.id}/deliver`, {
+  deliveryDate: daysAgo(3),
+});
+await step("faktur dari pesanan terkirim (uang muka terpakai)", "POST", `${T}/sales-orders/${soHotel.id}/invoice`, {
+  invoiceDate: daysAgo(2), dueDate: daysAgo(-28),
+});
+// Pesanan terbuka untuk demo (belum dikirim).
+await step("pesanan penjualan Toko Priangan (menunggu kirim)", "POST", `${T}/sales-orders`, {
+  contactId: custToko.id, orderDate: daysAgo(1), expectedDate: daysAgo(-6),
+  warehouseId: whUtama.id, taxRate: 0,
+  lines: [{ productId: kopi.id, qty: 4, unitPrice: 85_000 }],
+});
+
 // --- 13c. Approval workflow engine: aturan berjenjang + alur multi-langkah -----------
 await step("aturan approval: pembelian besar (Admin→Pemilik)", "POST", `${T}/approval-rules`, {
   name: "Pembelian besar", docType: "pembelian", minAmount: 5_000_000, approverRoles: ["admin", "owner"],

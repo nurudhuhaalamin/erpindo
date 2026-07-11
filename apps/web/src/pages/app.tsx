@@ -89,6 +89,7 @@ const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; 
   { to: "/app", label: "Dashboard", exact: true, icon: LayoutDashboard },
   { to: "/app/pos", label: "Kasir (POS)", exact: false, section: "Transaksi", icon: Store },
   { to: "/app/penjualan", label: "Penjualan", exact: false, section: "Transaksi", icon: Receipt },
+  { to: "/app/pesanan-penjualan", label: "Pesanan Penjualan", exact: false, section: "Transaksi", icon: ClipboardList },
   { to: "/app/pembelian", label: "Pembelian", exact: false, section: "Transaksi", icon: ShoppingCart },
   { to: "/app/pengadaan", label: "Pengadaan", exact: false, section: "Transaksi", icon: ClipboardList },
   { to: "/app/stok", label: "Stok", exact: false, section: "Transaksi", icon: Boxes },
@@ -1150,6 +1151,12 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   "procurement.po.created": "Pesanan pembelian dibuat",
   "procurement.po.cancelled": "Pesanan pembelian dibatalkan",
   "procurement.goods_received": "Barang diterima (GRN)",
+  // Penjualan bertahap
+  "sales.so.created": "Pesanan penjualan dibuat",
+  "sales.so.cancelled": "Pesanan penjualan dibatalkan",
+  "sales.so.down_payment": "Uang muka diterima",
+  "sales.so.delivered": "Surat jalan dibuat (barang keluar)",
+  "sales.so.invoiced": "Pesanan difakturkan",
   // POS
   "pos.shift_opened": "Shift kasir dibuka",
   "pos.sale": "Penjualan kasir (POS)",

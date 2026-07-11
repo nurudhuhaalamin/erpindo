@@ -362,6 +362,7 @@ export async function executeInvoice(
   db: SqlExecutor,
   input: CreateInvoiceInput,
   userId: string,
+  opts?: { skipStock?: boolean },
 ): Promise<{ invoiceId: string; docNo: string; total: number } | { error: string }> {
   const refError = (await validateRefs(db, INVOICE_CFG, input)) ?? (await checkProject(db, input.projectId));
   if (refError) return { error: refError };
@@ -399,21 +400,24 @@ export async function executeInvoice(
   const serviceIds = new Set(svc.map((s) => s.id));
 
   // Stok keluar dulu (bisa gagal karena stok kurang) — sebelum jurnal dibuat.
+  // skipStock: barang sudah dikeluarkan & HPP sudah diakui di Surat Jalan (alur SO→DO→Faktur).
   let totalCogs = 0;
-  try {
-    for (const line of input.lines) {
-      if (serviceIds.has(line.productId)) continue;
-      totalCogs += await stockOut(db, {
-        productId: line.productId,
-        warehouseId: input.warehouseId,
-        qty: line.qty,
-        refType: "sale",
-        refId: invoiceId,
-      });
+  if (!opts?.skipStock) {
+    try {
+      for (const line of input.lines) {
+        if (serviceIds.has(line.productId)) continue;
+        totalCogs += await stockOut(db, {
+          productId: line.productId,
+          warehouseId: input.warehouseId,
+          qty: line.qty,
+          refType: "sale",
+          refId: invoiceId,
+        });
+      }
+    } catch (err) {
+      if (err instanceof InsufficientStockError) return { error: err.message };
+      throw err;
     }
-  } catch (err) {
-    if (err instanceof InsufficientStockError) return { error: err.message };
-    throw err;
   }
 
   const [piutang, pendapatan, ppnKeluaran, hpp, persediaan] = await Promise.all([
