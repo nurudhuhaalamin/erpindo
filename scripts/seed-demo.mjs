@@ -655,6 +655,16 @@ await step("tiket saran produk", "POST", `${T}/tickets`, {
   contactId: custKoperasi.id, subject: "Usul varian sambal level pedas", priority: "low",
 });
 
+// --- 20b. Laporan terjadwal (Fase 7h): rekap penjualan bulan ini & bulan lalu ---------------------
+{
+  const now = new Date();
+  const thisMonth = now.toISOString().slice(0, 7);
+  const prev = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+  const lastMonth = prev.toISOString().slice(0, 7);
+  await step("rekap penjualan bulan ini (laporan terjadwal)", "POST", `${T}/report-snapshots/run`, { period: thisMonth });
+  await step("rekap penjualan bulan lalu (laporan terjadwal)", "POST", `${T}/report-snapshots/run`, { period: lastMonth });
+}
+
 // --- 21. Opname & transfer gudang -----------------------------------------------------------------
 const stockNow = await api("GET", `${T}/stock`);
 const keripikLevel = stockNow.json.levels.find((l) => l.sku === "KRPK-200" && l.warehouseId === whUtama.id);

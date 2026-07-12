@@ -1233,6 +1233,23 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `CREATE INDEX routing_steps_production ON production_routing_steps (production_id)`,
     ],
   },
+  {
+    // Laporan terjadwal (Fase 7h): snapshot ringkasan berkala yang ditulis oleh
+    // Cron (rekap penjualan bulanan) — idempotent per (kind, period). Additive.
+    id: "0034_scheduled_reports",
+    statements: [
+      `CREATE TABLE report_snapshots (
+        id TEXT PRIMARY KEY,
+        kind TEXT NOT NULL,
+        period TEXT NOT NULL,
+        title TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        created_by TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE (kind, period)
+      )`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

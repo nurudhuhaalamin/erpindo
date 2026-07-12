@@ -8,7 +8,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
-import { api, formatDate, formatIDR } from "../api/client";
+import { api, downloadXlsx, formatDate, formatIDR } from "../api/client";
 import { useDebounced } from "./commerce";
 import {
   Alert,
@@ -679,7 +679,7 @@ export function TrialBalancePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold">Neraca Saldo</h1>
       <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Ringkasan saldo semua akun — total debit dan kredit harus selalu sama.</p>
         {query.data ? (
@@ -688,6 +688,26 @@ export function TrialBalancePage() {
           ) : (
             <Badge tone="amber">TIDAK seimbang</Badge>
           )
+        ) : null}
+        {(query.data?.rows.length ?? 0) > 0 ? (
+          <Button
+            variant="secondary"
+            className="ml-auto"
+            onClick={() =>
+              downloadXlsx("neraca-saldo.xlsx", [
+                {
+                  name: "Neraca Saldo",
+                  headers: ["Kode", "Akun", "Debit", "Kredit"],
+                  rows: [
+                    ...query.data!.rows.map((r) => [r.code, r.name, r.debit, r.credit] as (string | number)[]),
+                    ["", "Total", query.data!.totalDebit, query.data!.totalCredit],
+                  ],
+                },
+              ])
+            }
+          >
+            Ekspor Excel
+          </Button>
         ) : null}
       </div>
       <Card>

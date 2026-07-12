@@ -71,6 +71,7 @@
 | **Fase 7e — RBAC granular** | **Peran kustom** dengan **izin per modul** — mis. "Kasir Toko" hanya lihat Penjualan/POS/Stok. Owner/Admin/Viewer tetap preset (aturan lama tak berubah); menu sidebar otomatis menyaring modul yang tak diizinkan & API menolak akses modul terlarang | ✅ **Selesai** |
 | **Fase 7f — Dimensi & rekonsiliasi v2** | **Cost center / departemen** opsional per baris jurnal + laporan **laba-rugi per dimensi** (per cabang/divisi); **rekonsiliasi bank v2** — aturan auto-match tersimpan (kata kunci + toleransi) & dukungan format impor rekening koran BCA/Mandiri/BRI | ✅ **Selesai** |
 | **Fase 7g — Proyek Gantt + Manufaktur routing** | **Gantt** proyek (jadwal tugas, dependensi “setelah…”, baseline rencana vs aktual); **Manufaktur** — work center (pusat kerja + tarif/jam) + **routing** per produksi dengan biaya standar vs aktual & varian (WIP) | ✅ **Selesai** |
+| **Fase 7h — Dashboard kustom + ekspor Excel + laporan terjadwal** | **Dashboard bisa disesuaikan** (pilih widget yang tampil, tersimpan per perangkat) + **grafik tren bulanan**; **ekspor Excel (.xlsx)** di Laporan Penjualan & Neraca Saldo (berdampingan CSV, tanpa pustaka pihak ketiga); **laporan terjadwal** — Cron menyusun rekap penjualan bulanan otomatis tiap awal bulan (+ tombol susun manual). **PR terakhir Fase 7** | ✅ **Selesai** |
 | Fase 2m — Manajemen dokumen (lampiran file) | Lampiran di faktur/kontak/jurnal (penyimpanan Cloudflare R2) | ⏸ **Menunggu Anda mengaktifkan R2 di dashboard Cloudflare** |
 | Fase 2b-2 — Pembayaran langganan | Checkout Midtrans/Xendit, aktivasi otomatis | ⏸ **Menunggu akun gateway dari Anda** |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
@@ -135,7 +136,7 @@
 54. **Dashboard modern & panduan mulai** *(baru — Fase 3e)*: grafik tren penjualan 30 hari dengan tooltip, widget faktur lewat jatuh tempo, feed aktivitas terakhir, dan **checklist "Mulai cepat"** berprogres untuk perusahaan baru (hilang otomatis saat lengkap). Halaman daftar/masuk bergaya split modern; setiap halaman kini punya paragraf pengantar; nama menu dan judul halaman konsisten (Maintenance menjadi Pemeliharaan).
 55. **Ekspor e-Faktur XML Coretax** *(baru — Fase 3f)*: satu klik "Unduh XML Coretax" di halaman Ekspor e-Faktur menghasilkan berkas XML yang **langsung bisa diimpor ke Coretax DJP** (format satu-satunya yang diterima sejak 2025). Sistem otomatis memakai kode transaksi yang benar — 04 dengan DPP nilai lain 11/12 untuk barang non-mewah (PMK 131/2024), 01 untuk tarif 12% penuh — menormalkan NPWP ke TIN 16 digit, dan mengecualikan faktur yang dibatalkan/non-PPN. CSV rekap tetap tersedia.
 
-Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (608 skenario ujian end-to-end + 24 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
+Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (617 skenario ujian end-to-end + 24 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
 
 ## Apakah sudah bisa diakses di internet?
 

@@ -31,6 +31,7 @@ import { taxRoutes } from "./routes/tax";
 import { dimensionRoutes } from "./routes/dimensions";
 import { manufacturingRoutingRoutes } from "./routes/manufacturingRouting";
 import { projectRoutes } from "./routes/projects";
+import { previousMonth, runMonthlyRecap, scheduledReportsRoutes } from "./routes/scheduledReports";
 import { inviteRoutes, tenantRoutes } from "./routes/tenants";
 
 /**
@@ -84,6 +85,7 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", manufacturingRoutes)
   .route("/api/tenants", manufacturingRoutingRoutes)
   .route("/api/tenants", maintenanceRoutes)
+  .route("/api/tenants", scheduledReportsRoutes)
   .route("/api/tenants", helpdeskRoutes)
   .route("/api/consolidation", consolidationRoutes)
   .route("/api/invites", inviteRoutes)
@@ -199,6 +201,27 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
       }
     }
     if (depTenants > 0) console.log(`[cron] penyusutan ${period} diposting untuk ${depTenants} tenant`);
+
+    // 3b) Laporan terjadwal (Fase 7h): rekap penjualan bulan lalu per tenant.
+    //     Idempotent (UNIQUE kind+period), aman bila cron terpicu berulang.
+    const recapPeriod = previousMonth(nowIso);
+    let recapTenants = 0;
+    for (const t of tenants) {
+      try {
+        const db = getTenantDb(env, t.db_ref);
+        await runMonthlyRecap(db, recapPeriod, null);
+        recapTenants++;
+        await env.DB.prepare(
+          `INSERT INTO audit_logs (id, tenant_id, user_id, action, detail, ip, created_at)
+           VALUES (?, ?, NULL, 'report.recap_generated', ?, NULL, ?)`,
+        )
+          .bind(crypto.randomUUID(), t.id, JSON.stringify({ period: recapPeriod }), nowIso)
+          .run();
+      } catch (err) {
+        console.error(`[cron] rekap penjualan tenant ${t.id} gagal:`, err);
+      }
+    }
+    if (recapTenants > 0) console.log(`[cron] rekap penjualan ${recapPeriod} disusun untuk ${recapTenants} tenant`);
   }
 
   // 4) Tagihan berulang — setiap hari terbitkan faktur kontrak yang jatuh tempo.

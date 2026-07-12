@@ -35,9 +35,11 @@ import {
   Percent,
   PiggyBank,
   Receipt,
+  Check,
   Scale,
   Settings,
   ShoppingCart,
+  SlidersHorizontal,
   Store,
   Sun,
   Target,
@@ -886,9 +888,224 @@ function OnboardingChecklist({ tenantId }: { tenantId: string }) {
   );
 }
 
+/**
+ * Grafik tren penjualan bulanan (Fase 7h): omzet per bulan, N bulan terakhir.
+ * SVG ringan (tanpa pustaka), mengikuti pedoman dataviz yang sama seperti
+ * grafik harian: batang membulat dari baseline, grid hairline, tick bulat.
+ */
+function MonthlyTrendChart({ tenantId }: { tenantId: string }) {
+  const query = useQuery({
+    queryKey: ["sales-monthly", tenantId],
+    queryFn: () => api.salesMonthly(tenantId, 6),
+  });
+  const [hover, setHover] = useState<number | null>(null);
+
+  const months = useMemo(() => {
+    const byMonth = new Map((query.data?.rows ?? []).map((r) => [r.month, r]));
+    const out: { month: string; total: number; count: number }[] = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+      const key = d.toISOString().slice(0, 7);
+      const row = byMonth.get(key);
+      out.push({ month: key, total: row?.total ?? 0, count: row?.count ?? 0 });
+    }
+    return out;
+  }, [query.data]);
+
+  const W = 600;
+  const H = 190;
+  const PAD_L = 44;
+  const PAD_B = 22;
+  const PAD_T = 8;
+  const plotW = W - PAD_L - 6;
+  const plotH = H - PAD_T - PAD_B;
+  const yMax = niceCeil(Math.max(...months.map((m) => m.total), 1));
+  const slot = plotW / months.length;
+  const barW = Math.min(48, slot - 12);
+  const y = (v: number) => PAD_T + plotH - (v / yMax) * plotH;
+  const ticks = [0, yMax / 2, yMax];
+  const monthLabel = (m: string) => {
+    const [yy, mm] = m.split("-").map(Number);
+    return new Date(Date.UTC(yy!, mm! - 1, 1)).toLocaleDateString("id-ID", { month: "short", year: "2-digit" });
+  };
+  const hovered = hover !== null ? months[hover] : null;
+
+  return (
+    <Card>
+      <CardHeader title="Tren penjualan bulanan" description="Total omzet faktur per bulan, 6 bulan terakhir." />
+      <CardBody>
+        {query.isLoading ? (
+          <Skeleton className="h-48 w-full" />
+        ) : (
+          <div className="relative">
+            <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Grafik omzet bulanan 6 bulan">
+              {ticks.map((t) => (
+                <g key={t}>
+                  <line x1={PAD_L} x2={W - 6} y1={y(t)} y2={y(t)} className="stroke-slate-200 dark:stroke-slate-800" strokeWidth={1} />
+                  <text x={PAD_L - 6} y={y(t) + 3.5} textAnchor="end" className="fill-slate-400 dark:fill-slate-500" fontSize={10}>
+                    {compactNumber(t)}
+                  </text>
+                </g>
+              ))}
+              {months.map((m, i) => {
+                const cx = PAD_L + i * slot + slot / 2;
+                const barH = Math.max(m.total > 0 ? 2 : 0, (m.total / yMax) * plotH);
+                const top = PAD_T + plotH - barH;
+                return (
+                  <g key={m.month}>
+                    {m.total > 0 ? (
+                      <rect
+                        x={cx - barW / 2}
+                        y={top}
+                        width={barW}
+                        height={barH}
+                        rx={4}
+                        className={hover === i ? "fill-brand-500 dark:fill-brand-300" : "fill-brand-600 dark:fill-brand-400"}
+                      />
+                    ) : null}
+                    <rect
+                      x={PAD_L + i * slot}
+                      y={PAD_T}
+                      width={slot}
+                      height={plotH}
+                      fill="transparent"
+                      onPointerEnter={() => setHover(i)}
+                      onPointerLeave={() => setHover(null)}
+                    />
+                    <text x={cx} y={H - 6} textAnchor="middle" className="fill-slate-400 dark:fill-slate-500" fontSize={10}>
+                      {monthLabel(m.month)}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+            {hovered ? (
+              <div
+                className="pointer-events-none absolute -top-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-md dark:border-slate-700 dark:bg-slate-900"
+                style={{ left: `${Math.min(92, Math.max(2, ((PAD_L + (hover ?? 0) * slot + slot / 2) / W) * 100))}%`, transform: "translateX(-50%)" }}
+              >
+                <span className="block font-semibold tabular-nums text-slate-900 dark:text-slate-100">{formatIDR(hovered.total)}</span>
+                <span className="block text-slate-500 dark:text-slate-400">{monthLabel(hovered.month)} · {hovered.count} faktur</span>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+/** Widget laporan terjadwal (Fase 7h): snapshot rekap bulanan yang disusun Cron. */
+function ScheduledReportsWidget({ tenantId, canRun }: { tenantId: string; canRun: boolean }) {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: ["report-snapshots", tenantId],
+    queryFn: () => api.reportSnapshots(tenantId),
+  });
+  const snapshots = query.data?.snapshots ?? [];
+
+  const run = useMutation({
+    mutationFn: () => {
+      const now = new Date();
+      const prev = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+      return api.runReportSnapshot(tenantId, prev.toISOString().slice(0, 7));
+    },
+    onSuccess: (res) => {
+      toast("success", `Rekap ${res.period} disusun.`);
+      queryClient.invalidateQueries({ queryKey: ["report-snapshots", tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  const monthName = (p: string) => {
+    const [yy, mm] = p.split("-").map(Number);
+    return new Date(Date.UTC(yy!, mm! - 1, 1)).toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+  };
+
+  return (
+    <Card>
+      <CardHeader
+        title="Laporan terjadwal"
+        description="Rekap penjualan bulanan yang disusun otomatis tiap awal bulan."
+        action={
+          canRun ? (
+            <Button variant="secondary" onClick={() => run.mutate()} disabled={run.isPending}>
+              {run.isPending ? "Menyusun…" : "Susun bulan lalu"}
+            </Button>
+          ) : undefined
+        }
+      />
+      <CardBody>
+        {query.isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : snapshots.length === 0 ? (
+          <p className="py-4 text-center text-sm text-slate-500 dark:text-slate-400">
+            Belum ada rekap. Cron menyusun rekap bulan lalu tiap awal bulan{canRun ? ", atau susun manual di atas." : "."}
+          </p>
+        ) : (
+          <ul className="space-y-2.5">
+            {snapshots.slice(0, 5).map((s) => (
+              <li key={s.id} className="flex items-baseline justify-between gap-3 text-sm">
+                <span className="min-w-0">
+                  <span className="font-medium text-slate-800 dark:text-slate-100">{monthName(s.period)}</span>
+                  <span className="block text-xs text-slate-500 dark:text-slate-400">
+                    {s.summary.invoiceCount} faktur{s.summary.topProduct ? ` · terlaris: ${s.summary.topProduct}` : ""}
+                  </span>
+                </span>
+                <span className="shrink-0 font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                  {formatIDR(s.summary.totalRevenue)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+/** Widget dashboard yang bisa disembunyikan/ditampilkan (Fase 7h). */
+const DASHBOARD_WIDGETS = [
+  { key: "kpi", label: "Ringkasan angka (KPI)" },
+  { key: "trenHarian", label: "Grafik penjualan 30 hari" },
+  { key: "trenBulanan", label: "Grafik tren bulanan" },
+  { key: "jatuhTempo", label: "Faktur jatuh tempo" },
+  { key: "aktivitas", label: "Aktivitas / mulai dari sini" },
+  { key: "laporanTerjadwal", label: "Laporan terjadwal" },
+] as const;
+type WidgetKey = (typeof DASHBOARD_WIDGETS)[number]["key"];
+
+/** Preferensi widget dashboard per tenant, disimpan di localStorage. */
+function useDashboardWidgets(tenantId: string) {
+  const storageKey = `erpindo:dashboard-widgets:${tenantId}`;
+  const [hidden, setHidden] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(storageKey) ?? "{}") as Record<string, boolean>;
+    } catch {
+      return {};
+    }
+  });
+  const toggle = (key: WidgetKey) =>
+    setHidden((h) => {
+      const next = { ...h, [key]: !h[key] };
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(next));
+      } catch {
+        /* localStorage tak tersedia — abaikan */
+      }
+      return next;
+    });
+  const isVisible = (key: WidgetKey) => !hidden[key];
+  return { isVisible, toggle };
+}
+
 export function DashboardPage() {
   const { me, tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
+  const widgets = useDashboardWidgets(tenant.tenantId);
+  const [customizing, setCustomizing] = useState(false);
   const dash = useQuery({
     queryKey: ["dashboard", tenant.tenantId],
     queryFn: () => api.dashboard(tenant.tenantId),
@@ -952,15 +1169,60 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Selamat datang, {me.user.name.split(" ")[0]}</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Ringkasan <span className="font-medium">{tenant.tenantName}</span> hari ini.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Selamat datang, {me.user.name.split(" ")[0]}</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Ringkasan <span className="font-medium">{tenant.tenantName}</span> hari ini.
+          </p>
+        </div>
+        <Button variant="secondary" onClick={() => setCustomizing((v) => !v)}>
+          <SlidersHorizontal className="size-4" aria-hidden /> Sesuaikan
+        </Button>
       </div>
+
+      {customizing ? (
+        <Card>
+          <CardHeader title="Sesuaikan dashboard" description="Pilih widget yang ingin Anda tampilkan. Tersimpan di perangkat ini." />
+          <CardBody>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {DASHBOARD_WIDGETS.map((w) => {
+                const on = widgets.isVisible(w.key);
+                return (
+                  <button
+                    key={w.key}
+                    type="button"
+                    onClick={() => widgets.toggle(w.key)}
+                    className={`flex items-center gap-2.5 rounded-xl border p-3 text-left text-sm transition-colors ${
+                      on
+                        ? "border-brand-300 bg-brand-50/50 dark:border-brand-800 dark:bg-brand-950/30"
+                        : "border-slate-200 dark:border-slate-800"
+                    }`}
+                  >
+                    <span
+                      className={`flex size-5 shrink-0 items-center justify-center rounded-md border ${
+                        on
+                          ? "border-brand-600 bg-brand-600 text-white dark:border-brand-400 dark:bg-brand-400 dark:text-slate-900"
+                          : "border-slate-300 text-transparent dark:border-slate-600"
+                      }`}
+                      aria-hidden
+                    >
+                      <Check className="size-3.5" />
+                    </span>
+                    <span className={on ? "text-slate-800 dark:text-slate-100" : "text-slate-500 dark:text-slate-400"}>
+                      {w.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </CardBody>
+        </Card>
+      ) : null}
 
       {isAdmin ? <OnboardingChecklist tenantId={tenant.tenantId} /> : null}
 
+      {widgets.isVisible("kpi") ? (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {stats.map((stat) => (
           <Card key={stat.label}>
@@ -990,38 +1252,47 @@ export function DashboardPage() {
           </Card>
         ))}
       </div>
+      ) : null}
 
-      <SalesTrendChart tenantId={tenant.tenantId} />
+      {widgets.isVisible("trenHarian") ? <SalesTrendChart tenantId={tenant.tenantId} /> : null}
+      {widgets.isVisible("trenBulanan") ? <MonthlyTrendChart tenantId={tenant.tenantId} /> : null}
+      {widgets.isVisible("laporanTerjadwal") ? (
+        <ScheduledReportsWidget tenantId={tenant.tenantId} canRun={isAdmin} />
+      ) : null}
 
+      {widgets.isVisible("jatuhTempo") || widgets.isVisible("aktivitas") ? (
       <div className="grid gap-6 lg:grid-cols-2">
-        <DueInvoicesWidget tenantId={tenant.tenantId} />
-        {tenant.role === "owner" ? (
-          <ActivityFeed tenantId={tenant.tenantId} />
-        ) : (
-          <Card>
-            <CardHeader title="Mulai dari sini" description="Alur kerja harian yang umum." />
-            <CardBody>
-              <div className="grid gap-3">
-                {quickLinks.map((q) => (
-                  <Link
-                    key={q.to}
-                    to={q.to}
-                    className="group flex items-center gap-3 rounded-xl border border-slate-200 p-3 transition-colors hover:border-brand-300 hover:bg-brand-50/50 dark:border-slate-800 dark:hover:border-brand-800 dark:hover:bg-brand-950/30"
-                  >
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition-colors group-hover:bg-brand-100 group-hover:text-brand-700 dark:bg-slate-800 dark:text-slate-300 dark:group-hover:bg-brand-900/60 dark:group-hover:text-brand-300">
-                      <q.icon className="size-4" aria-hidden />
-                    </span>
-                    <span>
-                      <span className="block text-sm font-medium">{q.label}</span>
-                      <span className="block text-xs text-slate-500 dark:text-slate-400">{q.text}</span>
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </CardBody>
-          </Card>
-        )}
+        {widgets.isVisible("jatuhTempo") ? <DueInvoicesWidget tenantId={tenant.tenantId} /> : null}
+        {widgets.isVisible("aktivitas") ? (
+          tenant.role === "owner" ? (
+            <ActivityFeed tenantId={tenant.tenantId} />
+          ) : (
+            <Card>
+              <CardHeader title="Mulai dari sini" description="Alur kerja harian yang umum." />
+              <CardBody>
+                <div className="grid gap-3">
+                  {quickLinks.map((q) => (
+                    <Link
+                      key={q.to}
+                      to={q.to}
+                      className="group flex items-center gap-3 rounded-xl border border-slate-200 p-3 transition-colors hover:border-brand-300 hover:bg-brand-50/50 dark:border-slate-800 dark:hover:border-brand-800 dark:hover:bg-brand-950/30"
+                    >
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition-colors group-hover:bg-brand-100 group-hover:text-brand-700 dark:bg-slate-800 dark:text-slate-300 dark:group-hover:bg-brand-900/60 dark:group-hover:text-brand-300">
+                        <q.icon className="size-4" aria-hidden />
+                      </span>
+                      <span>
+                        <span className="block text-sm font-medium">{q.label}</span>
+                        <span className="block text-xs text-slate-500 dark:text-slate-400">{q.text}</span>
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </CardBody>
+            </Card>
+          )
+        ) : null}
       </div>
+      ) : null}
 
       {tenant.role === "owner" ? (
         <Card>

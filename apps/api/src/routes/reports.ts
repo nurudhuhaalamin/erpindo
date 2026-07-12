@@ -408,6 +408,28 @@ export const reportRoutes = new Hono<AppEnv>()
   })
 
   // -------------------------------------------------------------------------
+  // Tren penjualan bulanan (Fase 7h): omzet & jumlah faktur per bulan untuk N
+  // bulan terakhir. Dipakai grafik tren dashboard kustom.
+  // -------------------------------------------------------------------------
+  .get("/:tenantId/reports/sales-monthly", requireAuth, requireTenantRole("viewer"), async (c) => {
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+    const months = Math.min(Math.max(Number(c.req.query("months")) || 6, 3), 24);
+    const now = new Date();
+    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (months - 1), 1));
+    const from = start.toISOString().slice(0, 7); // YYYY-MM bulan paling awal
+
+    const { results } = await db
+      .prepare(
+        `SELECT substr(invoice_date, 1, 7) AS month, SUM(total) AS total, COUNT(*) AS n
+         FROM invoices WHERE voided_at IS NULL AND substr(invoice_date, 1, 7) >= ?
+         GROUP BY month ORDER BY month`,
+      )
+      .bind(from)
+      .all<{ month: string; total: number; n: number }>();
+    return c.json({ from, months, rows: results.map((r) => ({ month: r.month, total: r.total, count: r.n })) });
+  })
+
+  // -------------------------------------------------------------------------
   // Dashboard: ringkasan angka nyata
   // -------------------------------------------------------------------------
   // -------------------------------------------------------------------------
