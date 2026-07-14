@@ -1,0 +1,16 @@
+node_modules
+dist
+build
+coverage
+*.min.js
+*.lock
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+.next
+out
+.venv
+venv
+.DS_Store
+.env*
+wrangler.dev.jsonc
