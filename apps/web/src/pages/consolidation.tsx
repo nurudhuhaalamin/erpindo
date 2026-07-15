@@ -2,7 +2,7 @@ import type { ApiConsolidatedRow, ApiConsolidationCompany } from "@erpindo/share
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { api, downloadCsv, formatIDR } from "../api/client";
-import { Badge, Button, Card, CardBody, Label, Input, Spinner } from "../components/ui";
+import { Badge, Card, CardBody, Label, Input, Spinner } from "../components/ui";
 import { ExportButton } from "./reports";
 
 function today(): string {

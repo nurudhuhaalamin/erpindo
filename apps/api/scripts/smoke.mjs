@@ -2783,7 +2783,7 @@ try {
   check("stok VD-001 kembali 20 pcs @50.000 (nilai 1.000.000)", vdLevel2?.qty === 20 && vdLevel2?.avgCost === 50_000 && vdLevel2?.value === 1_000_000, `→ ${JSON.stringify(vdLevel2)}`);
 
   const vdDocsB = await owner("GET", `/api/tenants/${tenantId}/invoices`);
-  check("faktur ditandai voidedAt", vdDocsB.json?.docs?.find((d) => d.id === vdInvB.json.id)?.voidedAt != null);
+  check("faktur ditandai voidedAt", Boolean(vdDocsB.json?.docs?.find((d) => d.id === vdInvB.json.id)?.voidedAt));
   const vdAgingArAfter = (await owner("GET", `/api/tenants/${tenantId}/reports/aging?type=receivable`)).json?.grandTotal ?? 0;
   check("piutang kembali seperti sebelum faktur", vdAgingArAfter === vdAgingArBefore, `→ ${vdAgingArAfter} vs ${vdAgingArBefore}`);
   const vdPlAfter = (await owner("GET", `/api/tenants/${tenantId}/reports/income-statement?from=2026-08-01&to=2026-08-31`)).json;

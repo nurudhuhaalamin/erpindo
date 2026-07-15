@@ -3,7 +3,7 @@
 > Halaman ini ditulis untuk pemilik produk (non-teknis). Selalu diperbarui setiap ada kemajuan.
 > Log teknis per fase ada di folder [docs/log/](./log/).
 
-**Terakhir diperbarui:** 11 Juli 2026
+**Terakhir diperbarui:** 15 Juli 2026
 
 ## Di mana kita sekarang?
 
@@ -72,6 +72,7 @@
 | **Fase 7f — Dimensi & rekonsiliasi v2** | **Cost center / departemen** opsional per baris jurnal + laporan **laba-rugi per dimensi** (per cabang/divisi); **rekonsiliasi bank v2** — aturan auto-match tersimpan (kata kunci + toleransi) & dukungan format impor rekening koran BCA/Mandiri/BRI | ✅ **Selesai** |
 | **Fase 7g — Proyek Gantt + Manufaktur routing** | **Gantt** proyek (jadwal tugas, dependensi “setelah…”, baseline rencana vs aktual); **Manufaktur** — work center (pusat kerja + tarif/jam) + **routing** per produksi dengan biaya standar vs aktual & varian (WIP) | ✅ **Selesai** |
 | **Fase 7h — Dashboard kustom + ekspor Excel + laporan terjadwal** | **Dashboard bisa disesuaikan** (pilih widget yang tampil, tersimpan per perangkat) + **grafik tren bulanan**; **ekspor Excel (.xlsx)** di Laporan Penjualan & Neraca Saldo (berdampingan CSV, tanpa pustaka pihak ketiga); **laporan terjadwal** — Cron menyusun rekap penjualan bulanan otomatis tiap awal bulan (+ tombol susun manual). **PR terakhir Fase 7** | ✅ **Selesai** |
+| **Fase 8a — Pemulihan CI + standar kode (ESLint/Prettier)** | Memperbaiki commit eksternal 14 Juli yang membuat CI merah (lockfile tak diperbarui + config ESLint cacat); 10 pelanggaran lint nyata dibersihkan; job **Lint non-blocking** ditambahkan ke CI | ✅ **Selesai** |
 | Fase 2m — Manajemen dokumen (lampiran file) | Lampiran di faktur/kontak/jurnal (penyimpanan Cloudflare R2) | ⏸ **Menunggu Anda mengaktifkan R2 di dashboard Cloudflare** |
 | Fase 2b-2 — Pembayaran langganan | Checkout Midtrans/Xendit, aktivasi otomatis | ⏸ **Menunggu akun gateway dari Anda** |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |

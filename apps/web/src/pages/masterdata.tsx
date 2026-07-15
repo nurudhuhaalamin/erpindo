@@ -312,7 +312,7 @@ function SerialManager({ product }: { product: ProductRow }) {
 export function ProductsPage() {
   const {
     isAdmin, query, create, update, archive, issues, setIssues, editing, setEditing, toArchive, setToArchive,
-    search, setSearch, q, limit, setLimit,
+    search, setSearch, q, setLimit,
   } = useEntityPage<ProductRow>("products");
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -575,7 +575,7 @@ const CONTACT_TYPE_LABELS: Record<ContactType, string> = {
 export function ContactsPage() {
   const {
     isAdmin, query, create, update, archive, issues, setIssues, editing, setEditing, toArchive, setToArchive,
-    search, setSearch, q, limit, setLimit,
+    search, setSearch, q, setLimit,
   } = useEntityPage<ContactRow>("contacts");
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -752,7 +752,7 @@ type WarehouseRow = { id: string; code: string; name: string; address: string | 
 export function WarehousesPage() {
   const {
     isAdmin, query, create, update, archive, issues, setIssues, editing, setEditing, toArchive, setToArchive,
-    search, setSearch, q, limit, setLimit,
+    search, setSearch, q, setLimit,
   } = useEntityPage<WarehouseRow>("warehouses");
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
