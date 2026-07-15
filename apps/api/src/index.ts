@@ -31,6 +31,8 @@ import { taxRoutes } from "./routes/tax";
 import { dimensionRoutes } from "./routes/dimensions";
 import { manufacturingRoutingRoutes } from "./routes/manufacturingRouting";
 import { projectRoutes } from "./routes/projects";
+import { driveCallbackRoutes, driveRoutes, runDriveBackup } from "./routes/drive";
+import { exportRoutes } from "./routes/export";
 import { previousMonth, runMonthlyRecap, scheduledReportsRoutes } from "./routes/scheduledReports";
 import { inviteRoutes, tenantRoutes } from "./routes/tenants";
 
@@ -86,6 +88,9 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", manufacturingRoutingRoutes)
   .route("/api/tenants", maintenanceRoutes)
   .route("/api/tenants", scheduledReportsRoutes)
+  .route("/api/tenants", exportRoutes)
+  .route("/api/tenants", driveRoutes)
+  .route("/api/drive", driveCallbackRoutes)
   .route("/api/tenants", helpdeskRoutes)
   .route("/api/consolidation", consolidationRoutes)
   .route("/api/invites", inviteRoutes)
@@ -222,6 +227,26 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
       }
     }
     if (recapTenants > 0) console.log(`[cron] rekap penjualan ${recapPeriod} disusun untuk ${recapTenants} tenant`);
+
+    // 3c) Backup Google Drive bulanan (Fase 8b) — hanya tenant yang tersambung
+    //     dan hanya bila integrasi dikonfigurasi. Backup = operasi baca, tetap
+    //     dijalankan untuk tenant past_due (data milik pengguna).
+    if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
+      const { results: connected } = await env.DB.prepare(
+        `SELECT t.id, t.name, t.slug, t.db_ref FROM drive_connections dc JOIN tenants t ON t.id = dc.tenant_id`,
+      ).all<{ id: string; name: string; slug: string; db_ref: string }>();
+      let backedUp = 0;
+      for (const t of connected) {
+        try {
+          const res = await runDriveBackup(env, { id: t.id, name: t.name, slug: t.slug, dbRef: t.db_ref });
+          if (res.ok) backedUp++;
+          else console.error(`[cron] backup Drive tenant ${t.id} gagal: ${res.error}`);
+        } catch (err) {
+          console.error(`[cron] backup Drive tenant ${t.id} galat:`, err);
+        }
+      }
+      if (backedUp > 0) console.log(`[cron] backup Drive bulanan sukses untuk ${backedUp} tenant`);
+    }
   }
 
   // 4) Tagihan berulang — setiap hari terbitkan faktur kontrak yang jatuh tempo.

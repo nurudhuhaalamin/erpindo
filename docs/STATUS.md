@@ -73,6 +73,8 @@
 | **Fase 7g — Proyek Gantt + Manufaktur routing** | **Gantt** proyek (jadwal tugas, dependensi “setelah…”, baseline rencana vs aktual); **Manufaktur** — work center (pusat kerja + tarif/jam) + **routing** per produksi dengan biaya standar vs aktual & varian (WIP) | ✅ **Selesai** |
 | **Fase 7h — Dashboard kustom + ekspor Excel + laporan terjadwal** | **Dashboard bisa disesuaikan** (pilih widget yang tampil, tersimpan per perangkat) + **grafik tren bulanan**; **ekspor Excel (.xlsx)** di Laporan Penjualan & Neraca Saldo (berdampingan CSV, tanpa pustaka pihak ketiga); **laporan terjadwal** — Cron menyusun rekap penjualan bulanan otomatis tiap awal bulan (+ tombol susun manual). **PR terakhir Fase 7** | ✅ **Selesai** |
 | **Fase 8a — Pemulihan CI + standar kode (ESLint/Prettier)** | Memperbaiki commit eksternal 14 Juli yang membuat CI merah (lockfile tak diperbarui + config ESLint cacat); 10 pelanggaran lint nyata dibersihkan; job **Lint non-blocking** ditambahkan ke CI | ✅ **Selesai** |
+| **Fase 8b — Backup & portabilitas data** | **Unduh semua data (ZIP CSV + manifest)** — tetap bisa walau langganan berakhir (anti lock-in, diuji otomatis); **backup Google Drive** (OAuth, terenkripsi, manual + otomatis bulanan) — aktif setelah Anda memasang Client ID/Secret Google | ✅ **Selesai** |
+| Fase 8b lapis 2 — Aktivasi Google Drive | Buat OAuth Client di console.cloud.google.com (redirect URI `https://<domain>/api/drive/callback`) → simpan secret `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` di dashboard Workers | ⏸ **Menunggu kredensial dari Anda** |
 | Fase 2m — Manajemen dokumen (lampiran file) | Lampiran di faktur/kontak/jurnal (penyimpanan Cloudflare R2) | ⏸ **Menunggu Anda mengaktifkan R2 di dashboard Cloudflare** |
 | Fase 2b-2 — Pembayaran langganan | Checkout Midtrans/Xendit, aktivasi otomatis | ⏸ **Menunggu akun gateway dari Anda** |
 | Fase 2 — Peluncuran SaaS | Pendaftaran mandiri, pembayaran langganan, PWA penuh | Belum |
@@ -137,7 +139,7 @@
 54. **Dashboard modern & panduan mulai** *(baru — Fase 3e)*: grafik tren penjualan 30 hari dengan tooltip, widget faktur lewat jatuh tempo, feed aktivitas terakhir, dan **checklist "Mulai cepat"** berprogres untuk perusahaan baru (hilang otomatis saat lengkap). Halaman daftar/masuk bergaya split modern; setiap halaman kini punya paragraf pengantar; nama menu dan judul halaman konsisten (Maintenance menjadi Pemeliharaan).
 55. **Ekspor e-Faktur XML Coretax** *(baru — Fase 3f)*: satu klik "Unduh XML Coretax" di halaman Ekspor e-Faktur menghasilkan berkas XML yang **langsung bisa diimpor ke Coretax DJP** (format satu-satunya yang diterima sejak 2025). Sistem otomatis memakai kode transaksi yang benar — 04 dengan DPP nilai lain 11/12 untuk barang non-mewah (PMK 131/2024), 01 untuk tarif 12% penuh — menormalkan NPWP ke TIN 16 digit, dan mengecualikan faktur yang dibatalkan/non-PPN. CSV rekap tetap tersedia.
 
-Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (617 skenario ujian end-to-end + 24 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
+Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (626 skenario ujian end-to-end + 24 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
 
 ## Apakah sudah bisa diakses di internet?
 

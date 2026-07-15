@@ -2078,6 +2078,15 @@ export const runRecapSchema = z.object({
 });
 export type RunRecapInput = z.infer<typeof runRecapSchema>;
 
+/** Status sambungan backup Google Drive (Fase 8b). */
+export type ApiDriveStatus = {
+  configured: boolean;
+  connected: boolean;
+  accountEmail?: string | null;
+  lastBackupAt?: string | null;
+  lastBackupStatus?: string | null;
+};
+
 // ---------------------------------------------------------------------------
 // Kartu stok, aging & tutup buku (Fase 1d)
 // ---------------------------------------------------------------------------
