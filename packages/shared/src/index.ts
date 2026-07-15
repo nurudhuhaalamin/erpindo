@@ -54,6 +54,8 @@ export const customRoleSchema = z.object({
   name: z.string().trim().min(2, "Nama peran minimal 2 karakter").max(40),
   baseRole: z.enum(["admin", "viewer"]),
   permissions: z.array(z.enum(PERMISSION_KEYS as [PermissionKey, ...PermissionKey[]])).min(1, "Pilih minimal satu modul"),
+  /** RBAC berdimensi (Fase 8d): batasi data ke cost center tertentu. Kosong/absen = semua. */
+  scopeCostCenterIds: z.array(z.string()).max(20, "Maksimal 20 cost center").optional(),
 });
 export type CustomRoleInput = z.infer<typeof customRoleSchema>;
 export type ApiCustomRole = {
@@ -61,6 +63,8 @@ export type ApiCustomRole = {
   name: string;
   baseRole: "admin" | "viewer";
   permissions: PermissionKey[];
+  /** null = tanpa batasan dimensi (perilaku lama). */
+  scopeCostCenterIds: string[] | null;
   memberCount: number;
   createdAt: string;
 };
@@ -72,7 +76,13 @@ export const assignRoleSchema = z
   })
   .refine((v) => Boolean(v.preset) !== Boolean(v.customRoleId), "Pilih preset ATAU peran kustom (salah satu).");
 export type AssignRoleInput = z.infer<typeof assignRoleSchema>;
-export type ApiMyPermissions = { role: Role; roleName: string; permissions: PermissionKey[] };
+export type ApiMyPermissions = {
+  role: Role;
+  roleName: string;
+  permissions: PermissionKey[];
+  /** RBAC berdimensi (Fase 8d): null = akses semua cost center. */
+  scopeCostCenterIds?: string[] | null;
+};
 
 // --- Akuntansi dimensi + rekonsiliasi v2 (Fase 7f) --------------------------
 export const costCenterSchema = z.object({

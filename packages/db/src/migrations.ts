@@ -116,6 +116,12 @@ export const CONTROL_PLANE_MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    // RBAC berdimensi (Fase 8d): peran kustom bisa dibatasi ke cost center
+    // tertentu. NULL = tanpa batasan (perilaku lama, kompatibel mundur).
+    id: "0005_role_scope",
+    statements: [`ALTER TABLE custom_roles ADD COLUMN scope_cost_center_ids TEXT`],
+  },
 ];
 
 /**

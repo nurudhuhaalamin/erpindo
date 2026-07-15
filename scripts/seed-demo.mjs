@@ -508,6 +508,11 @@ await step("peran kustom: Auditor (baca-saja)", "POST", `${T}/roles`, { name: "A
 // --- 13b5. Akuntansi dimensi: cost center + jurnal bertag + aturan rekonsiliasi -----
 const ccBdg = await step("cost center: Cabang Bandung", "POST", `${T}/cost-centers`, { code: "CAB-BDG", name: "Cabang Bandung" });
 const ccJkt = await step("cost center: Cabang Jakarta", "POST", `${T}/cost-centers`, { code: "CAB-JKT", name: "Cabang Jakarta" });
+// RBAC berdimensi (Fase 8d): peran yang datanya dibatasi ke satu cabang.
+await step("peran kustom ber-scope: Manajer Cabang Bandung", "POST", `${T}/roles`, {
+  name: "Manajer Cabang Bandung", baseRole: "admin",
+  permissions: ["keuangan", "laporan", "penjualan"], scopeCostCenterIds: [ccBdg.id],
+});
 const bebanOpr = acc("5-4000");
 await step("jurnal beban operasional Cabang Bandung (dimensi)", "POST", `${T}/journal-entries`, {
   entryDate: daysAgo(6), memo: "Listrik & air Cabang Bandung",

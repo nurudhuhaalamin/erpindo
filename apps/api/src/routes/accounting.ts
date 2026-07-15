@@ -13,7 +13,7 @@ import type { AppEnv } from "../env";
 import { PeriodLockedError, postJournal } from "../lib/accounting";
 import { audit } from "../lib/audit";
 import { getTenantDb } from "../lib/tenantDb";
-import { requireAuth, requireTenantRole } from "../middleware/auth";
+import { requireAuth, requireTenantRole, resolvePermissions } from "../middleware/auth";
 import { clientIp } from "./auth";
 
 type AccountRow = {
@@ -260,6 +260,14 @@ export const accountingRoutes = new Hono<AppEnv>()
     if (ccIds.length > 0) {
       const { results } = await db.prepare(`SELECT id FROM cost_centers WHERE is_archived = 0 AND id IN (${ccIds.map(() => "?").join(",")})`).bind(...ccIds).all<{ id: string }>();
       if (results.length !== ccIds.length) return c.json({ error: "Ada cost center yang tidak ditemukan." }, 400);
+
+      // RBAC berdimensi (Fase 8d): peran ber-scope hanya boleh membukukan ke
+      // cost center dalam scope-nya. Scope NULL = tanpa batasan (jalur lama).
+      const resolvedScope = await resolvePermissions(c.env, c.get("user").id, c.get("tenant").id);
+      const ccScope = resolvedScope?.scopeCostCenterIds ?? null;
+      if (ccScope && ccIds.some((id) => !ccScope.includes(id))) {
+        return c.json({ error: "Anda tidak berwenang membukukan ke cost center di luar scope peran Anda." }, 403);
+      }
     }
 
     let entryId: string;
