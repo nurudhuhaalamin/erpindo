@@ -1,4 +1,4 @@
-import { contactSchema, productSchema, warehouseSchema } from "@erpindo/shared";
+import { contactSchema, importRowsSchema, productSchema, warehouseSchema } from "@erpindo/shared";
 import { Hono } from "hono";
 import type { z } from "zod";
 import type { AppEnv } from "../env";
@@ -134,13 +134,12 @@ function crudRoutes<S extends z.ZodTypeAny>(path: string, cfg: EntityConfig<S>) 
 
     // Impor batch: validasi per baris, lewati duplikat, laporkan hasil rinci.
     .post(`/:tenantId/${path}/import`, requireAuth, requireTenantRole("admin"), async (c) => {
-      const body = (await c.req.json().catch(() => ({}))) as { rows?: unknown[] };
-      if (!Array.isArray(body.rows) || body.rows.length === 0) {
-        return c.json({ error: "Tidak ada baris untuk diimpor." }, 400);
+      const parsedEnvelope = importRowsSchema.safeParse(await c.req.json().catch(() => ({})));
+      if (!parsedEnvelope.success) {
+        const issue = parsedEnvelope.error.issues[0];
+        return c.json({ error: issue?.message ?? "Data impor tidak valid." }, 400);
       }
-      if (body.rows.length > 500) {
-        return c.json({ error: "Maksimal 500 baris per impor — pecah file Anda." }, 400);
-      }
+      const body = parsedEnvelope.data;
 
       const tenant = c.get("tenant");
       const db = getTenantDb(c.env, tenant.dbRef);

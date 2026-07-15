@@ -1,7 +1,9 @@
 import {
+  approvalThresholdSchema,
   createInvoiceSchema,
   createPaymentSchema,
   createPurchaseSchema,
+  decisionNoteSchema,
   stockAdjustmentSchema,
   stockTransferSchema,
   type ApiCommerceDoc,
@@ -816,9 +818,9 @@ export const commerceRoutes = new Hono<AppEnv>()
   // Persetujuan pembelian (Owner)
   // -------------------------------------------------------------------------
   .post("/:tenantId/approval-threshold", requireAuth, requireTenantRole("owner"), async (c) => {
-    const body = (await c.req.json().catch(() => ({}))) as { amount?: unknown };
-    const amount = Number(body.amount ?? 0);
-    if (!Number.isInteger(amount) || amount < 0) return c.json({ error: "Nominal tidak valid." }, 400);
+    const parsedThreshold = approvalThresholdSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsedThreshold.success) return c.json({ error: "Nominal tidak valid." }, 400);
+    const amount = parsedThreshold.data.amount;
     const db = getTenantDb(c.env, c.get("tenant").dbRef);
     await db
       .prepare(
@@ -887,7 +889,9 @@ export const commerceRoutes = new Hono<AppEnv>()
     const tenant = c.get("tenant");
     const db = getTenantDb(c.env, tenant.dbRef);
     const id = c.req.param("id");
-    const note = String(((await c.req.json().catch(() => ({}))) as { note?: unknown }).note ?? "");
+    const parsedNote = decisionNoteSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsedNote.success) return c.json({ error: "Catatan tidak valid (maksimal 300 karakter)." }, 400);
+    const note = parsedNote.data.note ?? "";
 
     const { results } = await db
       .prepare(`SELECT request_no FROM approval_requests WHERE id = ? AND status = 'pending'`)

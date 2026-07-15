@@ -2,6 +2,7 @@ import {
   completeWorkOrderSchema,
   createMaintenanceScheduleSchema,
   createWorkOrderSchema,
+  maintenanceRunSchema,
   maintenanceScheduleStatusSchema,
   type ApiMaintenanceSchedule,
   type ApiWorkOrder,
@@ -200,8 +201,9 @@ export const maintenanceRoutes = new Hono<AppEnv>()
 
   // Terbitkan work order untuk jadwal yang jatuh tempo (pemicu manual).
   .post("/:tenantId/maintenance/run", requireAuth, requireTenantRole("admin"), async (c) => {
-    const body = (await c.req.json().catch(() => ({}))) as { date?: string };
-    const today = /^\d{4}-\d{2}-\d{2}$/.test(body.date ?? "") ? body.date! : new Date().toISOString().slice(0, 10);
+    const parsedRun = maintenanceRunSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsedRun.success) return c.json({ error: "Tanggal tidak valid (YYYY-MM-DD)." }, 400);
+    const today = parsedRun.data.date ?? new Date().toISOString().slice(0, 10);
     const db = getTenantDb(c.env, c.get("tenant").dbRef);
     const res = await runMaintenance(db, today, c.get("user").id);
 

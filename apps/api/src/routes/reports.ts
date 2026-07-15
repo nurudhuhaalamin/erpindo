@@ -14,6 +14,7 @@ import type { AppEnv } from "../env";
 import { computeBalanceSheet, computeIncomeStatement } from "../lib/reports";
 import { getTenantDb } from "../lib/tenantDb";
 import { requireAuth, requireTenantRole } from "../middleware/auth";
+import { rateLimitUser } from "../middleware/rateLimit";
 
 /**
  * Laporan keuangan & dashboard. Semua angka dihitung dari jurnal terposting —
@@ -21,6 +22,10 @@ import { requireAuth, requireTenantRole } from "../middleware/auth";
  */
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Pembatas longgar per pengguna untuk laporan berat (menahan loop/scraping,
+// bukan pemakaian normal — dipasang setelah requireAuth, kunci = user id).
+const heavyLimit = () => rateLimitUser({ key: "reports", limit: 120, windowSeconds: 60 });
 
 /** NPWP → TIN 16 digit Coretax: buang non-digit; 15 digit lama diberi awalan 0. */
 function tin16(raw: string | null): string {
@@ -47,7 +52,7 @@ export const reportRoutes = new Hono<AppEnv>()
   // -------------------------------------------------------------------------
   // Laba Rugi (periode)
   // -------------------------------------------------------------------------
-  .get("/:tenantId/reports/income-statement", requireAuth, requireTenantRole("viewer"), async (c) => {
+  .get("/:tenantId/reports/income-statement", requireAuth, requireTenantRole("viewer"), heavyLimit(), async (c) => {
     const from = c.req.query("from") ?? "";
     const to = c.req.query("to") ?? "";
     if (!DATE_RE.test(from) || !DATE_RE.test(to)) {
@@ -60,7 +65,7 @@ export const reportRoutes = new Hono<AppEnv>()
   // -------------------------------------------------------------------------
   // Neraca (per tanggal) — ekuitas menyertakan Laba Berjalan agar seimbang
   // -------------------------------------------------------------------------
-  .get("/:tenantId/reports/balance-sheet", requireAuth, requireTenantRole("viewer"), async (c) => {
+  .get("/:tenantId/reports/balance-sheet", requireAuth, requireTenantRole("viewer"), heavyLimit(), async (c) => {
     const asOf = c.req.query("asOf") ?? "";
     if (!DATE_RE.test(asOf)) return c.json({ error: "Parameter asOf wajib berformat YYYY-MM-DD." }, 400);
     const db = getTenantDb(c.env, c.get("tenant").dbRef);
@@ -71,7 +76,7 @@ export const reportRoutes = new Hono<AppEnv>()
   // Arus Kas (metode langsung sederhana): mutasi akun Kas & Bank per periode,
   // dikelompokkan berdasarkan keterangan jurnal.
   // -------------------------------------------------------------------------
-  .get("/:tenantId/reports/cash-flow", requireAuth, requireTenantRole("viewer"), async (c) => {
+  .get("/:tenantId/reports/cash-flow", requireAuth, requireTenantRole("viewer"), heavyLimit(), async (c) => {
     const from = c.req.query("from") ?? "";
     const to = c.req.query("to") ?? "";
     if (!DATE_RE.test(from) || !DATE_RE.test(to)) {
@@ -130,7 +135,7 @@ export const reportRoutes = new Hono<AppEnv>()
   // Ekspor e-Faktur: faktur keluaran ber-PPN dalam periode (untuk impor DJP).
   // Nilai DPP/PPN dalam Rupiah (faktur valas sudah dikonversi saat posting).
   // -------------------------------------------------------------------------
-  .get("/:tenantId/reports/efaktur", requireAuth, requireTenantRole("viewer"), async (c) => {
+  .get("/:tenantId/reports/efaktur", requireAuth, requireTenantRole("viewer"), heavyLimit(), async (c) => {
     const from = c.req.query("from") ?? "";
     const to = c.req.query("to") ?? "";
     if (!DATE_RE.test(from) || !DATE_RE.test(to)) {
@@ -183,7 +188,7 @@ export const reportRoutes = new Hono<AppEnv>()
   // nilai setelah diskon; tarif 12 penuh (mewah) memakai kode 01. Elemen
   // CustomDocMonthYear wajib ada sejak skema Coretax Feb 2025.
   // -------------------------------------------------------------------------
-  .get("/:tenantId/reports/efaktur-xml", requireAuth, requireTenantRole("viewer"), async (c) => {
+  .get("/:tenantId/reports/efaktur-xml", requireAuth, requireTenantRole("viewer"), heavyLimit(), async (c) => {
     const from = c.req.query("from") ?? "";
     const to = c.req.query("to") ?? "";
     if (!DATE_RE.test(from) || !DATE_RE.test(to)) {
@@ -344,7 +349,7 @@ export const reportRoutes = new Hono<AppEnv>()
   // -------------------------------------------------------------------------
   // Umur piutang/hutang (aging) per kontak, berdasarkan tanggal jatuh tempo
   // -------------------------------------------------------------------------
-  .get("/:tenantId/reports/aging", requireAuth, requireTenantRole("viewer"), async (c) => {
+  .get("/:tenantId/reports/aging", requireAuth, requireTenantRole("viewer"), heavyLimit(), async (c) => {
     const kind = c.req.query("type");
     if (kind !== "receivable" && kind !== "payable") {
       return c.json({ error: "Parameter type harus 'receivable' atau 'payable'." }, 400);
@@ -436,7 +441,7 @@ export const reportRoutes = new Hono<AppEnv>()
   // Laporan penjualan analitik (Fase 5h): agregat per produk & per pelanggan
   // untuk rentang tanggal. Dokumen void dikecualikan.
   // -------------------------------------------------------------------------
-  .get("/:tenantId/reports/sales-analytics", requireAuth, requireTenantRole("viewer"), async (c) => {
+  .get("/:tenantId/reports/sales-analytics", requireAuth, requireTenantRole("viewer"), heavyLimit(), async (c) => {
     const db = getTenantDb(c.env, c.get("tenant").dbRef);
     const today = new Date().toISOString().slice(0, 10);
     const to = c.req.query("to") || today;

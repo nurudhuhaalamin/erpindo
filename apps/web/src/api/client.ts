@@ -248,7 +248,7 @@ export const api = {
     ),
   createJournalEntry: (tenantId: string, input: CreateJournalEntryInput) =>
     request<{ ok: true; id: string; entryNo: string }>("POST", `/api/tenants/${tenantId}/journal-entries`, input),
-  ledger: (tenantId: string, accountId: string) =>
+  ledger: (tenantId: string, accountId: string, opts?: { before?: string; limit?: number }) =>
     request<{
       account: ApiAccount;
       entries: {
@@ -260,7 +260,19 @@ export const api = {
         balance: number;
       }[];
       balance: number;
-    }>("GET", `/api/tenants/${tenantId}/ledger/${accountId}`),
+      openingBalance: number;
+      nextCursor: string | null;
+    }>(
+      "GET",
+      `/api/tenants/${tenantId}/ledger/${accountId}${
+        opts?.before || opts?.limit
+          ? `?${new URLSearchParams({
+              ...(opts.before ? { before: opts.before } : {}),
+              ...(opts.limit ? { limit: String(opts.limit) } : {}),
+            }).toString()}`
+          : ""
+      }`,
+    ),
   crmReport: (tenantId: string) =>
     request<{ rows: ApiCrmSourceRow[] }>("GET", `/api/tenants/${tenantId}/crm/report`),
   journalTemplates: (tenantId: string) =>
@@ -757,7 +769,11 @@ export const api = {
       `/api/tenants/${tenantId}/stock-adjustments`,
       input,
     ),
-  auditLogs: (tenantId: string) => request<{ logs: ApiAuditLog[] }>("GET", `/api/tenants/${tenantId}/audit-logs`),
+  auditLogs: (tenantId: string, before?: string) =>
+    request<{ logs: ApiAuditLog[]; nextCursor: string | null }>(
+      "GET",
+      `/api/tenants/${tenantId}/audit-logs${before ? `?before=${encodeURIComponent(before)}` : ""}`,
+    ),
   transferStock: (
     tenantId: string,
     input: { productId: string; fromWarehouseId: string; toWarehouseId: string; qty: number },

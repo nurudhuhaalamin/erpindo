@@ -460,22 +460,37 @@ export const tenantRoutes = new Hono<AppEnv>()
   // -------------------------------------------------------------------------
   .get("/:tenantId/audit-logs", requireAuth, requireTenantRole("owner"), async (c) => {
     const tenant = c.get("tenant");
+    // Kursor keyset (Fase 9a): sebelumnya hanya 100 terakhir yang bisa dilihat;
+    // kini param `before` (created_at|id) memuat halaman lebih lama.
+    const before = c.req.query("before");
+    let cursorCond = "";
+    const binds: unknown[] = [tenant.id];
+    if (before) {
+      const parts = before.split("|");
+      if (parts.length !== 2 || parts.some((p) => !p)) return c.json({ error: "Kursor tidak valid." }, 400);
+      cursorCond = ` AND (a.created_at, a.id) < (?, ?)`;
+      binds.push(parts[0], parts[1]);
+    }
     const { results } = await c.env.DB.prepare(
       `SELECT a.id, a.action, a.detail, a.created_at, u.name AS user_name
        FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id
-       WHERE a.tenant_id = ? ORDER BY a.created_at DESC LIMIT 100`,
+       WHERE a.tenant_id = ?${cursorCond} ORDER BY a.created_at DESC, a.id DESC LIMIT 101`,
     )
-      .bind(tenant.id)
+      .bind(...binds)
       .all<{ id: string; action: string; detail: string | null; created_at: string; user_name: string | null }>();
 
-    const logs: ApiAuditLog[] = results.map((r) => ({
+    const hasMore = results.length > 100;
+    const page = results.slice(0, 100);
+    const logs: ApiAuditLog[] = page.map((r) => ({
       id: r.id,
       action: r.action,
       userName: r.user_name,
       detail: r.detail,
       createdAt: r.created_at,
     }));
-    return c.json({ logs });
+    const last = page[page.length - 1];
+    const nextCursor = hasMore && last ? `${last.created_at}|${last.id}` : null;
+    return c.json({ logs, nextCursor });
   })
 
   // -------------------------------------------------------------------------
