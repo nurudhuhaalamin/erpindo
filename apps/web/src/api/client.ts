@@ -76,6 +76,9 @@ import type {
   ApiSalesMonthlyRow,
   ApiReportSnapshot,
   ApiDriveStatus,
+  ApiDepartment,
+  ApiOrgNode,
+  DepartmentInput,
   ApiAiJournalDraft,
   ApiEfakturReport,
   ApiIncomeStatement,
@@ -317,6 +320,19 @@ export const api = {
     request<{ ok: boolean; fileName: string }>("POST", `/api/tenants/${tenantId}/drive/backup-now`),
   driveDisconnect: (tenantId: string) =>
     request<{ ok: boolean }>("DELETE", `/api/tenants/${tenantId}/drive/disconnect`),
+  departments: (tenantId: string) =>
+    request<{ departments: ApiDepartment[] }>("GET", `/api/tenants/${tenantId}/departments`),
+  createDepartment: (tenantId: string, body: DepartmentInput) =>
+    request<{ ok: boolean; id: string }>("POST", `/api/tenants/${tenantId}/departments`, body),
+  updateDepartment: (tenantId: string, id: string, body: DepartmentInput) =>
+    request<{ ok: boolean }>("PATCH", `/api/tenants/${tenantId}/departments/${id}`, body),
+  archiveDepartment: (tenantId: string, id: string) =>
+    request<{ ok: boolean }>("DELETE", `/api/tenants/${tenantId}/departments/${id}`),
+  orgChart: (tenantId: string) =>
+    request<{ tree: ApiOrgNode[]; unassigned: ApiOrgNode["employees"] }>(
+      "GET",
+      `/api/tenants/${tenantId}/org-chart`,
+    ),
   runReportSnapshot: (tenantId: string, period: string) =>
     request<{ ok: boolean; period: string; summary: ApiReportSnapshot["summary"] }>(
       "POST",
@@ -378,6 +394,8 @@ export const api = {
       allowances: number;
       bankAccount?: string;
       joinDate?: string;
+      departmentId?: string;
+      managerId?: string;
     },
   ) => request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/employees`, input),
   updateEmployee: (tenantId: string, id: string, input: Record<string, unknown>) =>

@@ -374,14 +374,24 @@ await step("anggaran pendapatan bulan ini", "PUT", `${T}/budgets`, { accountId: 
 await step("anggaran beban iklan bulan ini", "PUT", `${T}/budgets`, { accountId: bebanIklan.id, period: thisMonth, amount: 2_000_000 });
 
 // --- 13. HR & payroll ---------------------------------------------------------------
+// Struktur organisasi (Fase 8c): departemen bertingkat, karyawan ber-atasan.
+const deptOps = await step("departemen Operasional", "POST", `${T}/departments`, { code: "OPS", name: "Operasional" });
+const deptGudang = await step("departemen Gudang (sub-Operasional)", "POST", `${T}/departments`, { code: "OPS-GDG", name: "Gudang & Logistik", parentId: deptOps.id });
+const deptToko = await step("departemen Toko", "POST", `${T}/departments`, { code: "TOKO", name: "Toko & Kasir" });
+
 const employees = {};
 for (const e of [
-  { name: "Rina Kusuma", position: "Manajer Operasional", ptkpStatus: "K/1", baseSalary: 9_500_000 },
-  { name: "Agus Prabowo", position: "Staf Gudang", ptkpStatus: "TK/0", baseSalary: 5_200_000 },
-  { name: "Sari Melati", position: "Kasir", ptkpStatus: "TK/0", baseSalary: 4_900_000 },
-  { name: "Budi Santosa", position: "Kurir", ptkpStatus: "K/0", baseSalary: 4_800_000 },
+  { name: "Rina Kusuma", position: "Manajer Operasional", ptkpStatus: "K/1", baseSalary: 9_500_000, departmentId: deptOps.id },
+  { name: "Agus Prabowo", position: "Staf Gudang", ptkpStatus: "TK/0", baseSalary: 5_200_000, departmentId: deptGudang.id },
+  { name: "Sari Melati", position: "Kasir", ptkpStatus: "TK/0", baseSalary: 4_900_000, departmentId: deptToko.id },
+  { name: "Budi Santosa", position: "Kurir", ptkpStatus: "K/0", baseSalary: 4_800_000, departmentId: deptGudang.id },
 ]) {
   employees[e.name] = await step(`karyawan ${e.name}`, "POST", `${T}/employees`, e);
+}
+// Rantai atasan: staf gudang & kurir & kasir melapor ke Manajer Operasional.
+for (const name of ["Agus Prabowo", "Sari Melati", "Budi Santosa"]) {
+  const src = { "Agus Prabowo": { position: "Staf Gudang", ptkpStatus: "TK/0", baseSalary: 5_200_000, departmentId: deptGudang.id }, "Sari Melati": { position: "Kasir", ptkpStatus: "TK/0", baseSalary: 4_900_000, departmentId: deptToko.id }, "Budi Santosa": { position: "Kurir", ptkpStatus: "K/0", baseSalary: 4_800_000, departmentId: deptGudang.id } }[name];
+  await step(`atasan ${name} → Rina Kusuma`, "PATCH", `${T}/employees/${employees[name].id}`, { name, ...src, managerId: employees["Rina Kusuma"].id });
 }
 await step(`payroll periode ${lastMonth}`, "POST", `${T}/payroll-runs`, { period: lastMonth, cashAccountId: bank.id, paymentDate: daysAgo(3) });
 

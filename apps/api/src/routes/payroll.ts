@@ -61,14 +61,45 @@ function inclusiveDays(startDate: string, endDate: string): number {
   return Math.round(ms / 86_400_000) + 1;
 }
 
+/**
+ * Validasi field struktur organisasi (Fase 8c): departemen harus ada &
+ * atasan harus karyawan lain (bukan diri sendiri). Kembalikan pesan galat
+ * atau null bila valid.
+ */
+async function validateOrgFields(
+  db: ReturnType<typeof getTenantDb>,
+  input: { departmentId?: string; managerId?: string },
+  selfId: string,
+): Promise<string | null> {
+  if (input.departmentId) {
+    const dept = (await db
+      .prepare(`SELECT id FROM departments WHERE id = ? AND is_archived = 0`)
+      .bind(input.departmentId).all<{ id: string }>()).results[0];
+    if (!dept) return "Departemen tidak ditemukan.";
+  }
+  if (input.managerId) {
+    if (input.managerId === selfId) return "Atasan tidak boleh diri sendiri.";
+    const mgr = (await db
+      .prepare(`SELECT id FROM employees WHERE id = ?`)
+      .bind(input.managerId).all<{ id: string }>()).results[0];
+    if (!mgr) return "Atasan tidak ditemukan di daftar karyawan.";
+  }
+  return null;
+}
+
 export const payrollRoutes = new Hono<AppEnv>()
 
   .get("/:tenantId/employees", requireAuth, requireTenantRole("viewer"), async (c) => {
     const db = getTenantDb(c.env, c.get("tenant").dbRef);
     const { results } = await db
       .prepare(
-        `SELECT id, name, position, ptkp_status, base_salary, allowances, bank_account, join_date, is_active, leave_balance
-         FROM employees ORDER BY is_active DESC, name`,
+        `SELECT e.id, e.name, e.position, e.ptkp_status, e.base_salary, e.allowances, e.bank_account,
+                e.join_date, e.is_active, e.leave_balance, e.department_id, e.manager_id,
+                d.name AS department_name, m.name AS manager_name
+         FROM employees e
+         LEFT JOIN departments d ON d.id = e.department_id
+         LEFT JOIN employees m ON m.id = e.manager_id
+         ORDER BY e.is_active DESC, e.name`,
       )
       .all<{
         id: string;
@@ -81,6 +112,10 @@ export const payrollRoutes = new Hono<AppEnv>()
         join_date: string | null;
         is_active: number;
         leave_balance: number;
+        department_id: string | null;
+        manager_id: string | null;
+        department_name: string | null;
+        manager_name: string | null;
       }>();
     const employees: ApiEmployee[] = results.map((r) => ({
       id: r.id,
@@ -93,6 +128,10 @@ export const payrollRoutes = new Hono<AppEnv>()
       joinDate: r.join_date,
       isActive: r.is_active === 1,
       leaveBalance: r.leave_balance,
+      departmentId: r.department_id,
+      departmentName: r.department_name,
+      managerId: r.manager_id,
+      managerName: r.manager_name,
     }));
     return c.json({ employees });
   })
@@ -106,10 +145,12 @@ export const payrollRoutes = new Hono<AppEnv>()
     const db = getTenantDb(c.env, tenant.dbRef);
     const input = parsed.data;
     const id = crypto.randomUUID();
+    const orgErr = await validateOrgFields(db, input, id);
+    if (orgErr) return c.json({ error: orgErr }, 400);
     await db
       .prepare(
-        `INSERT INTO employees (id, name, position, ptkp_status, base_salary, allowances, bank_account, join_date)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO employees (id, name, position, ptkp_status, base_salary, allowances, bank_account, join_date, department_id, manager_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         id,
@@ -120,6 +161,8 @@ export const payrollRoutes = new Hono<AppEnv>()
         input.allowances,
         input.bankAccount ?? null,
         input.joinDate ?? null,
+        input.departmentId ?? null,
+        input.managerId ?? null,
       )
       .run();
     await audit(c.env, {
@@ -150,11 +193,13 @@ export const payrollRoutes = new Hono<AppEnv>()
         return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
       }
       const i = parsed.data;
+      const orgErr = await validateOrgFields(db, i, id);
+      if (orgErr) return c.json({ error: orgErr }, 400);
       await db
         .prepare(
-          `UPDATE employees SET name=?, position=?, ptkp_status=?, base_salary=?, allowances=?, bank_account=?, join_date=? WHERE id=?`,
+          `UPDATE employees SET name=?, position=?, ptkp_status=?, base_salary=?, allowances=?, bank_account=?, join_date=?, department_id=?, manager_id=? WHERE id=?`,
         )
-        .bind(i.name, i.position ?? null, i.ptkpStatus, i.baseSalary, i.allowances, i.bankAccount ?? null, i.joinDate ?? null, id)
+        .bind(i.name, i.position ?? null, i.ptkpStatus, i.baseSalary, i.allowances, i.bankAccount ?? null, i.joinDate ?? null, i.departmentId ?? null, i.managerId ?? null, id)
         .run();
     }
     await audit(c.env, {
