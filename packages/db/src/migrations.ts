@@ -100,6 +100,22 @@ export const CONTROL_PLANE_MIGRATIONS: Migration[] = [
       `ALTER TABLE memberships ADD COLUMN custom_role_id TEXT`,
     ],
   },
+  {
+    // Backup Google Drive (Fase 8b): sambungan Drive per tenant. Refresh token
+    // disimpan TERENKRIPSI (AES-GCM, kunci diturunkan dari GOOGLE_CLIENT_SECRET).
+    id: "0004_drive_backup",
+    statements: [
+      `CREATE TABLE drive_connections (
+        tenant_id TEXT PRIMARY KEY,
+        refresh_token_enc TEXT NOT NULL,
+        account_email TEXT,
+        connected_by TEXT,
+        connected_at TEXT NOT NULL DEFAULT (datetime('now')),
+        last_backup_at TEXT,
+        last_backup_status TEXT
+      )`,
+    ],
+  },
 ];
 
 /**

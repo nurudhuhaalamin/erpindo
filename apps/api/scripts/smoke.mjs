@@ -3276,6 +3276,21 @@ try {
   check("rekap Juli tersimpan tepat 1 (idempoten UNIQUE kind+period)", julSnaps.length === 1, `→ ${julSnaps.length}`);
   check("snapshot omzet konsisten dengan hasil run", julSnaps[0]?.summary?.totalRevenue === recap7h.json?.summary?.totalRevenue);
 
+  // --- Ekspor penuh & backup Google Drive (Fase 8b) --------------------------------
+  console.log("13c. Ekspor penuh & backup Google Drive (Fase 8b)");
+  const exp1 = await owner("GET", `/api/tenants/${tenantId}/export/full`);
+  check("ekspor penuh 200 + berkas ZIP (magic PK)", exp1.status === 200 && exp1.text.startsWith("PK"));
+  check("ZIP memuat manifest.json + CSV jurnal", exp1.text.includes("manifest.json") && exp1.text.includes("data/journal_entries.csv"));
+  check("ZIP memuat CSV faktur & produk", exp1.text.includes("data/invoices.csv") && exp1.text.includes("data/products.csv"));
+  const expViewer = await viewer("GET", `/api/tenants/${tenantId}/export/full`);
+  check("viewer DITOLAK ekspor penuh (403)", expViewer.status === 403);
+  const drvStatus = await owner("GET", `/api/tenants/${tenantId}/drive/status`);
+  check("status Drive 200: belum dikonfigurasi (tanpa secret)", drvStatus.status === 200 && drvStatus.json?.configured === false && drvStatus.json?.connected === false);
+  const drvConnect = await owner("GET", `/api/tenants/${tenantId}/drive/connect`);
+  check("sambung Drive tanpa konfigurasi DITOLAK 503", drvConnect.status === 503);
+  const drvBackup = await owner("POST", `/api/tenants/${tenantId}/drive/backup-now`);
+  check("backup Drive tanpa konfigurasi DITOLAK 503", drvBackup.status === 503);
+
   console.log("14. Siklus langganan (trial berakhir)");
   // Semua tenant dibuat dengan TRIAL_DAYS_OVERRIDE=0 → trial sudah lewat.
   const cron = await fetch(`${BASE}/__scheduled?cron=17+1+*+*+*`);
@@ -3303,6 +3318,11 @@ try {
     buyPrice: 1,
   });
   check("mode baca-saja: MENULIS ditolak 402", writeWhilePastDue.status === 402);
+
+  // Anti lock-in (Fase 8b): data TETAP bisa diekspor walau langganan berakhir.
+  const expPastDue = await owner("GET", `/api/tenants/${tenantId}/export/full`);
+  check("ekspor penuh TETAP BISA saat past_due (200 + ZIP)", expPastDue.status === 200 && expPastDue.text.startsWith("PK"));
+  check("ekspor saat past_due tetap memuat manifest", expPastDue.text.includes("manifest.json"));
 
   // Akun comped kebal siklus trial: cron di atas TIDAK menurunkan tenant Dewi
   // (status 'active' tak pernah disentuh cron) dan menulis tetap boleh.

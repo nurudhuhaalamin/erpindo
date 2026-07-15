@@ -72,3 +72,37 @@ export async function sha256Hex(input: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
   return toHex(digest);
 }
+
+// ---------------------------------------------------------------------------
+// Enkripsi simetris AES-GCM (Fase 8b) — untuk rahasia yang harus bisa dibaca
+// kembali (mis. refresh token Google Drive). Kunci diturunkan dari secret
+// aplikasi via SHA-256; hasil = base64(iv 12 byte || ciphertext).
+// ---------------------------------------------------------------------------
+
+async function aesKeyFromSecret(secret: string): Promise<CryptoKey> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret));
+  return crypto.subtle.importKey("raw", digest, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+}
+
+export async function encryptText(plain: string, secret: string): Promise<string> {
+  const key = await aesKeyFromSecret(secret);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const cipher = new Uint8Array(
+    await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(plain)),
+  );
+  const out = new Uint8Array(iv.length + cipher.length);
+  out.set(iv, 0);
+  out.set(cipher, iv.length);
+  return btoa(String.fromCharCode(...out));
+}
+
+export async function decryptText(payload: string, secret: string): Promise<string> {
+  const bytes = Uint8Array.from(atob(payload), (ch) => ch.charCodeAt(0));
+  const key = await aesKeyFromSecret(secret);
+  const plain = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: bytes.slice(0, 12) },
+    key,
+    bytes.slice(12),
+  );
+  return new TextDecoder().decode(plain);
+}

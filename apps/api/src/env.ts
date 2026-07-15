@@ -36,6 +36,9 @@ export type Env = {
   COMPED_EMAILS?: string;
 
   // Secret opsional (produksi).
+  /** OAuth Google (backup Drive, Fase 8b). Tanpa keduanya fitur Drive nonaktif anggun. */
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
   RESEND_API_KEY?: string;
   MAIL_FROM?: string;
   CLOUDFLARE_API_TOKEN?: string;

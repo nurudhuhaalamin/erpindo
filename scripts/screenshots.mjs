@@ -187,6 +187,15 @@ const MANIFESTS = {
     fullPage: true,
     shots: [{ route: "/app", name: "dashboard-kustom", waitMs: 1800 }],
   },
+  // Set ad-hoc Fase 8b: Pengaturan (kartu Ekspor & Cadangan).
+  so8b: {
+    outDir: process.env.SO8B_OUT ?? path.join(tmpdir(), "erpindo-so8b"),
+    viewport: { width: 1440, height: 1600 },
+    theme: "light",
+    quality: 85,
+    fullPage: true,
+    shots: [{ route: "/app/pengaturan", name: "pengaturan-ekspor-cadangan", waitMs: 1800 }],
+  },
   // Audit visual QA: halaman PENUH pada 3 viewport. Keluaran ke AUDIT_OUT
   // (default tmp) — TIDAK di-commit; alat review, bukan aset produk.
   audit: {

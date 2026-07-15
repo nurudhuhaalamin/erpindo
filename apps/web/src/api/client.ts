@@ -75,6 +75,7 @@ import type {
   ApiSalesAnalytics,
   ApiSalesMonthlyRow,
   ApiReportSnapshot,
+  ApiDriveStatus,
   ApiAiJournalDraft,
   ApiEfakturReport,
   ApiIncomeStatement,
@@ -307,6 +308,15 @@ export const api = {
     request<ApiSalesAnalytics>("GET", `/api/tenants/${tenantId}/reports/sales-analytics?from=${from}&to=${to}`),
   reportSnapshots: (tenantId: string) =>
     request<{ snapshots: ApiReportSnapshot[] }>("GET", `/api/tenants/${tenantId}/report-snapshots`),
+  /** URL unduhan ekspor penuh (dipakai sebagai href — sesi cookie ikut terkirim). */
+  exportFullUrl: (tenantId: string) => `/api/tenants/${tenantId}/export/full`,
+  driveStatus: (tenantId: string) =>
+    request<ApiDriveStatus>("GET", `/api/tenants/${tenantId}/drive/status`),
+  driveConnectUrl: (tenantId: string) => `/api/tenants/${tenantId}/drive/connect`,
+  driveBackupNow: (tenantId: string) =>
+    request<{ ok: boolean; fileName: string }>("POST", `/api/tenants/${tenantId}/drive/backup-now`),
+  driveDisconnect: (tenantId: string) =>
+    request<{ ok: boolean }>("DELETE", `/api/tenants/${tenantId}/drive/disconnect`),
   runReportSnapshot: (tenantId: string, period: string) =>
     request<{ ok: boolean; period: string; summary: ApiReportSnapshot["summary"] }>(
       "POST",

@@ -1345,10 +1345,111 @@ export function SettingsPage() {
       {tenant.role === "owner" ? <NewCompanyCard /> : null}
       {isAdmin ? <MembersCard tenantId={tenant.tenantId} /> : null}
       {tenant.role === "owner" ? <RolesCard tenantId={tenant.tenantId} /> : null}
+      {tenant.role === "owner" ? <ExportBackupCard tenantId={tenant.tenantId} /> : null}
       {tenant.role === "owner" ? <ApprovalThresholdCard tenantId={tenant.tenantId} /> : null}
       {tenant.role === "owner" ? <CloseBooksCard tenantId={tenant.tenantId} /> : null}
       {tenant.role === "owner" ? <AuditLogCard tenantId={tenant.tenantId} /> : null}
     </div>
+  );
+}
+
+/**
+ * Ekspor & cadangan (Fase 8b): unduh seluruh data sebagai ZIP (selalu bisa,
+ * termasuk saat langganan berakhir) + backup otomatis ke Google Drive.
+ */
+function ExportBackupCard({ tenantId }: { tenantId: string }) {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const status = useQuery({
+    queryKey: ["drive-status", tenantId],
+    queryFn: () => api.driveStatus(tenantId),
+  });
+
+  const backupNow = useMutation({
+    mutationFn: () => api.driveBackupNow(tenantId),
+    onSuccess: (res) => {
+      toast("success", `Cadangan terkirim ke Google Drive: ${res.fileName}`);
+      queryClient.invalidateQueries({ queryKey: ["drive-status", tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+  const disconnect = useMutation({
+    mutationFn: () => api.driveDisconnect(tenantId),
+    onSuccess: () => {
+      toast("success", "Sambungan Google Drive diputus.");
+      queryClient.invalidateQueries({ queryKey: ["drive-status", tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  const drive = status.data;
+
+  return (
+    <Card>
+      <CardHeader
+        title="Ekspor & Cadangan"
+        description="Data Anda milik Anda — unduh kapan pun, termasuk setelah langganan berakhir."
+      />
+      <CardBody className="space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-medium">Unduh semua data (ZIP)</div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Seluruh tabel diekspor sebagai CSV standar + manifest — siap dibuka di Excel atau dipindahkan ke
+              aplikasi lain.
+            </p>
+          </div>
+          <a
+            href={api.exportFullUrl(tenantId)}
+            className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-400 dark:text-slate-900"
+            download
+          >
+            Unduh Semua Data
+          </a>
+        </div>
+
+        <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
+          <div className="text-sm font-medium">Backup otomatis ke Google Drive</div>
+          {status.isLoading ? (
+            <Skeleton className="mt-2 h-10 w-full" />
+          ) : !drive?.configured ? (
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Integrasi Google Drive belum dikonfigurasi oleh operator (butuh OAuth Client ID/Secret Google
+              Cloud). Fitur unduh di atas tetap berfungsi penuh.
+            </p>
+          ) : !drive.connected ? (
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Sambungkan akun Google Anda — cadangan bulanan otomatis tersimpan di Drive Anda sendiri.
+              </p>
+              <a
+                href={api.driveConnectUrl(tenantId)}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+              >
+                Sambungkan Google Drive
+              </a>
+            </div>
+          ) : (
+            <div className="mt-2 space-y-2">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Tersambung{drive.accountEmail ? ` sebagai ${drive.accountEmail}` : ""}.{" "}
+                {drive.lastBackupAt
+                  ? `Cadangan terakhir: ${formatDate(drive.lastBackupAt.slice(0, 10))} (${drive.lastBackupStatus ?? "ok"}).`
+                  : "Belum ada cadangan — Cron mencadangkan otomatis tiap awal bulan."}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={() => backupNow.mutate()} disabled={backupNow.isPending}>
+                  {backupNow.isPending ? "Mencadangkan…" : "Cadangkan sekarang"}
+                </Button>
+                <Button variant="secondary" onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
+                  Putuskan sambungan
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </CardBody>
+    </Card>
   );
 }
 
