@@ -1266,6 +1266,23 @@ export const TENANT_MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    // Struktur organisasi (Fase 8c): departemen berhierarki + departemen/atasan
+    // per karyawan (nullable — alur payroll lama tak berubah).
+    id: "0035_org_structure",
+    statements: [
+      `CREATE TABLE departments (
+        id TEXT PRIMARY KEY,
+        code TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        parent_id TEXT REFERENCES departments(id),
+        is_archived INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `ALTER TABLE employees ADD COLUMN department_id TEXT`,
+      `ALTER TABLE employees ADD COLUMN manager_id TEXT`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

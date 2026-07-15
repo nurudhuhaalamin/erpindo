@@ -1868,6 +1868,40 @@ try {
   const tbAfterPayroll = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah penggajian", tbAfterPayroll.json?.balanced === true);
 
+  // --- Struktur organisasi (Fase 8c): departemen hierarki + atasan ---------------
+  console.log("11i3. Struktur organisasi (departemen, atasan, bagan)");
+  const deptViewer = await viewer("POST", `/api/tenants/${tenantId}/departments`, { code: "X", name: "Xx" });
+  check("viewer DITOLAK membuat departemen (403)", deptViewer.status === 403);
+  const deptOps = await owner("POST", `/api/tenants/${tenantId}/departments`, { code: "OPS", name: "Operasional" });
+  check("buat departemen 201", deptOps.status === 201 && Boolean(deptOps.json?.id));
+  const deptDup = await owner("POST", `/api/tenants/${tenantId}/departments`, { code: "OPS", name: "Lain" });
+  check("kode departemen duplikat DITOLAK 409", deptDup.status === 409);
+  const deptSub = await owner("POST", `/api/tenants/${tenantId}/departments`, { code: "OPS-GDG", name: "Gudang", parentId: deptOps.json.id });
+  check("sub-departemen 201", deptSub.status === 201);
+  const cyc = await owner("PATCH", `/api/tenants/${tenantId}/departments/${deptOps.json.id}`, { code: "OPS", name: "Operasional", parentId: deptSub.json.id });
+  check("struktur MELINGKAR ditolak 400 (induk = anak sendiri)", cyc.status === 400);
+  const selfParent = await owner("PATCH", `/api/tenants/${tenantId}/departments/${deptOps.json.id}`, { code: "OPS", name: "Operasional", parentId: deptOps.json.id });
+  check("departemen jadi induk dirinya DITOLAK 400", selfParent.status === 400);
+
+  const empOrg = await owner("POST", `/api/tenants/${tenantId}/employees`, {
+    name: "Citra Organisasi", position: "Staf Gudang", ptkpStatus: "TK/0", baseSalary: 5_100_000, allowances: 0,
+    departmentId: deptSub.json.id, managerId: empA.json.id,
+  });
+  check("karyawan ber-departemen + atasan 201", empOrg.status === 201);
+  const selfMgr = await owner("PATCH", `/api/tenants/${tenantId}/employees/${empOrg.json.id}`, {
+    name: "Citra Organisasi", ptkpStatus: "TK/0", baseSalary: 5_100_000, allowances: 0, managerId: empOrg.json.id,
+  });
+  check("atasan = diri sendiri DITOLAK 400", selfMgr.status === 400);
+  const empsOrg = await owner("GET", `/api/tenants/${tenantId}/employees`);
+  const citra = empsOrg.json?.employees?.find((e) => e.name === "Citra Organisasi");
+  check("GET karyawan menyertakan nama departemen & atasan", citra?.departmentName === "Gudang" && citra?.managerName === "Andi Karyawan", `→ ${JSON.stringify(citra && { d: citra.departmentName, m: citra.managerName })}`);
+  const chart = await owner("GET", `/api/tenants/${tenantId}/org-chart`);
+  const opsNode = chart.json?.tree?.find((n) => n.code === "OPS");
+  check("bagan organisasi: OPS punya sub Gudang berisi Citra", opsNode?.children?.[0]?.code === "OPS-GDG" && opsNode?.children?.[0]?.employees?.some((e) => e.name === "Citra Organisasi"));
+  const archived = await owner("DELETE", `/api/tenants/${tenantId}/departments/${deptSub.json.id}`);
+  const deptsAfter = await owner("GET", `/api/tenants/${tenantId}/departments`);
+  check("arsip departemen 200 dan hilang dari daftar", archived.status === 200 && !deptsAfter.json?.departments?.some((d) => d.code === "OPS-GDG"));
+
   // --- HR lanjut (Fase 5f): kasbon, komponen ad-hoc, cuti & izin ------------------
   console.log("11i2. HR lanjut (kasbon, bonus/potongan ad-hoc, cuti & izin, 1721-A1)");
   const andiId = empA.json?.id;

@@ -1176,8 +1176,37 @@ export const employeeSchema = z.object({
   allowances: amountSchema.default(0),
   bankAccount: z.string().trim().max(50).optional(),
   joinDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  /** Struktur organisasi (Fase 8c) — opsional, kompatibel mundur. */
+  departmentId: z.string().optional(),
+  managerId: z.string().optional(),
 });
 export type EmployeeInput = z.infer<typeof employeeSchema>;
+
+/** Departemen (Fase 8c) — hierarki via parentId. */
+export const departmentSchema = z.object({
+  code: z.string().trim().min(1, "Kode wajib diisi").max(20),
+  name: z.string().trim().min(2, "Nama minimal 2 karakter").max(100),
+  parentId: z.string().optional(),
+});
+export type DepartmentInput = z.infer<typeof departmentSchema>;
+
+export type ApiDepartment = {
+  id: string;
+  code: string;
+  name: string;
+  parentId: string | null;
+  parentName: string | null;
+  employeeCount: number;
+};
+
+/** Simpul bagan organisasi: departemen + karyawan di dalamnya + sub-departemen. */
+export type ApiOrgNode = {
+  id: string;
+  code: string;
+  name: string;
+  employees: { id: string; name: string; position: string | null; managerName: string | null }[];
+  children: ApiOrgNode[];
+};
 
 /** Jalankan penggajian: satu bulan + akun kas pembayar. */
 export const runPayrollSchema = z.object({
@@ -1199,6 +1228,11 @@ export type ApiEmployee = {
   isActive: boolean;
   /** Sisa cuti tahunan (hari) — dipotong saat cuti tahunan disetujui. */
   leaveBalance: number;
+  /** Struktur organisasi (Fase 8c). */
+  departmentId: string | null;
+  departmentName: string | null;
+  managerId: string | null;
+  managerName: string | null;
 };
 
 export type ApiPayslip = {

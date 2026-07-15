@@ -44,7 +44,13 @@ export function PayrollPage() {
 
   const cashAccounts = (accountsQuery.data?.accounts ?? []).filter((a: AccountRow) => a.type === "asset");
 
-  const [emp, setEmp] = useState({ name: "", position: "", ptkpStatus: "TK/0", baseSalary: "", allowances: "" });
+  const departmentsQuery = useQuery({
+    queryKey: ["departments", tenant.tenantId],
+    queryFn: () => api.departments(tenant.tenantId),
+  });
+  const departments = departmentsQuery.data?.departments ?? [];
+
+  const [emp, setEmp] = useState({ name: "", position: "", ptkpStatus: "TK/0", baseSalary: "", allowances: "", departmentId: "", managerId: "" });
   const [empError, setEmpError] = useState<string | null>(null);
   const [period, setPeriod] = useState(thisMonth);
   const [cashAccountId, setCashAccountId] = useState("");
@@ -59,10 +65,12 @@ export function PayrollPage() {
         ptkpStatus: emp.ptkpStatus,
         baseSalary: Number(emp.baseSalary) || 0,
         allowances: Number(emp.allowances) || 0,
+        departmentId: emp.departmentId || undefined,
+        managerId: emp.managerId || undefined,
       }),
     onSuccess: () => {
       toast("success", "Karyawan ditambahkan.");
-      setEmp({ name: "", position: "", ptkpStatus: "TK/0", baseSalary: "", allowances: "" });
+      setEmp({ name: "", position: "", ptkpStatus: "TK/0", baseSalary: "", allowances: "", departmentId: "", managerId: "" });
       setEmpError(null);
       queryClient.invalidateQueries({ queryKey: ["employees", tenant.tenantId] });
     },
@@ -137,6 +145,28 @@ export function PayrollPage() {
                   <Label htmlFor="emp-allow">Tunjangan</Label>
                   <Input id="emp-allow" type="number" min={0} value={emp.allowances} onChange={(e) => setEmp({ ...emp, allowances: e.target.value })} />
                 </div>
+                <div>
+                  <Label htmlFor="emp-dept">Departemen</Label>
+                  <Select id="emp-dept" value={emp.departmentId} onChange={(e) => setEmp({ ...emp, departmentId: e.target.value })}>
+                    <option value="">— tanpa departemen —</option>
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.code} · {d.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="emp-manager">Atasan langsung</Label>
+                  <Select id="emp-manager" value={emp.managerId} onChange={(e) => setEmp({ ...emp, managerId: e.target.value })}>
+                    <option value="">— tanpa atasan —</option>
+                    {employees.filter((x) => x.isActive).map((x) => (
+                      <option key={x.id} value={x.id}>
+                        {x.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
               </div>
               <div className="flex justify-end">
                 <Button onClick={() => createEmp.mutate()} disabled={createEmp.isPending || emp.name.trim().length < 2}>
@@ -157,6 +187,7 @@ export function PayrollPage() {
                   <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
                     <th className="pb-2 pr-3 font-medium">Nama</th>
                     <th className="pb-2 pr-3 font-medium">Jabatan</th>
+                    <th className="pb-2 pr-3 font-medium">Departemen · Atasan</th>
                     <th className="pb-2 pr-3 font-medium">PTKP</th>
                     <th className="pb-2 pr-3 text-right font-medium">Gaji pokok</th>
                     <th className="pb-2 pr-3 text-right font-medium">Tunjangan</th>
@@ -170,6 +201,10 @@ export function PayrollPage() {
                     <tr key={e.id} className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
                       <td className="py-2 pr-3">{e.name}</td>
                       <td className="py-2 pr-3 text-slate-500 dark:text-slate-400">{e.position ?? "—"}</td>
+                      <td className="py-2 pr-3 text-slate-500 dark:text-slate-400">
+                        {e.departmentName ?? "—"}
+                        {e.managerName ? <span className="block text-xs">↳ {e.managerName}</span> : null}
+                      </td>
                       <td className="py-2 pr-3">{e.ptkpStatus}</td>
                       <td className="py-2 pr-3 text-right tabular-nums">{formatIDR(e.baseSalary)}</td>
                       <td className="py-2 pr-3 text-right tabular-nums">{formatIDR(e.allowances)}</td>
@@ -261,7 +296,168 @@ export function PayrollPage() {
 
       <LoansCard tenantId={tenant.tenantId} employees={employees} isAdmin={isAdmin} cashAccounts={cashAccounts} />
       <LeaveCard tenantId={tenant.tenantId} employees={employees} isAdmin={isAdmin} />
+      <DepartmentsCard tenantId={tenant.tenantId} isAdmin={isAdmin} />
+      <OrgChartCard tenantId={tenant.tenantId} />
     </div>
+  );
+}
+
+/** Departemen (Fase 8c): master hierarki departemen perusahaan. */
+function DepartmentsCard({ tenantId, isAdmin }: { tenantId: string; isAdmin: boolean }) {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const query = useQuery({ queryKey: ["departments", tenantId], queryFn: () => api.departments(tenantId) });
+  const departments = query.data?.departments ?? [];
+  const [form, setForm] = useState({ code: "", name: "", parentId: "" });
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["departments", tenantId] });
+    queryClient.invalidateQueries({ queryKey: ["org-chart", tenantId] });
+    queryClient.invalidateQueries({ queryKey: ["employees", tenantId] });
+  };
+  const create = useMutation({
+    mutationFn: () =>
+      api.createDepartment(tenantId, {
+        code: form.code.trim(),
+        name: form.name.trim(),
+        parentId: form.parentId || undefined,
+      }),
+    onSuccess: () => {
+      toast("success", "Departemen ditambahkan.");
+      setForm({ code: "", name: "", parentId: "" });
+      refresh();
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+  const archive = useMutation({
+    mutationFn: (id: string) => api.archiveDepartment(tenantId, id),
+    onSuccess: () => {
+      toast("success", "Departemen diarsipkan.");
+      refresh();
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  return (
+    <Card>
+      <CardHeader
+        title="Departemen"
+        description="Struktur unit kerja perusahaan — bisa bertingkat (sub-departemen di bawah induk)."
+      />
+      <CardBody className="space-y-4">
+        {isAdmin ? (
+          <div className="grid gap-3 sm:grid-cols-4">
+            <div>
+              <Label htmlFor="dept-code">Kode</Label>
+              <Input id="dept-code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="mis. OPS" />
+            </div>
+            <div>
+              <Label htmlFor="dept-name">Nama</Label>
+              <Input id="dept-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="mis. Operasional" />
+            </div>
+            <div>
+              <Label htmlFor="dept-parent">Induk</Label>
+              <Select id="dept-parent" value={form.parentId} onChange={(e) => setForm({ ...form, parentId: e.target.value })}>
+                <option value="">— tingkat teratas —</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.code} · {d.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <Button onClick={() => create.mutate()} disabled={create.isPending || !form.code.trim() || form.name.trim().length < 2}>
+                Tambah
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        {query.isLoading ? (
+          <Spinner />
+        ) : departments.length === 0 ? (
+          <p className="py-2 text-sm text-slate-500 dark:text-slate-400">Belum ada departemen.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100 dark:divide-slate-800/60">
+            {departments.map((d) => (
+              <li key={d.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                <span>
+                  <span className="font-mono text-xs text-slate-500 dark:text-slate-400">{d.code}</span>{" "}
+                  <span className="font-medium">{d.name}</span>
+                  {d.parentName ? (
+                    <span className="text-xs text-slate-500 dark:text-slate-400"> · di bawah {d.parentName}</span>
+                  ) : null}
+                </span>
+                <span className="flex shrink-0 items-center gap-3">
+                  <Badge tone="neutral">{d.employeeCount} karyawan</Badge>
+                  {isAdmin ? (
+                    <button onClick={() => archive.mutate(d.id)} className="text-xs text-red-600 hover:underline dark:text-red-400">
+                      Arsipkan
+                    </button>
+                  ) : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+/** Bagan organisasi sederhana: pohon departemen (indentasi) + karyawan & atasannya. */
+function OrgChartCard({ tenantId }: { tenantId: string }) {
+  const query = useQuery({ queryKey: ["org-chart", tenantId], queryFn: () => api.orgChart(tenantId) });
+  const tree = query.data?.tree ?? [];
+  const unassigned = query.data?.unassigned ?? [];
+
+  function renderNode(node: (typeof tree)[number], depth: number) {
+    return (
+      <li key={node.id} style={{ marginLeft: depth * 16 }} className="py-1">
+        <div className="text-sm font-semibold">
+          <span className="font-mono text-xs text-slate-500 dark:text-slate-400">{node.code}</span> {node.name}
+        </div>
+        {node.employees.length > 0 ? (
+          <ul className="ml-4 border-l border-slate-200 pl-3 dark:border-slate-700">
+            {node.employees.map((e) => (
+              <li key={e.id} className="py-0.5 text-sm">
+                {e.name}
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {e.position ? ` · ${e.position}` : ""}
+                  {e.managerName ? ` · atasan: ${e.managerName}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {node.children.length > 0 ? <ul>{node.children.map((ch) => renderNode(ch, depth + 1))}</ul> : null}
+      </li>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader title="Struktur organisasi" description="Peta departemen & karyawan — siapa berada di mana, di bawah siapa." />
+      <CardBody>
+        {query.isLoading ? (
+          <Spinner />
+        ) : tree.length === 0 && unassigned.length === 0 ? (
+          <p className="py-2 text-sm text-slate-500 dark:text-slate-400">
+            Belum ada struktur — tambahkan departemen lalu tempatkan karyawan.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            <ul>{tree.map((n) => renderNode(n, 0))}</ul>
+            {unassigned.length > 0 ? (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Tanpa departemen: {unassigned.map((e) => e.name).join(", ")}
+              </p>
+            ) : null}
+          </div>
+        )}
+      </CardBody>
+    </Card>
   );
 }
 

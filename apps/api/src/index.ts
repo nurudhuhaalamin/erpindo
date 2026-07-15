@@ -33,6 +33,7 @@ import { manufacturingRoutingRoutes } from "./routes/manufacturingRouting";
 import { projectRoutes } from "./routes/projects";
 import { driveCallbackRoutes, driveRoutes, runDriveBackup } from "./routes/drive";
 import { exportRoutes } from "./routes/export";
+import { orgStructureRoutes } from "./routes/orgStructure";
 import { previousMonth, runMonthlyRecap, scheduledReportsRoutes } from "./routes/scheduledReports";
 import { inviteRoutes, tenantRoutes } from "./routes/tenants";
 
@@ -89,6 +90,7 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", maintenanceRoutes)
   .route("/api/tenants", scheduledReportsRoutes)
   .route("/api/tenants", exportRoutes)
+  .route("/api/tenants", orgStructureRoutes)
   .route("/api/tenants", driveRoutes)
   .route("/api/drive", driveCallbackRoutes)
   .route("/api/tenants", helpdeskRoutes)
