@@ -30,7 +30,6 @@ import { useWorkspace } from "./app";
 const STATUS_TONE = { active: "green", on_hold: "amber", completed: "neutral" } as const;
 const STATUS_LABEL = { active: "berjalan", on_hold: "ditunda", completed: "selesai" } as const;
 const TASK_TONE = { todo: "neutral", in_progress: "brand", done: "green" } as const;
-const TASK_LABEL = { todo: "belum", in_progress: "proses", done: "selesai" } as const;
 const PRIORITY_TONE: Record<ProjectTaskPriority, "red" | "amber" | "neutral"> = { high: "red", medium: "amber", low: "neutral" };
 const TASK_COLUMNS: { key: ApiProjectTask["status"]; label: string }[] = [
   { key: "todo", label: "Belum dikerjakan" },

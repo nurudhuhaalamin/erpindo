@@ -131,8 +131,6 @@ export function ManufacturingPage() {
     onError: (err) => toast("error", (err as Error).message),
   });
 
-  const bomProducts = new Set(boms.map((b) => b.productId));
-
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
@@ -568,7 +566,7 @@ function RoutingRow({ step, isAdmin, onComplete, busy }: { step: ApiRoutingStep;
       <td className="py-2 pr-4">{step.name}</td>
       <td className="py-2 pr-4 text-slate-500">{step.workCenterName}</td>
       <td className="py-2 pr-4 text-right tabular-nums">{formatIDR(step.standardCost)}</td>
-      <td className="py-2 pr-4 text-right tabular-nums">{step.actualCost != null ? formatIDR(step.actualCost) : "—"}</td>
+      <td className="py-2 pr-4 text-right tabular-nums">{step.actualCost !== null && step.actualCost !== undefined ? formatIDR(step.actualCost) : "—"}</td>
       <td className="py-2 pr-4"><Badge tone={step.status === "done" ? "green" : "amber"}>{step.status === "done" ? "selesai" : "WIP"}</Badge></td>
       {isAdmin ? (
         <td className="py-2">

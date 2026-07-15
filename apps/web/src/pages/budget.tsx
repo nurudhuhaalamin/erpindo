@@ -2,7 +2,7 @@ import type { ApiBudgetRow } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api, downloadCsv, formatIDR } from "../api/client";
-import { Button, Card, CardBody, CardHeader, Input, Label, Spinner, useToast } from "../components/ui";
+import { Card, CardBody, CardHeader, Input, Label, Spinner, useToast } from "../components/ui";
 import { useWorkspace } from "./app";
 import { ExportButton } from "./reports";
 
