@@ -201,20 +201,30 @@ export const tenantRoutes = new Hono<AppEnv>()
   .get("/:tenantId/roles", requireAuth, requireTenantRole("admin"), async (c) => {
     const tenant = c.get("tenant");
     const { results } = await c.env.DB.prepare(
-      `SELECT r.id, r.name, r.base_role, r.permissions, r.created_at,
+      `SELECT r.id, r.name, r.base_role, r.permissions, r.scope_cost_center_ids, r.created_at,
               (SELECT COUNT(*) FROM memberships m WHERE m.custom_role_id = r.id) AS member_count
        FROM custom_roles r WHERE r.tenant_id = ? ORDER BY r.created_at DESC`,
     )
       .bind(tenant.id)
-      .all<{ id: string; name: string; base_role: "admin" | "viewer"; permissions: string; created_at: string; member_count: number }>();
-    const roles: ApiCustomRole[] = results.map((r) => ({
-      id: r.id,
-      name: r.name,
-      baseRole: r.base_role,
-      permissions: safeParsePerms(r.permissions),
-      memberCount: r.member_count,
-      createdAt: r.created_at,
-    }));
+      .all<{ id: string; name: string; base_role: "admin" | "viewer"; permissions: string; scope_cost_center_ids: string | null; created_at: string; member_count: number }>();
+    const roles: ApiCustomRole[] = results.map((r) => {
+      let scope: string[] | null = null;
+      try {
+        const parsed = r.scope_cost_center_ids ? (JSON.parse(r.scope_cost_center_ids) as string[]) : null;
+        scope = parsed && parsed.length > 0 ? parsed : null;
+      } catch {
+        scope = null;
+      }
+      return {
+        id: r.id,
+        name: r.name,
+        baseRole: r.base_role,
+        permissions: safeParsePerms(r.permissions),
+        scopeCostCenterIds: scope,
+        memberCount: r.member_count,
+        createdAt: r.created_at,
+      };
+    });
     return c.json({ roles });
   })
 
@@ -223,8 +233,9 @@ export const tenantRoutes = new Hono<AppEnv>()
     if (!parsed.success) return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
     const tenant = c.get("tenant");
     const id = crypto.randomUUID();
-    await c.env.DB.prepare(`INSERT INTO custom_roles (id, tenant_id, name, base_role, permissions, created_at) VALUES (?, ?, ?, ?, ?, ?)`)
-      .bind(id, tenant.id, parsed.data.name, parsed.data.baseRole, JSON.stringify(parsed.data.permissions), now())
+    const scopeJson = parsed.data.scopeCostCenterIds?.length ? JSON.stringify(parsed.data.scopeCostCenterIds) : null;
+    await c.env.DB.prepare(`INSERT INTO custom_roles (id, tenant_id, name, base_role, permissions, scope_cost_center_ids, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+      .bind(id, tenant.id, parsed.data.name, parsed.data.baseRole, JSON.stringify(parsed.data.permissions), scopeJson, now())
       .run();
     await audit(c.env, { action: "tenant.role_created", userId: c.get("user").id, tenantId: tenant.id, detail: { name: parsed.data.name }, ip: clientIp(c) });
     return c.json({ ok: true, id }, 201);
@@ -237,8 +248,9 @@ export const tenantRoutes = new Hono<AppEnv>()
     const roleId = c.req.param("roleId");
     const existing = await c.env.DB.prepare(`SELECT id FROM custom_roles WHERE id = ? AND tenant_id = ?`).bind(roleId, tenant.id).first<{ id: string }>();
     if (!existing) return c.json({ error: "Peran tidak ditemukan." }, 404);
-    await c.env.DB.prepare(`UPDATE custom_roles SET name = ?, base_role = ?, permissions = ? WHERE id = ?`)
-      .bind(parsed.data.name, parsed.data.baseRole, JSON.stringify(parsed.data.permissions), roleId)
+    const scopeJsonUpd = parsed.data.scopeCostCenterIds?.length ? JSON.stringify(parsed.data.scopeCostCenterIds) : null;
+    await c.env.DB.prepare(`UPDATE custom_roles SET name = ?, base_role = ?, permissions = ?, scope_cost_center_ids = ? WHERE id = ?`)
+      .bind(parsed.data.name, parsed.data.baseRole, JSON.stringify(parsed.data.permissions), scopeJsonUpd, roleId)
       .run();
     // Sinkronkan base_role ke anggota yang memakai peran ini (kompat requireTenantRole).
     await c.env.DB.prepare(`UPDATE memberships SET role = ? WHERE custom_role_id = ?`).bind(parsed.data.baseRole, roleId).run();

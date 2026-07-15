@@ -205,6 +205,15 @@ const MANIFESTS = {
     fullPage: true,
     shots: [{ route: "/app/hr/penggajian", name: "hr-struktur-organisasi", waitMs: 1800 }],
   },
+  // Set ad-hoc Fase 8d: Pengaturan (peran kustom ber-scope cost center).
+  so8d: {
+    outDir: process.env.SO8D_OUT ?? path.join(tmpdir(), "erpindo-so8d"),
+    viewport: { width: 1440, height: 1800 },
+    theme: "light",
+    quality: 85,
+    fullPage: true,
+    shots: [{ route: "/app/pengaturan", name: "peran-ber-scope", waitMs: 1800 }],
+  },
   // Audit visual QA: halaman PENUH pada 3 viewport. Keluaran ke AUDIT_OUT
   // (default tmp) — TIDAK di-commit; alat review, bukan aset produk.
   audit: {

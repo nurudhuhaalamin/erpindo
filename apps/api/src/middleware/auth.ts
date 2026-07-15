@@ -95,17 +95,23 @@ export async function resolvePermissions(
   env: AppEnv["Bindings"],
   userId: string,
   tenantId: string,
-): Promise<{ role: Role; roleName: string; permissions: PermissionKey[] } | null> {
+): Promise<{ role: Role; roleName: string; permissions: PermissionKey[]; scopeCostCenterIds: string[] | null } | null> {
   const row = await env.DB.prepare(
-    `SELECT m.role, m.custom_role_id, r.name AS role_name, r.permissions
+    `SELECT m.role, m.custom_role_id, r.name AS role_name, r.permissions, r.scope_cost_center_ids
      FROM memberships m LEFT JOIN custom_roles r ON r.id = m.custom_role_id
      WHERE m.user_id = ? AND m.tenant_id = ?`,
   )
     .bind(userId, tenantId)
-    .first<{ role: Role; custom_role_id: string | null; role_name: string | null; permissions: string | null }>();
+    .first<{
+      role: Role;
+      custom_role_id: string | null;
+      role_name: string | null;
+      permissions: string | null;
+      scope_cost_center_ids: string | null;
+    }>();
   if (!row) return null;
   if (row.role === "owner") {
-    return { role: "owner", roleName: "Pemilik", permissions: [...PRESET_PERMISSIONS.owner] };
+    return { role: "owner", roleName: "Pemilik", permissions: [...PRESET_PERMISSIONS.owner], scopeCostCenterIds: null };
   }
   if (row.custom_role_id && row.permissions) {
     let perms: PermissionKey[] = [];
@@ -114,9 +120,22 @@ export async function resolvePermissions(
     } catch {
       perms = [];
     }
-    return { role: row.role, roleName: row.role_name ?? "Peran kustom", permissions: perms };
+    // Scope dimensi (Fase 8d): NULL / array kosong = tanpa batasan.
+    let scope: string[] | null = null;
+    try {
+      const parsed = row.scope_cost_center_ids ? (JSON.parse(row.scope_cost_center_ids) as string[]) : null;
+      scope = parsed && parsed.length > 0 ? parsed : null;
+    } catch {
+      scope = null;
+    }
+    return { role: row.role, roleName: row.role_name ?? "Peran kustom", permissions: perms, scopeCostCenterIds: scope };
   }
-  return { role: row.role, roleName: row.role === "admin" ? "Admin" : "Viewer", permissions: [...PRESET_PERMISSIONS[row.role]] };
+  return {
+    role: row.role,
+    roleName: row.role === "admin" ? "Admin" : "Viewer",
+    permissions: [...PRESET_PERMISSIONS[row.role]],
+    scopeCostCenterIds: null,
+  };
 }
 
 /**

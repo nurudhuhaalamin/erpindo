@@ -1432,6 +1432,72 @@ try {
   const tbAfterDim = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah alur dimensi", tbAfterDim.json?.balanced === true);
 
+  // --- RBAC berdimensi (Fase 8d): scope cost center per peran kustom -------------
+  console.log("11e6. RBAC berdimensi (scope cost center per peran)");
+  const ccScopeA = await owner("POST", `/api/tenants/${tenantId}/cost-centers`, { code: "SCOPE-A", name: "Cabang Scope A" });
+  const ccScopeB = await owner("POST", `/api/tenants/${tenantId}/cost-centers`, { code: "SCOPE-B", name: "Cabang Scope B" });
+  // Jurnal beban Oktober untuk kedua cabang (periode terisolasi dari asersi lama).
+  await owner("POST", `/api/tenants/${tenantId}/journal-entries`, {
+    entryDate: "2026-10-21", description: "Beban cabang A", lines: [
+      { accountId: bebanAcc.id, debit: 250_000, credit: 0, costCenterId: ccScopeA.json.id },
+      { accountId: bankAcc.id, debit: 0, credit: 250_000 },
+    ],
+  });
+  await owner("POST", `/api/tenants/${tenantId}/journal-entries`, {
+    entryDate: "2026-10-21", description: "Beban cabang B", lines: [
+      { accountId: bebanAcc.id, debit: 350_000, credit: 0, costCenterId: ccScopeB.json.id },
+      { accountId: bankAcc.id, debit: 0, credit: 350_000 },
+    ],
+  });
+
+  const scopeTooBig = await owner("POST", `/api/tenants/${tenantId}/roles`, { name: "Kebanyakan", baseRole: "admin", permissions: ["keuangan"], scopeCostCenterIds: Array.from({ length: 21 }, (_, i) => `id-${i}`) });
+  check("scope > 20 cost center DITOLAK 400", scopeTooBig.status === 400);
+  const scopedRole = await owner("POST", `/api/tenants/${tenantId}/roles`, {
+    name: "Manajer Cabang A", baseRole: "admin", permissions: ["keuangan", "laporan"], scopeCostCenterIds: [ccScopeA.json.id],
+  });
+  check("buat peran ber-scope 201", scopedRole.status === 201 && Boolean(scopedRole.json?.id));
+  const rolesWithScope = await owner("GET", `/api/tenants/${tenantId}/roles`);
+  check("daftar peran memuat scope", rolesWithScope.json?.roles?.some((r) => r.id === scopedRole.json.id && r.scopeCostCenterIds?.length === 1));
+
+  const assignScoped = await owner("PATCH", `/api/tenants/${tenantId}/members/${viewerMember.userId}/assign`, { customRoleId: scopedRole.json.id });
+  check("tetapkan peran ber-scope ke anggota 200", assignScoped.status === 200);
+  const permScoped = await viewer("GET", `/api/tenants/${tenantId}/my-permissions`);
+  check("my-permissions memuat scope cost center", permScoped.json?.scopeCostCenterIds?.length === 1 && permScoped.json.scopeCostCenterIds[0] === ccScopeA.json.id, `→ ${JSON.stringify(permScoped.json?.scopeCostCenterIds)}`);
+
+  const ccListScoped = await viewer("GET", `/api/tenants/${tenantId}/cost-centers`);
+  check(
+    "daftar cost center TERSARING (hanya Scope A, tanpa Scope B)",
+    ccListScoped.json?.items?.some((i) => i.id === ccScopeA.json.id) && !ccListScoped.json?.items?.some((i) => i.id === ccScopeB.json.id),
+    `→ ${JSON.stringify(ccListScoped.json?.items?.map((i) => i.code))}`,
+  );
+  const dimScoped = await viewer("GET", `/api/tenants/${tenantId}/reports/dimension?from=2026-10-01&to=2026-10-31`);
+  check(
+    "laporan dimensi tersaring: HANYA baris Scope A (tanpa Scope B & tanpa-dimensi)",
+    dimScoped.status === 200 && dimScoped.json?.rows?.length >= 1 && dimScoped.json.rows.every((r) => r.costCenterId === ccScopeA.json.id),
+    `→ ${JSON.stringify(dimScoped.json?.rows?.map((r) => r.code))}`,
+  );
+  const jrnOutScope = await viewer("POST", `/api/tenants/${tenantId}/journal-entries`, {
+    entryDate: "2026-10-22", description: "Coba luar scope", lines: [
+      { accountId: bebanAcc.id, debit: 10_000, credit: 0, costCenterId: ccScopeB.json.id },
+      { accountId: bankAcc.id, debit: 0, credit: 10_000 },
+    ],
+  });
+  check("jurnal ke cost center LUAR scope DITOLAK 403", jrnOutScope.status === 403, `→ ${jrnOutScope.status}`);
+  const jrnInScope = await viewer("POST", `/api/tenants/${tenantId}/journal-entries`, {
+    entryDate: "2026-10-22", description: "Beban dalam scope", lines: [
+      { accountId: bebanAcc.id, debit: 10_000, credit: 0, costCenterId: ccScopeA.json.id },
+      { accountId: bankAcc.id, debit: 0, credit: 10_000 },
+    ],
+  });
+  check("jurnal ke cost center DALAM scope BOLEH 201", jrnInScope.status === 201, `→ ${jrnInScope.status}`);
+
+  const ccListOwner = await owner("GET", `/api/tenants/${tenantId}/cost-centers`);
+  check("pengguna TANPA scope tetap melihat semua (perilaku lama)", ccListOwner.json?.items?.some((i) => i.id === ccScopeB.json.id));
+
+  // Kembalikan anggota ke preset Viewer agar blok-blok berikutnya tak terpengaruh.
+  const restoreViewer2 = await owner("PATCH", `/api/tenants/${tenantId}/members/${viewerMember.userId}/assign`, { preset: "viewer" });
+  check("anggota dikembalikan ke preset Viewer 200", restoreViewer2.status === 200);
+
   // --- Lot & kedaluwarsa (Fase 2j) ----------------------------------------------
   console.log("11f. Batch/lot & kedaluwarsa (FEFO)");
 

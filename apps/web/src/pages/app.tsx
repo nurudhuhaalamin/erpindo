@@ -2238,23 +2238,26 @@ function RolesCard({ tenantId }: { tenantId: string }) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["roles", tenantId], queryFn: () => api.roles(tenantId) });
+  const costCentersQuery = useQuery({ queryKey: ["cost-centers", tenantId], queryFn: () => api.costCenters(tenantId) });
+  const costCenters = costCentersQuery.data?.items ?? [];
   const [editing, setEditing] = useState<ApiCustomRole | null>(null);
   const [name, setName] = useState("");
   const [baseRole, setBaseRole] = useState<"admin" | "viewer">("admin");
   const [perms, setPerms] = useState<PermissionKey[]>([]);
+  const [scopeCcIds, setScopeCcIds] = useState<string[]>([]);
   const [toDelete, setToDelete] = useState<ApiCustomRole | null>(null);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["roles", tenantId] });
     queryClient.invalidateQueries({ queryKey: ["members", tenantId] });
   };
-  const reset = () => { setEditing(null); setName(""); setBaseRole("admin"); setPerms([]); };
+  const reset = () => { setEditing(null); setName(""); setBaseRole("admin"); setPerms([]); setScopeCcIds([]); };
 
   const save = useMutation({
     mutationFn: () =>
       editing
-        ? api.updateRole(tenantId, editing.id, { name, baseRole, permissions: perms })
-        : api.createRole(tenantId, { name, baseRole, permissions: perms }),
+        ? api.updateRole(tenantId, editing.id, { name, baseRole, permissions: perms, scopeCostCenterIds: scopeCcIds.length ? scopeCcIds : undefined })
+        : api.createRole(tenantId, { name, baseRole, permissions: perms, scopeCostCenterIds: scopeCcIds.length ? scopeCcIds : undefined }),
     onSuccess: () => { toast("success", editing ? "Peran diperbarui." : "Peran kustom dibuat."); reset(); invalidate(); },
     onError: (e: Error) => toast("error", e.message),
   });
@@ -2265,10 +2268,13 @@ function RolesCard({ tenantId }: { tenantId: string }) {
   });
 
   function startEdit(r: ApiCustomRole) {
-    setEditing(r); setName(r.name); setBaseRole(r.baseRole); setPerms(r.permissions);
+    setEditing(r); setName(r.name); setBaseRole(r.baseRole); setPerms(r.permissions); setScopeCcIds(r.scopeCostCenterIds ?? []);
   }
   function togglePerm(key: PermissionKey) {
     setPerms((prev) => (prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key]));
+  }
+  function toggleScopeCc(id: string) {
+    setScopeCcIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
   const roles = query.data?.roles ?? [];
@@ -2284,6 +2290,9 @@ function RolesCard({ tenantId }: { tenantId: string }) {
                   <span className="font-medium">{r.name}</span>
                   <Badge tone="neutral" >{r.baseRole === "admin" ? "Dasar: Admin" : "Dasar: Viewer"}</Badge>
                   <span className="ml-1 text-xs text-slate-400">{r.permissions.length} modul · {r.memberCount} anggota</span>
+                  {r.scopeCostCenterIds ? (
+                    <Badge tone="amber">terbatas {r.scopeCostCenterIds.length} cost center</Badge>
+                  ) : null}
                 </div>
                 <div className="flex gap-2">
                   <Button variant="secondary" className="h-8" onClick={() => startEdit(r)}>Ubah</Button>
@@ -2322,6 +2331,23 @@ function RolesCard({ tenantId }: { tenantId: string }) {
               ))}
             </div>
           </div>
+          {costCenters.length > 0 ? (
+            <div>
+              <p className="mb-1 text-sm font-medium">Batasi data ke cost center (opsional)</p>
+              <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">
+                Bila dipilih, peran ini hanya melihat & membukukan ke cost center tersebut (daftar dimensi,
+                laporan per dimensi, dan jurnal). Kosongkan untuk akses semua.
+              </p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {costCenters.map((cc) => (
+                  <label key={cc.id} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                    <input type="checkbox" className="h-4 w-4 rounded border-slate-300" checked={scopeCcIds.includes(cc.id)} onChange={() => toggleScopeCc(cc.id)} />
+                    {cc.code} · {cc.name}
+                  </label>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div className="flex gap-2">
             <Button onClick={() => save.mutate()} disabled={save.isPending || name.trim().length < 2 || perms.length === 0}>
               {save.isPending ? <Spinner /> : null} {editing ? "Simpan" : "Buat peran"}

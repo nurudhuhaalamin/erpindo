@@ -10,7 +10,7 @@ import { Hono } from "hono";
 import type { AppEnv } from "../env";
 import { audit } from "../lib/audit";
 import { getTenantDb } from "../lib/tenantDb";
-import { requireAuth, requireTenantRole } from "../middleware/auth";
+import { requireAuth, requireTenantRole, resolvePermissions } from "../middleware/auth";
 import { clientIp } from "./auth";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -27,7 +27,11 @@ export const dimensionRoutes = new Hono<AppEnv>()
     const { results } = await db
       .prepare(`SELECT id, code, name, created_at FROM cost_centers WHERE is_archived = 0 ORDER BY code`)
       .all<{ id: string; code: string; name: string; created_at: string }>();
-    const items: ApiCostCenter[] = results.map((r) => ({ id: r.id, code: r.code, name: r.name, createdAt: r.created_at }));
+    // RBAC berdimensi (Fase 8d): peran ber-scope hanya melihat cost center-nya.
+    const resolved = await resolvePermissions(c.env, c.get("user").id, c.get("tenant").id);
+    const scope = resolved?.scopeCostCenterIds ?? null;
+    const visible = scope ? results.filter((r) => scope.includes(r.id)) : results;
+    const items: ApiCostCenter[] = visible.map((r) => ({ id: r.id, code: r.code, name: r.name, createdAt: r.created_at }));
     return c.json({ items });
   })
 
@@ -75,7 +79,12 @@ export const dimensionRoutes = new Hono<AppEnv>()
       )
       .bind(from, to)
       .all<{ cc_id: string | null; cc_code: string | null; cc_name: string | null; income: number; expense: number }>();
-    const rows: ApiDimensionRow[] = results.map((r) => ({
+    // RBAC berdimensi (Fase 8d): peran ber-scope hanya melihat baris dimensi
+    // dalam scope-nya (termasuk menyembunyikan baris "tanpa dimensi").
+    const resolvedDim = await resolvePermissions(c.env, c.get("user").id, c.get("tenant").id);
+    const scopeDim = resolvedDim?.scopeCostCenterIds ?? null;
+    const visibleRows = scopeDim ? results.filter((r) => r.cc_id && scopeDim.includes(r.cc_id)) : results;
+    const rows: ApiDimensionRow[] = visibleRows.map((r) => ({
       costCenterId: r.cc_id,
       code: r.cc_code ?? "—",
       name: r.cc_name ?? "(Tanpa dimensi)",
