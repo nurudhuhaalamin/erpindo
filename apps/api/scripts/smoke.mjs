@@ -3391,6 +3391,92 @@ try {
   const drvBackup = await owner("POST", `/api/tenants/${tenantId}/drive/backup-now`);
   check("backup Drive tanpa konfigurasi DITOLAK 503", drvBackup.status === 503);
 
+  // --- Pengerasan hasil audit (Fase 9a) -------------------------------------
+  console.log("13d. Pengerasan hasil audit (Fase 9a)");
+
+  // Paginasi keyset buku besar: jendela terbaru + openingBalance + kursor.
+  const lgFull = await owner("GET", `/api/tenants/${tenantId}/ledger/${kas.id}`);
+  check(
+    "buku besar penuh: 200, openingBalance 0, tanpa kursor lanjutan",
+    lgFull.status === 200 && lgFull.json?.openingBalance === 0 && lgFull.json?.nextCursor === null,
+    `→ ${lgFull.status} opening=${lgFull.json?.openingBalance} cursor=${lgFull.json?.nextCursor}`,
+  );
+  check("akun kas punya cukup baris untuk uji paginasi (≥6)", (lgFull.json?.entries?.length ?? 0) >= 6);
+  const lgWin = await owner("GET", `/api/tenants/${tenantId}/ledger/${kas.id}?limit=3`);
+  check(
+    "jendela limit=3: berisi 3 baris TERBARU + kursor lanjutan",
+    lgWin.status === 200 && lgWin.json?.entries?.length === 3 && typeof lgWin.json?.nextCursor === "string",
+  );
+  check("saldo akhir jendela = saldo akhir buku penuh", lgWin.json?.balance === lgFull.json?.balance);
+  check(
+    "saldo berjalan baris pertama jendela konsisten dengan openingBalance",
+    lgWin.json?.entries?.[0]?.balance ===
+      lgWin.json?.openingBalance + lgWin.json?.entries?.[0]?.debit - lgWin.json?.entries?.[0]?.credit,
+  );
+  const lgOlder = await owner(
+    "GET",
+    `/api/tenants/${tenantId}/ledger/${kas.id}?limit=3&before=${encodeURIComponent(lgWin.json?.nextCursor ?? "")}`,
+  );
+  check(
+    "halaman lebih lama: saldo akhirnya = openingBalance halaman terbaru",
+    lgOlder.status === 200 && lgOlder.json?.balance === lgWin.json?.openingBalance,
+    `→ ${lgOlder.status} ${lgOlder.json?.balance} vs ${lgWin.json?.openingBalance}`,
+  );
+  const lgBadCur = await owner("GET", `/api/tenants/${tenantId}/ledger/${kas.id}?before=kursor-ngawur`);
+  check("kursor buku besar tak valid DITOLAK 400", lgBadCur.status === 400);
+  const lgClamp = await owner("GET", `/api/tenants/${tenantId}/ledger/${kas.id}?limit=999999`);
+  check("limit di luar batas di-clamp (tetap 200)", lgClamp.status === 200);
+
+  // Validasi Zod pada input yang dulu dikoersi manual.
+  const thrBad = await owner("POST", `/api/tenants/${tenantId}/approval-threshold`, { amount: "sejuta" });
+  check("ambang persetujuan non-angka DITOLAK 400", thrBad.status === 400);
+  const thrNeg = await owner("POST", `/api/tenants/${tenantId}/approval-threshold`, { amount: -5 });
+  check("ambang persetujuan negatif DITOLAK 400", thrNeg.status === 400);
+  const thrFrac = await owner("POST", `/api/tenants/${tenantId}/approval-threshold`, { amount: 10.5 });
+  check("ambang persetujuan pecahan DITOLAK 400", thrFrac.status === 400);
+  const rejBadNote = await owner("POST", `/api/tenants/${tenantId}/approvals/tidak-ada/reject`, {
+    note: "x".repeat(301),
+  });
+  check("catatan penolakan >300 karakter DITOLAK 400", rejBadNote.status === 400);
+  const mtBadDate = await owner("POST", `/api/tenants/${tenantId}/maintenance/run`, { date: "31-12-2026" });
+  check("pemicu servis dengan tanggal salah format DITOLAK 400", mtBadDate.status === 400);
+  const impEmpty = await owner("POST", `/api/tenants/${tenantId}/contacts/import`, { rows: [] });
+  check(
+    "impor tanpa baris DITOLAK 400 + pesan Indonesia",
+    impEmpty.status === 400 && /Tidak ada baris/.test(impEmpty.json?.error ?? ""),
+  );
+  const impOver = await owner("POST", `/api/tenants/${tenantId}/contacts/import`, {
+    rows: Array.from({ length: 501 }, (_, i) => ({ name: `Kontak ${i}` })),
+  });
+  check(
+    "impor >500 baris DITOLAK 400 + pesan Indonesia",
+    impOver.status === 400 && /Maksimal 500/.test(impOver.json?.error ?? ""),
+  );
+
+  // Kursor audit log: riwayat lebih lama dari 100 kini terjangkau.
+  const al1 = await owner("GET", `/api/tenants/${tenantId}/audit-logs`);
+  check(
+    "audit log 200 + bidang nextCursor hadir + maksimal 100 baris",
+    al1.status === 200 && "nextCursor" in (al1.json ?? {}) && (al1.json?.logs?.length ?? 0) <= 100,
+  );
+  check("aktivitas tenant sudah >100 → kursor lanjutan tersedia", typeof al1.json?.nextCursor === "string");
+  const al2 = await owner(
+    "GET",
+    `/api/tenants/${tenantId}/audit-logs?before=${encodeURIComponent(al1.json?.nextCursor ?? "")}`,
+  );
+  check(
+    "halaman audit lebih lama 200 + berisi baris yang memang lebih tua",
+    al2.status === 200 &&
+      (al2.json?.logs?.length ?? 0) >= 1 &&
+      al2.json?.logs?.[0]?.createdAt <= al1.json?.logs?.[al1.json.logs.length - 1]?.createdAt,
+  );
+  const alBadCur = await owner("GET", `/api/tenants/${tenantId}/audit-logs?before=ngawur`);
+  check("kursor audit log tak valid DITOLAK 400", alBadCur.status === 400);
+
+  // Endpoint berat tetap normal di bawah pembatas longgar per pengguna.
+  const rlReport = await owner("GET", `/api/tenants/${tenantId}/reports/income-statement?from=2026-01-01&to=2026-12-31`);
+  check("laporan laba rugi tetap 200 di bawah pembatas per pengguna", rlReport.status === 200);
+
   console.log("14. Siklus langganan (trial berakhir)");
   // Semua tenant dibuat dengan TRIAL_DAYS_OVERRIDE=0 → trial sudah lewat.
   const cron = await fetch(`${BASE}/__scheduled?cron=17+1+*+*+*`);

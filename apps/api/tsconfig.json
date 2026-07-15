@@ -3,5 +3,8 @@
   "compilerOptions": {
     "types": ["@cloudflare/workers-types"]
   },
-  "include": ["src", "test"]
+  "include": ["src", "test"],
+  // rbac-guard membaca src/routes via node:fs — butuh tipe Node yang bentrok
+  // dengan @cloudflare/workers-types; tetap dijalankan penuh oleh vitest.
+  "exclude": ["test/rbac-guard.test.ts"]
 }

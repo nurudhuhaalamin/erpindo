@@ -1289,6 +1289,16 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `ALTER TABLE employees ADD COLUMN manager_id TEXT`,
     ],
   },
+  {
+    // Indeks jalur panas hasil audit Fase 9a: daftar jurnal diurutkan
+    // entry_date + join buku besar memfilter status; pencarian stock_movements
+    // per dokumen sumber (ref_type, ref_id) dipakai void/retur.
+    id: "0036_fase9_indexes",
+    statements: [
+      `CREATE INDEX IF NOT EXISTS idx_journal_entries_status_date ON journal_entries(status, entry_date)`,
+      `CREATE INDEX IF NOT EXISTS idx_stock_movements_ref ON stock_movements(ref_type, ref_id)`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

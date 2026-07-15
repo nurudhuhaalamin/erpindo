@@ -4,6 +4,7 @@ import { audit } from "../lib/audit";
 import { decryptText, encryptText, sha256Hex } from "../lib/crypto";
 import { getTenantDb } from "../lib/tenantDb";
 import { requireAuth, requireTenantRole } from "../middleware/auth";
+import { rateLimitUser } from "../middleware/rateLimit";
 import { clientIp } from "./auth";
 import { buildTenantExportZip } from "./export";
 
@@ -174,7 +175,7 @@ export const driveRoutes = new Hono<AppEnv>()
   })
 
   // Cadangkan sekarang (manual).
-  .post("/:tenantId/drive/backup-now", requireAuth, requireTenantRole("owner"), async (c) => {
+  .post("/:tenantId/drive/backup-now", requireAuth, requireTenantRole("owner"), rateLimitUser({ key: "drive-backup", limit: 5, windowSeconds: 300 }), async (c) => {
     if (!driveConfigured(c.env)) {
       return c.json({ error: "Integrasi Google Drive belum dikonfigurasi oleh operator." }, 503);
     }

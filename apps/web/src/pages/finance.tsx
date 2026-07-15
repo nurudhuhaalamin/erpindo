@@ -590,9 +590,22 @@ export function JournalPage() {
 // Buku Besar
 // ---------------------------------------------------------------------------
 
+type LedgerEntryRow = {
+  entryNo: string;
+  entryDate: string;
+  description: string | null;
+  debit: number;
+  credit: number;
+  balance: number;
+};
+
 export function LedgerPage() {
   const { tenant } = useWorkspace();
   const [accountId, setAccountId] = useState("");
+  // Halaman lebih lama yang sudah dimuat via kursor (Fase 9a) — di-reset saat
+  // ganti akun agar saldo berjalan tidak tercampur antar akun.
+  const [older, setOlder] = useState<{ entries: LedgerEntryRow[]; nextCursor: string | null } | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
 
   const accountsQuery = useQuery({
     queryKey: ["accounts", tenant.tenantId],
@@ -604,6 +617,23 @@ export function LedgerPage() {
     enabled: Boolean(accountId),
   });
 
+  const pickAccount = (id: string) => {
+    setOlder(null);
+    setAccountId(id);
+  };
+  const olderCursor = older ? older.nextCursor : (ledgerQuery.data?.nextCursor ?? null);
+  const loadOlder = async () => {
+    if (!olderCursor || loadingOlder) return;
+    setLoadingOlder(true);
+    try {
+      const res = await api.ledger(tenant.tenantId, accountId, { before: olderCursor });
+      setOlder((prev) => ({ entries: [...res.entries, ...(prev?.entries ?? [])], nextCursor: res.nextCursor }));
+    } finally {
+      setLoadingOlder(false);
+    }
+  };
+  const allEntries = [...(older?.entries ?? []), ...(ledgerQuery.data?.entries ?? [])];
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Buku Besar</h1>
@@ -612,7 +642,7 @@ export function LedgerPage() {
         <CardBody className="space-y-4">
           <div className="sm:w-96">
             <Label htmlFor="lg-acc">Pilih akun</Label>
-            <Select id="lg-acc" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+            <Select id="lg-acc" value={accountId} onChange={(e) => pickAccount(e.target.value)}>
               <option value="">— pilih akun —</option>
               {(accountsQuery.data?.accounts ?? []).map((a) => (
                 <option key={a.id} value={a.id}>
@@ -625,6 +655,11 @@ export function LedgerPage() {
           {ledgerQuery.isLoading && accountId ? <Spinner /> : null}
           {ledgerQuery.data ? (
             <>
+              {olderCursor ? (
+                <Button variant="secondary" className="h-8" onClick={() => void loadOlder()} disabled={loadingOlder}>
+                  {loadingOlder ? "Memuat…" : "Muat lebih lama"}
+                </Button>
+              ) : null}
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -638,7 +673,7 @@ export function LedgerPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {ledgerQuery.data.entries.map((r, i) => (
+                    {allEntries.map((r, i) => (
                       <tr key={i}>
                         <td className={`${td} font-mono text-xs`}>{r.entryNo}</td>
                         <td className={td}>{r.entryDate}</td>

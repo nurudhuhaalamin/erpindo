@@ -1,4 +1,4 @@
-import { PERMISSIONS, PLAN_LABELS, PLAN_LIMITS, type ApiCustomRole, type ApiMembership, type MeResponse, type PermissionKey } from "@erpindo/shared";
+import { PERMISSIONS, PLAN_LABELS, PLAN_LIMITS, type ApiAuditLog, type ApiCustomRole, type ApiMembership, type MeResponse, type PermissionKey } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
@@ -1653,19 +1653,33 @@ function friendlyAuditDetail(raw: string | null): string {
 
 function AuditLogCard({ tenantId }: { tenantId: string }) {
   const query = useQuery({ queryKey: ["audit-logs", tenantId], queryFn: () => api.auditLogs(tenantId) });
+  // Halaman lebih lama via kursor (Fase 9a) — sebelumnya hanya 100 terakhir.
+  const [older, setOlder] = useState<{ logs: ApiAuditLog[]; nextCursor: string | null } | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const olderCursor = older ? older.nextCursor : (query.data?.nextCursor ?? null);
+  const loadOlder = async () => {
+    if (!olderCursor || loadingOlder) return;
+    setLoadingOlder(true);
+    try {
+      const res = await api.auditLogs(tenantId, olderCursor);
+      setOlder((prev) => ({ logs: [...(prev?.logs ?? []), ...res.logs], nextCursor: res.nextCursor }));
+    } finally {
+      setLoadingOlder(false);
+    }
+  };
 
   return (
     <Card>
       <CardHeader
         title="Riwayat aktivitas (audit log)"
-        description="100 aktivitas terakhir di perusahaan ini — siapa melakukan apa dan kapan."
+        description="Aktivitas di perusahaan ini — siapa melakukan apa dan kapan."
       />
       <CardBody>
         {query.isLoading ? (
           <Spinner />
         ) : (
           <div className="max-h-96 divide-y divide-slate-100 overflow-y-auto dark:divide-slate-800/60">
-            {(query.data?.logs ?? []).map((log) => {
+            {[...(query.data?.logs ?? []), ...(older?.logs ?? [])].map((log) => {
               const detail = friendlyAuditDetail(log.detail);
               return (
                 <div key={log.id} className="flex flex-col gap-0.5 py-2.5 sm:flex-row sm:items-baseline sm:gap-3">
@@ -1682,6 +1696,13 @@ function AuditLogCard({ tenantId }: { tenantId: string }) {
                 </div>
               );
             })}
+            {olderCursor ? (
+              <div className="pt-3">
+                <Button variant="secondary" className="h-8" onClick={() => void loadOlder()} disabled={loadingOlder}>
+                  {loadingOlder ? "Memuat…" : "Muat lebih"}
+                </Button>
+              </div>
+            ) : null}
           </div>
         )}
       </CardBody>

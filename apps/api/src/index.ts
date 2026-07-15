@@ -123,10 +123,30 @@ async function ownerEmails(env: Env, tenantId: string): Promise<{ email: string;
  * - Trial akan berakhir ≤3 hari → email pengingat (sekali, ditandai via KV).
  * Saat billing gateway aktif, job ini juga akan membuat tagihan perpanjangan.
  */
+/** Grup stagger 0–2 per tenant: beban tugas bulanan disebar ke tanggal 1–3. */
+function monthlyGroup(tenantId: string): number {
+  let acc = 0;
+  for (const ch of tenantId) acc = (acc + ch.charCodeAt(0)) % 3;
+  return acc;
+}
+
+/** Marker idempoten tugas bulanan per tenant (KV): run yang mati di tengah
+ *  akan dilanjutkan hari berikutnya tanpa mengulang tenant yang sudah beres. */
+async function monthlyDone(env: Env, task: string, tenantId: string, month: string): Promise<boolean> {
+  return Boolean(await env.RATE_KV.get(`cron:m:${task}:${tenantId}:${month}`));
+}
+async function markMonthlyDone(env: Env, task: string, tenantId: string, month: string): Promise<void> {
+  await env.RATE_KV.put(`cron:m:${task}:${tenantId}:${month}`, "1", { expirationTtl: 40 * 86_400 });
+}
+
 async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
   await ensureMigrated(env);
   const mailer = getMailer(env);
   const nowIso = new Date().toISOString();
+  // Anggaran wall-clock lunak: Worker punya batas waktu/subrequest — lebih baik
+  // berhenti rapi (tenant sisa dilanjutkan run berikutnya via marker/idempotensi).
+  const startedMs = Date.now();
+  const overBudget = () => Date.now() - startedMs > 20_000;
 
   // 1) Trial berakhir → past_due + email.
   const { results: expired } = await env.DB.prepare(
@@ -178,20 +198,32 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
     await env.RATE_KV.put(kvKey, "1", { expirationTtl: 4 * 86_400 });
   }
 
-  // 3) Penyusutan aset tetap — jalankan sekali di awal bulan untuk bulan lalu.
-  //    Idempotent (unik per aset+periode), aman bila cron terpicu berulang.
+  // 3) Tugas bulanan (penyusutan, rekap, backup Drive) — jendela tanggal 1–3.
+  //    Fase 9a: beban disebar per grup tenant (tanggal 1/2/3) + marker KV
+  //    idempoten, sehingga run yang mati di tengah dilanjutkan tanpa mengulang
+  //    dan puncak subrequest hari-1 turun ~1/3. Semua tugas tetap idempoten di
+  //    lapis DB (unik per periode), marker hanya penghemat kerja ulang.
   const now = new Date();
-  if (now.getUTCDate() === 1) {
+  const day = now.getUTCDate();
+  if (day >= 1 && day <= 3) {
     const prev = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
     const period = prev.toISOString().slice(0, 7); // YYYY-MM bulan lalu
     const date = nowIso.slice(0, 10); // dijalankan hari ini (periode berjalan sudah terbuka)
     const { results: tenants } = await env.DB.prepare(
       `SELECT id, db_ref FROM tenants WHERE status IN ('active', 'trial')`,
     ).all<{ id: string; db_ref: string }>();
+    // Grup 0 diproses mulai tanggal 1, grup 1 mulai tanggal 2, grup 2 tanggal 3;
+    // tanggal 3 sekaligus menyapu semua yang belum bertanda (resume).
+    const dueTenants = tenants.filter((t) => day >= monthlyGroup(t.id) + 1);
 
     let depTenants = 0;
-    for (const t of tenants) {
+    for (const t of dueTenants) {
+      if (overBudget()) {
+        console.log(`[cron] anggaran waktu habis — penyusutan dilanjutkan run berikutnya`);
+        break;
+      }
       try {
+        if (await monthlyDone(env, "dep", t.id, period)) continue;
         const db = getTenantDb(env, t.db_ref);
         const res = await runDepreciation(db, period, date, "system");
         if ("count" in res && res.count > 0) {
@@ -203,6 +235,7 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
             .bind(crypto.randomUUID(), t.id, JSON.stringify({ period, count: res.count, total: res.total }), nowIso)
             .run();
         }
+        await markMonthlyDone(env, "dep", t.id, period);
       } catch (err) {
         console.error(`[cron] penyusutan tenant ${t.id} gagal:`, err);
       }
@@ -213,8 +246,13 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
     //     Idempotent (UNIQUE kind+period), aman bila cron terpicu berulang.
     const recapPeriod = previousMonth(nowIso);
     let recapTenants = 0;
-    for (const t of tenants) {
+    for (const t of dueTenants) {
+      if (overBudget()) {
+        console.log(`[cron] anggaran waktu habis — rekap dilanjutkan run berikutnya`);
+        break;
+      }
       try {
+        if (await monthlyDone(env, "recap", t.id, recapPeriod)) continue;
         const db = getTenantDb(env, t.db_ref);
         await runMonthlyRecap(db, recapPeriod, null);
         recapTenants++;
@@ -224,6 +262,7 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
         )
           .bind(crypto.randomUUID(), t.id, JSON.stringify({ period: recapPeriod }), nowIso)
           .run();
+        await markMonthlyDone(env, "recap", t.id, recapPeriod);
       } catch (err) {
         console.error(`[cron] rekap penjualan tenant ${t.id} gagal:`, err);
       }
@@ -238,11 +277,18 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
         `SELECT t.id, t.name, t.slug, t.db_ref FROM drive_connections dc JOIN tenants t ON t.id = dc.tenant_id`,
       ).all<{ id: string; name: string; slug: string; db_ref: string }>();
       let backedUp = 0;
-      for (const t of connected) {
+      for (const t of connected.filter((t) => day >= monthlyGroup(t.id) + 1)) {
+        if (overBudget()) {
+          console.log(`[cron] anggaran waktu habis — backup Drive dilanjutkan run berikutnya`);
+          break;
+        }
         try {
+          if (await monthlyDone(env, "drive", t.id, period)) continue;
           const res = await runDriveBackup(env, { id: t.id, name: t.name, slug: t.slug, dbRef: t.db_ref });
-          if (res.ok) backedUp++;
-          else console.error(`[cron] backup Drive tenant ${t.id} gagal: ${res.error}`);
+          if (res.ok) {
+            backedUp++;
+            await markMonthlyDone(env, "drive", t.id, period);
+          } else console.error(`[cron] backup Drive tenant ${t.id} gagal: ${res.error}`);
         } catch (err) {
           console.error(`[cron] backup Drive tenant ${t.id} galat:`, err);
         }
@@ -251,17 +297,23 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
     }
   }
 
-  // 4) Tagihan berulang — setiap hari terbitkan faktur kontrak yang jatuh tempo.
+  // 4) Tugas harian per tenant dalam SATU loop (Fase 9a — sebelumnya dua loop
+  //    terpisah menggandakan koneksi tenant): template jurnal terjadwal,
+  //    tagihan kontrak berulang, dan work order servis. Semuanya idempoten
+  //    (next_run_date / next_due_date dimajukan setelah diproses).
   const todayDate = nowIso.slice(0, 10);
   const { results: billTenants } = await env.DB.prepare(
     `SELECT id, db_ref FROM tenants WHERE status IN ('active', 'trial')`,
   ).all<{ id: string; db_ref: string }>();
   let billed = 0;
+  let woGenerated = 0;
   for (const t of billTenants) {
+    if (overBudget()) {
+      console.log(`[cron] anggaran waktu habis — tugas harian dilanjutkan run berikutnya`);
+      break;
+    }
     try {
       const db = getTenantDb(env, t.db_ref);
-      // Template jurnal berulang terjadwal (Fase 5d) — harian, idempotent
-      // karena next_run_date selalu dimajukan sebulan setelah diproses.
       const tpl = await runScheduledTemplates(db, todayDate, "system");
       if (tpl.posted > 0) console.log(`[cron] ${tpl.posted} jurnal template diposting untuk tenant ${t.id}`);
       const res = await runBilling(db, todayDate, "system");
@@ -274,31 +326,21 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
           .bind(crypto.randomUUID(), t.id, JSON.stringify(res), nowIso)
           .run();
       }
-    } catch (err) {
-      console.error(`[cron] tagihan berulang tenant ${t.id} gagal:`, err);
-    }
-  }
-  if (billed > 0) console.log(`[cron] ${billed} faktur kontrak diterbitkan`);
-
-  // 5) Servis aset — terbitkan work order untuk jadwal servis yang jatuh tempo.
-  let woGenerated = 0;
-  for (const t of billTenants) {
-    try {
-      const db = getTenantDb(env, t.db_ref);
-      const res = await runMaintenance(db, todayDate, "system");
-      if (res.generated > 0) {
-        woGenerated += res.generated;
+      const wo = await runMaintenance(db, todayDate, "system");
+      if (wo.generated > 0) {
+        woGenerated += wo.generated;
         await env.DB.prepare(
           `INSERT INTO audit_logs (id, tenant_id, user_id, action, detail, ip, created_at)
            VALUES (?, ?, NULL, 'maintenance.generated', ?, NULL, ?)`,
         )
-          .bind(crypto.randomUUID(), t.id, JSON.stringify(res), nowIso)
+          .bind(crypto.randomUUID(), t.id, JSON.stringify(wo), nowIso)
           .run();
       }
     } catch (err) {
-      console.error(`[cron] servis aset tenant ${t.id} gagal:`, err);
+      console.error(`[cron] tugas harian tenant ${t.id} gagal:`, err);
     }
   }
+  if (billed > 0) console.log(`[cron] ${billed} faktur kontrak diterbitkan`);
   if (woGenerated > 0) console.log(`[cron] ${woGenerated} work order servis diterbitkan`);
 }
 

@@ -315,25 +315,67 @@ export const accountingRoutes = new Hono<AppEnv>()
     const account = accounts[0];
     if (!account) return c.json({ error: "Akun tidak ditemukan." }, 404);
 
-    const { results: rows } = await db
-      .prepare(
-        `SELECT e.entry_no, e.entry_date, e.memo, l.description, l.debit, l.credit
-         FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id
-         WHERE l.account_id = ? AND e.status = 'posted'
-         ORDER BY e.entry_date, e.entry_no`,
-      )
-      .bind(accountId)
-      .all<{
-        entry_no: string;
-        entry_date: string;
-        memo: string | null;
-        description: string | null;
-        debit: number;
-        credit: number;
-      }>();
+    // Paginasi keyset (Fase 9a): default memuat `limit` baris TERBARU dengan
+    // saldo awal (openingBalance) dihitung agregat, sehingga saldo berjalan
+    // tetap benar. Kursor `before` (entry_date|entry_no|line_id) memuat
+    // jendela lebih lama. Tanpa parameter, akun kecil berperilaku persis lama.
+    const rawLimit = Number(c.req.query("limit") ?? "1000");
+    const limit = Number.isInteger(rawLimit) ? Math.min(Math.max(rawLimit, 1), 2000) : 1000;
+    const before = c.req.query("before");
 
-    let balance = 0;
+    type LedgerRow = {
+      line_id: string;
+      entry_no: string;
+      entry_date: string;
+      memo: string | null;
+      description: string | null;
+      debit: number;
+      credit: number;
+    };
+
+    let cursorCond = "";
+    const binds: unknown[] = [accountId];
+    if (before) {
+      const parts = before.split("|");
+      if (parts.length !== 3 || parts.some((p) => !p)) return c.json({ error: "Kursor tidak valid." }, 400);
+      cursorCond = ` AND (e.entry_date, e.entry_no, l.id) < (?, ?, ?)`;
+      binds.push(parts[0], parts[1], parts[2]);
+    }
+    binds.push(limit + 1);
+
+    const { results: newestFirst } = await db
+      .prepare(
+        `SELECT l.id AS line_id, e.entry_no, e.entry_date, e.memo, l.description, l.debit, l.credit
+         FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id
+         WHERE l.account_id = ? AND e.status = 'posted'${cursorCond}
+         ORDER BY e.entry_date DESC, e.entry_no DESC, l.id DESC
+         LIMIT ?`,
+      )
+      .bind(...binds)
+      .all<LedgerRow>();
+
+    const hasMore = newestFirst.length > limit;
+    const rows = newestFirst.slice(0, limit).reverse(); // urut naik untuk saldo berjalan
+
+    // Saldo sebelum baris pertama jendela (0 bila jendela mencakup semuanya).
     const debitNormal = account.type === "asset" || account.type === "expense";
+    let openingBalance = 0;
+    const first = rows[0];
+    if (first && (hasMore || before)) {
+      const agg = (
+        await db
+          .prepare(
+            `SELECT COALESCE(SUM(l.debit), 0) AS d, COALESCE(SUM(l.credit), 0) AS cr
+             FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id
+             WHERE l.account_id = ? AND e.status = 'posted' AND (e.entry_date, e.entry_no, l.id) < (?, ?, ?)`,
+          )
+          .bind(accountId, first.entry_date, first.entry_no, first.line_id)
+          .all<{ d: number; cr: number }>()
+      ).results[0];
+      openingBalance = debitNormal ? (agg?.d ?? 0) - (agg?.cr ?? 0) : (agg?.cr ?? 0) - (agg?.d ?? 0);
+    }
+
+    let balance = openingBalance;
     const entries = rows.map((r) => {
       balance += debitNormal ? r.debit - r.credit : r.credit - r.debit;
       return {
@@ -346,7 +388,8 @@ export const accountingRoutes = new Hono<AppEnv>()
       };
     });
 
-    return c.json({ account: toApiAccount(account), entries, balance });
+    const nextCursor = hasMore && first ? `${first.entry_date}|${first.entry_no}|${first.line_id}` : null;
+    return c.json({ account: toApiAccount(account), entries, balance, openingBalance, nextCursor });
   })
 
   // -------------------------------------------------------------------------

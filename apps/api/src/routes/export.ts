@@ -5,6 +5,7 @@ import { audit } from "../lib/audit";
 import { getTenantDb } from "../lib/tenantDb";
 import { buildZip, type ZipEntry } from "../lib/zip";
 import { requireAuth, requireTenantRole } from "../middleware/auth";
+import { rateLimitUser } from "../middleware/rateLimit";
 import { clientIp } from "./auth";
 
 /**
@@ -79,7 +80,7 @@ export async function buildTenantExportZip(
 export const exportRoutes = new Hono<AppEnv>()
   // Unduh seluruh data tenant sebagai ZIP. Owner-only; tetap tersedia saat
   // status past_due (baca-saja) — inilah jaminan portabilitas data.
-  .get("/:tenantId/export/full", requireAuth, requireTenantRole("owner"), async (c) => {
+  .get("/:tenantId/export/full", requireAuth, requireTenantRole("owner"), rateLimitUser({ key: "export-full", limit: 10, windowSeconds: 300 }), async (c) => {
     const tenant = c.get("tenant");
     const db = getTenantDb(c.env, tenant.dbRef);
     const { zip, tables } = await buildTenantExportZip(db, {

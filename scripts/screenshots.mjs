@@ -214,6 +214,14 @@ const MANIFESTS = {
     fullPage: true,
     shots: [{ route: "/app/pengaturan", name: "peran-ber-scope", waitMs: 1800 }],
   },
+  so9a: {
+    outDir: process.env.SO9A_OUT ?? path.join(tmpdir(), "erpindo-so9a"),
+    viewport: { width: 1440, height: 1800 },
+    theme: "light",
+    quality: 85,
+    fullPage: true,
+    shots: [{ route: "/app/pengaturan", name: "audit-log-berhalaman", waitMs: 1800 }],
+  },
   // Audit visual QA: halaman PENUH pada 3 viewport. Keluaran ke AUDIT_OUT
   // (default tmp) — TIDAK di-commit; alat review, bukan aset produk.
   audit: {
