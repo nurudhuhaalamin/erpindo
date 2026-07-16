@@ -186,6 +186,17 @@ const MANIFESTS = {
     fullPage: true,
     shots: [{ route: "/app/pengaturan", name: "audit-log-berhalaman", waitMs: 1800 }],
   },
+  // Set ad-hoc Fase 9c: sidebar taksonomi baru (pencarian + seksi lipat).
+  so9c: {
+    outDir: process.env.SO9C_OUT ?? path.join(tmpdir(), "erpindo-so9c"),
+    viewport: { width: 1440, height: 1500 },
+    theme: "light",
+    quality: 85,
+    shots: [
+      { route: "/app", name: "sidebar-taksonomi-baru", waitMs: 1800 },
+      { route: "/app/keuangan/laba-rugi", name: "sidebar-grup-laporan", waitMs: 1500 },
+    ],
+  },
   // Audit visual QA: halaman PENUH pada 3 viewport. Keluaran ke AUDIT_OUT
   // (default tmp) — TIDAK di-commit; alat review, bukan aset produk.
   audit: {

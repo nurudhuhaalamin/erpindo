@@ -3,8 +3,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   ArrowDownToLine,
+  ArrowLeftRight,
   ArrowUpFromLine,
+  BarChart3,
   Bell,
+  ChevronDown,
   CircleHelp,
   BookOpen,
   BookText,
@@ -14,6 +17,7 @@ import {
   CalendarClock,
   CheckSquare,
   ClipboardList,
+  Combine,
   Contact,
   Factory,
   FileSpreadsheet,
@@ -31,14 +35,17 @@ import {
   Menu,
   Moon,
   Package,
+  PackageSearch,
   PenLine,
   Percent,
   PiggyBank,
   Receipt,
   Check,
   Scale,
+  Search,
   Settings,
   ShoppingCart,
+  Sigma,
   SlidersHorizontal,
   Store,
   Sun,
@@ -88,13 +95,17 @@ export function useWorkspace(): Workspace {
 // Shell aplikasi: sidebar (desktop) / menu atas (mobile)
 // ---------------------------------------------------------------------------
 
+// Taksonomi menu (Fase 9c): grup Keuangan lama (18 item) dipecah menjadi
+// Keuangan (pencatatan), Laporan (baca-saja), dan Aset & Pajak; dua item yang
+// salah kelompok (Pemeliharaan, Laporan Penjualan) dipindah ke rumah barunya.
+// Rute, label, dan izin TIDAK berubah — hanya pengelompokan & ikon.
 const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; icon: LucideIcon; module?: PermissionKey }[] = [
   { to: "/app", label: "Dashboard", exact: true, icon: LayoutDashboard },
   { to: "/app/pos", label: "Kasir (POS)", exact: false, section: "Transaksi", icon: Store, module: "kasir" },
   { to: "/app/penjualan", label: "Penjualan", exact: false, section: "Transaksi", icon: Receipt, module: "penjualan" },
   { to: "/app/pesanan-penjualan", label: "Pesanan Penjualan", exact: false, section: "Transaksi", icon: ClipboardList, module: "penjualan" },
   { to: "/app/pembelian", label: "Pembelian", exact: false, section: "Transaksi", icon: ShoppingCart, module: "pembelian" },
-  { to: "/app/pengadaan", label: "Pengadaan", exact: false, section: "Transaksi", icon: ClipboardList, module: "pembelian" },
+  { to: "/app/pengadaan", label: "Pengadaan", exact: false, section: "Transaksi", icon: PackageSearch, module: "pembelian" },
   { to: "/app/stok", label: "Stok", exact: false, section: "Transaksi", icon: Boxes, module: "stok" },
   { to: "/app/manufaktur", label: "Manufaktur", exact: false, section: "Transaksi", icon: Factory, module: "proyek" },
   { to: "/app/crm/leads", label: "Pipeline", exact: false, section: "CRM", icon: Target, module: "crm" },
@@ -105,19 +116,20 @@ const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; 
   { to: "/app/keuangan/akun", label: "Bagan Akun", exact: false, section: "Keuangan", icon: ListTree, module: "keuangan" },
   { to: "/app/keuangan/jurnal", label: "Jurnal Umum", exact: false, section: "Keuangan", icon: BookText, module: "keuangan" },
   { to: "/app/keuangan/buku-besar", label: "Buku Besar", exact: false, section: "Keuangan", icon: BookOpen, module: "keuangan" },
-  { to: "/app/keuangan/neraca-saldo", label: "Neraca Saldo", exact: false, section: "Keuangan", icon: Scale, module: "keuangan" },
-  { to: "/app/keuangan/laba-rugi", label: "Laba Rugi", exact: false, section: "Keuangan", icon: LineChart, module: "laporan" },
-  { to: "/app/keuangan/neraca", label: "Neraca", exact: false, section: "Keuangan", icon: Scale, module: "laporan" },
-  { to: "/app/keuangan/arus-kas", label: "Arus Kas", exact: false, section: "Keuangan", icon: Wallet, module: "laporan" },
   { to: "/app/keuangan/anggaran", label: "Anggaran", exact: false, section: "Keuangan", icon: PiggyBank, module: "keuangan" },
   { to: "/app/keuangan/dimensi", label: "Dimensi & Rekon", exact: false, section: "Keuangan", icon: Layers, module: "keuangan" },
-  { to: "/app/keuangan/aset", label: "Aset Tetap", exact: false, section: "Keuangan", icon: Landmark, module: "keuangan" },
-  { to: "/app/maintenance", label: "Pemeliharaan", exact: false, section: "Keuangan", icon: Wrench, module: "proyek" },
   { to: "/app/keuangan/kurs", label: "Mata Uang", exact: false, section: "Keuangan", icon: Coins, module: "keuangan" },
-  { to: "/app/keuangan/umur-tagihan", label: "Umur Piutang/Hutang", exact: false, section: "Keuangan", icon: Hourglass, module: "laporan" },
-  { to: "/app/keuangan/e-faktur", label: "Ekspor e-Faktur", exact: false, section: "Keuangan", icon: FileSpreadsheet, module: "pajak" },
-  { to: "/app/keuangan/pajak", label: "Pajak", exact: false, section: "Keuangan", icon: Percent, module: "pajak" },
-  { to: "/app/laporan/penjualan", label: "Laporan Penjualan", exact: false, section: "Keuangan", icon: LineChart, module: "laporan" },
+  { to: "/app/konsolidasi", label: "Konsolidasi", exact: false, section: "Keuangan", icon: Combine, module: "keuangan" },
+  { to: "/app/keuangan/neraca-saldo", label: "Neraca Saldo", exact: false, section: "Laporan", icon: Sigma, module: "keuangan" },
+  { to: "/app/keuangan/laba-rugi", label: "Laba Rugi", exact: false, section: "Laporan", icon: LineChart, module: "laporan" },
+  { to: "/app/keuangan/neraca", label: "Neraca", exact: false, section: "Laporan", icon: Scale, module: "laporan" },
+  { to: "/app/keuangan/arus-kas", label: "Arus Kas", exact: false, section: "Laporan", icon: ArrowLeftRight, module: "laporan" },
+  { to: "/app/keuangan/umur-tagihan", label: "Umur Piutang/Hutang", exact: false, section: "Laporan", icon: Hourglass, module: "laporan" },
+  { to: "/app/laporan/penjualan", label: "Laporan Penjualan", exact: false, section: "Laporan", icon: BarChart3, module: "laporan" },
+  { to: "/app/keuangan/aset", label: "Aset Tetap", exact: false, section: "Aset & Pajak", icon: Landmark, module: "keuangan" },
+  { to: "/app/maintenance", label: "Pemeliharaan", exact: false, section: "Aset & Pajak", icon: Wrench, module: "proyek" },
+  { to: "/app/keuangan/pajak", label: "Pajak", exact: false, section: "Aset & Pajak", icon: Percent, module: "pajak" },
+  { to: "/app/keuangan/e-faktur", label: "Ekspor e-Faktur", exact: false, section: "Aset & Pajak", icon: FileSpreadsheet, module: "pajak" },
   { to: "/app/master/produk", label: "Produk", exact: false, section: "Master Data", icon: Package, module: "stok" },
   { to: "/app/master/kontak", label: "Kontak", exact: false, section: "Master Data", icon: Contact, module: "penjualan" },
   { to: "/app/master/gudang", label: "Gudang", exact: false, section: "Master Data", icon: Warehouse, module: "stok" },
@@ -125,10 +137,22 @@ const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; 
   { to: "/app/hr/absensi", label: "Absensi", exact: false, section: "HR", icon: CalendarCheck, module: "hr" },
   { to: "/app/proyek", label: "Proyek", exact: false, section: "Lainnya", icon: FolderKanban, module: "proyek" },
   { to: "/app/kontrak", label: "Kontrak Berulang", exact: false, section: "Lainnya", icon: CalendarClock, module: "proyek" },
-  { to: "/app/konsolidasi", label: "Konsolidasi", exact: false, section: "Lainnya", icon: Layers, module: "keuangan" },
   { to: "/app/persetujuan", label: "Persetujuan", exact: false, section: "Lainnya", icon: CheckSquare, module: "persetujuan" },
   { to: "/app/pengaturan", label: "Pengaturan", exact: false, section: "Lainnya", icon: Settings },
 ];
+
+// Seksi lipat (Fase 9c): daftar nama seksi yang dilipat, per pengguna.
+// Tidak ada simpanan = semua terbuka (perilaku lama persis).
+const NAV_COLLAPSE_KEY = "erpindo-nav-collapsed";
+
+function getCollapsedSections(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(NAV_COLLAPSE_KEY) ?? "[]");
+    return Array.isArray(raw) ? raw.filter((s): s is string => typeof s === "string") : [];
+  } catch {
+    return [];
+  }
+}
 
 /** Avatar inisial (maks 2 huruf) dengan warna brand — ala aplikasi SaaS. */
 function Avatar({ name }: { name: string }) {
@@ -305,6 +329,18 @@ export function AppShell() {
   const { dark, toggle } = useDarkMode();
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // Efisiensi navigasi (Fase 9c): pencarian menu + seksi lipat persisten.
+  const [navQuery, setNavQuery] = useState("");
+  const [collapsedSections, setCollapsedSections] = useState<string[]>(getCollapsedSections);
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const toggleSection = (name: string) => {
+    setCollapsedSections((prev) => {
+      const next = prev.includes(name) ? prev.filter((s) => s !== name) : [...prev, name];
+      localStorage.setItem(NAV_COLLAPSE_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
+
   const meQuery = useQuery({ queryKey: ["me"], queryFn: api.me, retry: false });
 
   // Izin modul efektif (RBAC granular Fase 7e) — untuk menyaring menu sidebar.
@@ -378,34 +414,79 @@ export function AppShell() {
   const allowedModules = permQuery.data?.permissions;
   const permitted = (item: (typeof NAV_ITEMS)[number]) => !item.module || !allowedModules || allowedModules.includes(item.module);
   const navItems = (simpleMode ? NAV_ITEMS.filter((item) => !SIMPLE_HIDDEN.has(item.to)) : NAV_ITEMS).filter(permitted);
+
+  // Pencarian menu: saat mencari, lipat diabaikan & seksi kosong tak berjudul.
+  const navFilter = navQuery.trim().toLowerCase();
+  const visibleItems = navFilter ? navItems.filter((item) => item.label.toLowerCase().includes(navFilter)) : navItems;
+  // Kelompokkan berurutan per seksi (butuh grup utuh untuk lipat/buka).
+  const navGroups: { section?: string; items: typeof navItems }[] = [];
+  for (const item of visibleItems) {
+    const last = navGroups[navGroups.length - 1];
+    if (last && last.section === item.section) last.items.push(item);
+    else navGroups.push({ section: item.section, items: [item] });
+  }
+  // Seksi rute aktif selalu terbuka agar posisi pengguna tak pernah tersembunyi.
+  const activeSection = navItems.find((item) => (item.exact ? pathname === item.to : pathname.startsWith(item.to)))?.section;
+
+  const navLink = (item: (typeof NAV_ITEMS)[number]) => (
+    <Link
+      key={item.to}
+      to={item.to}
+      activeOptions={{ exact: item.exact }}
+      activeProps={{
+        className:
+          "bg-brand-50 font-medium text-brand-700 ring-1 ring-inset ring-brand-200/70 dark:bg-brand-500/15 dark:text-brand-100 dark:ring-brand-400/20",
+      }}
+      inactiveProps={{
+        className:
+          "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-100",
+      }}
+      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors"
+      onClick={() => setMenuOpen(false)}
+    >
+      <item.icon className="size-4 shrink-0" aria-hidden />
+      {item.label}
+    </Link>
+  );
+
   const nav = (
     <nav className="flex flex-col gap-0.5 p-3">
-      {navItems.map((item, i) => (
-        <div key={item.to}>
-          {item.section && navItems[i - 1]?.section !== item.section ? (
-            <div className="mb-1 mt-4 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              {item.section}
-            </div>
-          ) : null}
-          <Link
-            to={item.to}
-            activeOptions={{ exact: item.exact }}
-            activeProps={{
-              className:
-                "bg-brand-50 font-medium text-brand-700 ring-1 ring-inset ring-brand-200/70 dark:bg-brand-500/15 dark:text-brand-100 dark:ring-brand-400/20",
-            }}
-            inactiveProps={{
-              className:
-                "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-100",
-            }}
-            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors"
-            onClick={() => setMenuOpen(false)}
-          >
-            <item.icon className="size-4 shrink-0" aria-hidden />
-            {item.label}
-          </Link>
-        </div>
-      ))}
+      <div className="relative mb-1">
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" aria-hidden />
+        <input
+          value={navQuery}
+          onChange={(e) => setNavQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setNavQuery("");
+          }}
+          placeholder="Cari menu…"
+          aria-label="Cari menu"
+          className="w-full rounded-lg border border-slate-200 bg-transparent py-1.5 pl-8 pr-2 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-brand-400 dark:border-slate-700 dark:text-slate-200 dark:focus:border-brand-500"
+        />
+      </div>
+      {navGroups.map((group) => {
+        const isCollapsed =
+          !navFilter && Boolean(group.section) && group.section !== activeSection && collapsedSections.includes(group.section!);
+        return (
+          <div key={group.section ?? "utama"}>
+            {group.section ? (
+              <button
+                type="button"
+                onClick={() => toggleSection(group.section!)}
+                aria-expanded={!isCollapsed}
+                className="mb-1 mt-4 flex w-full items-center justify-between px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+              >
+                {group.section}
+                <ChevronDown className={`size-3.5 transition-transform ${isCollapsed ? "-rotate-90" : ""}`} aria-hidden />
+              </button>
+            ) : null}
+            {isCollapsed ? null : group.items.map(navLink)}
+          </div>
+        );
+      })}
+      {visibleItems.length === 0 ? (
+        <p className="px-3 py-2 text-sm text-slate-400 dark:text-slate-500">Tidak ada menu cocok.</p>
+      ) : null}
       <a
         href="/panduan"
         target="_blank"
