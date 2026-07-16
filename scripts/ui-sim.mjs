@@ -358,6 +358,43 @@ try {
   check("F13 menonaktifkan Mode Sederhana memulihkan menu", navAfter === navBefore, `→ ${navAfter}`);
   check("F13 pengaturan bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
 
+  // F14 — Navigasi (Fase 9c): taksonomi baru + pencarian menu + seksi lipat.
+  resetErrors();
+  await gotoRoute("/app", 900);
+  const sectionHeads = await page.locator("aside nav button:visible").allInnerTexts();
+  check(
+    "F14 taksonomi: seksi 'Laporan' dan 'Aset & Pajak' hadir",
+    // CSS `uppercase` membuat innerText kapital semua — bandingkan tanpa kapitalisasi.
+    sectionHeads.some((t) => t.trim().toLowerCase() === "laporan") &&
+      sectionHeads.some((t) => t.trim().toLowerCase() === "aset & pajak"),
+    `→ ${sectionHeads.join(", ")}`,
+  );
+  check("F14 'Pemeliharaan' pindah ke grup baru dan tetap terjangkau",
+    await page.locator("aside nav a:visible", { hasText: "Pemeliharaan" }).count() === 1);
+  const navLinks = () => page.locator("aside nav a:visible").filter({ hasNotText: "Panduan" }).count();
+  const allLinks = await navLinks();
+  const searchBox = page.locator('input[aria-label="Cari menu"]:visible').first();
+  await searchBox.fill("kontak");
+  await page.waitForTimeout(300);
+  const filtered = await navLinks();
+  check("F14 pencarian 'kontak' menyaring ke 1 menu Kontak",
+    filtered === 1 && (await page.locator("aside nav a:visible", { hasText: "Kontak" }).count()) === 1,
+    `→ ${filtered} tautan`);
+  await searchBox.press("Escape");
+  await page.waitForTimeout(300);
+  check("F14 Escape membersihkan pencarian (menu pulih)", (await navLinks()) === allLinks);
+  // Lipat seksi Master Data → 3 tautan hilang; persist setelah muat ulang.
+  await page.locator("aside nav button:visible", { hasText: "Master Data" }).click();
+  await page.waitForTimeout(300);
+  const afterCollapse = await navLinks();
+  check("F14 melipat 'Master Data' menyembunyikan 3 menu", allLinks - afterCollapse === 3, `→ ${allLinks} vs ${afterCollapse}`);
+  await gotoRoute("/app", 900);
+  check("F14 lipatan persisten setelah muat ulang", (await navLinks()) === afterCollapse);
+  await page.locator("aside nav button:visible", { hasText: "Master Data" }).click();
+  await page.waitForTimeout(300);
+  check("F14 membuka lipatan memulihkan menu", (await navLinks()) === allLinks);
+  check("F14 navigasi bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
+
   await ctx.close();
   await browser.close();
   browser = undefined;
