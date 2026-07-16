@@ -512,7 +512,7 @@ try {
 
   await gotoRoute("/app/alat", 700);
   const alatBody = await page.innerText("body");
-  check("F19 kalkulator render (HPP + hasil Rupiah)", alatBody.includes("Harga Pokok Produksi") && /Rp\s?[1-9]/.test(alatBody.replace(/ /g, " ")));
+  check("F19 kalkulator render (HPP + hasil Rupiah)", alatBody.includes("Harga Pokok Produksi") && /Rp\s?[1-9]/.test(alatBody.replace(/\u00A0/g, " ")));
   await page.getByRole("tab", { name: "PPh 21 (TER)" }).click();
   await page.waitForTimeout(400);
   check("F19 kalkulator PPh 21 TER menampilkan tarif efektif", (await page.innerText("body")).includes("Tarif efektif"));
