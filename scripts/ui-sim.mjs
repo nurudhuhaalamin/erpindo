@@ -408,6 +408,27 @@ try {
   check("F14 membuka lipatan memulihkan menu", (await navLinks()) === allLinks);
   check("F14 navigasi bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
 
+  // F15 — Fase 10b: landing harga tunggal + masuk mode demo tanpa daftar.
+  // Dijalankan TERAKHIR karena tombol demo mengganti cookie sesi konteks ini.
+  console.log("3. Landing harga tunggal & mode demo (Fase 10b)");
+  resetErrors();
+  await gotoRoute("/", 600);
+  const landingText = (await page.innerText("body")).replace(/\u00A0/g, " ");
+  check(
+    "F15 landing menampilkan harga tunggal Rp 389.000",
+    /Rp\s?389\.000/.test(landingText),
+    `→ tidak ditemukan di landing`,
+  );
+  const demoButtons = await page.getByRole("button", { name: /Lihat Demo/ }).count();
+  check("F15 landing memuat tombol 'Lihat Demo'", demoButtons >= 1, `→ ${demoButtons} tombol`);
+  await page.getByRole("button", { name: /Lihat Demo/ }).first().click();
+  await page.waitForURL("**/app", { timeout: 30_000 });
+  await page.waitForTimeout(1500);
+  const demoBody = await page.innerText("body");
+  check("F15 masuk demo tanpa daftar → banner 'Mode demo' tampil", demoBody.includes("Mode demo"));
+  check("F15 sesi demo berada di PT Demo Sejahtera", demoBody.includes("PT Demo Sejahtera"));
+  check("F15 mode demo bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
+
   await ctx.close();
   await browser.close();
   browser = undefined;

@@ -14,12 +14,12 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { TRIAL_DAYS, type Plan } from "@erpindo/shared";
+import { TRIAL_DAYS } from "@erpindo/shared";
 
 /** Konten seksi landing — dipisah dari markup agar mudah dirawat. */
 
 export const TRUST_POINTS = [
-  { value: "390+", label: "uji otomatis menjaga tiap rilis" },
+  { value: "800+", label: "uji otomatis menjaga tiap rilis" },
   { value: "1 database / perusahaan", label: "data Anda benar-benar terisolasi" },
   { value: "PPh 21 TER · Coretax", label: "standar pajak Indonesia 2026" },
   { value: "PWA offline", label: "tetap jalan saat internet putus" },
@@ -120,27 +120,48 @@ export const COMPARISON: { topic: string; manual: string; erpindo: string }[] = 
   { topic: "Tagihan telat", manual: "Baru sadar saat kas menipis", erpindo: "Umur piutang + lonceng pengingat jatuh tempo" },
 ];
 
-export const PLAN_CARDS: { plan: Exclude<Plan, "trial">; tagline: string; highlight?: boolean; perks: string[] }[] = [
-  {
-    plan: "starter",
-    tagline: "Untuk usaha kecil yang mulai rapi",
-    perks: ["Semua fitur inti & lanjutan", "Laporan lengkap + ekspor Excel", "PWA — jalan di HP & offline", "Dukungan via email"],
-  },
-  {
-    plan: "business",
-    tagline: "Untuk tim yang sedang bertumbuh",
-    highlight: true,
-    perks: ["Semua fitur, tanpa batasan", "Lebih banyak anggota tim", "Multi-gudang & persetujuan", "Dukungan prioritas"],
-  },
-  {
-    plan: "enterprise",
-    tagline: "Skala besar & multi-perusahaan",
-    perks: ["Pengguna tak terbatas", "Konsolidasi multi-perusahaan", "Onboarding & migrasi data", "SLA + manajer akun khusus"],
-  },
+/**
+ * Fase 10b — SATU paket untuk semua. Tidak ada tingkatan, tidak ada fitur yang
+ * dikunci: bayar satu harga, dapat seluruh sistem.
+ */
+export const SINGLE_PLAN_PERKS = [
+  "Pengguna tak terbatas — ajak seluruh tim tanpa biaya tambahan",
+  "Multi-perusahaan + laporan konsolidasi dalam satu akun",
+  "Data milik Anda: ekspor semua data kapan pun, termasuk setelah berhenti",
+  "Asisten AI, PWA offline, dan pembaruan fitur tanpa biaya ekstra",
+];
+
+/** Daftar modul yang semuanya termasuk dalam satu harga. */
+export const SINGLE_PLAN_MODULES = [
+  "Akuntansi double-entry",
+  "Faktur & PPN (Coretax)",
+  "Kasir (POS) + shift kas",
+  "Stok multi-gudang & FEFO",
+  "Penjualan SO → Surat Jalan",
+  "Pembelian & pengadaan",
+  "Gaji + PPh 21 TER + BPJS",
+  "Absensi & cuti karyawan",
+  "CRM pipeline & penawaran",
+  "Proyek, RAB & timesheet",
+  "Manufaktur, BoM & QC",
+  "Aset tetap & penyusutan",
+  "Pajak UMKM & e-Faktur",
+  "Anggaran & rekonsiliasi bank",
+  "Persetujuan berjenjang",
+  "Laporan lengkap + Excel",
+];
+
+export const SECURITY_POINTS: { title: string; desc: string }[] = [
+  { title: "Database terpisah per perusahaan", desc: "Data Anda tidak bercampur dengan pengguna lain — setiap perusahaan berdiri di database sendiri." },
+  { title: "Verifikasi dua langkah (2FA)", desc: "Lindungi akun dengan kode dari aplikasi authenticator, bukan hanya password." },
+  { title: "Peran akses & audit log", desc: "Atur siapa boleh apa, dan setiap perubahan penting terekam jejaknya." },
+  { title: "Data Anda milik Anda", desc: "Unduh seluruh data (ZIP berisi CSV) kapan pun — bahkan setelah langganan berakhir." },
 ];
 
 export const FAQ = [
   { q: "Apakah butuh kartu kredit untuk mencoba?", a: `Tidak. Uji coba ${TRIAL_DAYS} hari gratis dengan semua fitur — tanpa kartu kredit, siap dipakai dalam 1 menit.` },
+  { q: "Kenapa hanya ada satu paket harga?", a: "Karena kami percaya UMKM tidak perlu membanding-bandingkan tabel fitur. Satu harga — Rp 389.000 per bulan — sudah berisi seluruh modul dan pengguna tak terbatas. Tidak ada fitur yang dikunci di paket yang lebih mahal." },
+  { q: "Bisakah melihat-lihat dulu tanpa mendaftar?", a: "Bisa. Klik \"Lihat Demo\" untuk masuk ke perusahaan contoh yang datanya sudah terisi lengkap — mode baca-saja, tanpa membuat akun." },
   { q: "Apakah data saya aman dan terpisah?", a: "Ya. Setiap perusahaan punya database sendiri (terisolasi), dilengkapi peran & hak akses, verifikasi dua langkah (2FA), audit log, dan tutup buku." },
   { q: "Bisakah mengelola beberapa perusahaan?", a: "Bisa — dari satu akun Anda dapat membuat beberapa badan usaha, lalu melihat laporan Laba Rugi & Neraca konsolidasi lintas perusahaan." },
   { q: "Apakah mendukung PPN dan Coretax?", a: "Ya. PPN dihitung otomatis di faktur (termasuk DPP nilai lain 11/12 sesuai PMK 131/2024), dan faktur keluaran bisa diunduh sebagai XML yang langsung diimpor ke Coretax DJP. Payroll menghitung PPh 21 metode TER + BPJS." },
@@ -148,6 +169,7 @@ export const FAQ = [
   { q: "Berapa lama proses setup-nya?", a: "Daftar, verifikasi email, dan langsung pakai — bagan akun standar Indonesia sudah tersedia otomatis. Checklist 'Mulai cepat' memandu langkah pertama Anda." },
   { q: "Saya sudah punya data di Excel. Bisa dipindahkan?", a: "Bisa. Impor produk dan kontak dari berkas CSV/Excel dengan pratinjau & laporan per baris, jadi tidak perlu mengetik ulang." },
   { q: "Bagaimana cara pembayaran langganan?", a: "Saat ini aktivasi paket dilakukan dengan menghubungi kami. Pembayaran online (QRIS/transfer/e-wallet) sedang disiapkan." },
+  { q: "Bagaimana jika saya berhenti berlangganan?", a: "Data Anda tetap milik Anda. Akun beralih ke mode baca-saja dan Anda tetap bisa mengunduh seluruh data (ZIP berisi CSV per tabel) kapan pun." },
 ];
 
 export function formatRupiah(n: number): string {

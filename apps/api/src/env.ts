@@ -35,6 +35,13 @@ export type Env = {
    */
   COMPED_EMAILS?: string;
 
+  /**
+   * Override slug perusahaan demo publik (Fase 10b). Default
+   * "pt-demo-sejahtera"; suite uji menunjuk tenant lain karena pool DB
+   * tenant lokal terbatas.
+   */
+  DEMO_TENANT_SLUG?: string;
+
   // Secret opsional (produksi).
   /** OAuth Google (backup Drive, Fase 8b). Tanpa keduanya fitur Drive nonaktif anggun. */
   GOOGLE_CLIENT_ID?: string;

@@ -123,6 +123,24 @@ function isComped(env: Env, email: string): boolean {
     .includes(email.toLowerCase());
 }
 
+/**
+ * Akun demo publik baca-saja (Fase 10b): satu user tetap ber-peran viewer di
+ * perusahaan demo. Endpoint /demo membuat user & keanggotaannya sendiri saat
+ * pertama dipakai (perusahaan demo harus sudah di-seed). Password-nya acak dan
+ * tidak pernah keluar dari proses, jadi jalur login biasa selalu gagal —
+ * satu-satunya pintu masuk adalah /demo.
+ */
+const DEMO_EMAIL = "demo-viewer@erpindo.id";
+// Slug perusahaan demo; var DEMO_TENANT_SLUG meng-override untuk suite uji
+// (pool DB tenant lokal terbatas — smoke menunjuk tenant yang sudah ada).
+const DEMO_TENANT_SLUG_DEFAULT = "pt-demo-sejahtera";
+
+function isDemoUser(email: string): boolean {
+  return email.toLowerCase() === DEMO_EMAIL;
+}
+
+const DEMO_FORBIDDEN = { error: "Akun demo hanya untuk melihat-lihat. Daftar gratis untuk mengelola data Anda sendiri." };
+
 export const authRoutes = new Hono<AppEnv>()
 
   // -------------------------------------------------------------------------
@@ -218,6 +236,7 @@ export const authRoutes = new Hono<AppEnv>()
   // Fondasi bagi pengalih workspace & laporan konsolidasi lintas perusahaan.
   // -------------------------------------------------------------------------
   .post("/companies", requireAuth, async (c) => {
+    if (isDemoUser(c.get("user").email)) return c.json(DEMO_FORBIDDEN, 403);
     const parsed = createCompanySchema.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success) {
       return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
@@ -322,6 +341,52 @@ export const authRoutes = new Hono<AppEnv>()
     return c.json({ ok: true });
   })
 
+  // -------------------------------------------------------------------------
+  // Sesi demo publik (Fase 10b): tombol "Lihat Demo" di landing — tanpa
+  // daftar, langsung masuk sebagai viewer di perusahaan demo. Server-side
+  // read-only murni: peran viewer ditolak oleh requireTenantRole di semua
+  // endpoint tulis tenant, dan endpoint mutasi akun memblokir email demo.
+  // -------------------------------------------------------------------------
+  .post("/demo", rateLimit({ key: "demo", limit: 10, windowSeconds: 300 }), async (c) => {
+    const tenant = await c.env.DB.prepare(
+      `SELECT id FROM tenants WHERE slug LIKE ? AND status != 'suspended' ORDER BY created_at LIMIT 1`,
+    )
+      .bind(`${c.env.DEMO_TENANT_SLUG ?? DEMO_TENANT_SLUG_DEFAULT}%`)
+      .first<{ id: string }>();
+    if (!tenant) return c.json({ error: "Akun demo belum disiapkan." }, 404);
+
+    let user = await c.env.DB.prepare(`SELECT id FROM users WHERE email = ?`)
+      .bind(DEMO_EMAIL)
+      .first<{ id: string }>();
+    if (!user) {
+      const userId = crypto.randomUUID();
+      // Password acak yang tidak pernah dicetak — login password mustahil.
+      await c.env.DB.prepare(
+        `INSERT OR IGNORE INTO users (id, email, name, password_hash, email_verified, created_at) VALUES (?, ?, 'Pengunjung Demo', ?, 1, ?)`,
+      )
+        .bind(userId, DEMO_EMAIL, await hashPassword(generateToken()), now())
+        .run();
+      user = await c.env.DB.prepare(`SELECT id FROM users WHERE email = ?`).bind(DEMO_EMAIL).first<{ id: string }>();
+    }
+    if (!user) return c.json({ error: "Akun demo belum disiapkan." }, 404);
+
+    const membership = await c.env.DB.prepare(`SELECT id FROM memberships WHERE user_id = ? AND tenant_id = ?`)
+      .bind(user.id, tenant.id)
+      .first<{ id: string }>();
+    if (!membership) {
+      await c.env.DB.prepare(
+        `INSERT INTO memberships (id, user_id, tenant_id, role, created_at) VALUES (?, ?, ?, 'viewer', ?)`,
+      )
+        .bind(crypto.randomUUID(), user.id, tenant.id, now())
+        .run();
+    }
+
+    const session = await createSession(c.env, user.id);
+    setSessionCookie(c, session, appOrigin(c));
+    await audit(c.env, { action: "auth.demo_login", userId: user.id, tenantId: tenant.id, ip: clientIp(c) });
+    return c.json({ ok: true });
+  })
+
   .post("/logout", requireAuth, async (c) => {
     await c.env.DB.prepare(`DELETE FROM sessions WHERE id = ?`).bind(c.get("user").sessionId).run();
     deleteCookie(c, SESSION_COOKIE, { path: "/" });
@@ -357,6 +422,7 @@ export const authRoutes = new Hono<AppEnv>()
         email: user.email,
         emailVerified: user.emailVerified,
         totpEnabled: totpRow?.totp_enabled === 1,
+        ...(isDemoUser(user.email) ? { isDemo: true } : {}),
       },
       memberships: results.map((r) => ({
         tenantId: r.tenant_id,
@@ -375,6 +441,7 @@ export const authRoutes = new Hono<AppEnv>()
   // Profil pengguna
   // -------------------------------------------------------------------------
   .patch("/profile", requireAuth, async (c) => {
+    if (isDemoUser(c.get("user").email)) return c.json(DEMO_FORBIDDEN, 403);
     const parsed = updateProfileSchema.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success) {
       return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
@@ -386,6 +453,7 @@ export const authRoutes = new Hono<AppEnv>()
   })
 
   .post("/change-password", requireAuth, async (c) => {
+    if (isDemoUser(c.get("user").email)) return c.json(DEMO_FORBIDDEN, 403);
     const parsed = changePasswordSchema.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success) {
       return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
@@ -416,6 +484,7 @@ export const authRoutes = new Hono<AppEnv>()
   // -------------------------------------------------------------------------
   .post("/2fa/setup", requireAuth, async (c) => {
     const user = c.get("user");
+    if (isDemoUser(user.email)) return c.json(DEMO_FORBIDDEN, 403);
     const row = await c.env.DB.prepare(`SELECT totp_enabled FROM users WHERE id = ?`)
       .bind(user.id)
       .first<{ totp_enabled: number }>();
@@ -430,6 +499,7 @@ export const authRoutes = new Hono<AppEnv>()
 
   .post("/2fa/enable", requireAuth, async (c) => {
     const user = c.get("user");
+    if (isDemoUser(user.email)) return c.json(DEMO_FORBIDDEN, 403);
     const code = String((await c.req.json().catch(() => ({}))).code ?? "");
     const row = await c.env.DB.prepare(`SELECT totp_secret FROM users WHERE id = ?`)
       .bind(user.id)

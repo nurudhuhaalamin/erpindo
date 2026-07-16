@@ -606,7 +606,15 @@ export function AppShell() {
             {sidebarContent}
           </aside>
 
-          {!me.user.emailVerified ? (
+          {me.user.isDemo ? (
+            <div className="border-b border-brand-200 bg-brand-50 px-4 py-2 text-sm text-brand-800 dark:border-brand-900 dark:bg-brand-950 dark:text-brand-200">
+              <strong>Mode demo</strong> — data hanya bisa dilihat, tidak bisa diubah.{" "}
+              <a href="/daftar" className="font-medium underline">
+                Daftar gratis
+              </a>{" "}
+              untuk mengelola bisnis Anda sendiri.
+            </div>
+          ) : !me.user.emailVerified ? (
             <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
               Email Anda belum diverifikasi. Periksa kotak masuk untuk tautan verifikasi.
             </div>

@@ -54,6 +54,11 @@ const child = spawn(
     // Uji jalur akun comped (Fase 4a): email Dewi mendapat tenant aktif permanen.
     "--var",
     "COMPED_EMAILS:dewi@majujaya.co.id",
+    // Akun demo publik (Fase 10b): pool DB tenant lokal terbatas (6), jadi
+    // perusahaan demo dites pada tenant comped yang sudah ada (Cabang Dewi —
+    // status aktif permanen sehingga penolakan tulis = 403 role, bukan 402).
+    "--var",
+    "DEMO_TENANT_SLUG:cabang-dewi",
   ],
   { cwd: apiDir, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, CI: "1" } },
 );
@@ -148,6 +153,11 @@ try {
     password: "rahasia-kuat-123",
   });
   check("register 201", reg.status === 201, `→ ${reg.status} ${JSON.stringify(reg.json)}`);
+
+  // Fase 10b: sebelum perusahaan demo (slug DEMO_TENANT_SLUG) ada, tombol
+  // "Lihat Demo" harus mendapat 404 yang jelas, bukan galat server.
+  const demoTooEarly = await makeClient()("POST", "/api/auth/demo");
+  check("demo 404 sebelum perusahaan demo di-seed", demoTooEarly.status === 404, `→ ${JSON.stringify(demoTooEarly.json)}`);
   const tenantId = reg.json?.tenantId;
   check("tenantId & slug diberikan", Boolean(tenantId && reg.json?.slug === "pt-maju-jaya"));
 
@@ -3645,6 +3655,39 @@ try {
 
   const tbAfterClose = await admin("GET", `/api/tenants/${dewiOwn.tenantId}/trial-balance`);
   check("neraca saldo tetap seimbang setelah seluruh alur 5d", tbAfterClose.status === 200 && tbAfterClose.json?.balanced === true);
+
+  // --- Fase 10b: akun demo publik baca-saja ------------------------------------
+  // Perusahaan demo dites pada tenant comped "Cabang Dewi" (via var
+  // DEMO_TENANT_SLUG) — pool DB tenant lokal sudah terpakai penuh, dan status
+  // aktif permanen menjamin penolakan tulis datang dari peran (403), bukan
+  // mode baca-saja langganan (402).
+  console.log("14g. Akun demo publik baca-saja (Fase 10b)");
+  const demoVisitor = makeClient();
+  const demoIn = await demoVisitor("POST", "/api/auth/demo");
+  check("masuk demo 200 tanpa mendaftar", demoIn.status === 200, `→ ${JSON.stringify(demoIn.json)}`);
+  const demoMe = await demoVisitor("GET", "/api/auth/me");
+  const demoMembership = demoMe.json?.memberships?.[0];
+  check(
+    "sesi demo = viewer di perusahaan demo + flag isDemo",
+    demoMe.status === 200 &&
+      demoMe.json?.user?.isDemo === true &&
+      demoMe.json?.memberships?.length === 1 &&
+      demoMembership?.role === "viewer" &&
+      (demoMembership?.tenantSlug ?? "").startsWith("cabang-dewi"),
+    `→ ${JSON.stringify(demoMe.json?.user)} ${JSON.stringify(demoMembership)}`,
+  );
+  const demoRead = await demoVisitor("GET", `/api/tenants/${demoMembership?.tenantId}/products`);
+  check("demo boleh membaca data tenant (200)", demoRead.status === 200, `→ HTTP ${demoRead.status}`);
+  const demoWrite = await demoVisitor("POST", `/api/tenants/${demoMembership?.tenantId}/products`, {});
+  check("demo DITOLAK menulis data tenant (403)", demoWrite.status === 403, `→ HTTP ${demoWrite.status}`);
+  const demoCompany = await demoVisitor("POST", "/api/auth/companies", { companyName: "Usaha Demo Baru" });
+  check("demo DITOLAK membuat perusahaan baru (403)", demoCompany.status === 403, `→ HTTP ${demoCompany.status}`);
+  const demoProfile = await demoVisitor("PATCH", "/api/auth/profile", { name: "Iseng" });
+  check("demo DITOLAK mengubah profil (403)", demoProfile.status === 403, `→ HTTP ${demoProfile.status}`);
+  const demo2fa = await demoVisitor("POST", "/api/auth/2fa/setup");
+  check("demo DITOLAK setup 2FA (403)", demo2fa.status === 403, `→ HTTP ${demo2fa.status}`);
+  const demoAgain = await makeClient()("POST", "/api/auth/demo");
+  check("masuk demo kedua 200 (idempoten — user demo dipakai ulang)", demoAgain.status === 200, `→ HTTP ${demoAgain.status}`);
 
   // --- Logout -----------------------------------------------------------------
   console.log("15. Logout");
