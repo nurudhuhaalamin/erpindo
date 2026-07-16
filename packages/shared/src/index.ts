@@ -131,18 +131,26 @@ export const TRIAL_DAYS = 30;
 export const PLANS = ["trial", "starter", "business", "enterprise"] as const;
 export type Plan = (typeof PLANS)[number];
 
+/**
+ * Fase 10b: satu harga untuk semua — paket "Lengkap" Rp389.000/bulan berisi
+ * SELURUH fitur tanpa batas pengguna. Nilai enum kolom `plan` lama TIDAK
+ * diubah (aman untuk data yang sudah ada); semua nilai berbayar kini dilabeli
+ * dan dihargai sama.
+ */
+export const SINGLE_PLAN = { label: "Lengkap", pricePerMonth: 389_000 } as const;
+
 export const PLAN_LABELS: Record<Plan, string> = {
   trial: "Trial",
-  starter: "Starter",
-  business: "Bisnis",
-  enterprise: "Enterprise",
+  starter: SINGLE_PLAN.label,
+  business: SINGLE_PLAN.label,
+  enterprise: SINGLE_PLAN.label,
 };
 
 export const PLAN_LIMITS: Record<Plan, { maxUsers: number; pricePerMonth: number }> = {
-  trial: { maxUsers: 3, pricePerMonth: 0 },
-  starter: { maxUsers: 3, pricePerMonth: 149_000 },
-  business: { maxUsers: 10, pricePerMonth: 349_000 },
-  enterprise: { maxUsers: Number.MAX_SAFE_INTEGER, pricePerMonth: 799_000 },
+  trial: { maxUsers: Number.MAX_SAFE_INTEGER, pricePerMonth: 0 },
+  starter: { maxUsers: Number.MAX_SAFE_INTEGER, pricePerMonth: SINGLE_PLAN.pricePerMonth },
+  business: { maxUsers: Number.MAX_SAFE_INTEGER, pricePerMonth: SINGLE_PLAN.pricePerMonth },
+  enterprise: { maxUsers: Number.MAX_SAFE_INTEGER, pricePerMonth: SINGLE_PLAN.pricePerMonth },
 };
 
 // ---------------------------------------------------------------------------
@@ -237,6 +245,8 @@ export type ApiUser = {
   email: string;
   emailVerified: boolean;
   totpEnabled: boolean;
+  /** true hanya pada sesi akun demo publik baca-saja (Fase 10b). */
+  isDemo?: boolean;
 };
 
 export type ApiMembership = {

@@ -1,9 +1,20 @@
-import { PLAN_LABELS, PLAN_LIMITS, TRIAL_DAYS } from "@erpindo/shared";
+import { SINGLE_PLAN, TRIAL_DAYS } from "@erpindo/shared";
 import { Link } from "@tanstack/react-router";
-import { Check, Menu, Moon, Sparkles, Sun, X } from "lucide-react";
+import { Check, Eye, Menu, Moon, ShieldCheck, Sparkles, Sun, X } from "lucide-react";
 import { useState } from "react";
+import { api } from "../../api/client";
 import { BrandWordmark, Button, useDarkMode } from "../../components/ui";
-import { COMPARISON, FAQ, FEATURE_GROUPS, formatRupiah, PLAN_CARDS, SHOWCASE, TRUST_POINTS } from "./sections";
+import {
+  COMPARISON,
+  FAQ,
+  FEATURE_GROUPS,
+  formatRupiah,
+  SECURITY_POINTS,
+  SHOWCASE,
+  SINGLE_PLAN_MODULES,
+  SINGLE_PLAN_PERKS,
+  TRUST_POINTS,
+} from "./sections";
 
 /**
  * Landing page marketing — halaman konversi utama. Konten di sections.ts;
@@ -85,6 +96,39 @@ function Header() {
   );
 }
 
+/**
+ * Tombol "Lihat Demo" — membuat sesi baca-saja di perusahaan demo tanpa
+ * mendaftar (POST /api/auth/demo), lalu pindah ke aplikasi. Navigasi keras
+ * agar sesi & /me dimuat segar.
+ */
+function DemoButton({ size = "lg" }: { size?: "md" | "lg" }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  return (
+    <span className="inline-flex flex-col items-center">
+      <Button
+        variant="secondary"
+        size={size}
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          setError("");
+          api
+            .demoLogin()
+            .then(() => window.location.assign("/app"))
+            .catch((err: Error) => {
+              setError(err.message || "Demo sedang tidak tersedia. Coba daftar gratis saja.");
+              setBusy(false);
+            });
+        }}
+      >
+        <Eye className="size-4" aria-hidden /> {busy ? "Menyiapkan demo…" : "Lihat Demo"}
+      </Button>
+      {error ? <span className="mt-1 text-xs text-red-500">{error}</span> : null}
+    </span>
+  );
+}
+
 function Hero() {
   return (
     <section className="relative overflow-hidden">
@@ -103,17 +147,15 @@ function Hero() {
           Catat transaksi sekali — jurnal double-entry, stok, laporan keuangan, PPN, sampai PPh 21 karyawan beres
           sendiri. Siap Coretax 2026.
         </p>
-        <div className="mt-8 flex flex-wrap justify-center gap-3">
+        <div className="mt-8 flex flex-wrap items-start justify-center gap-3">
           <Link to="/daftar">
             <Button size="lg">Coba Gratis {TRIAL_DAYS} Hari</Button>
           </Link>
-          <a href="#fitur">
-            <Button variant="secondary" size="lg">
-              Lihat Fitur
-            </Button>
-          </a>
+          <DemoButton />
         </div>
-        <p className="mt-3 text-xs text-slate-400">Tanpa kartu kredit · siap dipakai dalam 1 menit</p>
+        <p className="mt-3 text-xs text-slate-400">
+          Tanpa kartu kredit · siap dipakai dalam 1 menit · demo tanpa daftar
+        </p>
       </div>
 
       {/* Screenshot produk nyata dalam bingkai browser */}
@@ -284,55 +326,82 @@ function Pricing() {
   return (
     <section id="harga" className="scroll-mt-16 border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-        <h2 className="text-center text-3xl font-bold tracking-tight">Harga sederhana, tanpa kejutan</h2>
+        <h2 className="text-center text-3xl font-bold tracking-tight">Satu harga. Semua fitur. Titik.</h2>
         <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600 dark:text-slate-300">
-          <span className="font-medium text-slate-900 dark:text-white">Semua fitur tersedia di setiap paket.</span> Anda
-          hanya memilih jumlah pengguna & tingkat dukungan. Mulai gratis {TRIAL_DAYS} hari.
+          Tidak ada tingkatan paket, tidak ada fitur yang dikunci, tidak ada biaya per pengguna. Mulai gratis{" "}
+          {TRIAL_DAYS} hari — lalu satu harga untuk seluruh sistem.
         </p>
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
-          {PLAN_CARDS.map((card) => {
-            const limit = PLAN_LIMITS[card.plan];
-            const unlimited = limit.maxUsers >= Number.MAX_SAFE_INTEGER;
-            return (
-              <div
-                key={card.plan}
-                className={`relative flex flex-col rounded-2xl border bg-white p-6 dark:bg-slate-950 ${
-                  card.highlight ? "border-brand-500 shadow-lg shadow-brand-500/10" : "border-slate-200 dark:border-slate-800"
-                }`}
-              >
-                {card.highlight ? (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-brand-500 to-brand-700 px-3 py-0.5 text-xs font-semibold text-white">
-                    Terpopuler
-                  </span>
-                ) : null}
-                <h3 className="font-semibold">{PLAN_LABELS[card.plan]}</h3>
+        <div className="mx-auto mt-10 max-w-3xl">
+          <div className="relative flex flex-col rounded-2xl border border-brand-500 bg-white p-6 shadow-lg shadow-brand-500/10 sm:p-8 dark:bg-slate-950">
+            <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-brand-500 to-brand-700 px-3 py-0.5 text-xs font-semibold text-white">
+              Semua yang Anda butuhkan
+            </span>
+            <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
+              <div>
+                <h3 className="text-lg font-semibold">Paket {SINGLE_PLAN.label}</h3>
                 <div className="mt-2 flex items-end gap-1">
-                  <span className="text-3xl font-bold">{formatRupiah(limit.pricePerMonth)}</span>
-                  <span className="pb-1 text-sm font-normal text-slate-400">/bulan</span>
+                  <span className="text-4xl font-bold">{formatRupiah(SINGLE_PLAN.pricePerMonth)}</span>
+                  <span className="pb-1.5 text-sm font-normal text-slate-400">/bulan</span>
                 </div>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{card.tagline}</p>
-                <div className="mt-3 text-sm font-medium text-brand-700 dark:text-brand-300">
-                  {unlimited ? "Pengguna tak terbatas" : `Hingga ${limit.maxUsers} pengguna`}
-                </div>
-                <ul className="mt-4 flex-1 space-y-2 text-sm">
-                  {card.perks.map((p) => (
-                    <li key={p} className="flex items-start gap-2">
-                      <Check className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden /> {p}
-                    </li>
-                  ))}
-                </ul>
-                <Link to="/daftar" className="mt-6 block">
-                  <Button variant={card.highlight ? "primary" : "secondary"} className="w-full">
-                    Mulai Gratis
-                  </Button>
-                </Link>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  Gratis penuh {TRIAL_DAYS} hari pertama — tanpa kartu kredit.
+                </p>
               </div>
-            );
-          })}
+              <div className="flex w-full flex-col gap-2 sm:w-auto">
+                <Link to="/daftar">
+                  <Button className="w-full sm:w-44">Mulai Gratis</Button>
+                </Link>
+                <DemoButton size="md" />
+              </div>
+            </div>
+            <ul className="mt-6 grid gap-2 text-sm sm:grid-cols-2">
+              {SINGLE_PLAN_PERKS.map((p) => (
+                <li key={p} className="flex items-start gap-2">
+                  <Check className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden /> {p}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-6 border-t border-slate-200 pt-5 dark:border-slate-800">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Semua modul termasuk — tanpa tambahan biaya
+              </div>
+              <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-slate-600 sm:grid-cols-3 lg:grid-cols-4 dark:text-slate-300">
+                {SINGLE_PLAN_MODULES.map((m) => (
+                  <li key={m} className="flex items-start gap-1.5">
+                    <Check className="mt-0.5 size-3.5 shrink-0 text-brand-500" aria-hidden /> {m}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
         </div>
         <p className="mt-6 text-center text-xs text-slate-400">
           Harga belum termasuk PPN. Pembayaran online sedang disiapkan — untuk saat ini aktivasi via hubungi kami.
         </p>
+      </div>
+    </section>
+  );
+}
+
+function Security() {
+  return (
+    <section className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
+      <h2 className="text-center text-3xl font-bold tracking-tight">Data bisnis Anda, aman di tangan Anda</h2>
+      <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600 dark:text-slate-300">
+        Kami merancang ERPindo agar Anda tidak pernah terkunci — bukan sekadar aman, tapi juga bebas.
+      </p>
+      <div className="mt-10 grid gap-5 sm:grid-cols-2">
+        {SECURITY_POINTS.map((s) => (
+          <div key={s.title} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+              <ShieldCheck className="size-5" aria-hidden />
+            </span>
+            <div>
+              <h3 className="font-semibold">{s.title}</h3>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{s.desc}</p>
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   );
@@ -415,6 +484,7 @@ export function LandingPage() {
         <FeaturesGrid />
         <Comparison />
         <Pricing />
+        <Security />
         <Faq />
         <CtaBand />
       </main>

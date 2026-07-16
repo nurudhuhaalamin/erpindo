@@ -2,7 +2,7 @@
 // Pengaturan (dipisah dari app.tsx pada Fase 9d — nama ekspor tak berubah:
 // app.tsx me-re-export SettingsPage sehingga import lama tetap jalan).
 // ---------------------------------------------------------------------------
-import { PERMISSIONS, PLAN_LABELS, PLAN_LIMITS, type ApiAuditLog, type ApiCustomRole, type PermissionKey } from "@erpindo/shared";
+import { PERMISSIONS, PLAN_LABELS, PLAN_LIMITS, SINGLE_PLAN, type ApiAuditLog, type ApiCustomRole, type PermissionKey } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { api, formatDate, formatIDR } from "../api/client";
@@ -179,6 +179,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   // Autentikasi & akun
   "auth.register": "Registrasi perusahaan",
   "auth.login": "Login",
+  "auth.demo_login": "Masuk mode demo",
   "auth.login_failed": "Login gagal",
   "auth.totp_failed": "Kode 2FA salah",
   "auth.email_verified": "Email diverifikasi",
@@ -422,6 +423,10 @@ function SubscriptionCard() {
         <p className="text-slate-500 dark:text-slate-400">
           Batas pengguna paket ini:{" "}
           {limits.maxUsers === Number.MAX_SAFE_INTEGER ? "tak terbatas" : `${limits.maxUsers} pengguna`}.
+        </p>
+        <p className="text-slate-500 dark:text-slate-400">
+          Satu harga untuk semua: paket {SINGLE_PLAN.label}{" "}
+          {`Rp ${SINGLE_PLAN.pricePerMonth.toLocaleString("id-ID")}`}/bulan — seluruh modul & pengguna tak terbatas.
         </p>
         <p className="text-slate-500 dark:text-slate-400">
           Pembayaran langganan online (QRIS/transfer/e-wallet) sedang disiapkan — untuk saat ini hubungi kami untuk

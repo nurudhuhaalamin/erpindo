@@ -17,6 +17,9 @@ const ROUTES_DIR = join(dirname(fileURLToPath(import.meta.url)), "../src/routes"
 const PUBLIC_ALLOWLIST = new Set([
   'auth.ts POST "/register"',
   'auth.ts POST "/login"',
+  // Sesi demo publik baca-saja (Fase 10b) — rate-limited, hanya membuat sesi
+  // viewer di perusahaan demo.
+  'auth.ts POST "/demo"',
   'auth.ts POST "/verify"',
   'auth.ts POST "/forgot-password"',
   'auth.ts POST "/reset-password"',

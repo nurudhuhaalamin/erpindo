@@ -197,6 +197,7 @@ export const api = {
     request<{ ok: true; tenantId: string; slug: string }>("POST", "/api/auth/companies", input),
   login: (input: { email: string; password: string; totpCode?: string }) =>
     request<{ ok: true }>("POST", "/api/auth/login", input),
+  demoLogin: () => request<{ ok: true }>("POST", "/api/auth/demo"),
   totpSetup: () => request<{ secret: string; otpauthUrl: string }>("POST", "/api/auth/2fa/setup"),
   totpEnable: (code: string) => request<{ ok: true }>("POST", "/api/auth/2fa/enable", { code }),
   totpDisable: (code: string) => request<{ ok: true }>("POST", "/api/auth/2fa/disable", { code }),
