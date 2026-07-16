@@ -1299,6 +1299,30 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `CREATE INDEX IF NOT EXISTS idx_stock_movements_ref ON stock_movements(ref_type, ref_id)`,
     ],
   },
+  {
+    // Fase 10c — pembalikan transaksi terposting. Tautan dua arah di jurnal
+    // menjadi penjaga keras "dibalik tepat sekali" (claim-first via UPDATE ...
+    // RETURNING); pembayaran & penggajian mendapat kolom void; payroll_loan_cuts
+    // mencatat potongan kasbon per run agar void bisa memulihkan saldo persis.
+    id: "0037_reversals",
+    statements: [
+      `ALTER TABLE journal_entries ADD COLUMN reversed_by_entry_id TEXT REFERENCES journal_entries(id)`,
+      `ALTER TABLE journal_entries ADD COLUMN reverses_entry_id TEXT REFERENCES journal_entries(id)`,
+      `CREATE INDEX IF NOT EXISTS idx_journal_entries_reverses ON journal_entries(reverses_entry_id)`,
+      `ALTER TABLE payments ADD COLUMN voided_at TEXT`,
+      `ALTER TABLE payments ADD COLUMN void_journal_entry_id TEXT REFERENCES journal_entries(id)`,
+      `ALTER TABLE payroll_runs ADD COLUMN voided_at TEXT`,
+      `ALTER TABLE payroll_runs ADD COLUMN void_journal_entry_id TEXT REFERENCES journal_entries(id)`,
+      `CREATE TABLE payroll_loan_cuts (
+        id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL REFERENCES payroll_runs(id),
+        loan_id TEXT NOT NULL REFERENCES employee_loans(id),
+        amount INTEGER NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_payroll_loan_cuts_run ON payroll_loan_cuts(run_id)`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

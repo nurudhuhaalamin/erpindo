@@ -101,6 +101,111 @@ export async function postJournal(
   return { id, entryNo };
 }
 
+export class AlreadyReversedError extends Error {}
+
+/**
+ * Jurnal pembalik generik (Fase 10c): baris asal ditukar debit↔kredit
+ * (cost center DIPERTAHANKAN), tanggal default = tanggal jurnal asal sehingga
+ * gerbang tutup buku tetap berlaku.
+ *
+ * Penjaga "dibalik tepat sekali" bersifat keras: klaim atomik lewat
+ * `UPDATE ... SET reversed_by_entry_id = id ... WHERE reversed_by_entry_id IS
+ * NULL RETURNING` (sentinel = id jurnal sendiri — FK-safe); gagal klaim →
+ * AlreadyReversedError. Bila postJournal melempar (mis. periode terkunci),
+ * klaim dilepas kembali sebelum error diteruskan.
+ */
+export async function reverseJournal(
+  db: SqlExecutor,
+  entryId: string,
+  opts: { date?: string; memo: string; userId: string },
+): Promise<{ id: string; entryNo: string }> {
+  const { results: entries } = await db
+    .prepare(`SELECT id, entry_no, entry_date, status FROM journal_entries WHERE id = ?`)
+    .bind(entryId)
+    .all<{ id: string; entry_no: string; entry_date: string; status: string }>();
+  const entry = entries[0];
+  if (!entry || entry.status !== "posted") throw new Error("Jurnal asal dokumen tidak ditemukan.");
+
+  const { results: origLines } = await db
+    .prepare(`SELECT account_id, description, debit, credit, cost_center_id FROM journal_lines WHERE entry_id = ?`)
+    .bind(entryId)
+    .all<{ account_id: string; description: string | null; debit: number; credit: number; cost_center_id: string | null }>();
+  if (origLines.length < 2) throw new Error("Jurnal asal dokumen tidak ditemukan.");
+
+  const { results: claimed } = await db
+    .prepare(
+      `UPDATE journal_entries SET reversed_by_entry_id = id
+       WHERE id = ? AND reversed_by_entry_id IS NULL RETURNING id`,
+    )
+    .bind(entryId)
+    .all<{ id: string }>();
+  if (!claimed[0]) throw new AlreadyReversedError(`Jurnal ${entry.entry_no} sudah pernah dibalik.`);
+
+  let reversal: { id: string; entryNo: string };
+  try {
+    reversal = await postJournal(db, {
+      entryDate: opts.date ?? entry.entry_date,
+      memo: opts.memo,
+      createdBy: opts.userId,
+      lines: origLines.map((l) => ({
+        accountId: l.account_id,
+        description: `${opts.memo}${l.description ? ` — ${l.description}` : ""}`,
+        debit: l.credit,
+        credit: l.debit,
+        costCenterId: l.cost_center_id,
+      })),
+    });
+  } catch (err) {
+    // Lepas klaim agar jurnal bisa dibalik ulang (mis. dengan tanggal lain).
+    await db
+      .prepare(`UPDATE journal_entries SET reversed_by_entry_id = NULL WHERE id = ? AND reversed_by_entry_id = id`)
+      .bind(entryId)
+      .run();
+    throw err;
+  }
+
+  await db
+    .prepare(`UPDATE journal_entries SET reversed_by_entry_id = ? WHERE id = ?`)
+    .bind(reversal.id, entryId)
+    .run();
+  await db.prepare(`UPDATE journal_entries SET reverses_entry_id = ? WHERE id = ?`).bind(entryId, reversal.id).run();
+  return reversal;
+}
+
+/**
+ * Cari dokumen sumber sebuah jurnal (Fase 10c). Jurnal TIDAK menyimpan kolom
+ * ref, jadi keterkaitan dicek terbalik: 13 tabel dokumen ber-journal_entry_id.
+ * Mengembalikan label dokumen (untuk pesan galat) atau null bila jurnal berdiri
+ * sendiri (jurnal manual / template).
+ */
+export async function journalSourceDoc(db: SqlExecutor, entryId: string): Promise<string | null> {
+  const sources: [table: string, label: string][] = [
+    ["invoices", "faktur penjualan"],
+    ["purchases", "faktur pembelian"],
+    ["payments", "pembayaran"],
+    ["returns", "retur"],
+    ["pos_shifts", "rekap shift kasir"],
+    ["payroll_runs", "penggajian"],
+    ["fixed_assets", "aset tetap"],
+    ["depreciation_entries", "penyusutan aset"],
+    ["work_orders", "perintah produksi"],
+    ["employee_loans", "kasbon karyawan"],
+    ["delivery_orders", "surat jalan"],
+    ["tax_pph_final", "PPh Final"],
+    ["tax_pph23", "PPh 23"],
+  ];
+  // Satu query per tabel — D1 membatasi jumlah term compound SELECT, jadi
+  // UNION ALL 13 tabel ditolak ("too many terms in compound SELECT").
+  for (const [table, label] of sources) {
+    const { results } = await db
+      .prepare(`SELECT 1 AS x FROM ${table} WHERE journal_entry_id = ? LIMIT 1`)
+      .bind(entryId)
+      .all<{ x: number }>();
+    if (results[0]) return label;
+  }
+  return null;
+}
+
 /**
  * Barang masuk: catat mutasi dan perbarui level stok dengan moving average:
  * avg_baru = (qty_lama×avg_lama + qty_masuk×biaya_masuk) / (qty_lama+qty_masuk)

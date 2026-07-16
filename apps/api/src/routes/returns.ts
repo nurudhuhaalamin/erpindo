@@ -33,7 +33,7 @@ type DocRow = {
   voided_at: string | null;
 };
 
-async function docLineAggregates(
+export async function docLineAggregates(
   db: SqlExecutor,
   lineTable: string,
   fk: string,
@@ -46,7 +46,7 @@ async function docLineAggregates(
   return new Map(results.map((r) => [r.product_id, { qty: r.qty, amount: r.amount }]));
 }
 
-async function returnedQtyPerProduct(db: SqlExecutor, refType: string, refId: string): Promise<Map<string, number>> {
+export async function returnedQtyPerProduct(db: SqlExecutor, refType: string, refId: string): Promise<Map<string, number>> {
   const { results } = await db
     .prepare(
       `SELECT rl.product_id, SUM(rl.qty) AS qty

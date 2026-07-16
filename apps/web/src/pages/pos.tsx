@@ -58,6 +58,113 @@ function printReceipt(opts: {
   w.document.close();
 }
 
+/**
+ * Panel Struk & Refund (Fase 10c): struk POS lunas tidak bisa dibatalkan —
+ * koreksinya refund tunai dari laci shift yang sedang terbuka.
+ */
+function RefundPanel({ tenantId, onDone }: { tenantId: string; onDone: () => void }) {
+  const toast = useToast();
+  const [search, setSearch] = useState("");
+  const q = useDebounced(search);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [qty, setQtyMap] = useState<Record<string, string>>({});
+  const receiptsQuery = useQuery({
+    queryKey: ["pos-receipts", tenantId, q],
+    queryFn: () => api.posReceipts(tenantId, q),
+    placeholderData: (prev) => prev,
+  });
+  const refund = useMutation({
+    mutationFn: (invoiceId: string) =>
+      api.posRefund(tenantId, {
+        invoiceId,
+        lines: Object.entries(qty)
+          .filter(([, v]) => Number(v) > 0)
+          .map(([productId, v]) => ({ productId, qty: Number(v) })),
+      }),
+    onSuccess: (res) => {
+      toast("success", `Refund ${res.returnNo} — ${formatIDR(res.total)} keluar dari laci (jurnal ${res.journalNo}).`);
+      setActiveId(null);
+      setQtyMap({});
+      receiptsQuery.refetch();
+      onDone();
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+  const receipts = receiptsQuery.data?.receipts ?? [];
+  return (
+    <Card>
+      <CardHeader
+        title="Struk & Refund"
+        description="Pilih struk, isi qty barang yang dikembalikan — uang tunai keluar dari laci shift ini."
+      />
+      <CardBody className="space-y-2">
+        <Input placeholder="Cari nomor struk…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        {receiptsQuery.isLoading ? (
+          <Spinner />
+        ) : receipts.length === 0 ? (
+          <p className="text-sm text-slate-400">Belum ada struk POS.</p>
+        ) : (
+          receipts.map((r) => (
+            <div key={r.id} className="rounded-lg border border-slate-200 p-2.5 text-sm dark:border-slate-800">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="font-mono text-xs font-semibold">{r.invoiceNo}</span>
+                <span className="text-slate-500 dark:text-slate-400">{r.invoiceDate}</span>
+                <span className="tabular-nums font-medium">{formatIDR(r.total)}</span>
+                {r.returnedAmount > 0 ? <Badge tone="amber">refund {formatIDR(r.returnedAmount)}</Badge> : null}
+                <Button
+                  variant="ghost"
+                  className="ml-auto h-7"
+                  onClick={() => {
+                    setActiveId((cur) => (cur === r.id ? null : r.id));
+                    setQtyMap({});
+                  }}
+                >
+                  {activeId === r.id ? "Tutup" : "Refund"}
+                </Button>
+              </div>
+              {activeId === r.id ? (
+                <div className="mt-2 space-y-1.5 border-t border-slate-100 pt-2 dark:border-slate-800/60">
+                  {r.lines.map((l) => (
+                    <div key={l.productId} className="flex items-center gap-3">
+                      <span className="min-w-0 flex-1 truncate">
+                        {l.productName}{" "}
+                        <span className="text-xs text-slate-400">(sisa {l.qtyReturnable} dari {l.qty})</span>
+                      </span>
+                      {/* w-full bawaan Input dikalahkan pembungkus berlebar tetap. */}
+                      <span className="w-20 shrink-0">
+                        <Input
+                          aria-label={`Qty refund ${l.productName}`}
+                          type="number"
+                          min={0}
+                          max={l.qtyReturnable}
+                          className="h-8"
+                          placeholder="0"
+                          disabled={l.qtyReturnable === 0}
+                          value={qty[l.productId] ?? ""}
+                          onChange={(e) => setQtyMap((m) => ({ ...m, [l.productId]: e.target.value }))}
+                        />
+                      </span>
+                    </div>
+                  ))}
+                  <div className="flex justify-end pt-1">
+                    <Button
+                      className="h-8"
+                      onClick={() => refund.mutate(r.id)}
+                      disabled={refund.isPending || !Object.values(qty).some((v) => Number(v) > 0)}
+                    >
+                      {refund.isPending ? <Spinner /> : null} Proses Refund
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ))
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
 export function PosPage() {
   const { me, tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
@@ -91,6 +198,7 @@ export function PosPage() {
   const [closingCash, setClosingCash] = useState("");
   const [closing, setClosing] = useState(false);
   const [holdLabel, setHoldLabel] = useState("");
+  const [refundOpen, setRefundOpen] = useState(false);
 
   const invalidateShift = () => queryClient.invalidateQueries({ queryKey: ["pos-shift", tenant.tenantId] });
 
@@ -300,10 +408,17 @@ export function PosPage() {
             {shift.salesCount} transaksi · {formatIDR(shift.cashSalesTotal)}
           </span>
         </div>
-        <Button variant="secondary" onClick={() => setClosing((o) => !o)}>
-          Tutup Shift
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => setRefundOpen((o) => !o)}>
+            Struk &amp; Refund
+          </Button>
+          <Button variant="secondary" onClick={() => setClosing((o) => !o)}>
+            Tutup Shift
+          </Button>
+        </div>
       </div>
+
+      {refundOpen ? <RefundPanel tenantId={tenant.tenantId} onDone={invalidateShift} /> : null}
 
       {closing ? (
         <Card>
