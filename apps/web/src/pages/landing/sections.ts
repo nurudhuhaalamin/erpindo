@@ -153,6 +153,7 @@ export const SINGLE_PLAN_MODULES = [
 
 export const SECURITY_POINTS: { title: string; desc: string }[] = [
   { title: "Database terpisah per perusahaan", desc: "Data Anda tidak bercampur dengan pengguna lain — setiap perusahaan berdiri di database sendiri." },
+  { title: "Terenkripsi & jurnal terkunci", desc: "Seluruh lalu lintas lewat HTTPS, kredensial sensitif tersimpan terenkripsi, dan jurnal akuntansi permanen — dikoreksi lewat jurnal pembalik, tak pernah dihapus." },
   { title: "Verifikasi dua langkah (2FA)", desc: "Lindungi akun dengan kode dari aplikasi authenticator, bukan hanya password." },
   { title: "Peran akses & audit log", desc: "Atur siapa boleh apa, dan setiap perubahan penting terekam jejaknya." },
   { title: "Data Anda milik Anda", desc: "Unduh seluruh data (ZIP berisi CSV) kapan pun — bahkan setelah langganan berakhir." },

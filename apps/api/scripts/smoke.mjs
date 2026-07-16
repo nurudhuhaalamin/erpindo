@@ -140,6 +140,19 @@ try {
   await waitForReady();
   console.log("Server siap. Menjalankan skenario:\n");
 
+  // --- Header keamanan (Fase 10h) ----------------------------------------------
+  console.log("0a. Header keamanan");
+  const secResp = await fetch(`${BASE}/api/health`);
+  const csp = secResp.headers.get("content-security-policy") ?? "";
+  check(
+    "Content-Security-Policy hadir dengan default-src 'self' + object-src 'none'",
+    csp.includes("default-src 'self'") && csp.includes("object-src 'none'") && csp.includes("frame-ancestors 'none'"),
+    `→ ${csp.slice(0, 80)}`,
+  );
+  check("CSP TIDAK memaksa upgrade-insecure-requests (aman utk http lokal)", !csp.includes("upgrade-insecure-requests"));
+  check("Referrer-Policy diset", (secResp.headers.get("referrer-policy") ?? "").includes("strict-origin"));
+  check("Permissions-Policy membatasi kamera/mikrofon/lokasi", (secResp.headers.get("permissions-policy") ?? "").includes("camera"));
+
   // --- PWA: manifest & service worker terlayani (Fase 2a) -----------------------
   console.log("0. Aset PWA");
   const manifest = await fetch(`${BASE}/manifest.webmanifest`);
