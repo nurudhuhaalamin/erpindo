@@ -41,6 +41,32 @@ jobs:
       - name: End-to-end smoke test (wrangler dev, local D1)
         run: pnpm smoke
 
+  ui-sim:
+    # Simulasi UI penuh (Fase 9b): klik-tembus browser nyata — sapu semua rute
+    # + alur interaktif. Non-blocking dulu; dipromosikan wajib setelah terbukti
+    # stabil beberapa PR (rencana: Fase 9d).
+    name: UI simulation (non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: npx playwright-core install chromium
+
+      - name: UI simulation (wrangler dev + Playwright)
+        run: node scripts/ui-sim.mjs
+
   lint:
     # Job terpisah & non-blocking: kualitas kode dipantau tanpa memblokir merge.
     # Jadikan wajib (hapus continue-on-error) setelah stabil beberapa PR.
