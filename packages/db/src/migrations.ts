@@ -122,6 +122,16 @@ export const CONTROL_PLANE_MIGRATIONS: Migration[] = [
     id: "0005_role_scope",
     statements: [`ALTER TABLE custom_roles ADD COLUMN scope_cost_center_ids TEXT`],
   },
+  {
+    // Masuk/daftar via Google (Fase 10d): identitas Google (sub) per user.
+    // password_hash tetap NOT NULL — user Google-only diberi hash acak yang
+    // tak pernah keluar dari proses (login password selalu gagal).
+    id: "0006_google_identity",
+    statements: [
+      `ALTER TABLE users ADD COLUMN google_sub TEXT`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub ON users(google_sub) WHERE google_sub IS NOT NULL`,
+    ],
+  },
 ];
 
 /**

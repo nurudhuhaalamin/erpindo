@@ -3891,6 +3891,70 @@ try {
     `→ ${JSON.stringify(vPosPayVoid.json)}`,
   );
 
+  // --- Fase 10d: masuk/daftar via Google ----------------------------------------
+  // Instance utama TANPA kredensial (degradasi anggun); jalur positif diuji
+  // pada instance wrangler kedua ber-kredensial dummy (drive/status pada
+  // instance utama tetap mengasersi configured=false).
+  console.log("14i. Masuk via Google (Fase 10d)");
+  const gAvail = await fetch(`${BASE}/api/auth/google/available`);
+  check("available=false tanpa kredensial", gAvail.status === 200 && (await gAvail.json()).available === false);
+  const gStart = await fetch(`${BASE}/api/auth/google`, { redirect: "manual" });
+  check("mulai alur Google tanpa kredensial DITOLAK 503", gStart.status === 503);
+  const gCb = await fetch(`${BASE}/api/auth/google/callback?code=x&state=palsu`, { redirect: "manual" });
+  check(
+    "callback tanpa kredensial → redirect anggun ke /masuk",
+    gCb.status === 302 && (gCb.headers.get("location") ?? "").includes("google=belum-dikonfigurasi"),
+  );
+
+  {
+    const persist2 = mkdtempSync(join(tmpdir(), "erpindo-smoke-g-"));
+    const PORT2 = PORT + 1;
+    const child2 = spawn(
+      "pnpm",
+      [
+        "exec", "wrangler", "dev", "-c", "../../wrangler.dev.jsonc",
+        "--port", String(PORT2), "--persist-to", persist2,
+        "--show-interactive-dev-session=false",
+        "--var", "GOOGLE_CLIENT_ID:dummy-client-id",
+        "--var", "GOOGLE_CLIENT_SECRET:dummy-secret",
+      ],
+      { cwd: apiDir, stdio: ["ignore", "ignore", "ignore"], env: { ...process.env, CI: "1" } },
+    );
+    try {
+      const start2 = Date.now();
+      let ready = false;
+      while (Date.now() - start2 < 90_000) {
+        try {
+          const r = await fetch(`http://127.0.0.1:${PORT2}/api/health`);
+          if (r.ok) { ready = true; break; }
+        } catch { /* belum siap */ }
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      check("instance kedua (kredensial dummy) siap", ready);
+
+      const g2Avail = await fetch(`http://127.0.0.1:${PORT2}/api/auth/google/available`);
+      check("available=true dengan kredensial terpasang", (await g2Avail.json()).available === true);
+      const g2Start = await fetch(`http://127.0.0.1:${PORT2}/api/auth/google`, { redirect: "manual" });
+      const g2Loc = g2Start.headers.get("location") ?? "";
+      check(
+        "mulai alur → 302 ke consent Google dengan state bertanda tangan",
+        g2Start.status === 302 && g2Loc.startsWith("https://accounts.google.com/o/oauth2/v2/auth") &&
+          g2Loc.includes("state=login.") && g2Loc.includes(encodeURIComponent("/api/auth/google/callback")),
+        `→ ${g2Start.status} ${g2Loc.slice(0, 120)}`,
+      );
+      const g2BadState = await fetch(`http://127.0.0.1:${PORT2}/api/auth/google/callback?code=x&state=login.palsu`, { redirect: "manual" });
+      check("callback dengan state PALSU DITOLAK 400", g2BadState.status === 400);
+      const g2Denied = await fetch(`http://127.0.0.1:${PORT2}/api/auth/google/callback?error=access_denied`, { redirect: "manual" });
+      check(
+        "consent dibatalkan pengguna → redirect ramah ke /masuk",
+        g2Denied.status === 302 && (g2Denied.headers.get("location") ?? "").includes("google=dibatalkan"),
+      );
+    } finally {
+      child2.kill("SIGTERM");
+      setTimeout(() => child2.kill("SIGKILL"), 1500);
+    }
+  }
+
   // --- Logout -----------------------------------------------------------------
   console.log("15. Logout");
   const out = await owner("POST", "/api/auth/logout");
