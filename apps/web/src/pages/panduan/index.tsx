@@ -30,7 +30,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
-import { Button, useDarkMode } from "../../components/ui";
+import { BrandWordmark, Button, useDarkMode } from "../../components/ui";
 import { GUIDE_CATEGORIES, GUIDE_MODULES, guideBySlug, type GuideModule } from "./content";
 
 /**
@@ -75,10 +75,7 @@ function GuideHeader() {
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-slate-50/80 backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
         <Link to="/" className="flex items-center gap-2 text-lg font-bold tracking-tight text-brand-700 dark:text-brand-400">
-          <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-bold text-white">
-            e
-          </span>
-          erpindo <span className="font-normal text-slate-400">/ panduan</span>
+          <BrandWordmark className="h-8" /> <span className="font-normal text-slate-400">/ panduan</span>
         </Link>
         <nav className="flex items-center gap-2">
           <button

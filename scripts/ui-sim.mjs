@@ -149,6 +149,19 @@ try {
   await page.click("button[type=submit]");
   await page.waitForURL("**/app", { timeout: 30_000 });
   check("login via form → diarahkan ke /app", page.url().endsWith("/app"));
+  // Dashboard tenant BARU (Fase 10a): perusahaan pertama (Kopi Nusantara) belum
+  // punya transaksi — kartu KPI harus menampilkan "Rp 0" nyata, bukan shimmer.
+  await page.waitForTimeout(1200);
+  const freshBody = await page.innerText("body");
+  check(
+    "dashboard tenant baru menampilkan Rp 0 (bukan skeleton abu-abu)",
+    freshBody.includes("Kas & Bank") && (freshBody.match(/Rp\s?0/g) ?? []).length >= 3,
+    `→ ${(freshBody.match(/Rp\s?0/g) ?? []).length} nilai Rp 0`,
+  );
+  check(
+    "dashboard tenant baru tanpa skeleton tersisa di kartu KPI",
+    (await page.locator(".animate-pulse:visible").count()) === 0,
+  );
   const me = await page.evaluate(async () => (await fetch("/api/auth/me")).json());
   const demo = me.memberships.find((m) => m.tenantSlug.startsWith("pt-demo-sejahtera"));
   check("akun punya workspace PT Demo Sejahtera hasil seed", Boolean(demo));

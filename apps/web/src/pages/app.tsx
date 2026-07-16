@@ -57,6 +57,7 @@ import { createContext, useContext, useEffect, useRef, useState,  } from "react"
 import { api, ApiRequestError,  } from "../api/client";
 import {
   Alert,
+  BrandWordmark,
   Badge,
   Button,
   Spinner,
@@ -517,10 +518,7 @@ export function AppShell() {
     <>
       <div className="border-b border-slate-200 px-4 py-4 dark:border-white/10">
         <div className="flex items-center gap-2">
-          <span className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-bold text-white">
-            e
-          </span>
-          <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">erpindo</span>
+          <BrandWordmark className="h-10" />
         </div>
         {workspacePicker}
       </div>
@@ -556,7 +554,7 @@ export function AppShell() {
               >
                 <Menu className="size-4" aria-hidden />
               </button>
-              <span className="font-bold text-brand-700 dark:text-brand-400">erpindo</span>
+              <BrandWordmark className="h-7" />
             </div>
             <div className="hidden items-center gap-2 md:flex">
               {tenant.tenantStatus === "trial" ? <Badge tone="amber">Masa uji coba</Badge> : null}

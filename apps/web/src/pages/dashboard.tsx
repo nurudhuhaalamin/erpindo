@@ -7,7 +7,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowDownToLine, ArrowUpFromLine, Boxes, LineChart, Receipt, Check, ShoppingCart, SlidersHorizontal, Target, Users, Wallet, type LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { api, formatDate, formatIDR } from "../api/client";
-import { Button, Card, CardBody, CardHeader, Skeleton, useToast } from "../components/ui";
+import { Alert, Button, Card, CardBody, CardHeader, Skeleton, useToast } from "../components/ui";
 import { useWorkspace } from "./app";
 import { AUDIT_ACTION_LABELS } from "./settings";
 
@@ -82,6 +82,11 @@ function SalesTrendChart({ tenantId }: { tenantId: string }) {
           <Skeleton className="h-48 w-full" />
         ) : (
           <div className="relative">
+            {days.every((d) => d.total === 0) ? (
+              <p className="absolute inset-0 z-10 flex items-center justify-center px-6 text-center text-sm text-slate-400 dark:text-slate-500">
+                Belum ada penjualan 30 hari terakhir — mulai dari faktur pertama Anda di menu Penjualan.
+              </p>
+            ) : null}
             <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Grafik penjualan harian 30 hari">
               {ticks.map((t) => (
                 <g key={t}>
@@ -374,6 +379,11 @@ function MonthlyTrendChart({ tenantId }: { tenantId: string }) {
           <Skeleton className="h-48 w-full" />
         ) : (
           <div className="relative">
+            {months.every((m) => m.total === 0) ? (
+              <p className="absolute inset-0 z-10 flex items-center justify-center px-6 text-center text-sm text-slate-400 dark:text-slate-500">
+                Belum ada omzet 6 bulan terakhir — grafik terisi otomatis begitu ada faktur penjualan.
+              </p>
+            ) : null}
             <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Grafik omzet bulanan 6 bulan">
               {ticks.map((t) => (
                 <g key={t}>
@@ -657,6 +667,15 @@ export function DashboardPage() {
 
       {isAdmin ? <OnboardingChecklist tenantId={tenant.tenantId} /> : null}
 
+      {dash.isError ? (
+        <Alert tone="error">
+          Gagal memuat ringkasan dashboard.{" "}
+          <button type="button" className="font-medium underline" onClick={() => void dash.refetch()}>
+            Coba lagi
+          </button>
+        </Alert>
+      ) : null}
+
       {widgets.isVisible("kpi") ? (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {stats.map((stat) => (
@@ -668,11 +687,12 @@ export function DashboardPage() {
                   <stat.icon className="size-4" aria-hidden />
                 </span>
               </div>
-              {stat.value === undefined ? (
+              {dash.isLoading ? (
                 <Skeleton className="mt-2 h-6 w-28" />
               ) : (
+                // Tenant baru melihat "Rp 0" nyata, bukan shimmer abu-abu (Fase 10a).
                 <div className="mt-1 text-xl font-semibold">
-                  {stat.currency === false ? stat.value.toLocaleString("id-ID") : fmt(stat.value)}
+                  {stat.currency === false ? (stat.value ?? 0).toLocaleString("id-ID") : fmt(stat.value ?? 0)}
                 </div>
               )}
               <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs">

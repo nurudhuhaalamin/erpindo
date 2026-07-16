@@ -1,8 +1,8 @@
 import { PLAN_LABELS, PLAN_LIMITS, TRIAL_DAYS } from "@erpindo/shared";
 import { Link } from "@tanstack/react-router";
-import { Check, LifeBuoy, Menu, Moon, Sparkles, Sun, X } from "lucide-react";
+import { Check, Menu, Moon, Sparkles, Sun, X } from "lucide-react";
 import { useState } from "react";
-import { Button, useDarkMode } from "../../components/ui";
+import { BrandWordmark, Button, useDarkMode } from "../../components/ui";
 import { COMPARISON, FAQ, FEATURE_GROUPS, formatRupiah, PLAN_CARDS, SHOWCASE, TRUST_POINTS } from "./sections";
 
 /**
@@ -23,11 +23,8 @@ function Header() {
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-slate-50/80 backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-3 sm:px-6">
-        <span className="flex items-center gap-2 text-xl font-bold tracking-tight text-brand-700 dark:text-brand-400">
-          <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-bold text-white">
-            e
-          </span>
-          erpindo
+        <span className="flex items-center gap-2">
+          <BrandWordmark className="h-9" />
         </span>
         <nav className="flex items-center gap-1 sm:gap-2">
           {NAV_LINKS.map(([href, label]) => (
@@ -388,10 +385,10 @@ function Footer() {
     <footer className="border-t border-slate-200 dark:border-slate-800">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-8 text-sm text-slate-500 sm:flex-row sm:px-6 dark:text-slate-400">
         <div>
-          <div className="flex items-center gap-2 font-bold text-brand-700 dark:text-brand-400">
-            <LifeBuoy className="size-4" aria-hidden /> erpindo
+          <div className="flex items-center gap-2">
+            <BrandWordmark className="h-8" />
           </div>
-          <p className="mt-1 text-xs">ERP untuk UMKM Indonesia — akuntansi sampai manufaktur.</p>
+          <p className="mt-1 text-xs">Integrate. Automate. Grow. — ERP untuk UMKM Indonesia.</p>
         </div>
         <div className="flex items-center gap-4">
           <a href="#fitur" className="hover:text-slate-900 dark:hover:text-white">Fitur</a>
