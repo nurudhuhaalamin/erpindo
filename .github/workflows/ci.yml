@@ -43,11 +43,10 @@ jobs:
 
   ui-sim:
     # Simulasi UI penuh (Fase 9b): klik-tembus browser nyata — sapu semua rute
-    # + alur interaktif. Non-blocking dulu; dipromosikan wajib setelah terbukti
-    # stabil beberapa PR (rencana: Fase 9d).
-    name: UI simulation (non-blocking)
+    # + alur interaktif. Dipromosikan WAJIB pada Fase 9d setelah stabil
+    # berturut-turut di CI.
+    name: UI simulation
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
