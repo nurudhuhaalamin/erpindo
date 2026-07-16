@@ -191,6 +191,30 @@ export function CommercePage({ mode }: { mode: Mode }) {
   const subtotal = lines.reduce((s, l) => s + lineAmount(l), 0);
   const taxAmount = Math.round((subtotal * taxRate) / 100);
 
+  // Fase 10c — "Ubah" = void + prefill: isi form dari dokumen yang baru
+  // dibatalkan; posting menghasilkan dokumen BARU bernomor baru (buku besar
+  // immutable). Gudang memakai pilihan form (dokumen tidak menyimpannya).
+  function prefillFromDoc(doc: ApiCommerceDoc) {
+    setContactId(doc.contactId);
+    setContactLabel(doc.contactName);
+    setDate(new Date().toISOString().slice(0, 10));
+    setTaxRate((doc.taxRate === 11 || doc.taxRate === 12 ? doc.taxRate : 0) as 0 | 11 | 12);
+    setLines(
+      doc.lines.map((l) => ({
+        productId: l.productId,
+        productLabel: l.productName,
+        trackExpiry: false,
+        qty: String(l.qty),
+        unitPrice: String(l.unitPrice),
+        discountPct: l.discountPct > 0 ? String(l.discountPct) : "",
+        lotNo: "",
+        expiryDate: "",
+      })),
+    );
+    setError(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function submit() {
     setError(null);
     create.mutate({
@@ -444,7 +468,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
             <>
               <div className="space-y-3">
                 {docsQuery.data!.docs.map((doc) => (
-                  <DocRow key={doc.id} doc={doc} mode={mode} isAdmin={isAdmin} />
+                  <DocRow key={doc.id} doc={doc} mode={mode} isAdmin={isAdmin} onEdit={prefillFromDoc} />
                 ))}
               </div>
               {(docsQuery.data?.total ?? 0) > (docsQuery.data?.docs.length ?? 0) ? (
@@ -465,13 +489,26 @@ export function CommercePage({ mode }: { mode: Mode }) {
   );
 }
 
-function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdmin: boolean }) {
+function DocRow({
+  doc,
+  mode,
+  isAdmin,
+  onEdit,
+}: {
+  doc: ApiCommerceDoc;
+  mode: Mode;
+  isAdmin: boolean;
+  onEdit?: (doc: ApiCommerceDoc) => void;
+}) {
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [payOpen, setPayOpen] = useState(false);
   const [returnOpen, setReturnOpen] = useState(false);
   const [voidOpen, setVoidOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [paymentsOpen, setPaymentsOpen] = useState(false);
+  const [voidPaymentId, setVoidPaymentId] = useState<string | null>(null);
   const [returnQty, setReturnQty] = useState<Record<string, string>>({});
   const isVoided = doc.voidedAt !== null;
   const remaining = doc.total - doc.paidAmount - doc.returnedAmount;
@@ -482,12 +519,37 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
     onSuccess: (res) => {
       toast("success", `${res.docNo} dibatalkan — jurnal pembalik ${res.reversalEntryNo} diposting, stok dikembalikan.`);
       setVoidOpen(false);
+      if (editOpen) {
+        setEditOpen(false);
+        onEdit?.(doc);
+      }
       queryClient.invalidateQueries({ queryKey: [mode === "sale" ? "invoices" : "purchases", tenant.tenantId] });
       queryClient.invalidateQueries({ queryKey: ["stock", tenant.tenantId] });
     },
     onError: (err) => {
       toast("error", (err as Error).message);
       setVoidOpen(false);
+      setEditOpen(false);
+    },
+  });
+
+  // Fase 10c — daftar pembayaran dokumen ini + void per baris.
+  const paymentsQuery = useQuery({
+    queryKey: ["payments", tenant.tenantId, mode === "sale" ? "invoice" : "purchase", doc.id],
+    queryFn: () => api.payments(tenant.tenantId, { refType: mode === "sale" ? "invoice" : "purchase", refId: doc.id }),
+    enabled: paymentsOpen,
+  });
+  const doVoidPayment = useMutation({
+    mutationFn: (paymentId: string) => api.voidPayment(tenant.tenantId, paymentId),
+    onSuccess: (res) => {
+      toast("success", `Pembayaran ${res.paymentNo} dihapus — jurnal pembalik ${res.reversalEntryNo} diposting.`);
+      setVoidPaymentId(null);
+      queryClient.invalidateQueries({ queryKey: ["payments", tenant.tenantId] });
+      queryClient.invalidateQueries({ queryKey: [mode === "sale" ? "invoices" : "purchases", tenant.tenantId] });
+    },
+    onError: (err) => {
+      toast("error", (err as Error).message);
+      setVoidPaymentId(null);
     },
   });
 
@@ -578,7 +640,7 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
         </span>
       </div>
 
-      {(mode === "sale" || (isAdmin && !isVoided && (remaining > 0 || doc.status !== "paid" || (doc.paidAmount === 0 && doc.returnedAmount === 0)))) ? (
+      {(mode === "sale" || doc.paidAmount > 0 || (isAdmin && !isVoided && (remaining > 0 || doc.status !== "paid" || (doc.paidAmount === 0 && doc.returnedAmount === 0)))) ? (
         <div className="mt-2.5 flex flex-wrap gap-2 border-t border-slate-100 pt-2.5 dark:border-slate-800/60">
           {mode === "sale" ? (
             <a
@@ -596,12 +658,22 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
             </Button>
           ) : null}
           {isAdmin && !isVoided && doc.paidAmount === 0 && doc.returnedAmount === 0 ? (
-            <Button
-              variant="secondary"
-              className="h-8 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
-              onClick={() => setVoidOpen(true)}
-            >
-              Batalkan
+            <>
+              <Button variant="secondary" className="h-8" onClick={() => setEditOpen(true)}>
+                Ubah
+              </Button>
+              <Button
+                variant="secondary"
+                className="h-8 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
+                onClick={() => setVoidOpen(true)}
+              >
+                Batalkan
+              </Button>
+            </>
+          ) : null}
+          {doc.paidAmount > 0 ? (
+            <Button variant="secondary" className="h-8" onClick={() => setPaymentsOpen((o) => !o)}>
+              Pembayaran
             </Button>
           ) : null}
           {isAdmin && !isVoided && doc.status !== "paid" ? (
@@ -609,6 +681,40 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
               {mode === "sale" ? "Terima Pembayaran" : "Bayar"}
             </Button>
           ) : null}
+        </div>
+      ) : null}
+
+      {paymentsOpen ? (
+        <div className="mt-3 space-y-2 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
+          <div className="text-sm font-medium">Pembayaran dokumen ini</div>
+          {paymentsQuery.isLoading ? (
+            <Spinner />
+          ) : (paymentsQuery.data?.payments ?? []).length === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada pembayaran tercatat.</p>
+          ) : (
+            (paymentsQuery.data?.payments ?? []).map((p) => (
+              <div key={p.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                <span className="font-mono text-xs font-semibold">{p.paymentNo}</span>
+                <span className="text-slate-500 dark:text-slate-400">{formatDate(p.paymentDate)}</span>
+                <span className="text-slate-500 dark:text-slate-400">{p.accountName}</span>
+                <span className="tabular-nums font-medium">{formatIDR(p.amount)}</span>
+                {p.voidedAt ? (
+                  <Badge tone="red">DIHAPUS{p.voidJournalNo ? ` · ${p.voidJournalNo}` : ""}</Badge>
+                ) : p.isPos ? (
+                  <span className="text-xs text-slate-400" title="Pembayaran POS menyatu dengan struknya — gunakan Retur/Refund di Kasir.">
+                    via Kasir
+                  </span>
+                ) : isAdmin ? (
+                  <button
+                    className="text-xs font-medium text-red-600 underline-offset-2 hover:underline dark:text-red-400"
+                    onClick={() => setVoidPaymentId(p.id)}
+                  >
+                    Hapus
+                  </button>
+                ) : null}
+              </div>
+            ))
+          )}
         </div>
       ) : null}
 
@@ -734,6 +840,38 @@ function DocRow({ doc, mode, isAdmin }: { doc: ApiCommerceDoc; mode: Mode; isAdm
         busy={doVoid.isPending}
         onConfirm={() => doVoid.mutate()}
         onCancel={() => setVoidOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={editOpen}
+        title={`Ubah ${doc.docNo}?`}
+        description={
+          <>
+            Dokumen ini akan <strong>dibatalkan</strong> (jurnal pembalik + stok pulih), lalu isinya dimuat ke form di
+            atas untuk diperbaiki dan diposting sebagai dokumen <strong>baru bernomor baru</strong> — begitulah koreksi
+            pada pembukuan yang jejaknya utuh.
+          </>
+        }
+        confirmLabel="Batalkan & muat ke form"
+        busy={doVoid.isPending}
+        onConfirm={() => doVoid.mutate()}
+        onCancel={() => setEditOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={voidPaymentId !== null}
+        title="Hapus pembayaran ini?"
+        description={
+          <>
+            Jurnal pembayaran akan dibalik dan sisa tagihan dokumen kembali seperti sebelum pembayaran dicatat. Baris
+            pembayaran tetap tercatat dengan tanda <strong>DIHAPUS</strong>.
+          </>
+        }
+        confirmLabel="Ya, hapus pembayaran"
+        danger
+        busy={doVoidPayment.isPending}
+        onConfirm={() => voidPaymentId && doVoidPayment.mutate(voidPaymentId)}
+        onCancel={() => setVoidPaymentId(null)}
       />
     </div>
   );

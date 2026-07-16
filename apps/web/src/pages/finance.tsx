@@ -17,6 +17,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  ConfirmDialog,
   FieldError,
   Input,
   Label,
@@ -245,6 +246,32 @@ export function JournalPage() {
   const [projectId, setProjectId] = useState("");
   const [lines, setLines] = useState<DraftLine[]>([emptyLine(), emptyLine()]);
   const [error, setError] = useState<string | null>(null);
+
+  // Fase 10c — balik jurnal manual: pembalik bertaut dua arah; bila periode
+  // asal terkunci, tawarkan pembalikan bertanggal hari ini.
+  const [reverseTarget, setReverseTarget] = useState<{ id: string; entryNo: string } | null>(null);
+  const [reverseToday, setReverseToday] = useState(false);
+  const doReverse = useMutation({
+    mutationFn: (input: { id: string; date?: string }) =>
+      api.reverseJournalEntry(tenant.tenantId, input.id, input.date),
+    onSuccess: (res) => {
+      toast("success", `Jurnal ${res.entryNo} dibalik — pembalik ${res.reversalEntryNo} diposting.`);
+      setReverseTarget(null);
+      setReverseToday(false);
+      queryClient.invalidateQueries({ queryKey: ["journal", tenant.tenantId] });
+    },
+    onError: (err) => {
+      const msg = (err as Error).message;
+      if (/sudah ditutup/.test(msg) && reverseTarget && !reverseToday) {
+        // Periode asal terkunci — tawarkan sekali lagi dengan tanggal hari ini.
+        setReverseToday(true);
+        return;
+      }
+      toast("error", msg);
+      setReverseTarget(null);
+      setReverseToday(false);
+    },
+  });
   const [templateOpen, setTemplateOpen] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [templateMonthly, setTemplateMonthly] = useState(false);
@@ -547,6 +574,16 @@ export function JournalPage() {
                     <span className="font-mono text-xs font-semibold">{e.entryNo}</span>
                     <span className="text-slate-500 dark:text-slate-400">{formatDate(e.entryDate)}</span>
                     {e.memo ? <span className="text-slate-600 dark:text-slate-300">— {e.memo}</span> : null}
+                    {e.reversedByEntryNo ? <Badge tone="red">DIBALIK · {e.reversedByEntryNo}</Badge> : null}
+                    {e.reversesEntryNo ? <Badge tone="amber">PEMBALIK · {e.reversesEntryNo}</Badge> : null}
+                    {isAdmin && !e.reversedByEntryNo && !e.reversesEntryNo && e.status === "posted" ? (
+                      <button
+                        className="ml-auto text-xs font-medium text-red-600 underline-offset-2 hover:underline dark:text-red-400"
+                        onClick={() => setReverseTarget({ id: e.id, entryNo: e.entryNo })}
+                      >
+                        Balik
+                      </button>
+                    ) : null}
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
@@ -582,6 +619,38 @@ export function JournalPage() {
           )}
         </CardBody>
       </Card>
+
+      <ConfirmDialog
+        open={reverseTarget !== null}
+        title={reverseToday ? `Periode terkunci — balik per hari ini?` : `Balik jurnal ${reverseTarget?.entryNo}?`}
+        description={
+          reverseToday ? (
+            <>
+              Tanggal jurnal asal berada di periode yang sudah ditutup. Jurnal pembalik dapat diposting dengan{" "}
+              <strong>tanggal hari ini</strong> sehingga koreksi terjadi di periode berjalan.
+            </>
+          ) : (
+            <>
+              Jurnal pembalik (debit↔kredit ditukar) akan diposting dengan tanggal yang sama. Keduanya saling tertaut dan
+              tidak bisa dibalik ulang — begitulah koreksi pada buku besar yang jejaknya utuh.
+            </>
+          )
+        }
+        confirmLabel={reverseToday ? "Balik per hari ini" : "Ya, balik jurnal"}
+        danger
+        busy={doReverse.isPending}
+        onConfirm={() =>
+          reverseTarget &&
+          doReverse.mutate({
+            id: reverseTarget.id,
+            ...(reverseToday ? { date: new Date().toISOString().slice(0, 10) } : {}),
+          })
+        }
+        onCancel={() => {
+          setReverseTarget(null);
+          setReverseToday(false);
+        }}
+      />
     </div>
   );
 }

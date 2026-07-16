@@ -59,9 +59,12 @@ import type {
   ApiProject,
   ApiProjectDetail,
   ApiPosShift,
+  ApiPosReceipt,
+  ApiPayment,
   ApiHeldSale,
   HoldSaleInput,
   PosPaymentMethod,
+  PosRefundInput,
   ApiBalanceSheet,
   ApiBom,
   ApiCashFlow,
@@ -249,6 +252,12 @@ export const api = {
     ),
   createJournalEntry: (tenantId: string, input: CreateJournalEntryInput) =>
     request<{ ok: true; id: string; entryNo: string }>("POST", `/api/tenants/${tenantId}/journal-entries`, input),
+  reverseJournalEntry: (tenantId: string, id: string, date?: string) =>
+    request<{ ok: true; entryNo: string; reversalEntryNo: string }>(
+      "POST",
+      `/api/tenants/${tenantId}/journal-entries/${id}/reverse`,
+      date ? { date } : {},
+    ),
   ledger: (tenantId: string, accountId: string, opts?: { before?: string; limit?: number }) =>
     request<{
       account: ApiAccount;
@@ -420,6 +429,12 @@ export const api = {
       "POST",
       `/api/tenants/${tenantId}/payroll-runs`,
       input,
+    ),
+  voidPayrollRun: (tenantId: string, id: string, date?: string) =>
+    request<{ ok: true; runNo: string; reversalEntryNo: string }>(
+      "POST",
+      `/api/tenants/${tenantId}/payroll-runs/${id}/void`,
+      date ? { date } : {},
     ),
   payrollAdjustments: (tenantId: string, period?: string) =>
     request<{ adjustments: ApiPayrollAdjustment[] }>(
@@ -673,6 +688,17 @@ export const api = {
       `/api/tenants/${tenantId}/payments`,
       input,
     ),
+  payments: (tenantId: string, filter?: { refType: "invoice" | "purchase"; refId: string }) =>
+    request<{ payments: ApiPayment[] }>(
+      "GET",
+      `/api/tenants/${tenantId}/payments${filter ? `?refType=${filter.refType}&refId=${filter.refId}` : ""}`,
+    ),
+  voidPayment: (tenantId: string, id: string, date?: string) =>
+    request<{ ok: true; paymentNo: string; reversalEntryNo: string; paidAmount: number }>(
+      "POST",
+      `/api/tenants/${tenantId}/payments/${id}/void`,
+      date ? { date } : {},
+    ),
   currencies: (tenantId: string) => request<{ currencies: ApiCurrency[] }>("GET", `/api/tenants/${tenantId}/currencies`),
   setCurrency: (tenantId: string, input: { code: string; name: string; rate: number }) =>
     request<{ ok: true }>("PUT", `/api/tenants/${tenantId}/currencies`, input),
@@ -809,6 +835,17 @@ export const api = {
       "POST",
       `/api/tenants/${tenantId}/pos/shift/${shiftId}/close`,
       { closingCash },
+    ),
+  posReceipts: (tenantId: string, q?: string) =>
+    request<{ receipts: ApiPosReceipt[] }>(
+      "GET",
+      `/api/tenants/${tenantId}/pos/receipts${q ? `?q=${encodeURIComponent(q)}` : ""}`,
+    ),
+  posRefund: (tenantId: string, input: PosRefundInput) =>
+    request<{ ok: true; returnNo: string; total: number; journalNo: string }>(
+      "POST",
+      `/api/tenants/${tenantId}/pos/refunds`,
+      input,
     ),
   changePassword: (currentPassword: string, newPassword: string) =>
     request<{ ok: true }>("POST", "/api/auth/change-password", { currentPassword, newPassword }),

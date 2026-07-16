@@ -2,8 +2,10 @@ import {
   closeShiftSchema,
   holdSaleSchema,
   openShiftSchema,
+  posRefundSchema,
   posSaleSchema,
   type ApiHeldSale,
+  type ApiPosReceipt,
   type ApiPosShift,
   type PosPaymentMethod,
 } from "@erpindo/shared";
@@ -16,6 +18,7 @@ import {
   InsufficientStockError,
   nextDocNo,
   postJournal,
+  stockIn,
   stockOut,
   SYS_ACCOUNTS,
 } from "../lib/accounting";
@@ -23,6 +26,7 @@ import { audit } from "../lib/audit";
 import { getTenantDb } from "../lib/tenantDb";
 import { requireAuth, requireTenantRole } from "../middleware/auth";
 import { clientIp } from "./auth";
+import { docLineAggregates, returnedQtyPerProduct } from "./returns";
 
 /**
  * POS / Kasir di atas mesin faktur yang sama:
@@ -325,6 +329,206 @@ export const posRoutes = new Hono<AppEnv>()
       ip: clientIp(c),
     });
     return c.json({ ok: true, invoiceNo: docNo, total, change }, 201);
+  })
+
+  // -------------------------------------------------------------------------
+  // Struk & Refund (Fase 10c). Struk POS lunas tidak bisa di-void (uang sudah
+  // berpindah) — koreksinya refund: barang kembali ke gudang shift terbuka,
+  // uang tunai keluar dari laci, jurnal pembalik proporsional HARI INI.
+  // -------------------------------------------------------------------------
+  .get("/:tenantId/pos/receipts", requireAuth, requireTenantRole("viewer"), async (c) => {
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+    const q = (c.req.query("q") ?? "").trim();
+    const binds: string[] = [];
+    let where = "WHERE i.pos_shift_id IS NOT NULL AND i.voided_at IS NULL";
+    if (q) {
+      where += ` AND i.invoice_no LIKE ? ESCAPE '\\'`;
+      binds.push(`%${q.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`);
+    }
+    const { results: invs } = await db
+      .prepare(
+        `SELECT i.id, i.invoice_no, i.invoice_date, i.total, i.returned_amount
+         FROM invoices i ${where}
+         ORDER BY i.invoice_date DESC, i.invoice_no DESC LIMIT 20`,
+      )
+      .bind(...binds)
+      .all<{ id: string; invoice_no: string; invoice_date: string; total: number; returned_amount: number }>();
+
+    const receipts: ApiPosReceipt[] = [];
+    for (const inv of invs) {
+      const docLines = await docLineAggregates(db, "invoice_lines", "invoice_id", inv.id);
+      const returned = await returnedQtyPerProduct(db, "invoice", inv.id);
+      const { results: names } = await db
+        .prepare(
+          `SELECT il.product_id, p.name FROM invoice_lines il JOIN products p ON p.id = il.product_id
+           WHERE il.invoice_id = ? GROUP BY il.product_id`,
+        )
+        .bind(inv.id)
+        .all<{ product_id: string; name: string }>();
+      const nameById = new Map(names.map((n) => [n.product_id, n.name]));
+      receipts.push({
+        id: inv.id,
+        invoiceNo: inv.invoice_no,
+        invoiceDate: inv.invoice_date,
+        total: inv.total,
+        returnedAmount: inv.returned_amount,
+        lines: [...docLines.entries()].map(([productId, agg]) => ({
+          productId,
+          productName: nameById.get(productId) ?? "",
+          qty: agg.qty,
+          qtyReturnable: Math.max(agg.qty - (returned.get(productId) ?? 0), 0),
+          unitPrice: Math.round(agg.amount / agg.qty),
+        })),
+      });
+    }
+    return c.json({ receipts });
+  })
+
+  .post("/:tenantId/pos/refunds", requireAuth, requireTenantRole("admin"), async (c) => {
+    const parsed = posRefundSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) {
+      return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
+    }
+    const tenant = c.get("tenant");
+    const db = getTenantDb(c.env, tenant.dbRef);
+    const user = c.get("user");
+    const input = parsed.data;
+    const today = new Date().toISOString().slice(0, 10);
+
+    const lockedBefore = await getLockedBefore(db);
+    if (lockedBefore && today <= lockedBefore) {
+      return c.json({ error: `Periode sampai ${lockedBefore} sudah ditutup.` }, 400);
+    }
+
+    // Refund tunai keluar dari laci — kasir harus punya shift terbuka.
+    const { results: shifts } = await db
+      .prepare(`SELECT id, warehouse_id FROM pos_shifts WHERE status = 'open' AND opened_by = ? LIMIT 1`)
+      .bind(user.id)
+      .all<{ id: string; warehouse_id: string }>();
+    const shift = shifts[0];
+    if (!shift) return c.json({ error: "Buka shift kasir terlebih dahulu untuk memproses refund." }, 400);
+
+    const { results: invs } = await db
+      .prepare(
+        `SELECT id, invoice_no, tax_rate, total, paid_amount, returned_amount, voided_at, pos_shift_id
+         FROM invoices WHERE id = ?`,
+      )
+      .bind(input.invoiceId)
+      .all<{
+        id: string;
+        invoice_no: string;
+        tax_rate: number;
+        total: number;
+        paid_amount: number;
+        returned_amount: number;
+        voided_at: string | null;
+        pos_shift_id: string | null;
+      }>();
+    const inv = invs[0];
+    if (!inv) return c.json({ error: "Struk tidak ditemukan." }, 404);
+    if (!inv.pos_shift_id) return c.json({ error: "Bukan struk POS — gunakan Retur Penjualan biasa." }, 400);
+    if (inv.voided_at) return c.json({ error: "Struk sudah dibatalkan." }, 400);
+
+    // Qty per produk ≤ sisa yang bisa di-refund (pola mesin retur).
+    const docLines = await docLineAggregates(db, "invoice_lines", "invoice_id", inv.id);
+    const alreadyReturned = await returnedQtyPerProduct(db, "invoice", inv.id);
+    let subtotal = 0;
+    const pricedLines: { productId: string; qty: number; unitPrice: number; amount: number }[] = [];
+    for (const line of input.lines) {
+      const docLine = docLines.get(line.productId);
+      if (!docLine) return c.json({ error: "Ada produk yang tidak terdapat pada struk." }, 400);
+      const available = docLine.qty - (alreadyReturned.get(line.productId) ?? 0);
+      if (line.qty > available) {
+        return c.json({ error: `Qty refund melebihi sisa yang bisa direfund (maks ${available}).` }, 400);
+      }
+      const unitPrice = Math.round(docLine.amount / docLine.qty);
+      const amount = line.qty * unitPrice;
+      subtotal += amount;
+      pricedLines.push({ productId: line.productId, qty: line.qty, unitPrice, amount });
+    }
+    const taxAmount = Math.round((subtotal * inv.tax_rate) / 100);
+    const total = subtotal + taxAmount;
+    if (total <= 0) return c.json({ error: "Nilai refund tidak boleh nol." }, 400);
+
+    // Barang kembali ke gudang shift yang terbuka pada biaya rata-rata kini.
+    const refundId = crypto.randomUUID();
+    let inventoryValue = 0;
+    for (const line of pricedLines) {
+      const { results: levels } = await db
+        .prepare(`SELECT avg_cost FROM stock_levels WHERE product_id = ? AND warehouse_id = ?`)
+        .bind(line.productId, shift.warehouse_id)
+        .all<{ avg_cost: number }>();
+      const avgCost = levels[0]?.avg_cost ?? 0;
+      await stockIn(db, {
+        productId: line.productId,
+        warehouseId: shift.warehouse_id,
+        qty: line.qty,
+        unitCost: avgCost,
+        refType: "sale",
+        refId: refundId,
+      });
+      inventoryValue += line.qty * avgCost;
+    }
+
+    const returnNo = await nextDocNo(db, "returns", "RTN");
+    const memo = `Refund POS ${inv.invoice_no} (${returnNo})${input.memo ? ` — ${input.memo}` : ""}`;
+    const [kas, pendapatan, ppnKeluaran, hpp, persediaan] = await Promise.all([
+      accountIdByCode(db, SYS_ACCOUNTS.KAS),
+      accountIdByCode(db, SYS_ACCOUNTS.PENDAPATAN),
+      accountIdByCode(db, SYS_ACCOUNTS.PPN_KELUARAN),
+      accountIdByCode(db, SYS_ACCOUNTS.HPP),
+      accountIdByCode(db, SYS_ACCOUNTS.PERSEDIAAN),
+    ]);
+    const journal = await postJournal(db, {
+      entryDate: today,
+      memo,
+      createdBy: user.id,
+      lines: [
+        { accountId: pendapatan, description: memo, debit: subtotal, credit: 0 },
+        ...(taxAmount > 0 ? [{ accountId: ppnKeluaran, description: memo, debit: taxAmount, credit: 0 }] : []),
+        { accountId: kas, description: memo, debit: 0, credit: total },
+        ...(inventoryValue > 0
+          ? [
+              { accountId: persediaan, description: memo, debit: inventoryValue, credit: 0 },
+              { accountId: hpp, description: memo, debit: 0, credit: inventoryValue },
+            ]
+          : []),
+      ],
+    });
+
+    await db
+      .prepare(
+        `INSERT INTO returns (id, return_no, ref_type, ref_id, return_date, memo, subtotal, tax_amount, total,
+                              journal_entry_id, created_by)
+         VALUES (?, ?, 'invoice', ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(refundId, returnNo, inv.id, today, input.memo ?? null, subtotal, taxAmount, total, journal.id, user.id)
+      .run();
+    for (const line of pricedLines) {
+      await db
+        .prepare(`INSERT INTO return_lines (id, return_id, product_id, qty, unit_price, amount) VALUES (?, ?, ?, ?, ?, ?)`)
+        .bind(crypto.randomUUID(), refundId, line.productId, line.qty, line.unitPrice, line.amount)
+        .run();
+    }
+    await db
+      .prepare(`UPDATE invoices SET returned_amount = returned_amount + ? WHERE id = ?`)
+      .bind(total, inv.id)
+      .run();
+    // Baris pembayaran POS NEGATIF pada shift AKTIF → kas laci & rekap shift
+    // menyusut persis sebesar uang yang dikembalikan.
+    await db
+      .prepare(`INSERT INTO pos_sale_payments (id, invoice_id, shift_id, method, amount, tendered) VALUES (?, ?, ?, 'tunai', ?, ?)`)
+      .bind(crypto.randomUUID(), inv.id, shift.id, -total, -total)
+      .run();
+
+    await audit(c.env, {
+      action: "pos.refund",
+      userId: user.id,
+      tenantId: tenant.id,
+      detail: { returnNo, invoiceNo: inv.invoice_no, total },
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true, returnNo, total, journalNo: journal.entryNo }, 201);
   })
 
   // -------------------------------------------------------------------------

@@ -2,6 +2,7 @@ import {
   createAccountSchema,
   createJournalEntrySchema,
   renameAccountSchema,
+  reverseJournalSchema,
   type ApiAccount,
   type ApiJournalEntry,
   type ApiJournalLine,
@@ -10,7 +11,13 @@ import {
 } from "@erpindo/shared";
 import { Hono } from "hono";
 import type { AppEnv } from "../env";
-import { PeriodLockedError, postJournal } from "../lib/accounting";
+import {
+  AlreadyReversedError,
+  journalSourceDoc,
+  PeriodLockedError,
+  postJournal,
+  reverseJournal,
+} from "../lib/accounting";
 import { audit } from "../lib/audit";
 import { getTenantDb } from "../lib/tenantDb";
 import { requireAuth, requireTenantRole, resolvePermissions } from "../middleware/auth";
@@ -154,20 +161,32 @@ export const accountingRoutes = new Hono<AppEnv>()
     let whereSql = "";
     if (q) {
       const like = `%${q.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
-      whereSql = `WHERE (entry_no LIKE ? ESCAPE '\\' OR memo LIKE ? ESCAPE '\\')`;
+      whereSql = `WHERE (e.entry_no LIKE ? ESCAPE '\\' OR e.memo LIKE ? ESCAPE '\\')`;
       binds.push(like, like);
     }
 
     const [{ results: entries }, { results: countRows }] = await Promise.all([
       db
         .prepare(
-          `SELECT id, entry_no, entry_date, memo, status FROM journal_entries
-           ${whereSql} ORDER BY entry_date DESC, entry_no DESC LIMIT ? OFFSET ?`,
+          `SELECT e.id, e.entry_no, e.entry_date, e.memo, e.status,
+                  r1.entry_no AS reversed_by_no, r2.entry_no AS reverses_no
+           FROM journal_entries e
+           LEFT JOIN journal_entries r1 ON r1.id = e.reversed_by_entry_id
+           LEFT JOIN journal_entries r2 ON r2.id = e.reverses_entry_id
+           ${whereSql} ORDER BY e.entry_date DESC, e.entry_no DESC LIMIT ? OFFSET ?`,
         )
         .bind(...binds, limit, offset)
-        .all<{ id: string; entry_no: string; entry_date: string; memo: string | null; status: "posted" | "void" }>(),
+        .all<{
+          id: string;
+          entry_no: string;
+          entry_date: string;
+          memo: string | null;
+          status: "posted" | "void";
+          reversed_by_no: string | null;
+          reverses_no: string | null;
+        }>(),
       db
-        .prepare(`SELECT COUNT(*) AS n FROM journal_entries ${whereSql}`)
+        .prepare(`SELECT COUNT(*) AS n FROM journal_entries e ${whereSql}`)
         .bind(...binds)
         .all<{ n: number }>(),
     ]);
@@ -215,6 +234,8 @@ export const accountingRoutes = new Hono<AppEnv>()
         memo: e.memo,
         status: e.status,
         lines: byEntry.get(e.id) ?? [],
+        reversedByEntryNo: e.reversed_by_no,
+        reversesEntryNo: e.reverses_no,
       })),
       total,
       limit,
@@ -299,6 +320,92 @@ export const accountingRoutes = new Hono<AppEnv>()
       ip: clientIp(c),
     });
     return c.json({ ok: true, id: entryId, entryNo }, 201);
+  })
+
+  // -------------------------------------------------------------------------
+  // Balik jurnal (Fase 10c): koreksi jurnal manual dengan jurnal pembalik
+  // bertaut dua arah. Jurnal yang lahir dari dokumen (faktur, pembayaran,
+  // gaji, dst.) diblokir — pembatalan harus lewat dokumennya agar stok/saldo
+  // ikut terkoreksi.
+  // -------------------------------------------------------------------------
+  .post("/:tenantId/journal-entries/:id/reverse", requireAuth, requireTenantRole("admin"), async (c) => {
+    const parsed = reverseJournalSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: "Data tidak valid" }, 400);
+    const tenant = c.get("tenant");
+    const db = getTenantDb(c.env, tenant.dbRef);
+    const entryId = c.req.param("id");
+
+    const { results: rows } = await db
+      .prepare(
+        `SELECT id, entry_no, entry_date, memo, status, reversed_by_entry_id, reverses_entry_id
+         FROM journal_entries WHERE id = ?`,
+      )
+      .bind(entryId)
+      .all<{
+        id: string;
+        entry_no: string;
+        entry_date: string;
+        memo: string | null;
+        status: string;
+        reversed_by_entry_id: string | null;
+        reverses_entry_id: string | null;
+      }>();
+    const entry = rows[0];
+    if (!entry) return c.json({ error: "Jurnal tidak ditemukan." }, 404);
+    if (entry.status !== "posted") return c.json({ error: "Hanya jurnal terposting yang bisa dibalik." }, 400);
+    if (entry.reverses_entry_id) {
+      return c.json({ error: "Jurnal ini sendiri adalah pembalik — tidak bisa dibalik lagi." }, 400);
+    }
+    if (entry.reversed_by_entry_id) {
+      return c.json({ error: `Jurnal ${entry.entry_no} sudah pernah dibalik.` }, 400);
+    }
+
+    const sourceDoc = await journalSourceDoc(db, entryId);
+    if (sourceDoc) {
+      return c.json({ error: `Jurnal ini berasal dari ${sourceDoc} — batalkan lewat dokumen tersebut.` }, 400);
+    }
+    // Jurnal sistem tanpa baris dokumen (tidak tertangkap pencarian di atas):
+    // penyesuaian stok menggerakkan stok (membalik jurnalnya saja membuat
+    // stok & buku tidak sinkron) dan jurnal penutup punya alur buka-tutup buku
+    // sendiri. Pembatalan (pra-0037) tidak punya tautan — cegah balik ganda.
+    const memo = entry.memo ?? "";
+    if (memo.startsWith("Penyesuaian stok ")) {
+      return c.json({ error: "Jurnal penyesuaian stok — koreksi lewat opname pembalik di halaman Stok." }, 400);
+    }
+    if (memo.startsWith("Jurnal penutup ")) {
+      return c.json({ error: "Jurnal penutup tidak bisa dibalik — buka kembali periode lewat Tutup Buku." }, 400);
+    }
+    if (memo.startsWith("Pembatalan ")) {
+      return c.json({ error: "Jurnal ini sendiri adalah pembalik — tidak bisa dibalik lagi." }, 400);
+    }
+
+    if (parsed.data.date && parsed.data.date < entry.entry_date) {
+      return c.json({ error: "Tanggal pembalikan tidak boleh sebelum tanggal jurnal asal." }, 400);
+    }
+
+    let reversal: { id: string; entryNo: string };
+    try {
+      reversal = await reverseJournal(db, entryId, {
+        date: parsed.data.date,
+        memo: `Pembalikan ${entry.entry_no}`,
+        userId: c.get("user").id,
+      });
+    } catch (err) {
+      if (err instanceof PeriodLockedError) {
+        return c.json({ error: `${err.message} Kirim tanggal hari ini untuk membalik di periode berjalan.` }, 400);
+      }
+      if (err instanceof AlreadyReversedError) return c.json({ error: err.message }, 400);
+      throw err;
+    }
+
+    await audit(c.env, {
+      action: "accounting.journal_reversed",
+      userId: c.get("user").id,
+      tenantId: tenant.id,
+      detail: { entryNo: entry.entry_no, reversalEntryNo: reversal.entryNo },
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true, entryNo: entry.entry_no, reversalEntryNo: reversal.entryNo }, 201);
   })
 
   // -------------------------------------------------------------------------

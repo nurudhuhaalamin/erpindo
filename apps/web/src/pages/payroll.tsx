@@ -10,6 +10,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  ConfirmDialog,
   EmptyState,
   Input,
   Label,
@@ -287,7 +288,13 @@ export function PayrollPage() {
           ) : (
             <div className="space-y-3">
               {runsQuery.data!.runs.map((r) => (
-                <RunRow key={r.id} run={r} tenantId={tenant.tenantId} />
+                <RunRow
+                  key={r.id}
+                  run={r}
+                  tenantId={tenant.tenantId}
+                  // Hanya run aktif TERBARU yang boleh dibatalkan (guard server sama).
+                  canVoid={isAdmin && r.id === runsQuery.data!.runs.find((x) => !x.voidedAt)?.id}
+                />
               ))}
             </div>
           )}
@@ -870,23 +877,70 @@ function LeaveCard({ tenantId, employees, isAdmin }: { tenantId: string; employe
   );
 }
 
-function RunRow({ run, tenantId }: { run: ApiPayrollRun; tenantId: string }) {
+function RunRow({ run, tenantId, canVoid = false }: { run: ApiPayrollRun; tenantId: string; canVoid?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [voidOpen, setVoidOpen] = useState(false);
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const isVoided = Boolean(run.voidedAt);
+  const doVoid = useMutation({
+    mutationFn: () => api.voidPayrollRun(tenantId, run.id),
+    onSuccess: (res) => {
+      toast("success", `Penggajian ${res.runNo} dibatalkan — jurnal pembalik ${res.reversalEntryNo}, saldo kasbon pulih.`);
+      setVoidOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["payroll-runs", tenantId] });
+      queryClient.invalidateQueries({ queryKey: ["employee-loans", tenantId] });
+    },
+    onError: (err) => {
+      toast("error", (err as Error).message);
+      setVoidOpen(false);
+    },
+  });
   return (
     <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="font-mono text-sm">{run.runNo}</span>
         <span className="font-medium">Periode {run.period}</span>
-        {run.journalNo ? <Badge tone="brand">jurnal {run.journalNo}</Badge> : null}
+        {isVoided ? (
+          <Badge tone="red">DIBATALKAN{run.voidJournalNo ? ` · ${run.voidJournalNo}` : ""}</Badge>
+        ) : run.journalNo ? (
+          <Badge tone="brand">jurnal {run.journalNo}</Badge>
+        ) : null}
         <span className="text-xs text-slate-400">{run.payslips.length} karyawan</span>
         <span className="ml-auto text-sm">
           Bruto <strong className="tabular-nums">{formatIDR(run.totalGross)}</strong> · Netto{" "}
           <strong className="tabular-nums">{formatIDR(run.totalNet)}</strong>
         </span>
+        {canVoid && !isVoided ? (
+          <Button
+            variant="ghost"
+            className="h-8 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
+            onClick={() => setVoidOpen(true)}
+          >
+            Batalkan
+          </Button>
+        ) : null}
         <Button variant="ghost" className="h-8" onClick={() => setOpen((o) => !o)}>
           {open ? "Tutup" : "Slip gaji"}
         </Button>
       </div>
+
+      <ConfirmDialog
+        open={voidOpen}
+        title={`Batalkan penggajian ${run.runNo}?`}
+        description={
+          <>
+            Jurnal beban gaji akan dibalik, saldo kasbon karyawan dipulihkan, dan komponen ad-hoc dilepas agar bisa
+            dipakai lagi. Periode {run.period} bisa digaji ulang. Slip lama tetap tersimpan dengan tanda{" "}
+            <strong>DIBATALKAN</strong>.
+          </>
+        }
+        confirmLabel="Ya, batalkan penggajian"
+        danger
+        busy={doVoid.isPending}
+        onConfirm={() => doVoid.mutate()}
+        onCancel={() => setVoidOpen(false)}
+      />
 
       {open ? (
         <div className="mt-3 overflow-x-auto rounded-lg bg-slate-50 p-3 dark:bg-slate-800/40">

@@ -408,6 +408,32 @@ try {
   check("F14 membuka lipatan memulihkan menu", (await navLinks()) === allLinks);
   check("F14 navigasi bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
 
+  // F16 — Fase 10c: balik jurnal via UI, panel pembayaran dokumen, panel
+  // Struk & Refund POS.
+  resetErrors();
+  await gotoRoute("/app/keuangan/jurnal", 900);
+  await page.locator('input[aria-label="Cari jurnal"]').fill("Jurnal uji simulasi UI");
+  await page.waitForTimeout(800);
+  await page.getByRole("button", { name: "Balik", exact: true }).first().click();
+  const revDone = postDone("/reverse");
+  await page.getByRole("button", { name: "Ya, balik jurnal" }).click();
+  await revDone;
+  check("F16 balik jurnal manual via UI (201)", true);
+  await page.waitForTimeout(800);
+  check("F16 badge DIBALIK tampil pada jurnal asal", (await page.innerText("body")).includes("DIBALIK"));
+
+  await gotoRoute("/app/penjualan", 900);
+  await page.getByRole("button", { name: "Pembayaran", exact: true }).first().click();
+  await page.waitForTimeout(800);
+  check("F16 panel Pembayaran dokumen terbuka", (await page.innerText("body")).includes("Pembayaran dokumen ini"));
+
+  await gotoRoute("/app/pos", 1000);
+  await page.getByRole("button", { name: "Struk & Refund" }).click();
+  await page.waitForTimeout(900);
+  const posBody = await page.innerText("body");
+  check("F16 panel Struk & Refund render dengan daftar struk", posBody.includes("Pilih struk, isi qty") && /INV-\d{5}/.test(posBody));
+  check("F16 alur Fase 10c bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
+
   // F15 — Fase 10b: landing harga tunggal + masuk mode demo tanpa daftar.
   // Dijalankan TERAKHIR karena tombol demo mengganti cookie sesi konteks ini.
   console.log("3. Landing harga tunggal & mode demo (Fase 10b)");

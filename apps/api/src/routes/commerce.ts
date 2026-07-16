@@ -4,9 +4,11 @@ import {
   createPaymentSchema,
   createPurchaseSchema,
   decisionNoteSchema,
+  reverseJournalSchema,
   stockAdjustmentSchema,
   stockTransferSchema,
   type ApiCommerceDoc,
+  type ApiPayment,
   type CreateInvoiceInput,
   type CreatePurchaseInput,
   type ApiCommerceLine,
@@ -17,11 +19,13 @@ import type { SqlExecutor } from "@erpindo/db";
 import type { AppEnv } from "../env";
 import {
   accountIdByCode,
+  AlreadyReversedError,
   getLockedBefore,
   InsufficientStockError,
   nextDocNo,
   PeriodLockedError,
   postJournal,
+  reverseJournal,
   stockIn,
   stockOut,
   SYS_ACCOUNTS,
@@ -601,30 +605,22 @@ async function voidDoc(
     }
   }
 
-  // Jurnal pembalik: baris asal ditukar debit↔kredit, tanggal ikut dokumen
-  // asal — bila periodenya sudah ditutup, PeriodLockedError memblokir void.
-  const { results: origLines } = await db
-    .prepare(`SELECT account_id, description, debit, credit FROM journal_lines WHERE entry_id = ?`)
-    .bind(doc.journal_entry_id)
-    .all<{ account_id: string; description: string | null; debit: number; credit: number }>();
-  if (origLines.length < 2) return { error: "Jurnal asal dokumen tidak ditemukan.", status: 400 };
-
+  // Jurnal pembalik via helper bersama (Fase 10c): baris asal ditukar
+  // debit↔kredit, tanggal ikut dokumen asal — bila periodenya sudah ditutup,
+  // PeriodLockedError memblokir void; tautan dua arah dicatat di jurnal.
   let reversal: { id: string; entryNo: string };
   try {
-    reversal = await postJournal(db, {
-      entryDate: doc.date,
+    reversal = await reverseJournal(db, doc.journal_entry_id, {
       memo: `Pembatalan ${doc.doc_no}`,
-      createdBy: userId,
-      lines: origLines.map((l) => ({
-        accountId: l.account_id,
-        description: `Pembatalan ${doc.doc_no}${l.description ? ` — ${l.description}` : ""}`,
-        debit: l.credit,
-        credit: l.debit,
-      })),
+      userId,
     });
   } catch (err) {
     if (err instanceof PeriodLockedError) {
       return { error: `${err.message} Gunakan Retur untuk koreksi di periode berjalan.`, status: 400 };
+    }
+    if (err instanceof AlreadyReversedError) return { error: err.message, status: 400 };
+    if (err instanceof Error && err.message === "Jurnal asal dokumen tidak ditemukan.") {
+      return { error: err.message, status: 400 };
     }
     throw err;
   }
@@ -1053,6 +1049,174 @@ export const commerceRoutes = new Hono<AppEnv>()
       { ok: true, paymentNo, paidAmount: newPaid, settled: newPaid + doc.returned_amount >= doc.total, forexGain },
       201,
     );
+  })
+
+  // -------------------------------------------------------------------------
+  // Daftar pembayaran (Fase 10c) — baris untuk tombol Hapus di UI. Filter
+  // opsional per dokumen (refType + refId); tanpa filter = 200 terbaru.
+  // -------------------------------------------------------------------------
+  .get("/:tenantId/payments", requireAuth, requireTenantRole("viewer"), async (c) => {
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+    const refType = c.req.query("refType");
+    const refId = c.req.query("refId");
+    const binds: string[] = [];
+    let where = "";
+    if (refType && refId) {
+      where = "WHERE p.ref_type = ? AND p.ref_id = ?";
+      binds.push(refType, refId);
+    }
+    const { results } = await db
+      .prepare(
+        `SELECT p.id, p.payment_no, p.direction, p.ref_type, p.ref_id, p.account_id, a.name AS account_name,
+                p.amount, p.payment_date, p.currency, p.exchange_rate, p.foreign_amount, p.voided_at,
+                j.entry_no AS journal_no, v.entry_no AS void_journal_no,
+                COALESCE(i.invoice_no, pu.purchase_no) AS doc_no,
+                CASE WHEN i.pos_shift_id IS NOT NULL THEN 1 ELSE 0 END AS is_pos
+         FROM payments p
+         LEFT JOIN accounts a ON a.id = p.account_id
+         LEFT JOIN journal_entries j ON j.id = p.journal_entry_id
+         LEFT JOIN journal_entries v ON v.id = p.void_journal_entry_id
+         LEFT JOIN invoices i ON p.ref_type = 'invoice' AND i.id = p.ref_id
+         LEFT JOIN purchases pu ON p.ref_type = 'purchase' AND pu.id = p.ref_id
+         ${where}
+         ORDER BY p.payment_date DESC, p.payment_no DESC LIMIT 200`,
+      )
+      .bind(...binds)
+      .all<{
+        id: string;
+        payment_no: string;
+        direction: "receive" | "pay";
+        ref_type: "invoice" | "purchase";
+        ref_id: string;
+        account_id: string;
+        account_name: string | null;
+        amount: number;
+        payment_date: string;
+        currency: string | null;
+        exchange_rate: number | null;
+        foreign_amount: number | null;
+        voided_at: string | null;
+        journal_no: string | null;
+        void_journal_no: string | null;
+        doc_no: string | null;
+        is_pos: number;
+      }>();
+    const payments: ApiPayment[] = results.map((r) => ({
+      id: r.id,
+      paymentNo: r.payment_no,
+      direction: r.direction,
+      refType: r.ref_type,
+      refId: r.ref_id,
+      docNo: r.doc_no,
+      accountId: r.account_id,
+      accountName: r.account_name,
+      amount: r.amount,
+      paymentDate: r.payment_date,
+      currency: r.currency ?? "IDR",
+      exchangeRate: r.exchange_rate ?? 1,
+      foreignAmount: r.foreign_amount,
+      voidedAt: r.voided_at,
+      journalNo: r.journal_no,
+      voidJournalNo: r.void_journal_no,
+      isPos: r.is_pos === 1,
+    }));
+    return c.json({ payments });
+  })
+
+  // -------------------------------------------------------------------------
+  // Void pembayaran (Fase 10c): jurnal pembalik + sisa tagihan dokumen pulih.
+  // Pembayaran POS diblokir — jurnalnya menyatu dengan struk penjualannya.
+  // -------------------------------------------------------------------------
+  .post("/:tenantId/payments/:id/void", requireAuth, requireTenantRole("admin"), async (c) => {
+    const parsed = reverseJournalSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: "Data tidak valid" }, 400);
+    const tenant = c.get("tenant");
+    const db = getTenantDb(c.env, tenant.dbRef);
+    const paymentId = c.req.param("id");
+
+    const { results: rows } = await db
+      .prepare(
+        `SELECT id, payment_no, direction, ref_type, ref_id, amount, payment_date, journal_entry_id, voided_at
+         FROM payments WHERE id = ?`,
+      )
+      .bind(paymentId)
+      .all<{
+        id: string;
+        payment_no: string;
+        direction: "receive" | "pay";
+        ref_type: "invoice" | "purchase";
+        ref_id: string;
+        amount: number;
+        payment_date: string;
+        journal_entry_id: string;
+        voided_at: string | null;
+      }>();
+    const payment = rows[0];
+    if (!payment) return c.json({ error: "Pembayaran tidak ditemukan." }, 404);
+    if (payment.voided_at) return c.json({ error: "Pembayaran sudah dibatalkan sebelumnya." }, 400);
+
+    // JEBAKAN POS: pembayaran POS berbagi journal_entry_id dengan faktur
+    // penjualannya — membalik jurnal itu ikut membalik pendapatan & HPP struk.
+    const { results: posInv } = await db
+      .prepare(`SELECT id FROM invoices WHERE journal_entry_id = ? LIMIT 1`)
+      .bind(payment.journal_entry_id)
+      .all<{ id: string }>();
+    if (posInv[0]) {
+      return c.json({ error: "Pembayaran POS menyatu dengan struknya — gunakan Retur/Refund di Kasir." }, 400);
+    }
+
+    if (parsed.data.date && parsed.data.date < payment.payment_date) {
+      return c.json({ error: "Tanggal pembalikan tidak boleh sebelum tanggal pembayaran." }, 400);
+    }
+
+    let reversal: { id: string; entryNo: string };
+    try {
+      reversal = await reverseJournal(db, payment.journal_entry_id, {
+        date: parsed.data.date,
+        memo: `Pembatalan ${payment.payment_no}`,
+        userId: c.get("user").id,
+      });
+    } catch (err) {
+      if (err instanceof PeriodLockedError) {
+        return c.json({ error: `${err.message} Kirim tanggal hari ini untuk membalik di periode berjalan.` }, 400);
+      }
+      if (err instanceof AlreadyReversedError) return c.json({ error: err.message }, 400);
+      if (err instanceof Error && err.message === "Jurnal asal dokumen tidak ditemukan.") {
+        return c.json({ error: err.message }, 400);
+      }
+      throw err;
+    }
+
+    await db
+      .prepare(`UPDATE payments SET voided_at = datetime('now'), void_journal_entry_id = ? WHERE id = ?`)
+      .bind(reversal.id, paymentId)
+      .run();
+
+    // Pulihkan sisa tagihan dokumen (pola recompute status yang sama dengan
+    // pencatatan pembayaran).
+    const cfg = payment.ref_type === "invoice" ? INVOICE_CFG : PURCHASE_CFG;
+    const { results: docs } = await db
+      .prepare(`SELECT ${cfg.noColumn} AS doc_no, total, paid_amount, returned_amount FROM ${cfg.table} WHERE id = ?`)
+      .bind(payment.ref_id)
+      .all<{ doc_no: string; total: number; paid_amount: number; returned_amount: number }>();
+    const doc = docs[0];
+    let newPaid = 0;
+    if (doc) {
+      newPaid = Math.max(doc.paid_amount - payment.amount, 0);
+      await db
+        .prepare(`UPDATE ${cfg.table} SET paid_amount = ?, status = ? WHERE id = ?`)
+        .bind(newPaid, newPaid + doc.returned_amount >= doc.total ? "paid" : "posted", payment.ref_id)
+        .run();
+    }
+
+    await audit(c.env, {
+      action: "payment.voided",
+      userId: c.get("user").id,
+      tenantId: tenant.id,
+      detail: { paymentNo: payment.payment_no, docNo: doc?.doc_no, amount: payment.amount, reversalEntryNo: reversal.entryNo },
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true, paymentNo: payment.payment_no, reversalEntryNo: reversal.entryNo, paidAmount: newPaid });
   })
 
   // -------------------------------------------------------------------------

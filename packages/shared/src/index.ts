@@ -641,7 +641,20 @@ export type ApiJournalEntry = {
   memo: string | null;
   status: "posted" | "void";
   lines: ApiJournalLine[];
+  /** Fase 10c: nomor jurnal pembalik bila jurnal ini sudah dibalik. */
+  reversedByEntryNo?: string | null;
+  /** Fase 10c: nomor jurnal asal bila jurnal ini adalah pembalik. */
+  reversesEntryNo?: string | null;
 };
+
+/** Fase 10c: balik jurnal / void pembayaran — tanggal opsional (default tanggal asal). */
+export const reverseJournalSchema = z.object({
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid (YYYY-MM-DD)")
+    .optional(),
+});
+export type ReverseJournalInput = z.infer<typeof reverseJournalSchema>;
 
 export type ApiTrialBalanceRow = {
   accountId: string;
@@ -937,6 +950,28 @@ export const createPaymentSchema = z.object({
   paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
 });
 export type CreatePaymentInput = z.infer<typeof createPaymentSchema>;
+
+/** Baris pembayaran (Fase 10c) — untuk daftar + tombol Hapus/void. */
+export type ApiPayment = {
+  id: string;
+  paymentNo: string;
+  direction: "receive" | "pay";
+  refType: "invoice" | "purchase";
+  refId: string;
+  docNo: string | null;
+  accountId: string;
+  accountName: string | null;
+  amount: number;
+  paymentDate: string;
+  currency: string;
+  exchangeRate: number;
+  foreignAmount: number | null;
+  voidedAt: string | null;
+  journalNo: string | null;
+  voidJournalNo: string | null;
+  /** Pembayaran POS tidak bisa di-void terpisah (jurnal menyatu dengan struk). */
+  isPos: boolean;
+};
 
 export type ApiCommerceLine = {
   id: string;
@@ -1288,6 +1323,9 @@ export type ApiPayrollRun = {
   journalNo: string | null;
   createdAt: string;
   payslips: ApiPayslip[];
+  /** Fase 10c: terisi bila run sudah dibatalkan (jurnal terbalik, kasbon pulih). */
+  voidedAt?: string | null;
+  voidJournalNo?: string | null;
 };
 
 /** Komponen gaji ad-hoc satu periode (bonus/lembur positif, potongan negatif) — ikut PPh 21 & BPJS. */
@@ -2256,6 +2294,26 @@ export type ApiHeldSale = {
   cart: { productId: string; qty: number; unitPrice: number; discountPct?: number }[];
   taxRate: number;
   createdAt: string;
+};
+
+/** Refund POS (Fase 10c): kembalikan barang + uang tunai dari laci shift yang terbuka. */
+export const posRefundSchema = z.object({
+  invoiceId: z.string().min(1, "Pilih struk yang akan direfund"),
+  lines: z
+    .array(z.object({ productId: z.string().min(1), qty: z.number().int().min(1, "Qty minimal 1") }))
+    .min(1, "Pilih minimal satu barang"),
+  memo: z.string().trim().max(200).optional(),
+});
+export type PosRefundInput = z.infer<typeof posRefundSchema>;
+
+/** Baris struk POS untuk panel Struk & Refund. */
+export type ApiPosReceipt = {
+  id: string;
+  invoiceNo: string;
+  invoiceDate: string;
+  total: number;
+  returnedAmount: number;
+  lines: { productId: string; productName: string; qty: number; qtyReturnable: number; unitPrice: number }[];
 };
 
 // ---------------------------------------------------------------------------

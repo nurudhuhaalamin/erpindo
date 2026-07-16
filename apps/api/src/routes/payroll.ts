@@ -6,6 +6,7 @@ import {
   employeeSchema,
   leaveRequestSchema,
   payrollAdjustmentSchema,
+  reverseJournalSchema,
   runPayrollSchema,
   type ApiAttendance,
   type ApiAttendanceRecap,
@@ -21,7 +22,15 @@ import {
 } from "@erpindo/shared";
 import { Hono } from "hono";
 import type { AppEnv } from "../env";
-import { accountIdByCode, getLockedBefore, nextDocNo, postJournal } from "../lib/accounting";
+import {
+  accountIdByCode,
+  AlreadyReversedError,
+  getLockedBefore,
+  nextDocNo,
+  PeriodLockedError,
+  postJournal,
+  reverseJournal,
+} from "../lib/accounting";
 import { audit } from "../lib/audit";
 import { getTenantDb } from "../lib/tenantDb";
 import { requireAuth, requireTenantRole } from "../middleware/auth";
@@ -217,9 +226,11 @@ export const payrollRoutes = new Hono<AppEnv>()
     const { results: runs } = await db
       .prepare(
         `SELECT r.id, r.run_no, r.period, r.status, r.total_gross, r.total_deductions, r.total_net, r.created_at,
-                e.entry_no AS journal_no
-         FROM payroll_runs r LEFT JOIN journal_entries e ON e.id = r.journal_entry_id
-         ORDER BY r.period DESC`,
+                r.voided_at, e.entry_no AS journal_no, v.entry_no AS void_journal_no
+         FROM payroll_runs r
+         LEFT JOIN journal_entries e ON e.id = r.journal_entry_id
+         LEFT JOIN journal_entries v ON v.id = r.void_journal_entry_id
+         ORDER BY r.period DESC, r.created_at DESC`,
       )
       .all<{
         id: string;
@@ -230,7 +241,9 @@ export const payrollRoutes = new Hono<AppEnv>()
         total_deductions: number;
         total_net: number;
         created_at: string;
+        voided_at: string | null;
         journal_no: string | null;
+        void_journal_no: string | null;
       }>();
 
     const { results: slips } = await db
@@ -289,7 +302,9 @@ export const payrollRoutes = new Hono<AppEnv>()
     const payrollRuns: ApiPayrollRun[] = runs.map((r) => ({
       id: r.id,
       runNo: r.run_no,
-      period: r.period,
+      // Run yang dibatalkan menyimpan period ber-sufiks tombstone (kolom
+      // UNIQUE) — tampilkan kembali sebagai YYYY-MM.
+      period: r.period.slice(0, 7),
       status: r.status,
       totalGross: r.total_gross,
       totalDeductions: r.total_deductions,
@@ -297,6 +312,8 @@ export const payrollRoutes = new Hono<AppEnv>()
       journalNo: r.journal_no,
       createdAt: r.created_at,
       payslips: byRun.get(r.id) ?? [],
+      voidedAt: r.voided_at,
+      voidJournalNo: r.void_journal_no,
     }));
     return c.json({ runs: payrollRuns });
   })
@@ -310,9 +327,10 @@ export const payrollRoutes = new Hono<AppEnv>()
     const db = getTenantDb(c.env, tenant.dbRef);
     const input = parsed.data;
 
-    // Satu run per periode.
+    // Satu run per periode — run yang sudah dibatalkan (Fase 10c) tidak
+    // menghalangi run ulang periode yang sama.
     const { results: existing } = await db
-      .prepare(`SELECT id FROM payroll_runs WHERE period = ?`)
+      .prepare(`SELECT id FROM payroll_runs WHERE period = ? AND voided_at IS NULL`)
       .bind(input.period)
       .all<{ id: string }>();
     if (existing[0]) return c.json({ error: `Penggajian periode ${input.period} sudah dijalankan.` }, 409);
@@ -448,7 +466,9 @@ export const payrollRoutes = new Hono<AppEnv>()
         .run();
     }
 
-    // Tandai komponen ad-hoc terpakai & majukan saldo kasbon.
+    // Tandai komponen ad-hoc terpakai & majukan saldo kasbon. Potongan kasbon
+    // per run dicatat di payroll_loan_cuts (Fase 10c) agar pembatalan run bisa
+    // memulihkan saldo tiap pinjaman secara deterministik.
     for (const a of adjRows) {
       await db.prepare(`UPDATE payroll_adjustments SET run_id = ? WHERE id = ?`).bind(runId, a.id).run();
     }
@@ -456,6 +476,10 @@ export const payrollRoutes = new Hono<AppEnv>()
       await db
         .prepare(`UPDATE employee_loans SET balance = ?, status = CASE WHEN ? <= 0 THEN 'paid' ELSE 'active' END WHERE id = ?`)
         .bind(u.newBalance, u.newBalance, u.id)
+        .run();
+      await db
+        .prepare(`INSERT INTO payroll_loan_cuts (id, run_id, loan_id, amount) VALUES (?, ?, ?, ?)`)
+        .bind(crypto.randomUUID(), runId, u.id, u.deduction)
         .run();
     }
 
@@ -467,6 +491,101 @@ export const payrollRoutes = new Hono<AppEnv>()
       ip: clientIp(c),
     });
     return c.json({ ok: true, id: runId, runNo, totalGross, totalDeductions, totalNet, employees: emps.length }, 201);
+  })
+
+  // ---------------------------------------------------------------------------
+  // Pembatalan penggajian (Fase 10c): jurnal terbalik, saldo kasbon pulih
+  // persis dari payroll_loan_cuts, komponen ad-hoc dilepas agar bisa dipakai
+  // run ulang. Slip disimpan (badge DIBATALKAN) — jejak audit tetap utuh.
+  // ---------------------------------------------------------------------------
+  .post("/:tenantId/payroll-runs/:id/void", requireAuth, requireTenantRole("admin"), async (c) => {
+    const parsed = reverseJournalSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: "Data tidak valid" }, 400);
+    const tenant = c.get("tenant");
+    const db = getTenantDb(c.env, tenant.dbRef);
+    const runId = c.req.param("id");
+
+    const { results: runs } = await db
+      .prepare(`SELECT id, run_no, period, journal_entry_id, voided_at FROM payroll_runs WHERE id = ?`)
+      .bind(runId)
+      .all<{ id: string; run_no: string; period: string; journal_entry_id: string; voided_at: string | null }>();
+    const run = runs[0];
+    if (!run) return c.json({ error: "Penggajian tidak ditemukan." }, 404);
+    if (run.voided_at) return c.json({ error: "Penggajian sudah dibatalkan sebelumnya." }, 400);
+
+    // Guard urutan: hanya run aktif TERBARU yang boleh dibatalkan — saldo
+    // kasbon berjalan maju per periode, membatalkan run lama membuat saldo
+    // run sesudahnya tidak lagi bermakna.
+    const { results: latest } = await db
+      .prepare(`SELECT id FROM payroll_runs WHERE voided_at IS NULL ORDER BY period DESC, created_at DESC LIMIT 1`)
+      .all<{ id: string }>();
+    if (latest[0] && latest[0].id !== run.id) {
+      return c.json({ error: "Batalkan penggajian periode terbaru terlebih dahulu (urutan mundur)." }, 400);
+    }
+
+    // Guard legacy: run pra-Fase 10c yang memotong kasbon tidak punya rincian
+    // payroll_loan_cuts — saldo pinjaman tidak bisa dipulihkan otomatis.
+    const { results: cutSums } = await db
+      .prepare(`SELECT COALESCE(SUM(loan_deduction), 0) AS total FROM payslips WHERE run_id = ?`)
+      .bind(runId)
+      .all<{ total: number }>();
+    const { results: cuts } = await db
+      .prepare(`SELECT id, loan_id, amount FROM payroll_loan_cuts WHERE run_id = ?`)
+      .bind(runId)
+      .all<{ id: string; loan_id: string; amount: number }>();
+    if ((cutSums[0]?.total ?? 0) > 0 && cuts.length === 0) {
+      return c.json(
+        { error: "Penggajian lama dengan potongan kasbon — saldo pinjaman tidak bisa dipulihkan otomatis, koreksi manual lewat Jurnal Umum." },
+        400,
+      );
+    }
+
+    let reversal: { id: string; entryNo: string };
+    try {
+      reversal = await reverseJournal(db, run.journal_entry_id, {
+        date: parsed.data.date,
+        memo: `Pembatalan ${run.run_no}`,
+        userId: c.get("user").id,
+      });
+    } catch (err) {
+      if (err instanceof PeriodLockedError) {
+        return c.json({ error: `${err.message} Kirim tanggal hari ini untuk membalik di periode berjalan.` }, 400);
+      }
+      if (err instanceof AlreadyReversedError) return c.json({ error: err.message }, 400);
+      if (err instanceof Error && err.message === "Jurnal asal dokumen tidak ditemukan.") {
+        return c.json({ error: err.message }, 400);
+      }
+      throw err;
+    }
+
+    // Pulihkan saldo kasbon persis sebesar potongan run ini.
+    for (const cut of cuts) {
+      await db
+        .prepare(`UPDATE employee_loans SET balance = balance + ?, status = 'active' WHERE id = ?`)
+        .bind(cut.amount, cut.loan_id)
+        .run();
+    }
+    // Lepaskan komponen ad-hoc agar ikut terhitung saat run ulang periode ini.
+    await db.prepare(`UPDATE payroll_adjustments SET run_id = NULL WHERE run_id = ?`).bind(runId).run();
+    // Kolom period ber-UNIQUE (SQLite tak bisa melepas constraint) — beri
+    // sufiks tombstone unik agar slot periode bebas untuk run ulang;
+    // tampilan daftar memotong kembali ke YYYY-MM.
+    await db
+      .prepare(
+        `UPDATE payroll_runs SET voided_at = datetime('now'), void_journal_entry_id = ?,
+                period = period || '~' || substr(id, 1, 8) WHERE id = ?`,
+      )
+      .bind(reversal.id, runId)
+      .run();
+
+    await audit(c.env, {
+      action: "hr.payroll.voided",
+      userId: c.get("user").id,
+      tenantId: tenant.id,
+      detail: { runNo: run.run_no, period: run.period, reversalEntryNo: reversal.entryNo, loansRestored: cuts.length },
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true, runNo: run.run_no, reversalEntryNo: reversal.entryNo });
   })
 
   // ---------------------------------------------------------------------------
@@ -523,7 +642,7 @@ export const payrollRoutes = new Hono<AppEnv>()
     if (!emp[0]) return c.json({ error: "Karyawan tidak ditemukan atau nonaktif." }, 404);
 
     const { results: ran } = await db
-      .prepare(`SELECT id FROM payroll_runs WHERE period = ?`)
+      .prepare(`SELECT id FROM payroll_runs WHERE period = ? AND voided_at IS NULL`)
       .bind(input.period)
       .all<{ id: string }>();
     if (ran[0]) return c.json({ error: `Periode ${input.period} sudah digaji — komponen tidak bisa ditambahkan.` }, 409);

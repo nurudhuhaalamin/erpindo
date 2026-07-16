@@ -505,9 +505,10 @@ export function Form1721A1PrintPage() {
     return <div className="p-8 text-sm">Karyawan tidak ditemukan atau Anda tidak punya akses.</div>;
   }
 
-  // Kumpulkan seluruh slip karyawan ini pada tahun yang diminta.
+  // Kumpulkan seluruh slip karyawan ini pada tahun yang diminta —
+  // run yang dibatalkan (Fase 10c) tidak ikut akumulasi pajak.
   const rows = (runsQuery.data?.runs ?? [])
-    .filter((r) => r.period.startsWith(`${year}-`))
+    .filter((r) => !r.voidedAt && r.period.startsWith(`${year}-`))
     .map((r) => ({ period: r.period, slip: r.payslips.find((p) => p.employeeId === employeeId) }))
     .filter((x): x is { period: string; slip: ApiPayslip } => Boolean(x.slip))
     .sort((a, b) => a.period.localeCompare(b.period));

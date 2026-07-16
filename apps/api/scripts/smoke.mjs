@@ -3689,6 +3689,208 @@ try {
   const demoAgain = await makeClient()("POST", "/api/auth/demo");
   check("masuk demo kedua 200 (idempoten — user demo dipakai ulang)", demoAgain.status === 200, `→ HTTP ${demoAgain.status}`);
 
+  // --- Fase 10c: void & pembalikan transaksi terposting -------------------------
+  // Semua diuji pada tenant comped (aktif permanen). Setiap jenis pembalikan
+  // diikuti asersi neraca saldo seimbang (assertTB).
+  console.log("14h. Void & pembalikan transaksi terposting (Fase 10c)");
+  const vT = `/api/tenants/${dewiOwn.tenantId}`;
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const assertTB = async (label) => {
+    const tb = await admin("GET", `${vT}/trial-balance`);
+    check(
+      `neraca saldo seimbang ${label}`,
+      tb.status === 200 && tb.json?.balanced === true,
+      `→ ${JSON.stringify(tb.json && { d: tb.json.totalDebit, k: tb.json.totalCredit })}`,
+    );
+  };
+
+  // Setup: pemasok+pelanggan, stok 10 pcs produk comped (CMP-001).
+  const vProdId = compedWrite.json.id;
+  const vWhs = await admin("GET", `${vT}/warehouses`);
+  const vWh = vWhs.json.items[0];
+  const vCust = await admin("POST", `${vT}/contacts`, { type: "customer", name: "Pelanggan Void" });
+  const vSupp = await admin("POST", `${vT}/contacts`, { type: "supplier", name: "Pemasok Void" });
+  const vBuy = await admin("POST", `${vT}/purchases`, {
+    contactId: vSupp.json.id, invoiceDate: todayISO, taxRate: 0, warehouseId: vWh.id,
+    lines: [{ productId: vProdId, qty: 10, unitPrice: 500 }],
+  });
+  check("setup: stok 10 pcs dibeli (201)", vBuy.status === 201, `→ ${JSON.stringify(vBuy.json)}`);
+
+  // 1) Void pembayaran: jual 5 pcs → bayar sebagian → hapus pembayaran.
+  const vSell = await admin("POST", `${vT}/invoices`, {
+    contactId: vCust.json.id, invoiceDate: todayISO, taxRate: 0, warehouseId: vWh.id,
+    lines: [{ productId: vProdId, qty: 5, unitPrice: 1000 }],
+  });
+  check("faktur jual 5 pcs 201 (total 5.000)", vSell.status === 201 && vSell.json?.total === 5000);
+  const vPay1 = await admin("POST", `${vT}/payments`, {
+    refType: "invoice", refId: vSell.json.id, accountId: dwKas.id, amount: 2000, paymentDate: todayISO,
+  });
+  check("bayar sebagian 2.000 (201)", vPay1.status === 201);
+  const vPayList1 = await admin("GET", `${vT}/payments?refType=invoice&refId=${vSell.json.id}`);
+  const vPayRow = vPayList1.json?.payments?.[0];
+  check("daftar pembayaran dokumen memuat 1 baris aktif", vPayList1.status === 200 && vPayList1.json?.payments?.length === 1 && vPayRow?.voidedAt === null);
+  const vVoidPay = await admin("POST", `${vT}/payments/${vPayRow.id}/void`, {});
+  check(
+    "void pembayaran 200 → sisa tagihan pulih (paidAmount 0)",
+    vVoidPay.status === 200 && vVoidPay.json?.paidAmount === 0 && Boolean(vVoidPay.json?.reversalEntryNo),
+    `→ ${JSON.stringify(vVoidPay.json)}`,
+  );
+  await assertTB("setelah void pembayaran");
+  const vPayList2 = await admin("GET", `${vT}/payments?refType=invoice&refId=${vSell.json.id}`);
+  check(
+    "baris pembayaran tertanda DIHAPUS (voidedAt + jurnal pembalik)",
+    Boolean(vPayList2.json?.payments?.[0]?.voidedAt) && Boolean(vPayList2.json?.payments?.[0]?.voidJournalNo),
+  );
+  const vVoidPayAgain = await admin("POST", `${vT}/payments/${vPayRow.id}/void`, {});
+  check("void pembayaran kedua DITOLAK 400", vVoidPayAgain.status === 400);
+  const vPay2 = await admin("POST", `${vT}/payments`, {
+    refType: "invoice", refId: vSell.json.id, accountId: dwKas.id, amount: 5000, paymentDate: todayISO,
+  });
+  check("bayar ulang penuh setelah void 201 → lunas", vPay2.status === 201 && vPay2.json?.settled === true);
+
+  // 2) Void pembayaran valas: selisih kurs ikut terbalik bersih.
+  await admin("PUT", `${vT}/currencies`, { code: "USD", name: "Dolar AS", rate: 15_000 });
+  const vUsdInv = await admin("POST", `${vT}/invoices`, {
+    contactId: vCust.json.id, invoiceDate: todayISO, taxRate: 0, warehouseId: vWh.id,
+    currency: "USD", exchangeRate: 15_000,
+    lines: [{ productId: vProdId, qty: 1, unitPrice: 10 }],
+  });
+  check("faktur USD 10 @15.000 → 150.000 IDR (201)", vUsdInv.status === 201 && vUsdInv.json?.total === 150_000);
+  const vUsdPay = await admin("POST", `${vT}/payments`, {
+    refType: "invoice", refId: vUsdInv.json.id, accountId: dwKas.id,
+    foreignAmount: 10, exchangeRate: 15_500, paymentDate: todayISO,
+  });
+  check("pelunasan USD @15.500 → selisih kurs laba 5.000", vUsdPay.status === 201 && vUsdPay.json?.forexGain === 5000);
+  const vUsdPayList = await admin("GET", `${vT}/payments?refType=invoice&refId=${vUsdInv.json.id}`);
+  const vUsdVoid = await admin("POST", `${vT}/payments/${vUsdPayList.json.payments[0].id}/void`, {});
+  check("void pembayaran valas 200 (3 baris jurnal terbalik utuh)", vUsdVoid.status === 200 && vUsdVoid.json?.paidAmount === 0);
+  await assertTB("setelah void pembayaran valas");
+
+  // 3) Balik jurnal manual + guard-nya.
+  const vJrn = await admin("POST", `${vT}/journal-entries`, {
+    entryDate: todayISO, memo: "Beban parkir kantor",
+    lines: [
+      { accountId: dwSewa.id, debit: 100_000, credit: 0 },
+      { accountId: dwKas.id, debit: 0, credit: 100_000 },
+    ],
+  });
+  check("jurnal manual 201", vJrn.status === 201);
+  const vRevEarly = await admin("POST", `${vT}/journal-entries/${vJrn.json.id}/reverse`, { date: "2020-01-01" });
+  check("balik dengan tanggal SEBELUM jurnal asal DITOLAK 400", vRevEarly.status === 400);
+  const vRev = await admin("POST", `${vT}/journal-entries/${vJrn.json.id}/reverse`, {});
+  check("balik jurnal manual 201 + nomor pembalik", vRev.status === 201 && Boolean(vRev.json?.reversalEntryNo), `→ ${JSON.stringify(vRev.json)}`);
+  await assertTB("setelah balik jurnal manual");
+  const vJrnList = await admin("GET", `${vT}/journal-entries?q=${encodeURIComponent("Beban parkir")}`);
+  const vJrnRow = vJrnList.json?.entries?.find((e) => e.id === vJrn.json.id);
+  check(
+    "daftar jurnal memuat tautan dua arah (reversedByEntryNo terisi)",
+    vJrnRow?.reversedByEntryNo === vRev.json.reversalEntryNo,
+    `→ ${JSON.stringify(vJrnRow && { r1: vJrnRow.reversedByEntryNo, r2: vJrnRow.reversesEntryNo })}`,
+  );
+  const vRevAgain = await admin("POST", `${vT}/journal-entries/${vJrn.json.id}/reverse`, {});
+  check("balik jurnal kedua kali DITOLAK 400", vRevAgain.status === 400);
+  const vRevList = await admin("GET", `${vT}/journal-entries?q=${encodeURIComponent("Pembalikan")}`);
+  const vRevRow = vRevList.json?.entries?.find((e) => e.reversesEntryNo === vJrn.json.entryNo);
+  const vRevOfRev = await admin("POST", `${vT}/journal-entries/${vRevRow.id}/reverse`, {});
+  check("membalik jurnal PEMBALIK DITOLAK 400", vRevOfRev.status === 400);
+  const vBuyJrnList = await admin("GET", `${vT}/journal-entries?q=${encodeURIComponent(vBuy.json.docNo)}`);
+  const vBuyJrn = vBuyJrnList.json?.entries?.[0];
+  const vRevDoc = await admin("POST", `${vT}/journal-entries/${vBuyJrn.id}/reverse`, {});
+  check(
+    "membalik jurnal ber-dokumen DITOLAK 400 dengan label dokumen",
+    vRevDoc.status === 400 && /faktur pembelian/.test(vRevDoc.json?.error ?? ""),
+    `→ ${JSON.stringify(vRevDoc.json)}`,
+  );
+
+  // 4) Void penggajian: kasbon pulih, ad-hoc lepas, run ulang boleh.
+  const vEmp = await admin("POST", `${vT}/employees`, {
+    name: "Karyawan Void", ptkpStatus: "TK/0", baseSalary: 5_000_000, allowances: 0,
+  });
+  check("karyawan dibuat 201", vEmp.status === 201);
+  const vLoan = await admin("POST", `${vT}/employee-loans`, {
+    employeeId: vEmp.json.id, name: "Kasbon uji void", principal: 1_200_000, monthlyDeduction: 100_000,
+    cashAccountId: dwKas.id, loanDate: todayISO,
+  });
+  check("kasbon 1,2jt dicairkan 201", vLoan.status === 201);
+  const vAdj = await admin("POST", `${vT}/payroll-adjustments`, {
+    period: "2026-05", employeeId: vEmp.json.id, name: "Bonus uji void", amount: 50_000,
+  });
+  check("komponen ad-hoc 201", vAdj.status === 201);
+  const vRun1 = await admin("POST", `${vT}/payroll-runs`, {
+    period: "2026-05", cashAccountId: dwKas.id, paymentDate: todayISO,
+  });
+  check("penggajian 2026-05 berjalan 201", vRun1.status === 201, `→ ${JSON.stringify(vRun1.json)}`);
+  const vLoans1 = await admin("GET", `${vT}/employee-loans`);
+  check(
+    "saldo kasbon terpotong cicilan (1,2jt → 1,1jt)",
+    vLoans1.json?.loans?.find((l) => l.id === vLoan.json.id)?.balance === 1_100_000,
+  );
+  const vRun2 = await admin("POST", `${vT}/payroll-runs`, {
+    period: "2026-06", cashAccountId: dwKas.id, paymentDate: todayISO,
+  });
+  check("penggajian 2026-06 berjalan 201", vRun2.status === 201);
+  const vVoidOld = await admin("POST", `${vT}/payroll-runs/${vRun1.json.id}/void`, {});
+  check("void run LAMA saat ada run lebih baru DITOLAK 400 (urutan mundur)", vVoidOld.status === 400);
+  const vVoidNew = await admin("POST", `${vT}/payroll-runs/${vRun2.json.id}/void`, {});
+  check("void run terbaru (2026-06) 200", vVoidNew.status === 200, `→ ${JSON.stringify(vVoidNew.json)}`);
+  const vVoidMay = await admin("POST", `${vT}/payroll-runs/${vRun1.json.id}/void`, {});
+  check("lalu void 2026-05 (kini terbaru) 200", vVoidMay.status === 200);
+  await assertTB("setelah void penggajian");
+  const vLoans2 = await admin("GET", `${vT}/employee-loans`);
+  check(
+    "saldo kasbon pulih persis ke 1,2jt setelah kedua run dibatalkan",
+    vLoans2.json?.loans?.find((l) => l.id === vLoan.json.id)?.balance === 1_200_000,
+    `→ ${vLoans2.json?.loans?.find((l) => l.id === vLoan.json.id)?.balance}`,
+  );
+  const vAdjAfter = await admin("GET", `${vT}/payroll-adjustments?period=2026-05`);
+  check("komponen ad-hoc dilepas (runId null) setelah void", vAdjAfter.json?.adjustments?.[0]?.runId === null);
+  const vRunAgain = await admin("POST", `${vT}/payroll-runs`, {
+    period: "2026-05", cashAccountId: dwKas.id, paymentDate: todayISO,
+  });
+  check("periode 2026-05 bisa digaji ULANG setelah void (201)", vRunAgain.status === 201, `→ ${JSON.stringify(vRunAgain.json)}`);
+
+  // 5) POS refund: kas laci menyusut, retur tercatat, guard qty & non-POS.
+  const vShift = await admin("POST", `${vT}/pos/shift/open`, { warehouseId: vWh.id, openingCash: 10_000 });
+  check("shift kasir dibuka 201", vShift.status === 201);
+  const vPosSale = await admin("POST", `${vT}/pos/sales`, {
+    shiftId: vShift.json.id, taxRate: 0, cashReceived: 2000,
+    lines: [{ productId: vProdId, qty: 2, unitPrice: 1000 }],
+  });
+  check("penjualan POS 2 pcs (201, total 2.000)", vPosSale.status === 201 && vPosSale.json?.total === 2000);
+  const vReceipts = await admin("GET", `${vT}/pos/receipts?q=${encodeURIComponent(vPosSale.json.invoiceNo)}`);
+  const vReceipt = vReceipts.json?.receipts?.[0];
+  check(
+    "daftar struk memuat struk POS dengan qty bisa-refund 2",
+    vReceipts.status === 200 && vReceipt?.invoiceNo === vPosSale.json.invoiceNo && vReceipt?.lines?.[0]?.qtyReturnable === 2,
+  );
+  const vRefundOver = await admin("POST", `${vT}/pos/refunds`, {
+    invoiceId: vReceipt.id, lines: [{ productId: vProdId, qty: 5 }],
+  });
+  check("refund melebihi qty struk DITOLAK 400", vRefundOver.status === 400);
+  const vRefundNonPos = await admin("POST", `${vT}/pos/refunds`, {
+    invoiceId: vSell.json.id, lines: [{ productId: vProdId, qty: 1 }],
+  });
+  check("refund faktur NON-POS DITOLAK 400", vRefundNonPos.status === 400);
+  const vRefund = await admin("POST", `${vT}/pos/refunds`, {
+    invoiceId: vReceipt.id, lines: [{ productId: vProdId, qty: 1 }],
+  });
+  check("refund 1 pcs 201 (Rp 1.000 keluar dari laci)", vRefund.status === 201 && vRefund.json?.total === 1000, `→ ${JSON.stringify(vRefund.json)}`);
+  await assertTB("setelah refund POS");
+  const vShiftAfter = await admin("GET", `${vT}/pos/shift`);
+  check(
+    "kas laci shift menyusut sebesar refund (10.000 + 2.000 − 1.000)",
+    vShiftAfter.json?.shift?.expectedCash === 11_000,
+    `→ ${vShiftAfter.json?.shift?.expectedCash}`,
+  );
+  const vPosPayList = await admin("GET", `${vT}/payments?refType=invoice&refId=${vReceipt.id}`);
+  const vPosPayRow = vPosPayList.json?.payments?.find((p) => !p.voidedAt);
+  const vPosPayVoid = await admin("POST", `${vT}/payments/${vPosPayRow.id}/void`, {});
+  check(
+    "void pembayaran POS DITOLAK 400 (arahkan ke Refund Kasir)",
+    vPosPayVoid.status === 400 && /Kasir/.test(vPosPayVoid.json?.error ?? ""),
+    `→ ${JSON.stringify(vPosPayVoid.json)}`,
+  );
+
   // --- Logout -----------------------------------------------------------------
   console.log("15. Logout");
   const out = await owner("POST", "/api/auth/logout");
