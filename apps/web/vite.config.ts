@@ -9,17 +9,17 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["icon.svg"],
+      includeAssets: ["favicon.png", "brand/logo-erpindo.png"],
       manifest: {
-        name: "erpindo — ERP untuk UMKM Indonesia",
-        short_name: "erpindo",
+        name: "ERPindo — ERP untuk UMKM Indonesia",
+        short_name: "ERPindo",
         description:
           "Akuntansi double-entry, kasir POS, stok, penggajian PPh 21 TER, dan e-Faktur dalam satu aplikasi.",
         lang: "id",
         start_url: "/app",
         display: "standalone",
         background_color: "#ffffff",
-        theme_color: "#4f46e5",
+        theme_color: "#1d4ed8",
         icons: [
           { src: "/pwa-192.png", sizes: "192x192", type: "image/png" },
           { src: "/pwa-512.png", sizes: "512x512", type: "image/png" },

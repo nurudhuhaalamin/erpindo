@@ -4,7 +4,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { CheckCircle2 } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { api, ApiRequestError } from "../api/client";
-import { Alert, Button, Card, CardBody, FieldError, Input, Label, Spinner } from "../components/ui";
+import { BrandWordmark, Alert, Button, Card, CardBody, FieldError, Input, Label, Spinner } from "../components/ui";
 
 const AUTH_BENEFITS = [
   "Pembukuan double-entry otomatis dari faktur, kasir, sampai penggajian",
@@ -21,8 +21,8 @@ function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: R
   return (
     <div className="flex min-h-full">
       <aside className="hidden w-[44%] flex-col justify-between bg-gradient-to-br from-brand-700 via-brand-800 to-brand-950 p-10 text-white lg:flex">
-        <Link to="/" className="text-2xl font-bold tracking-tight">
-          erpindo
+        <Link to="/" className="text-2xl">
+          <BrandWordmark className="h-10" />
         </Link>
         <div>
           <h2 className="max-w-md text-2xl font-semibold leading-snug">
@@ -43,8 +43,8 @@ function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: R
       </aside>
 
       <div className="flex flex-1 flex-col items-center justify-center px-4 py-10">
-        <Link to="/" className="mb-6 text-2xl font-bold tracking-tight text-brand-700 lg:hidden dark:text-brand-400">
-          erpindo
+        <Link to="/" className="mb-6 lg:hidden">
+          <BrandWordmark className="h-9" />
         </Link>
         <Card className="w-full max-w-md">
           <CardBody className="py-6">

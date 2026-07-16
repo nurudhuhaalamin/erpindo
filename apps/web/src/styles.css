@@ -1,20 +1,21 @@
 @import "tailwindcss";
 @import "@fontsource-variable/inter";
 
-/* Design tokens erpindo — dipetakan ke utilitas Tailwind v4.
-   Identitas Fase 4b: primer indigo-violet + aksen amber hangat. */
+/* Design tokens ERPindo — dipetakan ke utilitas Tailwind v4.
+   Identitas Fase 10a: biru logo ERPindo ("Integrate. Automate. Grow.")
+   + aksen amber hangat. */
 @theme {
-  --color-brand-50: #eef2ff;
-  --color-brand-100: #e0e7ff;
-  --color-brand-200: #c7d2fe;
-  --color-brand-300: #a5b4fc;
-  --color-brand-400: #818cf8;
-  --color-brand-500: #6366f1;
-  --color-brand-600: #4f46e5;
-  --color-brand-700: #4338ca;
-  --color-brand-800: #3730a3;
-  --color-brand-900: #312e81;
-  --color-brand-950: #1e1b4b;
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-300: #93c5fd;
+  --color-brand-400: #60a5fa;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+  --color-brand-800: #1e40af;
+  --color-brand-900: #1e3a8a;
+  --color-brand-950: #172554;
 
   --color-accent-50: #fffbeb;
   --color-accent-100: #fef3c7;

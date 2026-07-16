@@ -41,7 +41,7 @@ class ResendMailer implements Mailer {
 
 export function getMailer(env: Env): Mailer {
   if (env.RESEND_API_KEY) {
-    return new ResendMailer(env.RESEND_API_KEY, env.MAIL_FROM ?? "erpindo <no-reply@erpindo.id>");
+    return new ResendMailer(env.RESEND_API_KEY, env.MAIL_FROM ?? "ERPindo <no-reply@erpindo.id>");
   }
   return new ConsoleMailer();
 }

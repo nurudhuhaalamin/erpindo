@@ -456,3 +456,16 @@ export function useDarkMode() {
   }
   return { dark, toggle };
 }
+
+// --- Wordmark ERPindo (Fase 10a) ------------------------------------------------------
+
+/** Wordmark merek: gambar logo ASLI dari pemilik (public/brand/logo-erpindo.png),
+ *  dipakai apa adanya. Chip putih membuat logo tetap terbaca di tema gelap /
+ *  latar gradien. Atur ukuran lewat className tinggi (mis. "h-8"). */
+export function BrandWordmark({ className = "h-8" }: { className?: string }) {
+  return (
+    <span className={`inline-flex items-center rounded-lg bg-white px-1.5 py-1 ${className}`}>
+      <img src="/brand/logo-erpindo.png" alt="ERPindo — Integrate. Automate. Grow." className="h-full w-auto" />
+    </span>
+  );
+}
