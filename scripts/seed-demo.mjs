@@ -83,6 +83,7 @@ const day = 86_400_000;
 const daysAgo = (n) => new Date(Date.now() - n * day).toISOString().slice(0, 10);
 const thisMonth = new Date().toISOString().slice(0, 7);
 const lastMonth = new Date(Date.now() - 28 * day).toISOString().slice(0, 7);
+const nextMonth = new Date(Date.now() + 32 * day).toISOString().slice(0, 7);
 
 // Logo demo kecil (SVG kotak "DS" indigo, base64 — jauh di bawah batas 64KB).
 const LOGO_SVG =
@@ -369,9 +370,13 @@ const lead3 = await step("lead pipeline: Minimarket Bina Warga", "POST", `${T}/l
 await step("lead ketiga → contacted", "PATCH", `${T}/leads/${lead3.id}`, { stage: "contacted" });
 await step("aktivitas lead: follow-up bertenggat", "POST", `${T}/leads/${lead3.id}/activities`, { type: "note", note: "Kirim daftar harga grosir — tunggu keputusan Pak Dedi.", activityDate: daysAgo(1), dueAt: daysAgo(-2) });
 
-// --- 12. Anggaran bulan berjalan ---------------------------------------------------
+// --- 12. Anggaran bulan berjalan (6 baris — Fase 10h) ------------------------------
 await step("anggaran pendapatan bulan ini", "PUT", `${T}/budgets`, { accountId: penjualanAcc.id, period: thisMonth, amount: 30_000_000 });
 await step("anggaran beban iklan bulan ini", "PUT", `${T}/budgets`, { accountId: bebanIklan.id, period: thisMonth, amount: 2_000_000 });
+await step("anggaran beban listrik & air", "PUT", `${T}/budgets`, { accountId: bebanListrik.id, period: thisMonth, amount: 1_500_000 });
+await step("anggaran beban sewa", "PUT", `${T}/budgets`, { accountId: acc("5-3000").id, period: thisMonth, amount: 3_500_000 });
+await step("anggaran beban operasional", "PUT", `${T}/budgets`, { accountId: acc("5-4000").id, period: thisMonth, amount: 2_500_000 });
+await step("anggaran pendapatan bulan depan", "PUT", `${T}/budgets`, { accountId: penjualanAcc.id, period: nextMonth, amount: 35_000_000 });
 
 // --- 13. HR & payroll ---------------------------------------------------------------
 // Struktur organisasi (Fase 8c): departemen bertingkat, karyawan ber-atasan.
@@ -561,6 +566,14 @@ const genset = await step("aset: genset gudang", "POST", `${T}/assets`, {
   acquisitionCost: 18_000_000, usefulLifeMonths: 36, residualValue: 0, cashAccountId: kas.id,
 });
 await step(`penyusutan periode ${lastMonth}`, "POST", `${T}/assets/depreciation`, { period: lastMonth, date: daysAgo(3) });
+// Pelepasan aset (Fase 10h): jual printer lama → laba/rugi pelepasan terjurnal.
+const printer = await step("aset: printer thermal lama", "POST", `${T}/assets`, {
+  name: "Printer Thermal Kasir (lama)", category: "Peralatan", acquisitionDate: daysAgo(400),
+  acquisitionCost: 2_400_000, usefulLifeMonths: 24, residualValue: 0, cashAccountId: kas.id,
+});
+await step("lepas (jual) printer lama seharga 300rb", "POST", `${T}/assets/${printer.id}/dispose`, {
+  disposalDate: daysAgo(2), proceeds: 300_000, cashAccountId: kas.id,
+});
 
 // --- 15. Proyek -----------------------------------------------------------------------
 const proj = await step("proyek: Hampers Korporat Q3", "POST", `${T}/projects`, { code: "PRJ-HAMPERS", name: "Hampers Korporat Q3", budget: 15_000_000 });
@@ -666,8 +679,12 @@ const tkt2 = await step("tiket pertanyaan harga", "POST", `${T}/tickets`, {
   contactId: custKafe.id, subject: "Minta pricelist grosir terbaru", priority: "medium",
 });
 await step("tiket kedua selesai", "PATCH", `${T}/tickets/${tkt2.id}`, { status: "resolved" });
-await step("tiket saran produk", "POST", `${T}/tickets`, {
+const tkt3 = await step("tiket saran produk", "POST", `${T}/tickets`, {
   contactId: custKoperasi.id, subject: "Usul varian sambal level pedas", priority: "low",
+});
+await step("balasan tiket saran", "POST", `${T}/tickets/${tkt3.id}/replies`, { body: "Ide bagus! Kami masukkan ke rencana produk kuartal depan.", internal: false });
+await step("tiket pengiriman terlambat", "POST", `${T}/tickets`, {
+  contactId: custHotel.id, subject: "Pengiriman acara telat 1 hari", description: "Mohon konfirmasi ekspedisi.", priority: "high",
 });
 
 // --- 20b. Laporan terjadwal (Fase 7h): rekap penjualan bulan ini & bulan lalu ---------------------
@@ -764,6 +781,48 @@ await step("impor mutasi rekening koran (1 cocok otomatis, 2 belum)", "POST", `$
     { date: daysAgo(0), description: "SETORAN TUNAI CABANG", amount: 2_000_000 },
   ],
 });
+
+// --- 24. Perusahaan kedua: CV Demo Cabang → konsolidasi terisi (Fase 10h) ------------
+// Konsolidasi multi-perusahaan menggabungkan tenant milik pemilik yang sama.
+// Perusahaan kedua ini diberi modal + penjualan + beban agar laporan gabungan
+// (Neraca & Laba Rugi konsolidasi) menampilkan dua entitas nyata.
+const company2 = await step("buat perusahaan kedua: CV Demo Cabang", "POST", "/api/auth/companies", { companyName: "CV Demo Cabang" });
+const T2 = `/api/tenants/${company2.tenantId}`;
+await step("cabang: alamat & NPWP", "PATCH", `${T2}/settings`, {
+  address: "Jl. Cihampelas No. 88, Bandung", npwp: "02.345.678.9-012.000", displayName: "CV Demo Cabang",
+});
+const acc2Res = await step("cabang: baca bagan akun", "GET", `${T2}/accounts`);
+const acc2 = (code) => acc2Res.accounts.find((x) => x.code === code);
+const income2 = acc2Res.accounts.find((a) => a.type === "income");
+await step("cabang: setoran modal 80 juta", "POST", `${T2}/journal-entries`, {
+  entryDate: daysAgo(45), memo: "Setoran modal awal cabang",
+  lines: [
+    { accountId: acc2("1-1100").id, debit: 60_000_000, credit: 0 },
+    { accountId: acc2("1-1000").id, debit: 20_000_000, credit: 0 },
+    { accountId: acc2("3-1000").id, debit: 0, credit: 80_000_000 },
+  ],
+});
+await step("cabang: pendapatan jasa tunai", "POST", `${T2}/journal-entries`, {
+  entryDate: daysAgo(10), memo: "Pendapatan jasa cabang",
+  lines: [
+    { accountId: acc2("1-1000").id, debit: 12_000_000, credit: 0 },
+    { accountId: income2.id, debit: 0, credit: 12_000_000 },
+  ],
+});
+await step("cabang: beban operasional", "POST", `${T2}/journal-entries`, {
+  entryDate: daysAgo(6), memo: "Sewa & listrik cabang",
+  lines: [
+    { accountId: acc2("5-3000").id, debit: 4_000_000, credit: 0 },
+    { accountId: acc2("1-1100").id, debit: 0, credit: 4_000_000 },
+  ],
+});
+const consoCompanies = await api("GET", "/api/consolidation/companies");
+const consoCount = consoCompanies.json?.companies?.length ?? consoCompanies.json?.tenants?.length ?? 0;
+console.log(`  ✓ konsolidasi kini memuat ${consoCount} perusahaan milik pemilik`);
+const tb2 = await api("GET", `${T2}/trial-balance`);
+if (tb2.json?.balanced !== true) {
+  console.error("  ! neraca saldo cabang TIDAK seimbang");
+}
 
 // --- Ringkasan akhir ---------------------------------------------------------------------------------
 const dash = await api("GET", `${T}/reports/dashboard`);

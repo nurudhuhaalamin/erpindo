@@ -55,9 +55,30 @@ async function ensureMigrated(env: Env): Promise<void> {
 
 const app = new Hono<AppEnv>()
   .use(
+    // Pengerasan header keamanan (Fase 10h). CSP dirancang agar TIDAK memutus:
+    // SPA (skrip & gaya self, gaya inline React), blog SSR (gaya inline),
+    // Workers AI & seluruh API (connect self), login Google (redirect 302).
+    // CATATAN: JANGAN aktifkan upgrade-insecure-requests — dev/CI berjalan di
+    // http://127.0.0.1 dan akan rusak bila permintaan dipaksa ke https.
     secureHeaders({
       strictTransportSecurity: "max-age=31536000; includeSubDomains",
       xFrameOptions: "DENY",
+      referrerPolicy: "strict-origin-when-cross-origin",
+      contentSecurityPolicy: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:"],
+        fontSrc: ["'self'"],
+        connectSrc: ["'self'"],
+        workerSrc: ["'self'"],
+        manifestSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
+      },
+      permissionsPolicy: { camera: [], microphone: [], geolocation: [], payment: [] },
     }),
   )
   .use(async (c, next) => {
