@@ -100,6 +100,16 @@ try {
     process.env.CHROMIUM_PATH ?? (existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined);
   browser = await chromium.launch(chromiumPath ? { executablePath: chromiumPath } : {});
   const ctx = await browser.newContext({ viewport: { width: 1360, height: 900 } });
+  // Tur dasbor (Fase 10f) tampil otomatis sekali untuk pengguna baru — tandai
+  // "sudah dilihat" agar tidak menutupi asersi sapuan rute. Tur diuji eksplisit
+  // di F18 lewat tombolnya (yang bekerja terlepas dari status ini).
+  await ctx.addInitScript(() => {
+    try {
+      localStorage.setItem("erpindo-tour:dashboard", "1");
+    } catch {
+      /* abaikan */
+    }
+  });
   const page = await ctx.newPage();
   page.setDefaultTimeout(15_000);
 
@@ -446,6 +456,45 @@ try {
   const adminNav = await page.locator("aside nav a:visible", { hasText: "Admin" }).count();
   check("F17 menu 'Admin' tersembunyi untuk pengguna biasa", adminNav === 0, `→ ${adminNav} tautan`);
   check("F17 halaman Dukungan bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
+
+  // F18 — Fase 10f: wizard awal, panduan dalam app, dan tur berpandu.
+  resetErrors();
+  await gotoRoute("/app/mulai", 900);
+  const wizardBody = await page.innerText("body");
+  check(
+    "F18 wizard awal render (judul + langkah Profil perusahaan)",
+    wizardBody.includes("Ayo siapkan cepat") && wizardBody.includes("Profil perusahaan"),
+  );
+  // Lewati profil → pilih tingkat pengalaman → wizard maju ke langkah Produk.
+  await page.getByRole("button", { name: "Lewati", exact: true }).click();
+  await page.waitForTimeout(600);
+  check("F18 wizard maju ke langkah Pengalaman", (await page.innerText("body")).includes("Seberapa akrab Anda dengan akuntansi"));
+  await page.getByRole("button", { name: /Saya pemula/ }).click();
+  await page.waitForTimeout(600);
+  check("F18 wizard maju ke langkah Produk setelah pilih pengalaman", (await page.innerText("body")).includes("Tambah produk"));
+
+  // Panduan dalam aplikasi (di dalam shell — sidebar tetap tampak).
+  await gotoRoute("/app/panduan", 800);
+  const guideBody = await page.innerText("body");
+  check(
+    "F18 panduan dalam app render di dalam shell (kartu modul + sidebar)",
+    guideBody.includes("Panduan") && (await page.locator("aside nav a:visible").count()) > 5,
+  );
+  await gotoRoute("/app/panduan/pos", 800);
+  check("F18 artikel panduan modul render (judul + isi)", (await page.innerText("body")).includes("Kasir"));
+
+  // Tur berpandu: buka lewat tombol di topbar, verifikasi kartu tur muncul.
+  await gotoRoute("/app/penjualan", 900);
+  await page.locator('[title="Tur halaman ini"]').click();
+  await page.waitForTimeout(600);
+  check(
+    "F18 tur berpandu terbuka (dialog + tombol Lanjut)",
+    (await page.getByRole("dialog").count()) >= 1 && (await page.getByRole("button", { name: "Lanjut" }).count()) === 1,
+  );
+  await page.getByRole("button", { name: "Lanjut" }).click();
+  await page.waitForTimeout(400);
+  check("F18 tur maju ke langkah 2 (tombol Kembali muncul)", (await page.getByRole("button", { name: "Kembali" }).count()) === 1);
+  check("F18 alur Fase 10f bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
 
   // F15 — Fase 10b: landing harga tunggal + masuk mode demo tanpa daftar.
   // Dijalankan TERAKHIR karena tombol demo mengganti cookie sesi konteks ini.
