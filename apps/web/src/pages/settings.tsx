@@ -6,16 +6,30 @@ import { PERMISSIONS, PLAN_LABELS, PLAN_LIMITS, SINGLE_PLAN, type ApiAuditLog, t
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { api, formatDate, formatIDR } from "../api/client";
-import { Alert, Badge, Button, Card, CardBody, CardHeader, ConfirmDialog, Input, Label, Select, Skeleton, Spinner, useToast } from "../components/ui";
+import { Alert, Badge, Button, Card, CardBody, CardHeader, ConfirmDialog, Input, Label, Select, Skeleton, Spinner, Tabs, useToast } from "../components/ui";
 import { useWorkspace, isSimpleMode, setSimpleMode } from "./app";
 
 // ---------------------------------------------------------------------------
 // Pengaturan: profil perusahaan (DB tenant) + anggota tim (RBAC)
 // ---------------------------------------------------------------------------
 
+type SettingsTab = "akun" | "perusahaan" | "tim" | "data" | "lainnya";
+
 export function SettingsPage() {
   const { tenant } = useWorkspace();
   const isAdmin = tenant.role === "owner" || tenant.role === "admin";
+  const isOwner = tenant.role === "owner";
+  const [tab, setTab] = useState<SettingsTab>("akun");
+
+  // Kartu tetap sama & id tak berubah (Fase 10g) — hanya dikelompokkan ke tab.
+  const tabs: { key: SettingsTab; label: string }[] = [
+    { key: "akun", label: "Akun & Tampilan" },
+    { key: "perusahaan", label: "Perusahaan" },
+    { key: "tim", label: "Tim & Peran" },
+    { key: "data", label: "Data & Keamanan" },
+    { key: "lainnya", label: "Lainnya" },
+  ];
+
   return (
     <div className="max-w-3xl space-y-6">
       <div>
@@ -24,18 +38,48 @@ export function SettingsPage() {
           Langganan, profil & keamanan akun, identitas perusahaan, tim, dan kendali pembukuan.
         </p>
       </div>
-      <SubscriptionCard />
-      <ProfileCard />
-      <DisplayModeCard />
-      <SecurityCard />
-      <CompanySettingsCard tenantId={tenant.tenantId} readOnly={!isAdmin} />
-      {tenant.role === "owner" ? <NewCompanyCard /> : null}
-      {isAdmin ? <MembersCard tenantId={tenant.tenantId} /> : null}
-      {tenant.role === "owner" ? <RolesCard tenantId={tenant.tenantId} /> : null}
-      {tenant.role === "owner" ? <ExportBackupCard tenantId={tenant.tenantId} /> : null}
-      {tenant.role === "owner" ? <ApprovalThresholdCard tenantId={tenant.tenantId} /> : null}
-      {tenant.role === "owner" ? <CloseBooksCard tenantId={tenant.tenantId} /> : null}
-      {tenant.role === "owner" ? <AuditLogCard tenantId={tenant.tenantId} /> : null}
+
+      <Tabs tabs={tabs} active={tab} onChange={setTab} />
+
+      {tab === "akun" ? (
+        <div className="space-y-6">
+          <ProfileCard />
+          <DisplayModeCard />
+          <SecurityCard />
+        </div>
+      ) : null}
+
+      {tab === "perusahaan" ? (
+        <div className="space-y-6">
+          <SubscriptionCard />
+          <CompanySettingsCard tenantId={tenant.tenantId} readOnly={!isAdmin} />
+          {isOwner ? <NewCompanyCard /> : null}
+        </div>
+      ) : null}
+
+      {tab === "tim" ? (
+        <div className="space-y-6">
+          {isAdmin ? <MembersCard tenantId={tenant.tenantId} /> : null}
+          {isOwner ? <RolesCard tenantId={tenant.tenantId} /> : null}
+          {isOwner ? <ApprovalThresholdCard tenantId={tenant.tenantId} /> : null}
+          {!isAdmin ? <p className="text-sm text-slate-500">Hanya admin/pemilik yang dapat mengelola tim & peran.</p> : null}
+        </div>
+      ) : null}
+
+      {tab === "data" ? (
+        <div className="space-y-6">
+          {isOwner ? <ExportBackupCard tenantId={tenant.tenantId} /> : null}
+          {isOwner ? <AuditLogCard tenantId={tenant.tenantId} /> : null}
+          {!isOwner ? <p className="text-sm text-slate-500">Hanya pemilik yang dapat mengelola cadangan & audit.</p> : null}
+        </div>
+      ) : null}
+
+      {tab === "lainnya" ? (
+        <div className="space-y-6">
+          {isOwner ? <CloseBooksCard tenantId={tenant.tenantId} /> : null}
+          {!isOwner ? <p className="text-sm text-slate-500">Belum ada pengaturan lain untuk peran Anda.</p> : null}
+        </div>
+      ) : null}
     </div>
   );
 }

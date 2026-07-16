@@ -496,6 +496,28 @@ try {
   check("F18 tur maju ke langkah 2 (tombol Kembali muncul)", (await page.getByRole("button", { name: "Kembali" }).count()) === 1);
   check("F18 alur Fase 10f bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
 
+  // F19 — Fase 10g: halaman bertab (Pengaturan, Penggajian) + kalkulator bisnis.
+  resetErrors();
+  await gotoRoute("/app/pengaturan", 700);
+  check("F19 Pengaturan memakai bilah tab (role=tablist)", (await page.locator('[role="tablist"]').count()) >= 1);
+  await page.getByRole("tab", { name: "Perusahaan" }).click();
+  await page.waitForTimeout(400);
+  check("F19 tab Perusahaan menampilkan kartu Profil perusahaan", (await page.innerText("body")).includes("Profil perusahaan"));
+
+  await gotoRoute("/app/hr/penggajian", 900);
+  check("F19 Penggajian bertab: default tab Karyawan (form #emp-name)", (await page.locator("#emp-name").count()) === 1);
+  await page.getByRole("tab", { name: "Kasbon" }).click();
+  await page.waitForTimeout(400);
+  check("F19 tab Kasbon menampilkan kartu pinjaman karyawan", (await page.innerText("body")).includes("Kasbon / pinjaman karyawan"));
+
+  await gotoRoute("/app/alat", 700);
+  const alatBody = await page.innerText("body");
+  check("F19 kalkulator render (HPP + hasil Rupiah)", alatBody.includes("Harga Pokok Produksi") && /Rp\s?[1-9]/.test(alatBody.replace(/\u00A0/g, " ")));
+  await page.getByRole("tab", { name: "PPh 21 (TER)" }).click();
+  await page.waitForTimeout(400);
+  check("F19 kalkulator PPh 21 TER menampilkan tarif efektif", (await page.innerText("body")).includes("Tarif efektif"));
+  check("F19 alur Fase 10g bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
+
   // F15 — Fase 10b: landing harga tunggal + masuk mode demo tanpa daftar.
   // Dijalankan TERAKHIR karena tombol demo mengganti cookie sesi konteks ini.
   console.log("3. Landing harga tunggal & mode demo (Fase 10b)");

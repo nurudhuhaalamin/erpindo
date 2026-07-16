@@ -23,9 +23,12 @@ import {
   Label,
   Select,
   Spinner,
+  Tabs,
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
+
+type ProjectDetailTab = "ikhtisar" | "tugas" | "timesheet" | "anggaran";
 
 const STATUS_TONE = { active: "green", on_hold: "amber", completed: "neutral" } as const;
 const STATUS_LABEL = { active: "berjalan", on_hold: "ditunda", completed: "selesai" } as const;
@@ -151,6 +154,7 @@ function ProjectRow({ project, isAdmin }: { project: ApiProject; isAdmin: boolea
   const toast = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [detailTab, setDetailTab] = useState<ProjectDetailTab>("ikhtisar");
 
   const detailQuery = useQuery({
     queryKey: ["project", tenant.tenantId, project.id],
@@ -229,13 +233,39 @@ function ProjectRow({ project, isAdmin }: { project: ApiProject; isAdmin: boolea
             <Spinner />
           ) : (
             <>
+              <Tabs
+                tabs={[
+                  { key: "ikhtisar", label: "Ikhtisar" },
+                  { key: "tugas", label: "Tugas" },
+                  { key: "timesheet", label: "Timesheet" },
+                  { key: "anggaran", label: "Termin & RAB" },
+                ]}
+                active={detailTab}
+                onChange={setDetailTab}
+              />
+
+              {detailTab === "tugas" ? (
+                <>
+                  <GanttChart projectId={project.id} tasks={detail.tasks} isAdmin={isAdmin} onChange={invalidate} />
+                  <TaskBoard projectId={project.id} tasks={detail.tasks} employees={employees} isAdmin={isAdmin} onChange={invalidate} />
+                </>
+              ) : null}
+
+              {detailTab === "timesheet" ? (
+                <TimesheetSection projectId={project.id} detail={detail} isAdmin={isAdmin} onChange={invalidate} />
+              ) : null}
+
+              {detailTab === "anggaran" ? (
+                <>
+                  <MilestonesSection projectId={project.id} detail={detail} isAdmin={isAdmin} hasContact={Boolean(project.contactId)} onChange={invalidate} />
+                  <BudgetSection projectId={project.id} detail={detail} isAdmin={isAdmin} onChange={invalidate} />
+                </>
+              ) : null}
+
+              {detailTab === "ikhtisar" ? (
+              <>
               <ProjectTimeline detail={detail} />
-              <GanttChart projectId={project.id} tasks={detail.tasks} isAdmin={isAdmin} onChange={invalidate} />
-              <TaskBoard projectId={project.id} tasks={detail.tasks} employees={employees} isAdmin={isAdmin} onChange={invalidate} />
               <WorkloadPanel detail={detail} />
-              <MilestonesSection projectId={project.id} detail={detail} isAdmin={isAdmin} hasContact={Boolean(project.contactId)} onChange={invalidate} />
-              <BudgetSection projectId={project.id} detail={detail} isAdmin={isAdmin} onChange={invalidate} />
-              <TimesheetSection projectId={project.id} detail={detail} isAdmin={isAdmin} onChange={invalidate} />
 
               {/* Transaksi ber-tag */}
               <div>
@@ -269,6 +299,8 @@ function ProjectRow({ project, isAdmin }: { project: ApiProject; isAdmin: boolea
                   </div>
                 )}
               </div>
+              </>
+              ) : null}
             </>
           )}
         </div>

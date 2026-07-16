@@ -141,6 +141,12 @@ const appChildren = [
     path: "/panduan/$modul",
     component: lazyRouteComponent(() => import("./pages/panduan-app"), "PanduanAppModulePage"),
   }),
+  // Alat bantu bisnis (Fase 10g): kalkulator klien-saja — code-split.
+  createRoute({
+    getParentRoute: () => appRoute,
+    path: "/alat",
+    component: lazyRouteComponent(() => import("./pages/alat"), "AlatPage"),
+  }),
 ];
 
 const routeTree = rootRoute.addChildren([...routes, appRoute.addChildren(appChildren)]);

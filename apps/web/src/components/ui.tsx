@@ -470,6 +470,44 @@ export function BrandWordmark({ className = "h-8" }: { className?: string }) {
   );
 }
 
+// --- Tabs: bilah tab bersama (Fase 10g) -----------------------------------------------
+
+/** Bilah tab beraksesibilitas (role=tablist) — difaktorkan dari pola hand-rolled
+ *  di approvals.tsx. Terkontrol: induk menyimpan `active` & menangani `onChange`. */
+export function Tabs<T extends string>({
+  tabs,
+  active,
+  onChange,
+  className = "",
+}: {
+  tabs: { key: T; label: string }[];
+  active: T;
+  onChange: (key: T) => void;
+  className?: string;
+}) {
+  return (
+    <div className={cx("flex flex-wrap gap-1.5 border-b border-slate-200 dark:border-slate-800", className)} role="tablist">
+      {tabs.map((t) => (
+        <button
+          key={t.key}
+          type="button"
+          role="tab"
+          aria-selected={active === t.key}
+          onClick={() => onChange(t.key)}
+          className={cx(
+            "-mb-px border-b-2 px-3 py-2 text-sm font-medium",
+            active === t.key
+              ? "border-brand-500 text-brand-600 dark:text-brand-300"
+              : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400",
+          )}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // --- PageTour: tur per halaman (Fase 10f) ---------------------------------------------
 
 /** Satu langkah tur: sorot elemen `selector` (bila ada) + judul & isi. Tanpa

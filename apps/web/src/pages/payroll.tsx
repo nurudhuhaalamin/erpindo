@@ -16,6 +16,7 @@ import {
   Label,
   Select,
   Spinner,
+  Tabs,
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
@@ -23,6 +24,7 @@ import { useWorkspace } from "./app";
 const thisMonth = () => new Date().toISOString().slice(0, 7);
 const today = () => new Date().toISOString().slice(0, 10);
 type AccountRow = { id: string; code: string; name: string; type: string };
+type PayrollTab = "karyawan" | "gaji" | "komponen" | "kasbon" | "cuti" | "departemen";
 
 export function PayrollPage() {
   const { tenant } = useWorkspace();
@@ -57,6 +59,7 @@ export function PayrollPage() {
   const [cashAccountId, setCashAccountId] = useState("");
   const [payDate, setPayDate] = useState(today);
   const [runError, setRunError] = useState<string | null>(null);
+  const [tab, setTab] = useState<PayrollTab>("karyawan");
 
   const createEmp = useMutation({
     mutationFn: () =>
@@ -112,7 +115,21 @@ export function PayrollPage() {
         verifikasi angka dengan konsultan/peraturan terbaru sebelum penggajian resmi.
       </Alert>
 
+      <Tabs
+        tabs={[
+          { key: "karyawan", label: "Karyawan" },
+          { key: "gaji", label: "Gaji" },
+          { key: "komponen", label: "Komponen" },
+          { key: "kasbon", label: "Kasbon" },
+          { key: "cuti", label: "Cuti" },
+          { key: "departemen", label: "Departemen" },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
+
       {/* Karyawan */}
+      {tab === "karyawan" ? (
       <Card>
         <CardHeader title="Karyawan" description={`${activeCount} aktif dari ${employees.length} karyawan`} />
         <CardBody className="space-y-4">
@@ -239,9 +256,10 @@ export function PayrollPage() {
           )}
         </CardBody>
       </Card>
+      ) : null}
 
-      {/* Jalankan penggajian */}
-      {isAdmin ? (
+      {/* Gaji: jalankan penggajian */}
+      {tab === "gaji" && isAdmin ? (
         <Card>
           <CardHeader title="Jalankan penggajian bulanan" description="Menghitung semua karyawan aktif & memposting jurnal beban gaji. Satu kali per periode." />
           <CardBody className="space-y-4">
@@ -275,9 +293,10 @@ export function PayrollPage() {
         </Card>
       ) : null}
 
-      {isAdmin ? <AdjustmentsCard tenantId={tenant.tenantId} employees={employees} period={period} /> : null}
+      {tab === "komponen" && isAdmin ? <AdjustmentsCard tenantId={tenant.tenantId} employees={employees} period={period} /> : null}
 
-      {/* Riwayat penggajian */}
+      {/* Gaji: riwayat penggajian */}
+      {tab === "gaji" ? (
       <Card>
         <CardHeader title="Riwayat penggajian" />
         <CardBody>
@@ -300,11 +319,16 @@ export function PayrollPage() {
           )}
         </CardBody>
       </Card>
+      ) : null}
 
-      <LoansCard tenantId={tenant.tenantId} employees={employees} isAdmin={isAdmin} cashAccounts={cashAccounts} />
-      <LeaveCard tenantId={tenant.tenantId} employees={employees} isAdmin={isAdmin} />
-      <DepartmentsCard tenantId={tenant.tenantId} isAdmin={isAdmin} />
-      <OrgChartCard tenantId={tenant.tenantId} />
+      {tab === "kasbon" ? <LoansCard tenantId={tenant.tenantId} employees={employees} isAdmin={isAdmin} cashAccounts={cashAccounts} /> : null}
+      {tab === "cuti" ? <LeaveCard tenantId={tenant.tenantId} employees={employees} isAdmin={isAdmin} /> : null}
+      {tab === "departemen" ? (
+        <>
+          <DepartmentsCard tenantId={tenant.tenantId} isAdmin={isAdmin} />
+          <OrgChartCard tenantId={tenant.tenantId} />
+        </>
+      ) : null}
     </div>
   );
 }
