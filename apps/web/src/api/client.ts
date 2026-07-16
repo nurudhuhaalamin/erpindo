@@ -120,6 +120,10 @@ import type {
   TimeEntryInput,
   LeadInput,
   MeResponse,
+  ApiFeedback,
+  ApiBlogPost,
+  FeedbackInput,
+  BlogPostInput,
   ProductInput,
   QuotationStatusInput,
   UpdateLeadInput,
@@ -202,6 +206,58 @@ export const api = {
     request<{ ok: true }>("POST", "/api/auth/login", input),
   demoLogin: () => request<{ ok: true }>("POST", "/api/auth/demo"),
   googleAvailable: () => request<{ available: boolean }>("GET", "/api/auth/google/available"),
+
+  // --- Dukungan/masukan + admin platform + blog (Fase 10e) -------------------
+  submitFeedback: (input: FeedbackInput) => request<{ ok: true; id: string }>("POST", "/api/feedback", input),
+  myFeedback: () => request<{ feedback: ApiFeedback[] }>("GET", "/api/feedback/mine"),
+  adminOverview: () =>
+    request<{
+      totals: { users: number; tenants: number; feedbackBaru: number };
+      byStatus: Record<string, number>;
+      byPlan: Record<string, number>;
+      recentSignups: {
+        id: string;
+        name: string;
+        slug: string;
+        status: string;
+        plan: string;
+        createdAt: string;
+        ownerEmail: string | null;
+      }[];
+      growth: { month: string; n: number }[];
+    }>("GET", "/api/admin/overview"),
+  adminTenants: (opts?: { q?: string; status?: string; limit?: number; offset?: number }) => {
+    const p = new URLSearchParams();
+    if (opts?.q) p.set("q", opts.q);
+    if (opts?.status) p.set("status", opts.status);
+    if (opts?.limit) p.set("limit", String(opts.limit));
+    if (opts?.offset) p.set("offset", String(opts.offset));
+    const qs = p.toString();
+    return request<{
+      tenants: {
+        id: string;
+        name: string;
+        slug: string;
+        status: string;
+        plan: string;
+        trialEndsAt: string | null;
+        createdAt: string;
+        members: number;
+        ownerEmail: string | null;
+      }[];
+      total: number;
+    }>("GET", `/api/admin/tenants${qs ? `?${qs}` : ""}`);
+  },
+  adminFeedback: (status?: string) =>
+    request<{ feedback: ApiFeedback[] }>("GET", `/api/admin/feedback${status ? `?status=${status}` : ""}`),
+  adminUpdateFeedback: (id: string, input: { status?: string; adminNote?: string }) =>
+    request<{ ok: true }>("PATCH", `/api/admin/feedback/${id}`, input),
+  adminBlogPosts: () => request<{ posts: ApiBlogPost[] }>("GET", "/api/admin/blog-posts"),
+  adminCreateBlogPost: (input: BlogPostInput) =>
+    request<{ ok: true; id: string }>("POST", "/api/admin/blog-posts", input),
+  adminUpdateBlogPost: (id: string, input: BlogPostInput | { published: boolean }) =>
+    request<{ ok: true }>("PATCH", `/api/admin/blog-posts/${id}`, input),
+  adminDeleteBlogPost: (id: string) => request<{ ok: true }>("DELETE", `/api/admin/blog-posts/${id}`),
   totpSetup: () => request<{ secret: string; otpauthUrl: string }>("POST", "/api/auth/2fa/setup"),
   totpEnable: (code: string) => request<{ ok: true }>("POST", "/api/auth/2fa/enable", { code }),
   totpDisable: (code: string) => request<{ ok: true }>("POST", "/api/auth/2fa/disable", { code }),

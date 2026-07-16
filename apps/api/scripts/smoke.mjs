@@ -59,6 +59,10 @@ const child = spawn(
     // status aktif permanen sehingga penolakan tulis = 403 role, bukan 402).
     "--var",
     "DEMO_TENANT_SLUG:cabang-dewi",
+    // Admin platform (Fase 10e): email pemilik smoke (Budi) di-gate sebagai
+    // admin platform; Dewi (comped) bukan admin → dipakai menguji 403.
+    "--var",
+    "PLATFORM_ADMIN_EMAILS:budi@majujaya.co.id",
   ],
   { cwd: apiDir, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, CI: "1" } },
 );
@@ -3954,6 +3958,74 @@ try {
       setTimeout(() => child2.kill("SIGKILL"), 1500);
     }
   }
+
+  // --- Fase 10e: admin platform + masukan pengguna + blog SEO ------------------
+  // Budi (pemilik smoke) = admin platform (PLATFORM_ADMIN_EMAILS); Dewi bukan.
+  console.log("14j. Admin platform + masukan + blog SEO (Fase 10e)");
+  const aNoSession = await makeClient()("GET", "/api/admin/overview");
+  check("admin/overview tanpa sesi DITOLAK 401", aNoSession.status === 401, `→ HTTP ${aNoSession.status}`);
+  const aByDewi = await admin("GET", "/api/admin/overview");
+  check("admin/overview oleh non-admin (Dewi) DITOLAK 403", aByDewi.status === 403, `→ HTTP ${aByDewi.status}`);
+  const aOverview = await owner("GET", "/api/admin/overview");
+  check(
+    "admin/overview oleh admin platform (Budi) 200 + totals",
+    aOverview.status === 200 && (aOverview.json?.totals?.tenants ?? 0) >= 1 && (aOverview.json?.totals?.users ?? 0) >= 1,
+    `→ ${JSON.stringify(aOverview.json?.totals)}`,
+  );
+  const budiMe = await owner("GET", "/api/auth/me");
+  check("Budi ditandai isPlatformAdmin=true di /me", budiMe.json?.user?.isPlatformAdmin === true);
+  const aTenants = await owner("GET", "/api/admin/tenants?status=trial");
+  check(
+    "daftar tenant terfilter status=trial (semua hasil berstatus trial)",
+    aTenants.status === 200 && Array.isArray(aTenants.json?.tenants) && aTenants.json.tenants.every((t) => t.status === "trial"),
+    `→ ${aTenants.json?.tenants?.map((t) => t.status).join(",")}`,
+  );
+
+  // Masukan pengguna (dukungan) — Budi mengirim, lalu admin mengubah statusnya.
+  const fbBad = await owner("POST", "/api/feedback", { category: "salah-kategori", message: "Halo dukungan" });
+  check("kirim masukan dengan kategori salah DITOLAK 400", fbBad.status === 400, `→ HTTP ${fbBad.status}`);
+  const fbOk = await owner("POST", "/api/feedback", {
+    category: "saran", message: "Mohon tambahkan ekspor PDF di laporan.", pagePath: "/app/laporan/penjualan", tenantId,
+  });
+  check("kirim masukan valid 201", fbOk.status === 201 && Boolean(fbOk.json?.id), `→ ${JSON.stringify(fbOk.json)}`);
+  const fbMine = await owner("GET", "/api/feedback/mine");
+  const fbEntry = fbMine.json?.feedback?.find((f) => f.id === fbOk.json.id);
+  check("riwayat masukan saya memuat entri baru (status 'baru')", fbMine.status === 200 && fbEntry?.status === "baru", `→ ${JSON.stringify(fbEntry)}`);
+  const fbPatch = await owner("PATCH", `/api/admin/feedback/${fbOk.json.id}`, { status: "dibaca" });
+  check("admin menandai masukan 'dibaca' 200", fbPatch.status === 200 && fbPatch.json?.ok === true);
+  const fbMine2 = await owner("GET", "/api/feedback/mine");
+  check("status masukan berubah jadi 'dibaca'", fbMine2.json?.feedback?.find((f) => f.id === fbOk.json.id)?.status === "dibaca");
+
+  // Blog SEO — draft dulu (404 publik), lalu terbit (200 SSR ber-<title>).
+  const blogSlug = "tips-pembukuan-umkm";
+  const blogNew = await owner("POST", "/api/admin/blog-posts", {
+    slug: blogSlug,
+    title: "Tips Pembukuan untuk UMKM Pemula",
+    excerpt: "Lima kebiasaan sederhana agar keuangan usaha rapi.",
+    bodyMd: "## Mulai dari kas\n\nCatat **setiap** pemasukan dan pengeluaran.\n\n- Pisahkan uang pribadi\n- Rekonsiliasi tiap pekan",
+  });
+  check("buat artikel blog (draft) 201", blogNew.status === 201 && Boolean(blogNew.json?.id), `→ ${JSON.stringify(blogNew.json)}`);
+  const blogDraft = await fetch(`${BASE}/blog/${blogSlug}`);
+  check("artikel draft belum tampil publik (404)", blogDraft.status === 404, `→ HTTP ${blogDraft.status}`);
+  const blogPublish = await owner("PATCH", `/api/admin/blog-posts/${blogNew.json.id}`, { published: true });
+  check("terbitkan artikel 200", blogPublish.status === 200 && blogPublish.json?.ok === true);
+  const blogView = await fetch(`${BASE}/blog/${blogSlug}`);
+  const blogHtml = await blogView.text();
+  check(
+    "artikel terbit dilayani SSR 200 dengan <title> + isi ter-render",
+    blogView.status === 200 &&
+      blogHtml.includes("<title>Tips Pembukuan untuk UMKM Pemula — Blog ERPindo</title>") &&
+      blogHtml.includes("<h3>Mulai dari kas</h3>") &&
+      blogHtml.includes("<strong>setiap</strong>"),
+    `→ HTTP ${blogView.status}`,
+  );
+  const blogIndex = await (await fetch(`${BASE}/blog`)).text();
+  check("halaman /blog memuat judul artikel terbit", blogIndex.includes("Tips Pembukuan untuk UMKM Pemula"));
+  const sitemap = await (await fetch(`${BASE}/sitemap.xml`)).text();
+  check("sitemap.xml memuat URL slug artikel", sitemap.includes(`/blog/${blogSlug}`));
+  const robots = await fetch(`${BASE}/robots.txt`);
+  const robotsTxt = await robots.text();
+  check("robots.txt 200 memblokir /app + menyertakan sitemap", robots.status === 200 && robotsTxt.includes("Disallow: /app") && robotsTxt.includes("Sitemap:"));
 
   // --- Logout -----------------------------------------------------------------
   console.log("15. Logout");

@@ -29,6 +29,12 @@ const PUBLIC_ALLOWLIST = new Set([
   'auth.ts POST "/verify"',
   'auth.ts POST "/forgot-password"',
   'auth.ts POST "/reset-password"',
+  // Blog publik SSR + sitemap/robots (Fase 10e) — konten pemasaran memang
+  // untuk semua orang; hanya artikel ber-published_at yang dilayani.
+  'blog.ts GET "/blog"',
+  'blog.ts GET "/blog/:slug"',
+  'blog.ts GET "/sitemap.xml"',
+  'blog.ts GET "/robots.txt"',
 ]);
 
 /** Endpoint ber-requireAuth yang memang tanpa role gate: ber-scope user
@@ -48,6 +54,10 @@ const USER_SCOPED_ALLOWLIST = new Set([
   'consolidation.ts GET "/balance-sheet"',
   'drive.ts GET "/callback"',
   'tenants.ts POST "/accept"',
+  // Dukungan/masukan (Fase 10e): kirim & lihat masukan milik sendiri —
+  // ber-scope user, rate-limited, tanpa konteks tenant.
+  'admin.ts POST "/"',
+  'admin.ts GET "/mine"',
 ]);
 
 type Registration = { key: string; middleware: string };
@@ -89,7 +99,9 @@ describe("penjaga RBAC per-registrasi rute", () => {
         (r) =>
           r.middleware.includes("requireAuth") &&
           !r.middleware.includes("requireTenantRole") &&
-          !r.middleware.includes("requirePermission"),
+          !r.middleware.includes("requirePermission") &&
+          // Admin platform (Fase 10e): requirePlatformAdmin = gate peran.
+          !r.middleware.includes("requirePlatformAdmin"),
       )
       .map((r) => r.key)
       .filter((k) => !USER_SCOPED_ALLOWLIST.has(k));

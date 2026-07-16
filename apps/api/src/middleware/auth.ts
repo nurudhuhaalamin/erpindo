@@ -42,6 +42,26 @@ export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
 };
 
 /**
+ * Admin platform (Fase 10e): hanya email pada PLATFORM_ADMIN_EMAILS (pola
+ * COMPED_EMAILS — dipisah koma, case-insensitive). Dipasang setelah
+ * requireAuth. Tanpa var ini SEMUA orang 403.
+ */
+export function isPlatformAdmin(env: AppEnv["Bindings"], email: string): boolean {
+  return (env.PLATFORM_ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(email.toLowerCase());
+}
+
+export const requirePlatformAdmin: MiddlewareHandler<AppEnv> = async (c, next) => {
+  if (!isPlatformAdmin(c.env, c.get("user").email)) {
+    return c.json({ error: "Halaman ini khusus admin platform." }, 403);
+  }
+  await next();
+};
+
+/**
  * Muat konteks tenant dari parameter :tenantId dan pastikan user adalah
  * anggota dengan peran minimal tertentu. Dipasang setelah requireAuth.
  */

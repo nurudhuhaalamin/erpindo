@@ -434,6 +434,19 @@ try {
   check("F16 panel Struk & Refund render dengan daftar struk", posBody.includes("Pilih struk, isi qty") && /INV-\d{5}/.test(posBody));
   check("F16 alur Fase 10c bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
 
+  // F17 — Fase 10e: halaman Dukungan render + menu Admin tersembunyi untuk
+  // pengguna biasa (bukan admin platform — ui-sim tak menyetel PLATFORM_ADMIN_EMAILS).
+  resetErrors();
+  await gotoRoute("/app/dukungan", 900);
+  const dukunganBody = await page.innerText("body");
+  check(
+    "F17 halaman Dukungan render (judul + form kirim masukan)",
+    dukunganBody.includes("Dukungan & Masukan") && dukunganBody.includes("Kirim masukan"),
+  );
+  const adminNav = await page.locator("aside nav a:visible", { hasText: "Admin" }).count();
+  check("F17 menu 'Admin' tersembunyi untuk pengguna biasa", adminNav === 0, `→ ${adminNav} tautan`);
+  check("F17 halaman Dukungan bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
+
   // F15 — Fase 10b: landing harga tunggal + masuk mode demo tanpa daftar.
   // Dijalankan TERAKHIR karena tombol demo mengganti cookie sesi konteks ini.
   console.log("3. Landing harga tunggal & mode demo (Fase 10b)");

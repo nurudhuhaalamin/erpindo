@@ -34,8 +34,10 @@ export default defineConfig({
       workbox: {
         // App shell tercache → aplikasi tetap terbuka saat offline.
         navigateFallback: "/index.html",
-        // Data keuangan tidak boleh basi: /api selalu ke jaringan.
-        navigateFallbackDenylist: [/^\/api\//],
+        // Data keuangan tidak boleh basi: /api selalu ke jaringan. Blog SSR &
+        // sitemap/robots (Fase 10e) dilayani Worker — JANGAN dibajak app shell
+        // agar pengunjung ber-service-worker tetap menerima HTML asli (SEO).
+        navigateFallbackDenylist: [/^\/api\//, /^\/blog/, /^\/sitemap\.xml$/, /^\/robots\.txt$/],
         globPatterns: ["**/*.{js,css,html,svg,png,webmanifest}"],
       },
     }),

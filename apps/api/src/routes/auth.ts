@@ -21,7 +21,7 @@ import { generateToken, hashPassword, sha256Hex, verifyPassword } from "../lib/c
 import { getMailer } from "../lib/mailer";
 import { provisionTenantDb, TENANT_SCHEMA_VERSION } from "../lib/tenantDb";
 import { generateTotpSecret, otpauthUrl, verifyTotp } from "../lib/totp";
-import { requireAuth, SESSION_COOKIE } from "../middleware/auth";
+import { isPlatformAdmin, requireAuth, SESSION_COOKIE } from "../middleware/auth";
 import { rateLimit } from "../middleware/rateLimit";
 
 const SESSION_DAYS = 30;
@@ -423,6 +423,7 @@ export const authRoutes = new Hono<AppEnv>()
         emailVerified: user.emailVerified,
         totpEnabled: totpRow?.totp_enabled === 1,
         ...(isDemoUser(user.email) ? { isDemo: true } : {}),
+        ...(isPlatformAdmin(c.env, user.email) ? { isPlatformAdmin: true } : {}),
       },
       memberships: results.map((r) => ({
         tenantId: r.tenant_id,

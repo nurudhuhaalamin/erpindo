@@ -42,6 +42,13 @@ export type Env = {
    */
   DEMO_TENANT_SLUG?: string;
 
+  /**
+   * Daftar email (dipisah koma, case-insensitive) yang boleh membuka
+   * dashboard admin platform /app/admin (Fase 10e). Disimpan sebagai secret
+   * di produksi — tanpa var ini endpoint /api/admin selalu 403.
+   */
+  PLATFORM_ADMIN_EMAILS?: string;
+
   // Secret opsional (produksi).
   /** OAuth Google (backup Drive, Fase 8b). Tanpa keduanya fitur Drive nonaktif anggun. */
   GOOGLE_CLIENT_ID?: string;
