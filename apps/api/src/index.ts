@@ -9,6 +9,7 @@ import { aiRoutes } from "./routes/ai";
 import { approvalEngineRoutes } from "./routes/approvalsEngine";
 import { assetRoutes, runDepreciation } from "./routes/assets";
 import { authRoutes } from "./routes/auth";
+import { googleAuthRoutes } from "./routes/authGoogle";
 import { budgetRoutes } from "./routes/budgets";
 import { commerceRoutes } from "./routes/commerce";
 import { consolidationRoutes } from "./routes/consolidation";
@@ -62,6 +63,7 @@ const app = new Hono<AppEnv>()
     await next();
   })
   .get("/api/health", (c) => c.json({ ok: true, service: "erpindo", time: new Date().toISOString() }))
+  .route("/api/auth/google", googleAuthRoutes)
   .route("/api/auth", authRoutes)
   .route("/api/tenants", tenantRoutes)
   .route("/api/tenants", accountingRoutes)

@@ -20,6 +20,12 @@ const PUBLIC_ALLOWLIST = new Set([
   // Sesi demo publik baca-saja (Fase 10b) — rate-limited, hanya membuat sesi
   // viewer di perusahaan demo.
   'auth.ts POST "/demo"',
+  // Masuk via Google (Fase 10d) — alur OAuth memang pra-login: /available
+  // hanya membaca konfigurasi, "/" me-redirect ke consent Google, /callback
+  // memvalidasi state bertanda tangan sebelum membuat sesi.
+  'authGoogle.ts GET "/available"',
+  'authGoogle.ts GET "/"',
+  'authGoogle.ts GET "/callback"',
   'auth.ts POST "/verify"',
   'auth.ts POST "/forgot-password"',
   'auth.ts POST "/reset-password"',

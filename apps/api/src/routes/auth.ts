@@ -586,4 +586,4 @@ export const authRoutes = new Hono<AppEnv>()
     return c.json({ ok: true });
   });
 
-export { createEmailToken, consumeToken, clientIp, appOrigin };
+export { createEmailToken, consumeToken, clientIp, appOrigin, createSession, setSessionCookie };

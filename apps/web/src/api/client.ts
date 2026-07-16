@@ -201,6 +201,7 @@ export const api = {
   login: (input: { email: string; password: string; totpCode?: string }) =>
     request<{ ok: true }>("POST", "/api/auth/login", input),
   demoLogin: () => request<{ ok: true }>("POST", "/api/auth/demo"),
+  googleAvailable: () => request<{ available: boolean }>("GET", "/api/auth/google/available"),
   totpSetup: () => request<{ secret: string; otpauthUrl: string }>("POST", "/api/auth/2fa/setup"),
   totpEnable: (code: string) => request<{ ok: true }>("POST", "/api/auth/2fa/enable", { code }),
   totpDisable: (code: string) => request<{ ok: true }>("POST", "/api/auth/2fa/disable", { code }),

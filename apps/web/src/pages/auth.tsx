@@ -1,5 +1,5 @@
 import { registerSchema, TRIAL_DAYS } from "@erpindo/shared";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { CheckCircle2 } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
@@ -10,8 +10,47 @@ const AUTH_BENEFITS = [
   "Pembukuan double-entry otomatis dari faktur, kasir, sampai penggajian",
   "Siap pajak Indonesia: PPN 11/12%, PPh 21 TER, dan ekspor e-Faktur",
   "Database terpisah untuk tiap perusahaan — data Anda benar-benar terisolasi",
-  "380+ uji otomatis menjaga setiap rilis; angka pembukuan selalu seimbang",
+  "890+ uji otomatis menjaga setiap rilis; angka pembukuan selalu seimbang",
 ];
+
+/** Pesan hasil alur Google (?google=… di URL, diset callback server). */
+const GOOGLE_MESSAGES: Record<string, string> = {
+  dibatalkan: "Masuk via Google dibatalkan.",
+  "gagal-tukar-token": "Masuk via Google gagal — coba lagi atau pakai email & password.",
+  "tidak-diizinkan": "Akun tersebut tidak bisa dipakai masuk via Google.",
+  "belum-dikonfigurasi": "Masuk via Google belum tersedia saat ini.",
+};
+
+/**
+ * Tombol "Lanjutkan dengan Google" (Fase 10d) — hanya tampil bila server
+ * dikonfigurasi (GET /api/auth/google/available). Navigasi keras: alur OAuth
+ * terjadi penuh di server.
+ */
+function GoogleButton() {
+  const q = useQuery({ queryKey: ["google-available"], queryFn: api.googleAvailable, staleTime: 60_000 });
+  if (!q.data?.available) return null;
+  return (
+    <>
+      <div className="flex items-center gap-3 text-xs text-slate-400">
+        <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+        atau
+        <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+      </div>
+      <a
+        href="/api/auth/google"
+        className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 text-sm font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+      >
+        <svg viewBox="0 0 24 24" className="size-4" aria-hidden>
+          <path fill="#4285F4" d="M23.5 12.27c0-.85-.08-1.66-.22-2.45H12v4.64h6.45a5.52 5.52 0 0 1-2.39 3.62v3h3.87c2.26-2.09 3.57-5.17 3.57-8.81Z" />
+          <path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.93-2.91l-3.87-3a7.24 7.24 0 0 1-10.8-3.8H1.27v3.1A12 12 0 0 0 12 24Z" />
+          <path fill="#FBBC05" d="M5.26 14.28a7.2 7.2 0 0 1 0-4.56v-3.1H1.27a12 12 0 0 0 0 10.76l3.99-3.1Z" />
+          <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.43-3.43A11.97 11.97 0 0 0 1.27 6.62l3.99 3.1A7.17 7.17 0 0 1 12 4.75Z" />
+        </svg>
+        Lanjutkan dengan Google
+      </a>
+    </>
+  );
+}
 
 /**
  * Layout auth belah dua ala SaaS modern: panel kiri gradient brand berisi
@@ -60,8 +99,59 @@ function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: R
 
 // ---------------------------------------------------------------------------
 
+/**
+ * Langkah lanjutan setelah masuk via Google (Fase 10d): akun sudah ada &
+ * terverifikasi, tinggal menanyakan nama perusahaan (memakai endpoint
+ * multi-perusahaan yang sudah ada).
+ */
+function GoogleCompanyStep() {
+  const navigate = useNavigate();
+  const mutation = useMutation({
+    mutationFn: (companyName: string) => api.createCompany({ companyName }),
+    onSuccess: () => navigate({ to: "/app" }),
+  });
+  return (
+    <AuthLayout
+      title="Satu langkah lagi"
+      subtitle="Akun Google Anda sudah tersambung. Beri nama perusahaan Anda untuk mulai."
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          mutation.mutate(String(new FormData(e.currentTarget).get("companyName") ?? ""));
+        }}
+        className="space-y-4"
+      >
+        {mutation.isError ? (
+          <Alert tone="error">
+            {(mutation.error as Error).message}
+            {mutation.error instanceof ApiRequestError && mutation.error.status === 401 ? (
+              <>
+                {" "}
+                Sesi Anda berakhir —{" "}
+                <a href="/api/auth/google" className="font-medium underline">
+                  masuk lagi dengan Google
+                </a>
+                .
+              </>
+            ) : null}
+          </Alert>
+        ) : null}
+        <div>
+          <Label htmlFor="companyName">Nama perusahaan</Label>
+          <Input id="companyName" name="companyName" placeholder="PT Maju Jaya" required autoFocus />
+        </div>
+        <Button type="submit" className="w-full" disabled={mutation.isPending}>
+          {mutation.isPending ? <Spinner /> : null} Buat Perusahaan & Mulai Gratis {TRIAL_DAYS} Hari
+        </Button>
+      </form>
+    </AuthLayout>
+  );
+}
+
 export function RegisterPage() {
   const navigate = useNavigate();
+  const viaGoogle = new URLSearchParams(window.location.search).get("via") === "google";
   const [issues, setIssues] = useState<Record<string, string[]>>({});
   const mutation = useMutation({
     mutationFn: api.register,
@@ -82,6 +172,8 @@ export function RegisterPage() {
     }
     mutation.mutate(parsed.data);
   }
+
+  if (viaGoogle) return <GoogleCompanyStep />;
 
   return (
     <AuthLayout
@@ -122,6 +214,7 @@ export function RegisterPage() {
         <Button type="submit" className="w-full" disabled={mutation.isPending}>
           {mutation.isPending ? <Spinner /> : null} Daftar & Mulai Gratis {TRIAL_DAYS} Hari
         </Button>
+        <GoogleButton />
       </form>
     </AuthLayout>
   );
@@ -132,6 +225,7 @@ export function RegisterPage() {
 export function LoginPage() {
   const navigate = useNavigate();
   const [needsTotp, setNeedsTotp] = useState(false);
+  const googleMsg = GOOGLE_MESSAGES[new URLSearchParams(window.location.search).get("google") ?? ""];
   const mutation = useMutation({
     mutationFn: api.login,
     onSuccess: () => navigate({ to: "/app" }),
@@ -163,6 +257,7 @@ export function LoginPage() {
       }
     >
       <form onSubmit={onSubmit} className="space-y-4">
+        {googleMsg && !mutation.isError ? <Alert tone="error">{googleMsg}</Alert> : null}
         {mutation.isError ? <Alert tone="error">{(mutation.error as Error).message}</Alert> : null}
         <div>
           <Label htmlFor="email">Email</Label>
@@ -189,6 +284,7 @@ export function LoginPage() {
         <Button type="submit" className="w-full" disabled={mutation.isPending}>
           {mutation.isPending ? <Spinner /> : null} Masuk
         </Button>
+        <GoogleButton />
         <p className="text-center text-sm">
           <Link to="/lupa-password" className="text-slate-500 hover:underline dark:text-slate-400">
             Lupa password?
