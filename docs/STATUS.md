@@ -77,6 +77,7 @@
 | **Fase 8c — Struktur organisasi** | **Departemen bertingkat** (induk/sub) + **atasan langsung** per karyawan + **bagan organisasi** di halaman Penggajian — fondasi laporan per departemen & approval hierarki | ✅ **Selesai** |
 | **Fase 8d — RBAC berdimensi** | Peran kustom bisa **dibatasi ke cost center tertentu** (mis. Manajer Cabang hanya melihat & membukukan data cabangnya) — daftar dimensi, laporan per dimensi, dan jurnal ditegakkan; peran tanpa batasan tak berubah | ✅ **Selesai** |
 | **Fase 9a — Pengerasan hasil audit** | Audit menyeluruh 32 file API (hasil: SQL aman, tanpa `any`, error tak bocor) + perbaikan semua temuan: **buku besar & audit log berhalaman** (tak lagi tanpa batas), **rate limit** endpoint laporan/ekspor, **guard RBAC permanen** (uji otomatis semua endpoint wajib berpenjaga), 2 indeks database baru, validasi ketat 4 input tersisa, **cron tahan-gagal** (marker + beban tersebar + batas waktu) | ✅ **Selesai** |
+| **Fase 9b — Simulasi UI penuh** | Lapisan uji ketiga: **browser Chromium sungguhan** login, mengetik, mengeklik, dan memverifikasi hasil — sapu 44 halaman + 13 alur nyata (POS bayar tunai, terima pembayaran faktur, wizard catat, jurnal→neraca saldo, CRM, tiket, karyawan, persetujuan, Mode Sederhana) = **122 cek UI**; berjalan otomatis di CI | ✅ **Selesai** |
 | Fase 8b lapis 2 — Aktivasi Google Drive | Buat OAuth Client di console.cloud.google.com (redirect URI `https://<domain>/api/drive/callback`) → simpan secret `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` di dashboard Workers | ⏸ **Menunggu kredensial dari Anda** |
 | Fase 2m — Manajemen dokumen (lampiran file) | Lampiran di faktur/kontak/jurnal (penyimpanan Cloudflare R2) | ⏸ **Menunggu Anda mengaktifkan R2 di dashboard Cloudflare** |
 | Fase 2b-2 — Pembayaran langganan | Checkout Midtrans/Xendit, aktivasi otomatis | ⏸ **Menunggu akun gateway dari Anda** |
@@ -142,7 +143,7 @@
 54. **Dashboard modern & panduan mulai** *(baru — Fase 3e)*: grafik tren penjualan 30 hari dengan tooltip, widget faktur lewat jatuh tempo, feed aktivitas terakhir, dan **checklist "Mulai cepat"** berprogres untuk perusahaan baru (hilang otomatis saat lengkap). Halaman daftar/masuk bergaya split modern; setiap halaman kini punya paragraf pengantar; nama menu dan judul halaman konsisten (Maintenance menjadi Pemeliharaan).
 55. **Ekspor e-Faktur XML Coretax** *(baru — Fase 3f)*: satu klik "Unduh XML Coretax" di halaman Ekspor e-Faktur menghasilkan berkas XML yang **langsung bisa diimpor ke Coretax DJP** (format satu-satunya yang diterima sejak 2025). Sistem otomatis memakai kode transaksi yang benar — 04 dengan DPP nilai lain 11/12 untuk barang non-mewah (PMK 131/2024), 01 untuk tarif 12% penuh — menormalkan NPWP ke TIN 16 digit, dan mengecualikan faktur yang dibatalkan/non-PPN. CSV rekap tetap tersedia.
 
-Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (668 skenario ujian end-to-end + 33 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
+Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (668 skenario ujian end-to-end + 122 cek simulasi UI browser nyata + 33 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
 
 ## Apakah sudah bisa diakses di internet?
 

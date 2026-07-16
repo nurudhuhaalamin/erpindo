@@ -24,45 +24,9 @@ const PORT = Number(process.env.SHOT_PORT ?? 8839);
 const BASE = `http://127.0.0.1:${PORT}`;
 const SET = process.argv[2];
 
-/** Seluruh rute untuk audit visual (set "audit") — halaman penuh, 3 viewport. */
-const AUDIT_ROUTES = [
-  ["/", "landing"],
-  ["/masuk", "masuk"],
-  ["/daftar", "daftar"],
-  ["/panduan", "panduan-indeks"],
-  ["/panduan/pos", "panduan-modul"],
-  ["/app", "dashboard"],
-  ["/app/pos", "pos"],
-  ["/app/penjualan", "penjualan"],
-  ["/app/pembelian", "pembelian"],
-  ["/app/persetujuan", "persetujuan"],
-  ["/app/stok", "stok"],
-  ["/app/master/produk", "produk"],
-  ["/app/master/kontak", "kontak"],
-  ["/app/master/gudang", "gudang"],
-  ["/app/crm/leads", "crm-leads"],
-  ["/app/crm/penawaran", "crm-penawaran"],
-  ["/app/keuangan/akun", "akun"],
-  ["/app/keuangan/jurnal", "jurnal"],
-  ["/app/keuangan/buku-besar", "buku-besar"],
-  ["/app/keuangan/neraca-saldo", "neraca-saldo"],
-  ["/app/keuangan/laba-rugi", "laba-rugi"],
-  ["/app/keuangan/neraca", "neraca"],
-  ["/app/keuangan/umur-tagihan", "umur-tagihan"],
-  ["/app/keuangan/arus-kas", "arus-kas"],
-  ["/app/keuangan/e-faktur", "e-faktur"],
-  ["/app/keuangan/anggaran", "anggaran"],
-  ["/app/keuangan/aset", "aset"],
-  ["/app/keuangan/kurs", "kurs"],
-  ["/app/hr/penggajian", "penggajian"],
-  ["/app/proyek", "proyek"],
-  ["/app/kontrak", "kontrak"],
-  ["/app/konsolidasi", "konsolidasi"],
-  ["/app/manufaktur", "manufaktur"],
-  ["/app/maintenance", "maintenance"],
-  ["/app/helpdesk", "helpdesk"],
-  ["/app/pengaturan", "pengaturan"],
-];
+// Seluruh rute untuk audit visual (set "audit") — halaman penuh, 3 viewport.
+// Satu sumber kebenaran dengan simulasi UI (scripts/ui-sim.mjs).
+import { AUDIT_ROUTES } from "./audit-routes.mjs";
 
 /** Manifest: kumpulan tangkapan per set. width = lebar akhir WebP. */
 const MANIFESTS = {
