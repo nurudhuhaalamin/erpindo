@@ -115,6 +115,16 @@ const appChildren = [
   createRoute({ getParentRoute: () => appRoute, path: "/manufaktur", component: ManufacturingPage }),
   createRoute({ getParentRoute: () => appRoute, path: "/maintenance", component: MaintenancePage }),
   createRoute({ getParentRoute: () => appRoute, path: "/helpdesk", component: HelpdeskPage }),
+  createRoute({
+    getParentRoute: () => appRoute,
+    path: "/dukungan",
+    component: lazyRouteComponent(() => import("./pages/dukungan"), "DukunganPage"),
+  }),
+  createRoute({
+    getParentRoute: () => appRoute,
+    path: "/admin",
+    component: lazyRouteComponent(() => import("./pages/admin"), "AdminPage"),
+  }),
 ];
 
 const routeTree = rootRoute.addChildren([...routes, appRoute.addChildren(appChildren)]);

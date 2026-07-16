@@ -463,6 +463,8 @@ function Footer() {
           <a href="#fitur" className="hover:text-slate-900 dark:hover:text-white">Fitur</a>
           <a href="#harga" className="hover:text-slate-900 dark:hover:text-white">Harga</a>
           <a href="/panduan" className="hover:text-slate-900 dark:hover:text-white">Panduan</a>
+          {/* Blog dilayani server-side (SEO) — navigasi keras, bukan rute SPA. */}
+          <a href="/blog" className="hover:text-slate-900 dark:hover:text-white">Blog</a>
           <a href="#faq" className="hover:text-slate-900 dark:hover:text-white">FAQ</a>
           <Link to="/masuk" className="hover:text-slate-900 dark:hover:text-white">Masuk</Link>
           <Link to="/daftar" className="hover:text-slate-900 dark:hover:text-white">Daftar</Link>

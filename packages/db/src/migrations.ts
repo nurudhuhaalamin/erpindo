@@ -132,6 +132,39 @@ export const CONTROL_PLANE_MIGRATIONS: Migration[] = [
       `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub ON users(google_sub) WHERE google_sub IS NOT NULL`,
     ],
   },
+  {
+    // Admin platform + dukungan + blog SEO (Fase 10e): masukan pengguna
+    // (saran/bug/pertanyaan) dan artikel blog yang dilayani server-side
+    // di /blog untuk SEO.
+    id: "0007_platform_admin",
+    statements: [
+      `CREATE TABLE feedback (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        category TEXT NOT NULL CHECK (category IN ('saran','bug','pertanyaan')),
+        message TEXT NOT NULL,
+        page_path TEXT,
+        status TEXT NOT NULL DEFAULT 'baru' CHECK (status IN ('baru','dibaca','selesai')),
+        admin_note TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_feedback_status ON feedback(status, created_at)`,
+      `CREATE INDEX IF NOT EXISTS idx_feedback_user ON feedback(user_id, created_at)`,
+      `CREATE TABLE blog_posts (
+        id TEXT PRIMARY KEY,
+        slug TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        excerpt TEXT,
+        body_md TEXT NOT NULL,
+        cover_url TEXT,
+        published_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+    ],
+  },
 ];
 
 /**

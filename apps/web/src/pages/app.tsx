@@ -41,6 +41,7 @@ import {
   Scale,
   Search,
   Settings,
+  ShieldCheck,
   ShoppingCart,
   Sigma,
   Store,
@@ -86,7 +87,7 @@ export function useWorkspace(): Workspace {
 // Keuangan (pencatatan), Laporan (baca-saja), dan Aset & Pajak; dua item yang
 // salah kelompok (Pemeliharaan, Laporan Penjualan) dipindah ke rumah barunya.
 // Rute, label, dan izin TIDAK berubah — hanya pengelompokan & ikon.
-const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; icon: LucideIcon; module?: PermissionKey }[] = [
+const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; icon: LucideIcon; module?: PermissionKey; adminOnly?: boolean }[] = [
   { to: "/app", label: "Dashboard", exact: true, icon: LayoutDashboard },
   { to: "/app/pos", label: "Kasir (POS)", exact: false, section: "Transaksi", icon: Store, module: "kasir" },
   { to: "/app/penjualan", label: "Penjualan", exact: false, section: "Transaksi", icon: Receipt, module: "penjualan" },
@@ -125,6 +126,8 @@ const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; 
   { to: "/app/proyek", label: "Proyek", exact: false, section: "Lainnya", icon: FolderKanban, module: "proyek" },
   { to: "/app/kontrak", label: "Kontrak Berulang", exact: false, section: "Lainnya", icon: CalendarClock, module: "proyek" },
   { to: "/app/persetujuan", label: "Persetujuan", exact: false, section: "Lainnya", icon: CheckSquare, module: "persetujuan" },
+  { to: "/app/dukungan", label: "Dukungan", exact: false, section: "Lainnya", icon: LifeBuoy },
+  { to: "/app/admin", label: "Admin", exact: false, section: "Lainnya", icon: ShieldCheck, adminOnly: true },
   { to: "/app/pengaturan", label: "Pengaturan", exact: false, section: "Lainnya", icon: Settings },
 ];
 
@@ -399,7 +402,10 @@ export function AppShell() {
 
   // Sembunyikan menu modul yang tak diizinkan peran (default tampil saat izin belum termuat).
   const allowedModules = permQuery.data?.permissions;
-  const permitted = (item: (typeof NAV_ITEMS)[number]) => !item.module || !allowedModules || allowedModules.includes(item.module);
+  const permitted = (item: (typeof NAV_ITEMS)[number]) =>
+    (!item.module || !allowedModules || allowedModules.includes(item.module)) &&
+    // Menu Admin platform (Fase 10e) hanya untuk email di PLATFORM_ADMIN_EMAILS.
+    (!item.adminOnly || me.user.isPlatformAdmin === true);
   const navItems = (simpleMode ? NAV_ITEMS.filter((item) => !SIMPLE_HIDDEN.has(item.to)) : NAV_ITEMS).filter(permitted);
 
   // Pencarian menu: saat mencari, lipat diabaikan & seksi kosong tak berjudul.

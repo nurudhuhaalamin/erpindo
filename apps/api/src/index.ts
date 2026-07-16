@@ -8,7 +8,9 @@ import { accountingRoutes } from "./routes/accounting";
 import { aiRoutes } from "./routes/ai";
 import { approvalEngineRoutes } from "./routes/approvalsEngine";
 import { assetRoutes, runDepreciation } from "./routes/assets";
+import { adminRoutes, feedbackRoutes } from "./routes/admin";
 import { authRoutes } from "./routes/auth";
+import { blogRoutes } from "./routes/blog";
 import { googleAuthRoutes } from "./routes/authGoogle";
 import { budgetRoutes } from "./routes/budgets";
 import { commerceRoutes } from "./routes/commerce";
@@ -95,6 +97,9 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", orgStructureRoutes)
   .route("/api/tenants", driveRoutes)
   .route("/api/drive", driveCallbackRoutes)
+  .route("/api/admin", adminRoutes)
+  .route("/api/feedback", feedbackRoutes)
+  .route("/", blogRoutes)
   .route("/api/tenants", helpdeskRoutes)
   .route("/api/consolidation", consolidationRoutes)
   .route("/api/invites", inviteRoutes)
