@@ -125,6 +125,22 @@ const appChildren = [
     path: "/admin",
     component: lazyRouteComponent(() => import("./pages/admin"), "AdminPage"),
   }),
+  // Onboarding (Fase 10f): wizard awal + panduan dalam aplikasi — code-split.
+  createRoute({
+    getParentRoute: () => appRoute,
+    path: "/mulai",
+    component: lazyRouteComponent(() => import("./pages/mulai"), "MulaiPage"),
+  }),
+  createRoute({
+    getParentRoute: () => appRoute,
+    path: "/panduan",
+    component: lazyRouteComponent(() => import("./pages/panduan-app"), "PanduanAppIndexPage"),
+  }),
+  createRoute({
+    getParentRoute: () => appRoute,
+    path: "/panduan/$modul",
+    component: lazyRouteComponent(() => import("./pages/panduan-app"), "PanduanAppModulePage"),
+  }),
 ];
 
 const routeTree = rootRoute.addChildren([...routes, appRoute.addChildren(appChildren)]);

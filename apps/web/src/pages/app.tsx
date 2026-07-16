@@ -16,6 +16,7 @@ import {
   CheckSquare,
   ClipboardList,
   Combine,
+  Compass,
   Contact,
   Factory,
   FileSpreadsheet,
@@ -61,10 +62,13 @@ import {
   BrandWordmark,
   Badge,
   Button,
+  PageTour,
   Spinner,
+  tourSeen,
   useDarkMode,
 } from "../components/ui";
 import { Asisten } from "../components/asisten";
+import { AUTO_TOUR_IDS, tourForPath } from "../tours";
 
 // ---------------------------------------------------------------------------
 // Konteks workspace: user + tenant aktif (tenant pertama untuk Fase 0)
@@ -213,21 +217,51 @@ const GUIDE_SLUG_BY_PREFIX: [prefix: string, slug: string][] = [
   ["/app/pengaturan", "pengaturan"],
 ];
 
-/** Tombol "?" — membuka panduan modul yang sedang dibuka (tab baru). */
+/** Tombol "?" — membuka panduan modul yang sedang dibuka DI DALAM aplikasi
+ *  (Fase 10f: rute internal /app/panduan, tak lagi pindah situs). */
 function HelpLink() {
   const { location } = useRouterState();
+  const navigate = useNavigate();
   const slug = GUIDE_SLUG_BY_PREFIX.find(([p]) => location.pathname.startsWith(p))?.[1] ?? "mulai";
   return (
-    <a
-      href={`/panduan/${slug}`}
-      target="_blank"
-      rel="noreferrer"
+    <button
+      onClick={() => navigate({ to: "/app/panduan/$modul", params: { modul: slug } })}
       className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
       aria-label="Buka panduan halaman ini"
       title="Panduan halaman ini"
     >
       <CircleHelp className="size-4" aria-hidden />
-    </a>
+    </button>
+  );
+}
+
+/** Tombol "Tur" + tur berpandu untuk halaman aktif (Fase 10f). Tur dasbor
+ *  tampil otomatis sekali untuk pengguna baru; sisanya lewat tombol ini. */
+function TourLauncher() {
+  const { location } = useRouterState();
+  const tour = tourForPath(location.pathname);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    // Auto-tampil sekali untuk pengguna baru (hanya tur yang ditandai auto).
+    if (tour && AUTO_TOUR_IDS.has(tour.id) && !tourSeen(tour.id)) setOpen(true);
+    else setOpen(false);
+    // Sengaja hanya bergantung pada id tur (tourForPath mengembalikan objek baru
+    // tiap render — memasukkan `tour` akan memicu efek terus-menerus).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tour?.id]);
+  if (!tour) return null;
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+        aria-label="Mulai tur halaman ini"
+        title="Tur halaman ini"
+      >
+        <Compass className="size-4" aria-hidden />
+      </button>
+      <PageTour id={tour.id} steps={tour.steps} open={open} onClose={() => setOpen(false)} />
+    </>
   );
 }
 
@@ -480,15 +514,13 @@ export function AppShell() {
       {visibleItems.length === 0 ? (
         <p className="px-3 py-2 text-sm text-slate-400 dark:text-slate-500">Tidak ada menu cocok.</p>
       ) : null}
-      <a
-        href="/panduan"
-        target="_blank"
-        rel="noreferrer"
+      <Link
+        to="/app/panduan"
         className="mt-4 flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-100"
       >
         <CircleHelp className="size-4 shrink-0" aria-hidden />
         Panduan
-      </a>
+      </Link>
     </nav>
   );
 
@@ -568,6 +600,7 @@ export function AppShell() {
             </div>
             <div className="flex items-center gap-2">
               <NotificationBell tenantId={tenant.tenantId} />
+              <TourLauncher />
               <HelpLink />
               <button
                 onClick={toggle}

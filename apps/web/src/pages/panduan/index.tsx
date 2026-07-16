@@ -65,8 +65,52 @@ const SLUG_ICONS: Record<string, LucideIcon> = {
   helpdesk: Ticket,
 };
 
-function iconFor(slug: string): LucideIcon {
+export function iconFor(slug: string): LucideIcon {
   return SLUG_ICONS[slug] ?? BookOpen;
+}
+
+/**
+ * Isi artikel panduan (intro + seksi) — TANPA header/navigasi, sehingga bisa
+ * dipakai ulang oleh halaman panduan publik maupun panduan dalam aplikasi
+ * (Fase 10f) tanpa duplikasi markup.
+ */
+export function GuideSections({ mod }: { mod: GuideModule }) {
+  return (
+    <>
+      <p className="mt-3 max-w-3xl text-lg text-slate-600 dark:text-slate-300">{mod.intro}</p>
+      {mod.sections.map((s) => (
+        <section key={s.heading} id={s.heading.toLowerCase().replace(/[^a-z0-9]+/g, "-")} className="mt-10 scroll-mt-24">
+          <h2 className="text-xl font-semibold">{s.heading}</h2>
+          {s.body?.map((p) => (
+            <p key={p.slice(0, 40)} className="mt-3 max-w-3xl leading-relaxed text-slate-600 dark:text-slate-300">
+              {p}
+            </p>
+          ))}
+          {s.steps ? (
+            <ol className="mt-3 max-w-3xl list-decimal space-y-2 pl-5 text-slate-700 marker:font-semibold marker:text-brand-600 dark:text-slate-300 dark:marker:text-brand-400">
+              {s.steps.map((st) => (
+                <li key={st.slice(0, 40)}>{st}</li>
+              ))}
+            </ol>
+          ) : null}
+          {s.image ? (
+            <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 shadow-card dark:border-slate-700">
+              <img src={s.image} alt={s.imageAlt ?? s.heading} width={1280} height={800} loading="lazy" decoding="async" className="w-full" />
+            </div>
+          ) : null}
+          {s.tips?.length ? (
+            <div className="mt-4 max-w-3xl rounded-xl border border-accent-200 bg-accent-50 px-4 py-3 text-sm text-accent-900 dark:border-accent-500/30 dark:bg-accent-500/10 dark:text-accent-200">
+              {s.tips.map((t) => (
+                <p key={t.slice(0, 40)} className="flex items-start gap-2 py-0.5">
+                  <Lightbulb className="mt-0.5 size-4 shrink-0" aria-hidden /> {t}
+                </p>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      ))}
+    </>
+  );
 }
 
 function GuideHeader() {
@@ -231,47 +275,7 @@ export function PanduanModulePage() {
               </a>
             ) : null}
           </div>
-          <p className="mt-3 max-w-3xl text-lg text-slate-600 dark:text-slate-300">{mod.intro}</p>
-
-          {mod.sections.map((s) => (
-            <section key={s.heading} id={anchor(s.heading)} className="mt-10 scroll-mt-24">
-              <h2 className="text-xl font-semibold">{s.heading}</h2>
-              {s.body?.map((p) => (
-                <p key={p.slice(0, 40)} className="mt-3 max-w-3xl leading-relaxed text-slate-600 dark:text-slate-300">
-                  {p}
-                </p>
-              ))}
-              {s.steps ? (
-                <ol className="mt-3 max-w-3xl list-decimal space-y-2 pl-5 text-slate-700 marker:font-semibold marker:text-brand-600 dark:text-slate-300 dark:marker:text-brand-400">
-                  {s.steps.map((st) => (
-                    <li key={st.slice(0, 40)}>{st}</li>
-                  ))}
-                </ol>
-              ) : null}
-              {s.image ? (
-                <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 shadow-card dark:border-slate-700">
-                  <img
-                    src={s.image}
-                    alt={s.imageAlt ?? s.heading}
-                    width={1280}
-                    height={800}
-                    loading="lazy"
-                    decoding="async"
-                    className="w-full"
-                  />
-                </div>
-              ) : null}
-              {s.tips?.length ? (
-                <div className="mt-4 max-w-3xl rounded-xl border border-accent-200 bg-accent-50 px-4 py-3 text-sm text-accent-900 dark:border-accent-500/30 dark:bg-accent-500/10 dark:text-accent-200">
-                  {s.tips.map((t) => (
-                    <p key={t.slice(0, 40)} className="flex items-start gap-2 py-0.5">
-                      <Lightbulb className="mt-0.5 size-4 shrink-0" aria-hidden /> {t}
-                    </p>
-                  ))}
-                </div>
-              ) : null}
-            </section>
-          ))}
+          <GuideSections mod={mod} />
 
           <nav className="mt-14 flex items-center justify-between gap-3 border-t border-slate-200 pt-6 text-sm dark:border-slate-800">
             {prev ? (

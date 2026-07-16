@@ -288,6 +288,11 @@ function OnboardingChecklist({ tenantId }: { tenantId: string }) {
       <CardHeader
         title={`Mulai cepat — ${doneCount}/${steps.length} selesai`}
         description="Lima langkah agar pembukuan Anda langsung berjalan."
+        action={
+          <Link to="/app/mulai" className="text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">
+            Buka pandu cepat →
+          </Link>
+        }
       />
       <CardBody>
         <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">

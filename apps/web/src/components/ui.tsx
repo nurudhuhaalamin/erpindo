@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 /**
  * Komponen dasar design system erpindo (gaya shadcn/ui, tanpa dependensi
@@ -467,5 +467,187 @@ export function BrandWordmark({ className = "h-8" }: { className?: string }) {
     <span className={`inline-flex items-center rounded-lg bg-white px-1.5 py-1 ${className}`}>
       <img src="/brand/logo-erpindo.png" alt="ERPindo — Integrate. Automate. Grow." className="h-full w-auto" />
     </span>
+  );
+}
+
+// --- PageTour: tur per halaman (Fase 10f) ---------------------------------------------
+
+/** Satu langkah tur: sorot elemen `selector` (bila ada) + judul & isi. Tanpa
+ *  selector (atau bila elemen tak ditemukan), kartu tampil di tengah layar. */
+export type TourStep = { selector?: string; title: string; body: string };
+
+const TOUR_KEY_PREFIX = "erpindo-tour:";
+
+export function tourSeen(id: string): boolean {
+  try {
+    return localStorage.getItem(TOUR_KEY_PREFIX + id) === "1";
+  } catch {
+    return true; // localStorage tak tersedia → anggap sudah dilihat (jangan ganggu)
+  }
+}
+
+export function markTourSeen(id: string): void {
+  try {
+    localStorage.setItem(TOUR_KEY_PREFIX + id, "1");
+  } catch {
+    /* abaikan */
+  }
+}
+
+/**
+ * Tur berpandu homegrown (tanpa lib): overlay spotlight yang dihitung dari
+ * getBoundingClientRect elemen sasaran, tooltip berisi judul/isi, tombol
+ * Kembali/Lanjut/Selesai, dan Escape untuk menutup. Menutup menandai tur ini
+ * "sudah dilihat" (localStorage) agar tidak muncul otomatis lagi.
+ */
+export function PageTour({
+  id,
+  steps,
+  open,
+  onClose,
+}: {
+  id: string;
+  steps: TourStep[];
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [i, setI] = useState(0);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+
+  useEffect(() => {
+    if (open) setI(0);
+  }, [open]);
+
+  const step = open ? steps[i] : undefined;
+
+  const finish = useCallback(() => {
+    markTourSeen(id);
+    onClose();
+  }, [id, onClose]);
+
+  // Ukur elemen sasaran; coba beberapa frame bila elemen terlambat mount.
+  useEffect(() => {
+    if (!open || !step) return;
+    let raf = 0;
+    let tries = 0;
+    const measure = () => {
+      const el = step.selector ? document.querySelector(step.selector) : null;
+      if (el) {
+        el.scrollIntoView({ block: "center", behavior: "smooth" });
+        setRect(el.getBoundingClientRect());
+      } else {
+        setRect(null);
+        if (step.selector && tries < 8) {
+          tries += 1;
+          raf = requestAnimationFrame(measure);
+        }
+      }
+    };
+    raf = requestAnimationFrame(measure);
+    const remeasure = () => {
+      const el = step.selector ? document.querySelector(step.selector) : null;
+      setRect(el ? el.getBoundingClientRect() : null);
+    };
+    window.addEventListener("resize", remeasure);
+    window.addEventListener("scroll", remeasure, true);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", remeasure);
+      window.removeEventListener("scroll", remeasure, true);
+    };
+  }, [open, step, i]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") finish();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, finish]);
+
+  if (!open || !step) return null;
+
+  const last = i === steps.length - 1;
+  const next = () => (last ? finish() : setI((n) => Math.min(n + 1, steps.length - 1)));
+  const prev = () => setI((n) => Math.max(n - 1, 0));
+
+  // Posisi kartu tooltip: di bawah sasaran bila muat, jika tidak di atasnya;
+  // tanpa sasaran → tengah layar.
+  const CARD_W = 320;
+  let cardStyle: CSSProperties = {};
+  let centered = false;
+  if (rect) {
+    const vw = window.innerWidth;
+    const belowTop = rect.bottom + 12;
+    const placeAbove = belowTop + 200 > window.innerHeight && rect.top - 12 > 200;
+    const left = Math.min(Math.max(rect.left, 12), vw - CARD_W - 12);
+    cardStyle = placeAbove
+      ? { position: "fixed", left, bottom: window.innerHeight - rect.top + 12, width: CARD_W }
+      : { position: "fixed", left, top: belowTop, width: CARD_W };
+  } else {
+    centered = true;
+  }
+
+  const card = (
+    <div
+      className="pointer-events-auto rounded-card border border-slate-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+      style={centered ? { width: CARD_W } : cardStyle}
+      role="dialog"
+      aria-modal="true"
+      aria-label={step.title}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wide text-brand-600 dark:text-brand-400">
+          Tur · {i + 1}/{steps.length}
+        </span>
+        <button onClick={finish} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" aria-label="Tutup tur">
+          ✕
+        </button>
+      </div>
+      <h3 className="mt-1.5 text-base font-semibold text-slate-900 dark:text-slate-100">{step.title}</h3>
+      <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{step.body}</p>
+      <div className="mt-4 flex items-center justify-between gap-2">
+        <button onClick={finish} className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+          Lewati
+        </button>
+        <div className="flex gap-2">
+          {i > 0 ? (
+            <Button variant="secondary" className="h-8 px-3 text-xs" onClick={prev}>
+              Kembali
+            </Button>
+          ) : null}
+          <Button className="h-8 px-3 text-xs" onClick={next}>
+            {last ? "Selesai" : "Lanjut"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-[60]">
+      {rect ? (
+        <>
+          {/* Spotlight: kotak transparan di atas sasaran dengan bayangan gelap besar. */}
+          <div
+            className="pointer-events-none fixed rounded-lg ring-2 ring-brand-400"
+            style={{
+              left: rect.left - 6,
+              top: rect.top - 6,
+              width: rect.width + 12,
+              height: rect.height + 12,
+              boxShadow: "0 0 0 9999px rgba(15,23,42,0.6)",
+            }}
+          />
+          <div className="pointer-events-none fixed inset-0">{card}</div>
+        </>
+      ) : (
+        <>
+          <div className="fixed inset-0 bg-slate-900/60" onClick={finish} aria-hidden="true" />
+          <div className="fixed inset-0 flex items-center justify-center p-4">{card}</div>
+        </>
+      )}
+    </div>
   );
 }

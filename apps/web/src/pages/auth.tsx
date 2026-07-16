@@ -108,7 +108,7 @@ function GoogleCompanyStep() {
   const navigate = useNavigate();
   const mutation = useMutation({
     mutationFn: (companyName: string) => api.createCompany({ companyName }),
-    onSuccess: () => navigate({ to: "/app" }),
+    onSuccess: () => navigate({ to: "/app/mulai" }),
   });
   return (
     <AuthLayout
@@ -155,7 +155,7 @@ export function RegisterPage() {
   const [issues, setIssues] = useState<Record<string, string[]>>({});
   const mutation = useMutation({
     mutationFn: api.register,
-    onSuccess: () => navigate({ to: "/app" }),
+    onSuccess: () => navigate({ to: "/app/mulai" }),
     onError: (err) => {
       if (err instanceof ApiRequestError && err.issues) setIssues(err.issues);
     },
