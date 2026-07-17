@@ -25,7 +25,7 @@ import { audit } from "../lib/audit";
 import { getTenantDb } from "../lib/tenantDb";
 import { requireAuth, requireTenantRole } from "../middleware/auth";
 import { clientIp } from "./auth";
-import { executeInvoice } from "./commerce";
+import { executeInvoice } from "../lib/commercePosting";
 
 /**
  * Pastikan ada satu produk jasa "Jasa/Termin Proyek" untuk menagih termin tanpa

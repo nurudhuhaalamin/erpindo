@@ -13,7 +13,7 @@ import { audit } from "../lib/audit";
 import { getTenantDb } from "../lib/tenantDb";
 import { requireAuth, requireTenantRole } from "../middleware/auth";
 import { clientIp } from "./auth";
-import { executeInvoice } from "./commerce";
+import { executeInvoice } from "../lib/commercePosting";
 
 /**
  * Kontrak & tagihan berulang (Fase 2s). Cron harian (atau pemicu manual)
