@@ -248,6 +248,22 @@ export const api = {
       total: number;
     }>("GET", `/api/admin/tenants${qs ? `?${qs}` : ""}`);
   },
+  // Infra & kapasitas (Fase 11a): mode DB tenant, versi skema & sebaran migrasi.
+  adminInfra: () =>
+    request<{
+      dbMode: string;
+      schemaVersion: number;
+      totalTenants: number;
+      tenantsBehind: number;
+      versionDistribution: { v: number; n: number }[];
+      refKinds: Record<string, number>;
+      behind: { id: string; name: string; slug: string; schemaVersion: number }[];
+    }>("GET", "/api/admin/infra"),
+  adminMigrateTenants: () =>
+    request<{ schemaVersion: number; total: number; migrated: number; failed: number }>(
+      "POST",
+      "/api/admin/migrate-tenants",
+    ),
   adminFeedback: (status?: string) =>
     request<{ feedback: ApiFeedback[] }>("GET", `/api/admin/feedback${status ? `?status=${status}` : ""}`),
   adminUpdateFeedback: (id: string, input: { status?: string; adminNote?: string }) =>

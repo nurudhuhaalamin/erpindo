@@ -3994,6 +3994,36 @@ try {
     `→ ${aTenants.json?.tenants?.map((t) => t.status).join(",")}`,
   );
 
+  // --- Fase 11a: infra & auto-migrasi skema tenant ---------------------------
+  const infraByDewi = await admin("GET", "/api/admin/infra");
+  check("admin/infra oleh non-admin (Dewi) DITOLAK 403", infraByDewi.status === 403, `→ HTTP ${infraByDewi.status}`);
+  const infra = await owner("GET", "/api/admin/infra");
+  check(
+    "admin/infra 200 + mode DB + versi skema + tak ada tenant tertinggal",
+    infra.status === 200 &&
+      typeof infra.json?.dbMode === "string" &&
+      infra.json?.schemaVersion >= 1 &&
+      infra.json?.totalTenants >= 1 &&
+      infra.json?.tenantsBehind === 0,
+    `→ ${JSON.stringify({ dbMode: infra.json?.dbMode, v: infra.json?.schemaVersion, total: infra.json?.totalTenants, behind: infra.json?.tenantsBehind })}`,
+  );
+  check(
+    "admin/infra: semua tenant di versi skema terkini (distribusi 1 entri = schemaVersion)",
+    Array.isArray(infra.json?.versionDistribution) &&
+      infra.json.versionDistribution.length === 1 &&
+      infra.json.versionDistribution[0].v === infra.json.schemaVersion,
+    `→ ${JSON.stringify(infra.json?.versionDistribution)}`,
+  );
+  // migrate-tenants idempoten: tenant baru sudah mutakhir → 0 dimigrasi, 0 gagal.
+  const migrateByDewi = await admin("POST", "/api/admin/migrate-tenants");
+  check("admin/migrate-tenants oleh non-admin DITOLAK 403", migrateByDewi.status === 403, `→ HTTP ${migrateByDewi.status}`);
+  const migrate = await owner("POST", "/api/admin/migrate-tenants");
+  check(
+    "admin/migrate-tenants 200 + idempoten (0 gagal, semua tenant tercakup)",
+    migrate.status === 200 && migrate.json?.failed === 0 && migrate.json?.total >= 1 && migrate.json?.migrated === 0,
+    `→ ${JSON.stringify({ total: migrate.json?.total, migrated: migrate.json?.migrated, failed: migrate.json?.failed })}`,
+  );
+
   // Masukan pengguna (dukungan) — Budi mengirim, lalu admin mengubah statusnya.
   const fbBad = await owner("POST", "/api/feedback", { category: "salah-kategori", message: "Halo dukungan" });
   check("kirim masukan dengan kategori salah DITOLAK 400", fbBad.status === 400, `→ HTTP ${fbBad.status}`);

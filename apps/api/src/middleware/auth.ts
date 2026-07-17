@@ -3,6 +3,7 @@ import { getCookie } from "hono/cookie";
 import type { MiddlewareHandler } from "hono";
 import type { AppEnv } from "../env";
 import { sha256Hex } from "../lib/crypto";
+import { ensureTenantMigrated, TENANT_SCHEMA_VERSION } from "../lib/tenantDb";
 
 export const SESSION_COOKIE = "erpindo_sid";
 
@@ -72,16 +73,29 @@ export function requireTenantRole(minRole: Role): MiddlewareHandler<AppEnv> {
 
     const user = c.get("user");
     const row = await c.env.DB.prepare(
-      `SELECT t.id, t.name, t.slug, t.db_ref, t.status, m.role
+      `SELECT t.id, t.name, t.slug, t.db_ref, t.status, t.schema_version, m.role
        FROM memberships m JOIN tenants t ON t.id = m.tenant_id
        WHERE m.user_id = ? AND m.tenant_id = ?`,
     )
       .bind(user.id, tenantId)
-      .first<{ id: string; name: string; slug: string; db_ref: string; status: string; role: Role }>();
+      .first<{ id: string; name: string; slug: string; db_ref: string; status: string; schema_version: number; role: Role }>();
 
     if (!row) return c.json({ error: "Anda bukan anggota perusahaan ini." }, 403);
     if (row.status === "suspended") {
       return c.json({ error: "Langganan perusahaan ini sedang ditangguhkan." }, 402);
+    }
+
+    // Auto-migrasi malas: bila database tenant ini tertinggal skema (mis. baru
+    // saja rilis migrasi baru), terapkan sebelum modul menyentuhnya. Idempoten &
+    // hanya bekerja saat versi tertinggal. Kegagalan migrasi tidak boleh memutus
+    // akses total — dicatat lalu request lanjut (versi tetap tertinggal → dicoba
+    // ulang pada request berikutnya), sehingga bersifat swasembuh.
+    if (row.schema_version < TENANT_SCHEMA_VERSION) {
+      try {
+        await ensureTenantMigrated(c.env, { id: row.id, dbRef: row.db_ref, schemaVersion: row.schema_version });
+      } catch (err) {
+        console.error(`[db] auto-migrasi tenant ${row.id} gagal:`, err);
+      }
     }
     // Menunggak (trial berakhir / tagihan lewat jatuh tempo): data tetap bisa
     // dibaca, tetapi semua perubahan diblokir sampai langganan aktif kembali.

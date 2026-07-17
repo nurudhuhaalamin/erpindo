@@ -1374,9 +1374,11 @@ export type SqlExecutor = {
     bind(...values: unknown[]): {
       all<T = unknown>(): Promise<{ results: T[] }>;
       run(): Promise<unknown>;
+      first<T = unknown>(): Promise<T | null>;
     };
     all<T = unknown>(): Promise<{ results: T[] }>;
     run(): Promise<unknown>;
+    first<T = unknown>(): Promise<T | null>;
   };
 };
 

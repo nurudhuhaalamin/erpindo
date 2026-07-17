@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { secureHeaders } from "hono/secure-headers";
 import type { AppEnv, Env } from "./env";
 import { getMailer } from "./lib/mailer";
-import { getTenantDb } from "./lib/tenantDb";
+import { getTenantDb, migrateAllTenants } from "./lib/tenantDb";
 import { accountingRoutes } from "./routes/accounting";
 import { aiRoutes } from "./routes/ai";
 import { approvalEngineRoutes } from "./routes/approvalsEngine";
@@ -169,6 +169,21 @@ async function markMonthlyDone(env: Env, task: string, tenantId: string, month: 
 
 async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
   await ensureMigrated(env);
+
+  // Sapu migrasi skema tenant: pastikan SETIAP tenant — termasuk yang jarang
+  // dibuka dan hanya disentuh cron — memakai skema terkini sebelum tugas bisnis
+  // di bawah menyentuh database mereka. Murah bila semua sudah mutakhir (hanya
+  // satu SELECT + banding versi). Melengkapi auto-migrasi malas di middleware.
+  try {
+    const migr = await migrateAllTenants(env);
+    const bumped = migr.filter((r) => r.applied.length > 0);
+    const failed = migr.filter((r) => !r.ok);
+    if (bumped.length > 0) console.log(`[cron] migrasi skema tenant: ${bumped.length} tenant dimutakhirkan`);
+    if (failed.length > 0) console.error(`[cron] migrasi skema gagal untuk ${failed.length} tenant: ${failed.map((r) => r.slug).join(", ")}`);
+  } catch (err) {
+    console.error(`[cron] sapu migrasi skema tenant galat:`, err);
+  }
+
   const mailer = getMailer(env);
   const nowIso = new Date().toISOString();
   // Anggaran wall-clock lunak: Worker punya batas waktu/subrequest — lebih baik

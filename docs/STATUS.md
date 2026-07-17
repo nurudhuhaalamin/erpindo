@@ -3,7 +3,7 @@
 > Halaman ini ditulis untuk pemilik produk (non-teknis). Selalu diperbarui setiap ada kemajuan.
 > Log teknis per fase ada di folder [docs/log/](./log/).
 
-**Terakhir diperbarui:** 16 Juli 2026
+**Terakhir diperbarui:** 17 Juli 2026
 
 ## Di mana kita sekarang?
 
@@ -88,6 +88,7 @@
 | **Fase 10f — Onboarding: wizard, panduan dalam app & tur** | **Wizard awal** 4 langkah (profil → tingkat akuntansi → produk → kontak) menyambut pengguna baru, semuanya bisa dilewati; **Panduan kini di dalam aplikasi** (tak perlu pindah situs — tombol "?" tiap halaman langsung membuka artikelnya); **tur berpandu** yang menyorot bagian penting tiap halaman (tampil otomatis sekali di dasbor, bisa diputar ulang lewat tombol "Tur") | ✅ **Selesai** |
 | **Fase 10g — Halaman bertab + Kalkulator bisnis** | Halaman panjang kini **bertab** agar mudah dijelajah: Pengaturan (5 tab), Penggajian (6 tab), dan detail Proyek (4 tab); menu baru **"Alat Bantu"** berisi kalkulator praktis — HPP per unit, markup vs margin, titik impas (BEP), simulasi PPh 21 (TER), PPN, dan cicilan kasbon | ✅ **Selesai** |
 | **Fase 10h — Keamanan + seed demo lengkap + Laporan Akhir** | Pengerasan **header keamanan** server (Content-Security-Policy, Referrer-Policy, Permissions-Policy) + halaman keamanan landing + `docs/keamanan.md`; **seed demo diperkaya** (perusahaan kedua "CV Demo Cabang" → laporan konsolidasi kini terisi, pelepasan aset, anggaran 6 baris, balasan tiket) + **Laporan Akhir Fase 10** (17 arahan → selesai) | ✅ **Selesai** |
+| **Fase 11a — Buka kapasitas: auto-migrasi tenant + Infra admin** | Perusahaan lama kini **otomatis menerima pembaruan skema** (saat dibuka & lewat tugas terjadwal) — sebelumnya hanya perusahaan baru yang dapat; tab **Infra** di Admin Platform memantau mode database, versi skema, dan perusahaan yang tertinggal + tombol "Migrasi sekarang"; jalur database produksi (D1 dinamis) dimatangkan & diuji, siap dinyalakan untuk skala di atas 6 perusahaan (runbook di `docs/log/2026-07-17-fase-11a-skala-migrasi.md`) | ✅ **Selesai** |
 | Fase 8b lapis 2 + 10d — Aktivasi Google (Drive & login) | Buat OAuth Client di console.cloud.google.com dengan DUA redirect URI: `https://<domain>/api/drive/callback` dan `https://<domain>/api/auth/google/callback` → simpan secret `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` di dashboard Workers — backup Drive & tombol masuk via Google aktif bersamaan | ⏸ **Menunggu kredensial dari Anda** |
 | Fase 10e — Aktivasi Admin Platform | Tambah variabel `PLATFORM_ADMIN_EMAILS` (isi dengan email Anda, pisah koma bila lebih dari satu) di dashboard Workers → menu **Admin** muncul di aplikasi untuk email tersebut | ⏸ **Menunggu Anda memasang PLATFORM_ADMIN_EMAILS** |
 | Fase 2m — Manajemen dokumen (lampiran file) | Lampiran di faktur/kontak/jurnal (penyimpanan Cloudflare R2) | ⏸ **Menunggu Anda mengaktifkan R2 di dashboard Cloudflare** |
