@@ -66,6 +66,10 @@ const USER_SCOPED_ALLOWLIST = new Set([
   // (requireTenantRole memblokir tulis saat past_due).
   'billing.ts GET "/:tenantId/billing"',
   'billing.ts POST "/:tenantId/billing/checkout"',
+  // Payment collection (Fase 11d): sama seperti billing — cek keanggotaan/peran
+  // manual agar tenant past_due tetap boleh menagih pelanggannya.
+  'collections.ts GET "/:tenantId/invoices/:id/payment-link"',
+  'collections.ts POST "/:tenantId/invoices/:id/payment-link"',
 ]);
 
 type Registration = { key: string; middleware: string };

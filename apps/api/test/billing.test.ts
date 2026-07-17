@@ -117,3 +117,46 @@ describe("webhook notifikasi billing", () => {
     expect(state.tenant.status).toBe("trial");
   });
 });
+
+/** Control-plane tiruan untuk jalur payment link faktur (Fase 11d). */
+function fakeLinkDb(state: { link: { id: string; tenant_id: string; invoice_no: string; status: string } | null; audits: unknown[] }) {
+  return {
+    prepare(sql: string) {
+      const run = () => {
+        if (/UPDATE payment_links SET status = 'paid'/.test(sql)) {
+          if (state.link) state.link.status = "paid";
+        } else if (/UPDATE payment_links SET status = \?/.test(sql)) {
+          if (state.link && state.link.status === "pending") state.link.status = "expired";
+        } else if (/INSERT INTO audit_logs/.test(sql)) {
+          state.audits.push(sql);
+        }
+        return Promise.resolve({});
+      };
+      const first = () => {
+        if (/FROM subscription_invoices si JOIN tenants/.test(sql)) return Promise.resolve(null);
+        if (/FROM payment_links WHERE order_id/.test(sql)) return Promise.resolve(state.link);
+        return Promise.resolve(null);
+      };
+      const handle = () => ({ run, first, all: () => Promise.resolve({ results: [] }) });
+      return { bind: () => handle(), run, first, all: () => Promise.resolve({ results: [] }) };
+    },
+  };
+}
+
+describe("webhook payment link faktur (Fase 11d)", () => {
+  it("settlement pada order faktur → link ditandai lunas + audit collection.paid", async () => {
+    const state = { link: { id: "l1", tenant_id: "t1", invoice_no: "INV-1", status: "pending" }, audits: [] as unknown[] };
+    const app = new Hono<AppEnv>();
+    app.route("/api/billing", billingWebhookRoutes);
+    const env = { MIDTRANS_SERVER_KEY: SERVER_KEY, DB: fakeLinkDb(state) as unknown as Env["DB"] } as Env;
+    const body = await signedNotif({ order_id: "inv-abcd1234-99", transaction_status: "settlement" });
+    const res = await app.request(
+      "/api/billing/notification",
+      { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) },
+      env,
+    );
+    expect(res.status).toBe(200);
+    expect(state.link.status).toBe("paid");
+    expect(state.audits.length).toBe(1);
+  });
+});

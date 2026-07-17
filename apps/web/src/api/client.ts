@@ -123,6 +123,7 @@ import type {
   ApiFeedback,
   ApiBlogPost,
   BillingStatus,
+  ApiPaymentLink,
   FeedbackInput,
   BlogPostInput,
   ProductInput,
@@ -455,6 +456,10 @@ export const api = {
     request<{ draft: ApiAiJournalDraft; quotaRemaining?: number }>("POST", `/api/tenants/${tenantId}/ai/jurnal`, { prompt }, { timeoutMs: 35_000 }),
   aiLaporan: (tenantId: string, question: string) =>
     request<{ reply: string; quotaRemaining?: number }>("POST", `/api/tenants/${tenantId}/ai/laporan`, { question }, { timeoutMs: 35_000 }),
+  invoicePaymentLink: (tenantId: string, invoiceId: string) =>
+    request<{ link: ApiPaymentLink | null; configured: boolean }>("GET", `/api/tenants/${tenantId}/invoices/${invoiceId}/payment-link`),
+  createInvoicePaymentLink: (tenantId: string, invoiceId: string) =>
+    request<{ orderId: string; redirectUrl: string; amount: number }>("POST", `/api/tenants/${tenantId}/invoices/${invoiceId}/payment-link`),
   stockCard: (tenantId: string, productId: string, warehouseId: string) =>
     request<{ rows: ApiStockCardRow[]; balance: number }>(
       "GET",

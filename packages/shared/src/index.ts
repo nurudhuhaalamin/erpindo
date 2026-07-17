@@ -286,6 +286,31 @@ export type BillingStatus = {
   invoices: ApiSubscriptionInvoice[];
 };
 
+// --- Payment collection + WhatsApp share (Fase 11d) ------------------------
+export type ApiPaymentLink = {
+  orderId: string;
+  amount: number;
+  status: "pending" | "paid" | "expired" | "failed";
+  redirectUrl: string | null;
+  paidAt: string | null;
+  createdAt: string;
+};
+
+/**
+ * Bangun tautan WhatsApp klik-untuk-kirim (wa.me) — TANPA API/kunci, langsung
+ * bekerja. Menormalkan nomor Indonesia (0812… → 62812…). Mengembalikan null
+ * bila nomor tidak memadai (pemanggil bisa fallback ke wa.me tanpa nomor).
+ */
+export function waLink(phone: string | null | undefined, text: string): string | null {
+  if (!phone) return null;
+  let p = phone.replace(/[^0-9]/g, "");
+  if (p.startsWith("620")) p = "62" + p.slice(3);
+  else if (p.startsWith("0")) p = "62" + p.slice(1);
+  else if (!p.startsWith("62")) p = "62" + p;
+  if (p.length < 9) return null;
+  return `https://wa.me/${p}?text=${encodeURIComponent(text)}`;
+}
+
 export type MeResponse = {
   user: ApiUser;
   memberships: ApiMembership[];

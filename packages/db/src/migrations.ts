@@ -190,6 +190,28 @@ export const CONTROL_PLANE_MIGRATIONS: Migration[] = [
       `ALTER TABLE tenants ADD COLUMN subscription_ends_at TEXT`,
     ],
   },
+  {
+    // Payment collection (Fase 11d): link pembayaran online per faktur penjualan
+    // via Midtrans. Menandai link 'paid' saat webhook terverifikasi masuk;
+    // pencatatan ke buku besar tetap aksi Pemilik (nudge di UI).
+    id: "0009_payment_links",
+    statements: [
+      `CREATE TABLE payment_links (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT NOT NULL,
+        invoice_id TEXT NOT NULL,
+        invoice_no TEXT NOT NULL,
+        order_id TEXT NOT NULL UNIQUE,
+        amount INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','paid','expired','failed')),
+        redirect_url TEXT,
+        paid_at TEXT,
+        created_by TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX idx_payment_links_invoice ON payment_links (tenant_id, invoice_id)`,
+    ],
+  },
 ];
 
 /**

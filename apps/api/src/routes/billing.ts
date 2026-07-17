@@ -48,6 +48,47 @@ function addMonths(iso: string, months: number): string {
   return d.toISOString();
 }
 
+export type SnapResult = { ok: true; redirectUrl: string } | { ok: false; error: string };
+
+/**
+ * Buat transaksi Midtrans Snap (dipakai billing langganan & payment link faktur,
+ * Fase 11d). Mengembalikan `redirect_url` untuk alur redirect (CSP-safe).
+ * Pemanggil bertanggung jawab memeriksa {@link billingConfigured} lebih dulu.
+ */
+export async function createSnapTransaction(
+  env: Env,
+  opts: { orderId: string; amount: number; itemId: string; itemName: string; customerEmail?: string; customerName?: string; finishUrl: string },
+): Promise<SnapResult> {
+  try {
+    const res = await fetch(snapEndpoint(env), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json",
+        authorization: `Basic ${btoa(`${env.MIDTRANS_SERVER_KEY}:`)}`,
+      },
+      body: JSON.stringify({
+        transaction_details: { order_id: opts.orderId, gross_amount: opts.amount },
+        item_details: [{ id: opts.itemId, price: opts.amount, quantity: 1, name: opts.itemName }],
+        ...(opts.customerEmail || opts.customerName
+          ? { customer_details: { email: opts.customerEmail, first_name: opts.customerName } }
+          : {}),
+        callbacks: { finish: opts.finishUrl },
+      }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { redirect_url?: string; error_messages?: string[] };
+    if (!res.ok || !data.redirect_url) {
+      const detail = data.error_messages?.join("; ") || `HTTP ${res.status}`;
+      console.error(`[billing] Snap gagal untuk ${opts.orderId}: ${detail}`);
+      return { ok: false, error: "Gagal memulai pembayaran. Coba lagi sebentar." };
+    }
+    return { ok: true, redirectUrl: data.redirect_url };
+  } catch (err) {
+    console.error(`[billing] Snap error untuk ${opts.orderId}:`, err);
+    return { ok: false, error: "Gagal menghubungi gerbang pembayaran." };
+  }
+}
+
 type InvoiceRow = {
   id: string;
   order_id: string;
@@ -130,35 +171,17 @@ export const billingRoutes = new Hono<AppEnv>()
     const orderId = `sub-${m.tenantId.slice(0, 8)}-${Date.now()}`;
     const invoiceId = crypto.randomUUID();
 
-    let redirectUrl: string;
-    try {
-      const res = await fetch(snapEndpoint(c.env), {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          accept: "application/json",
-          authorization: `Basic ${btoa(`${c.env.MIDTRANS_SERVER_KEY}:`)}`,
-        },
-        body: JSON.stringify({
-          transaction_details: { order_id: orderId, gross_amount: amount },
-          item_details: [
-            { id: "langganan-bulanan", price: amount, quantity: 1, name: `Langganan ERPindo ${SINGLE_PLAN.label} (1 bulan)` },
-          ],
-          customer_details: { email: user.email, first_name: user.name },
-          callbacks: { finish: `${appOrigin(c)}/app/pengaturan` },
-        }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { redirect_url?: string; error_messages?: string[] };
-      if (!res.ok || !data.redirect_url) {
-        const detail = data.error_messages?.join("; ") || `HTTP ${res.status}`;
-        console.error(`[billing] Snap gagal untuk ${orderId}: ${detail}`);
-        return c.json({ error: "Gagal memulai pembayaran. Coba lagi sebentar." }, 502);
-      }
-      redirectUrl = data.redirect_url;
-    } catch (err) {
-      console.error(`[billing] Snap error untuk ${orderId}:`, err);
-      return c.json({ error: "Gagal menghubungi gerbang pembayaran." }, 502);
-    }
+    const snap = await createSnapTransaction(c.env, {
+      orderId,
+      amount,
+      itemId: "langganan-bulanan",
+      itemName: `Langganan ERPindo ${SINGLE_PLAN.label} (1 bulan)`,
+      customerEmail: user.email,
+      customerName: user.name,
+      finishUrl: `${appOrigin(c)}/app/pengaturan`,
+    });
+    if (!snap.ok) return c.json({ error: snap.error }, 502);
+    const redirectUrl = snap.redirectUrl;
 
     await c.env.DB.prepare(
       `INSERT INTO subscription_invoices (id, tenant_id, order_id, amount, period_months, status, redirect_url, created_by)
@@ -198,7 +221,32 @@ export const billingWebhookRoutes = new Hono<AppEnv>().post("/notification", asy
   )
     .bind(n.order_id)
     .first<{ id: string; tenant_id: string; status: string; period_months: number; subscription_ends_at: string | null; plan: Plan }>();
-  if (!invoice) return c.json({ ignored: true }); // ping/order tak dikenal
+  if (!invoice) {
+    // Order langganan tak dikenal → coba payment link faktur (Fase 11d).
+    const link = await c.env.DB.prepare(
+      `SELECT id, tenant_id, invoice_no, status FROM payment_links WHERE order_id = ?`,
+    )
+      .bind(n.order_id)
+      .first<{ id: string; tenant_id: string; invoice_no: string; status: string }>();
+    if (!link) return c.json({ ignored: true }); // benar-benar tak dikenal / ping
+    const lts = n.transaction_status;
+    const lSettled = (lts === "settlement" || lts === "capture") && n.fraud_status !== "deny";
+    if (lSettled && link.status !== "paid") {
+      const now = new Date().toISOString();
+      await c.env.DB.prepare(`UPDATE payment_links SET status = 'paid', paid_at = ? WHERE id = ?`).bind(now, link.id).run();
+      await c.env.DB.prepare(
+        `INSERT INTO audit_logs (id, tenant_id, user_id, action, detail, ip, created_at)
+         VALUES (?, ?, NULL, 'collection.paid', ?, NULL, ?)`,
+      )
+        .bind(crypto.randomUUID(), link.tenant_id, JSON.stringify({ orderId: n.order_id, invoiceNo: link.invoice_no }), now)
+        .run();
+    } else if (lts === "expire" || lts === "cancel" || lts === "deny") {
+      await c.env.DB.prepare(`UPDATE payment_links SET status = ? WHERE id = ? AND status = 'pending'`)
+        .bind(lts === "expire" ? "expired" : "failed", link.id)
+        .run();
+    }
+    return c.json({ ok: true });
+  }
 
   const ts = n.transaction_status;
   const settled = (ts === "settlement" || ts === "capture") && n.fraud_status !== "deny";

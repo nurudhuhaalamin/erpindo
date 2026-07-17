@@ -12,6 +12,7 @@ import { adminRoutes, feedbackRoutes } from "./routes/admin";
 import { authRoutes } from "./routes/auth";
 import { billingRoutes, billingWebhookRoutes } from "./routes/billing";
 import { blogRoutes } from "./routes/blog";
+import { collectionRoutes } from "./routes/collections";
 import { googleAuthRoutes } from "./routes/authGoogle";
 import { budgetRoutes } from "./routes/budgets";
 import { commerceRoutes } from "./routes/commerce";
@@ -120,6 +121,7 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", driveRoutes)
   .route("/api/drive", driveCallbackRoutes)
   .route("/api/tenants", billingRoutes)
+  .route("/api/tenants", collectionRoutes)
   .route("/api/billing", billingWebhookRoutes)
   .route("/api/admin", adminRoutes)
   .route("/api/feedback", feedbackRoutes)

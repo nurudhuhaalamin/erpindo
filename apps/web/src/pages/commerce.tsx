@@ -1,6 +1,6 @@
 import type { ApiCommerceDoc } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, FileText, PackageOpen, Printer, Search } from "lucide-react";
+import { Download, FileText, MessageCircle, PackageOpen, Printer, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api, downloadCsv, formatDate, formatIDR } from "../api/client";
 import {
@@ -513,6 +513,34 @@ function DocRow({
   const isVoided = doc.voidedAt !== null;
   const remaining = doc.total - doc.paidAmount - doc.returnedAmount;
 
+  // Fase 11d — Tagih via WhatsApp: buat link bayar Midtrans (bila aktif) lalu
+  // siapkan pesan tagihan di WhatsApp (wa.me — pengguna memilih kontak). Bila
+  // Midtrans belum aktif / gagal, pesan tetap terkirim tanpa link bayar.
+  const [tagihBusy, setTagihBusy] = useState(false);
+  async function kirimTagih() {
+    if (tagihBusy) return;
+    setTagihBusy(true);
+    let link: string | null = null;
+    try {
+      const res = await api.createInvoicePaymentLink(tenant.tenantId, doc.id);
+      link = res.redirectUrl;
+    } catch {
+      // Midtrans belum dikonfigurasi / peran tak diizinkan → kirim reminder saja.
+    } finally {
+      setTagihBusy(false);
+    }
+    const msg =
+      `Halo ${doc.contactName}, berikut tagihan faktur ${doc.docNo} sebesar ${formatIDR(remaining)}.` +
+      (link ? `\nBayar online: ${link}` : `\nMohon segera diselesaikan. Terima kasih.`);
+    try {
+      await navigator.clipboard?.writeText(msg);
+    } catch {
+      /* clipboard opsional */
+    }
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank", "noopener");
+    toast("success", link ? "Link bayar dibuat & pesan disiapkan di WhatsApp." : "Pesan tagihan disiapkan di WhatsApp.");
+  }
+
   const doVoid = useMutation({
     mutationFn: () =>
       mode === "sale" ? api.voidInvoice(tenant.tenantId, doc.id) : api.voidPurchase(tenant.tenantId, doc.id),
@@ -651,6 +679,13 @@ function DocRow({
             >
               <Printer className="size-4" aria-hidden /> Cetak
             </a>
+          ) : null}
+          {mode === "sale" && isAdmin && !isVoided && remaining > 0 ? (
+            <Button variant="secondary" className="h-8" onClick={kirimTagih} disabled={tagihBusy}>
+              <span className="inline-flex items-center gap-1.5">
+                <MessageCircle className="size-4" aria-hidden /> {tagihBusy ? "Menyiapkan…" : "Tagih (WA)"}
+              </span>
+            </Button>
           ) : null}
           {isAdmin && !isVoided && remaining > 0 ? (
             <Button variant="secondary" className="h-8" onClick={() => setReturnOpen((o) => !o)}>

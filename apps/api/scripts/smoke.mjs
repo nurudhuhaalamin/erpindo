@@ -4055,6 +4055,20 @@ try {
   const billWebhook = await makeClient()("POST", "/api/billing/notification", { order_id: "x", transaction_status: "settlement" });
   check("webhook billing tanpa kunci → 200 diabaikan", billWebhook.status === 200 && billWebhook.json?.ignored === true, `→ HTTP ${billWebhook.status}`);
 
+  // Fase 11d: payment collection link (tanpa Midtrans → degradasi anggun).
+  const plStatus = await owner("GET", `/api/tenants/${tenantId}/invoices/inv-x/payment-link`);
+  check(
+    "payment-link status 200 + configured=false + link null",
+    plStatus.status === 200 && plStatus.json?.configured === false && plStatus.json?.link === null,
+    `→ ${JSON.stringify(plStatus.json)}`,
+  );
+  const plCreate = await owner("POST", `/api/tenants/${tenantId}/invoices/inv-x/payment-link`);
+  check("buat payment-link tanpa konfigurasi Midtrans → 503", plCreate.status === 503, `→ HTTP ${plCreate.status}`);
+  const plViewer = await viewer("POST", `/api/tenants/${tenantId}/invoices/inv-x/payment-link`);
+  check("buat payment-link oleh viewer → 403", plViewer.status === 403, `→ HTTP ${plViewer.status}`);
+  const plAnon = await fetch(`${BASE}/api/tenants/${tenantId}/invoices/inv-x/payment-link`);
+  check("payment-link status tanpa sesi → 401", plAnon.status === 401, `→ HTTP ${plAnon.status}`);
+
   // Masukan pengguna (dukungan) — Budi mengirim, lalu admin mengubah statusnya.
   const fbBad = await owner("POST", "/api/feedback", { category: "salah-kategori", message: "Halo dukungan" });
   check("kirim masukan dengan kategori salah DITOLAK 400", fbBad.status === 400, `→ HTTP ${fbBad.status}`);
