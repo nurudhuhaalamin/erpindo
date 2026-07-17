@@ -364,6 +364,12 @@ export const aiJurnalSchema = z.object({
 });
 export type AiJurnalInput = z.infer<typeof aiJurnalSchema>;
 
+/** Tanya-jawab laporan bahasa natural (Fase 11c) — dijawab dari data buku nyata (read-only). */
+export const aiReportSchema = z.object({
+  question: z.string().trim().min(3, "Tulis pertanyaan, mis. 'berapa laba bulan ini?'").max(500),
+});
+export type AiReportInput = z.infer<typeof aiReportSchema>;
+
 /** Draf jurnal usulan AI — hanya usulan; manusia yang memposting lewat form Jurnal Umum. */
 export type ApiAiJournalDraft = {
   entryDate: string;

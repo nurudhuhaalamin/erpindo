@@ -1,4 +1,4 @@
-import { aiChatSchema, aiJurnalSchema, type ApiAiJournalDraft } from "@erpindo/shared";
+import { aiChatSchema, aiJurnalSchema, aiReportSchema, type ApiAiJournalDraft } from "@erpindo/shared";
 import { Hono } from "hono";
 import { z } from "zod";
 import type { AppEnv, Env } from "../env";
@@ -211,4 +211,101 @@ export const aiRoutes = new Hono<AppEnv>()
       lines,
     };
     return c.json({ draft, quotaRemaining });
+  })
+
+  // -------------------------------------------------------------------------
+  // Tanya laporan (Fase 11c): jawab pertanyaan keuangan dalam bahasa natural,
+  // di-grounding pada RINGKASAN BUKU NYATA. Read-only & aman — model hanya
+  // meringkas angka yang kita hitung sendiri, tidak boleh mengarang.
+  // -------------------------------------------------------------------------
+  .post("/:tenantId/ai/laporan", requireAuth, requireTenantRole("viewer"), async (c) => {
+    if (!c.env.AI) return c.json(unavailable("binding-absent"), 503);
+    const parsed = aiReportSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) {
+      return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
+    }
+    const tenant = c.get("tenant");
+    if (await quotaExceeded(c.env, tenant.id)) {
+      return c.json({ error: `Kuota asisten AI hari ini habis (${DAILY_LIMIT} pertanyaan/hari). Coba lagi besok.` }, 429);
+    }
+
+    const db = getTenantDb(c.env, tenant.dbRef);
+    const snapshot = await buildReportSnapshot(db);
+
+    const system = [
+      "Kamu asisten keuangan ERPindo untuk UMKM Indonesia.",
+      "Jawab pertanyaan pengguna HANYA berdasarkan DATA RINGKAS di bawah — JANGAN mengarang angka.",
+      "Bila data tidak memuat jawabannya, katakan terus terang bahwa datanya belum tersedia dan sarankan buka menu Laporan terkait.",
+      "Jawab SINGKAT (maks ±120 kata) dalam bahasa Indonesia, sebutkan angka rupiah yang relevan.",
+      `DATA RINGKAS BUKU (per ${new Date().toISOString().slice(0, 10)}):\n${snapshot}`,
+    ].join("\n\n");
+
+    const result = await runModel(
+      c.env,
+      [
+        { role: "system", content: system },
+        { role: "user", content: parsed.data.question },
+      ],
+      500,
+    );
+    if (!result.ok) return c.json(unavailable(result.detail), 503);
+    const quotaRemaining = await countQuota(c.env, tenant.id);
+    return c.json({ reply: result.text.trim(), quotaRemaining });
   });
+
+/**
+ * Ringkasan angka buku untuk grounding AI laporan (Fase 11c). Semua dari jurnal
+ * TERPOSTING. Bulan ini vs bulan lalu (pendapatan/beban/laba) + saldo kas/bank,
+ * piutang, hutang. Dikembalikan sebagai teks ringkas berbahasa Indonesia.
+ */
+async function buildReportSnapshot(db: ReturnType<typeof getTenantDb>): Promise<string> {
+  const now = new Date();
+  const monthStart = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
+  const curStart = monthStart(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)));
+  const nextStart = monthStart(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)));
+  const prevStart = monthStart(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)));
+
+  const pl = async (from: string, to: string) => {
+    const { results } = await db
+      .prepare(
+        `SELECT a.type AS type, SUM(jl.debit) AS d, SUM(jl.credit) AS cr
+         FROM journal_lines jl JOIN accounts a ON a.id = jl.account_id
+         JOIN journal_entries e ON e.id = jl.entry_id
+         WHERE e.status = 'posted' AND e.entry_date >= ? AND e.entry_date < ?
+         GROUP BY a.type`,
+      )
+      .bind(from, to)
+      .all<{ type: string; d: number; cr: number }>();
+    let income = 0;
+    let expense = 0;
+    for (const r of results) {
+      if (r.type === "income") income += (r.cr ?? 0) - (r.d ?? 0);
+      else if (r.type === "expense") expense += (r.d ?? 0) - (r.cr ?? 0);
+    }
+    return { income, expense, profit: income - expense };
+  };
+
+  const { results: bal } = await db
+    .prepare(
+      `SELECT a.code AS code, a.name AS name, SUM(jl.debit - jl.credit) AS bal
+       FROM journal_lines jl JOIN accounts a ON a.id = jl.account_id
+       JOIN journal_entries e ON e.id = jl.entry_id
+       WHERE e.status = 'posted' AND a.code IN ('1-1000','1-1100','1-1200','2-1000')
+       GROUP BY a.code, a.name`,
+    )
+    .all<{ code: string; name: string; bal: number }>();
+  const balByCode = new Map(bal.map((b) => [b.code, b.bal ?? 0]));
+
+  const [cur, prev] = await Promise.all([pl(curStart, nextStart), pl(prevStart, curStart)]);
+  const rp = (n: number) => `Rp ${Math.round(n).toLocaleString("id-ID")}`;
+  const cash = (balByCode.get("1-1000") ?? 0) + (balByCode.get("1-1100") ?? 0);
+  const ar = balByCode.get("1-1200") ?? 0;
+  const ap = -(balByCode.get("2-1000") ?? 0); // hutang: saldo normal kredit
+
+  return [
+    `Bulan ini (${curStart.slice(0, 7)}): pendapatan ${rp(cur.income)}, beban ${rp(cur.expense)}, laba bersih ${rp(cur.profit)}.`,
+    `Bulan lalu (${prevStart.slice(0, 7)}): pendapatan ${rp(prev.income)}, beban ${rp(prev.expense)}, laba bersih ${rp(prev.profit)}.`,
+    `Saldo kas & bank saat ini: ${rp(cash)}.`,
+    `Piutang usaha (belum tertagih): ${rp(ar)}. Hutang usaha (belum dibayar): ${rp(ap)}.`,
+  ].join("\n");
+}

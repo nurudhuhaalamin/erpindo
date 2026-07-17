@@ -3317,6 +3317,19 @@ try {
     aiJurnal.status !== 503 || aiJurnal.json?.detail === "binding-absent",
     `→ ${JSON.stringify(aiJurnal.json)}`,
   );
+  // Fase 11c: tanya laporan bahasa natural (read-only, semua anggota).
+  const aiLaporanAnon = await fetch(`${BASE}/api/tenants/${tenantId}/ai/laporan`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ question: "berapa laba bulan ini?" }),
+  });
+  check("AI laporan tanpa sesi DITOLAK 401", aiLaporanAnon.status === 401, `→ HTTP ${aiLaporanAnon.status}`);
+  const aiLaporan = await viewer("POST", `/api/tenants/${tenantId}/ai/laporan`, { question: "berapa laba bulan ini?" });
+  check(
+    "AI laporan (viewer) membalas 200 (produksi) ATAU 503 binding-absent",
+    aiLaporan.status === 200 || (aiLaporan.status === 503 && aiLaporan.json?.detail === "binding-absent"),
+    `→ ${aiLaporan.status} ${JSON.stringify(aiLaporan.json)}`,
+  );
 
   // --- Arus kas (Fase 2b-1) -------------------------------------------------------
   console.log("12. Arus kas");

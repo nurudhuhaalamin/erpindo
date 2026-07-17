@@ -1,21 +1,22 @@
 import { useNavigate } from "@tanstack/react-router";
-import { NotebookPen, Send, Sparkles, X } from "lucide-react";
+import { LineChart, NotebookPen, Send, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, ApiRequestError, formatIDR } from "../api/client";
 import { Button, Spinner } from "./ui";
 
 /**
  * Asisten erpindo — panel chat mengambang (Workers AI, kuota gratis).
- * Dua mode: Tanya (cara pakai, grounded panduan) dan Draf Jurnal (bahasa
- * alami → usulan jurnal seimbang yang dimuat ke form Jurnal Umum — AI tidak
- * pernah menulis data sendiri).
+ * Tiga mode: Tanya (cara pakai, grounded panduan), Laporan (tanya kondisi
+ * keuangan — dijawab dari buku nyata, read-only), dan Draf Jurnal (bahasa
+ * alami → usulan jurnal seimbang yang dimuat ke form Jurnal Umum). AI tidak
+ * pernah menulis data sendiri.
  */
 
 type ChatMsg = { role: "user" | "assistant"; content: string };
 
 export function Asisten({ tenantId, isAdmin }: { tenantId: string; isAdmin: boolean }) {
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<"chat" | "jurnal">("chat");
+  const [mode, setMode] = useState<"chat" | "jurnal" | "laporan">("chat");
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -41,6 +42,11 @@ export function Asisten({ tenantId, isAdmin }: { tenantId: string; isAdmin: bool
         setMessages(history);
         const res = await api.aiChat(tenantId, history.slice(-8));
         setMessages([...history, { role: "assistant", content: res.reply }]);
+        if (typeof res.quotaRemaining === "number") setQuota(res.quotaRemaining);
+      } else if (mode === "laporan") {
+        setMessages((m) => [...m, { role: "user", content: text }]);
+        const res = await api.aiLaporan(tenantId, text);
+        setMessages((m) => [...m, { role: "assistant", content: res.reply }]);
         if (typeof res.quotaRemaining === "number") setQuota(res.quotaRemaining);
       } else {
         setMessages((m) => [...m, { role: "user", content: `Draf jurnal: ${text}` }]);
@@ -97,6 +103,14 @@ export function Asisten({ tenantId, isAdmin }: { tenantId: string; isAdmin: bool
               >
                 Tanya
               </button>
+              <button
+                onClick={() => setMode("laporan")}
+                className={`rounded-md px-2.5 py-1 ${mode === "laporan" ? "bg-white font-medium shadow-sm dark:bg-slate-700" : "text-slate-500"}`}
+              >
+                <span className="inline-flex items-center gap-1">
+                  <LineChart className="size-3" aria-hidden /> Laporan
+                </span>
+              </button>
               {isAdmin ? (
                 <button
                   onClick={() => setMode("jurnal")}
@@ -121,6 +135,16 @@ export function Asisten({ tenantId, isAdmin }: { tenantId: string; isAdmin: bool
                       <li>Cara mencatat retur penjualan?</li>
                       <li>Gaji karyawan dihitung bagaimana?</li>
                     </ul>
+                  </>
+                ) : mode === "laporan" ? (
+                  <>
+                    <p>Tanyakan kondisi keuangan Anda — dijawab dari buku Anda sendiri, misalnya:</p>
+                    <ul className="mt-2 list-disc space-y-1 pl-4">
+                      <li>Berapa laba bulan ini?</li>
+                      <li>Bandingkan pendapatan bulan ini vs bulan lalu.</li>
+                      <li>Berapa saldo kas &amp; piutang saya?</li>
+                    </ul>
+                    <p className="mt-2 text-xs">Hanya membaca — AI tidak mengubah data apa pun.</p>
                   </>
                 ) : (
                   <>
@@ -165,7 +189,7 @@ export function Asisten({ tenantId, isAdmin }: { tenantId: string; isAdmin: bool
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={mode === "chat" ? "Tanya cara pakai…" : "Deskripsikan transaksinya…"}
+              placeholder={mode === "chat" ? "Tanya cara pakai…" : mode === "laporan" ? "Tanya soal laporan…" : "Deskripsikan transaksinya…"}
               aria-label="Pesan untuk Asisten erpindo"
               className="h-10 flex-1 rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-slate-600 dark:bg-slate-800"
             />

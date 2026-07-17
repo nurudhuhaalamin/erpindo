@@ -453,6 +453,8 @@ export const api = {
     request<{ reply: string; quotaRemaining?: number }>("POST", `/api/tenants/${tenantId}/ai/chat`, { messages }, { timeoutMs: 35_000 }),
   aiJurnal: (tenantId: string, prompt: string) =>
     request<{ draft: ApiAiJournalDraft; quotaRemaining?: number }>("POST", `/api/tenants/${tenantId}/ai/jurnal`, { prompt }, { timeoutMs: 35_000 }),
+  aiLaporan: (tenantId: string, question: string) =>
+    request<{ reply: string; quotaRemaining?: number }>("POST", `/api/tenants/${tenantId}/ai/laporan`, { question }, { timeoutMs: 35_000 }),
   stockCard: (tenantId: string, productId: string, warehouseId: string) =>
     request<{ rows: ApiStockCardRow[]; balance: number }>(
       "GET",
