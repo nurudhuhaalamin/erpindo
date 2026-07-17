@@ -1413,6 +1413,22 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `CREATE INDEX IF NOT EXISTS idx_payroll_loan_cuts_run ON payroll_loan_cuts(run_id)`,
     ],
   },
+  {
+    // Import pesanan marketplace (Fase 11e): pesanan Shopee/Tokopedia/TikTok
+    // (ekspor CSV) → faktur penjualan + stok keluar otomatis. Tabel ini menjaga
+    // idempotensi: satu (channel, external_order_no) hanya diimpor sekali.
+    id: "0038_marketplace",
+    statements: [
+      `CREATE TABLE marketplace_orders (
+        id TEXT PRIMARY KEY,
+        channel TEXT NOT NULL,
+        external_order_no TEXT NOT NULL,
+        invoice_id TEXT REFERENCES invoices(id),
+        imported_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE UNIQUE INDEX marketplace_orders_uq ON marketplace_orders (channel, external_order_no)`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

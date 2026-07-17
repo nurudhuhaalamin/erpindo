@@ -27,6 +27,7 @@ import { manufacturingRoutes } from "./routes/manufacturing";
 import { reportRoutes } from "./routes/reports";
 import { posRoutes } from "./routes/pos";
 import { returnRoutes } from "./routes/returns";
+import { marketplaceRoutes } from "./routes/marketplace";
 import { masterDataRoutes } from "./routes/masterdata";
 import { payrollRoutes } from "./routes/payroll";
 import { procurementRoutes } from "./routes/procurement";
@@ -95,6 +96,7 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", financeExtraRoutes)
   .route("/api/tenants", aiRoutes)
   .route("/api/tenants", masterDataRoutes)
+  .route("/api/tenants", marketplaceRoutes)
   .route("/api/tenants", commerceRoutes)
   .route("/api/tenants", reportRoutes)
   .route("/api/tenants", returnRoutes)

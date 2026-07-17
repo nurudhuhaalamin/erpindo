@@ -1167,6 +1167,48 @@ try {
     `→ ${JSON.stringify(dewiCoRow)}`,
   );
 
+  // --- Import pesanan marketplace (Fase 11e) — di tenant Dewi (aktif, terisolasi
+  //     dari asersi angka tenant utama) ------------------------------------------
+  const mpT = dewiCo.json.tenantId;
+  const mpDate = new Date().toISOString().slice(0, 10);
+  const mpWh = (await admin("GET", `/api/tenants/${mpT}/warehouses`)).json.items.find((w) => w.code === "UTAMA").id;
+  const mpSupplier = await admin("POST", `/api/tenants/${mpT}/contacts`, { type: "supplier", name: "Pemasok MP" });
+  const mpCust = await admin("POST", `/api/tenants/${mpT}/contacts`, { type: "customer", name: "Pembeli Shopee" });
+  const mpProd = await admin("POST", `/api/tenants/${mpT}/products`, { sku: "MP-9Z", name: "Produk Marketplace", unit: "pcs", sellPrice: 50_000, buyPrice: 30_000 });
+  await admin("POST", `/api/tenants/${mpT}/purchases`, {
+    contactId: mpSupplier.json.id, invoiceDate: mpDate, taxRate: 0, warehouseId: mpWh,
+    lines: [{ productId: mpProd.json.id, qty: 20, unitPrice: 30_000 }],
+  });
+  const mpBody = (rows) => ({ channel: "shopee", warehouseId: mpWh, contactId: mpCust.json.id, rows });
+  const mpImport = await admin("POST", `/api/tenants/${mpT}/marketplace/import`, mpBody([
+    { externalOrderNo: "SHP-9001", orderDate: mpDate, sku: "MP-9Z", qty: 2, unitPrice: 50_000 },
+    { externalOrderNo: "SHP-9001", orderDate: mpDate, sku: "MP-9Z", qty: 1, unitPrice: 60_000 },
+    { externalOrderNo: "SHP-9002", orderDate: mpDate, sku: "mp-9z", qty: 1, unitPrice: 50_000 },
+  ]));
+  check("import marketplace: 2 pesanan → 2 faktur (baris digabung, SKU case-insensitive)",
+    mpImport.status === 200 && mpImport.json?.imported?.length === 2 && mpImport.json?.failed?.length === 0,
+    `→ ${JSON.stringify({ imported: mpImport.json?.imported?.length, failed: mpImport.json?.failed })}`);
+  const mpAgain = await admin("POST", `/api/tenants/${mpT}/marketplace/import`, mpBody([
+    { externalOrderNo: "SHP-9001", orderDate: mpDate, sku: "MP-9Z", qty: 2, unitPrice: 50_000 },
+    { externalOrderNo: "SHP-9002", orderDate: mpDate, sku: "MP-9Z", qty: 1, unitPrice: 50_000 },
+  ]));
+  check("re-import idempoten → 2 dilewati, 0 diimpor",
+    mpAgain.json?.imported?.length === 0 && mpAgain.json?.skipped?.length === 2,
+    `→ ${JSON.stringify({ imported: mpAgain.json?.imported?.length, skipped: mpAgain.json?.skipped?.length })}`);
+  const mpBad = await admin("POST", `/api/tenants/${mpT}/marketplace/import`, mpBody([
+    { externalOrderNo: "SHP-9003", orderDate: mpDate, sku: "SKU-TIDAK-ADA", qty: 1, unitPrice: 1_000 },
+  ]));
+  check("SKU tak dikenal → pesanan gagal (0 diimpor)",
+    mpBad.json?.failed?.length === 1 && mpBad.json?.imported?.length === 0, `→ ${JSON.stringify(mpBad.json)}`);
+  const mpNoSession = await fetch(`${BASE}/api/tenants/${mpT}/marketplace/import`, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(mpBody([])),
+  });
+  check("impor marketplace tanpa sesi → 401", mpNoSession.status === 401, `→ HTTP ${mpNoSession.status}`);
+  const mpOrders = await admin("GET", `/api/tenants/${mpT}/marketplace/orders`);
+  check("daftar pesanan marketplace memuat SHP-9001 dengan nomor faktur",
+    mpOrders.status === 200 && mpOrders.json?.orders?.some((o) => o.externalOrderNo === "SHP-9001" && o.invoiceNo),
+    `→ ${JSON.stringify(mpOrders.json?.orders?.slice(0, 2))}`);
+
   const thresholdByViewer = await viewer("POST", `/api/tenants/${tenantId}/approval-threshold`, { amount: 1 });
   check("viewer DITOLAK mengatur ambang (403)", thresholdByViewer.status === 403);
   const setThreshold = await owner("POST", `/api/tenants/${tenantId}/approval-threshold`, { amount: 1_000_000 });

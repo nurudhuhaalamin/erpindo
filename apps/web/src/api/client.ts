@@ -124,6 +124,8 @@ import type {
   ApiBlogPost,
   BillingStatus,
   ApiPaymentLink,
+  MarketplaceImportInput,
+  ApiMarketplaceOrder,
   FeedbackInput,
   BlogPostInput,
   ProductInput,
@@ -458,6 +460,14 @@ export const api = {
     request<{ reply: string; quotaRemaining?: number }>("POST", `/api/tenants/${tenantId}/ai/laporan`, { question }, { timeoutMs: 35_000 }),
   invoicePaymentLink: (tenantId: string, invoiceId: string) =>
     request<{ link: ApiPaymentLink | null; configured: boolean }>("GET", `/api/tenants/${tenantId}/invoices/${invoiceId}/payment-link`),
+  marketplaceImport: (tenantId: string, input: MarketplaceImportInput) =>
+    request<{
+      imported: { externalOrderNo: string; invoiceNo: string }[];
+      skipped: { externalOrderNo: string; reason: string }[];
+      failed: { externalOrderNo: string; reason: string }[];
+    }>("POST", `/api/tenants/${tenantId}/marketplace/import`, input),
+  marketplaceOrders: (tenantId: string) =>
+    request<{ orders: ApiMarketplaceOrder[] }>("GET", `/api/tenants/${tenantId}/marketplace/orders`),
   createInvoicePaymentLink: (tenantId: string, invoiceId: string) =>
     request<{ orderId: string; redirectUrl: string; amount: number }>("POST", `/api/tenants/${tenantId}/invoices/${invoiceId}/payment-link`),
   stockCard: (tenantId: string, productId: string, warehouseId: string) =>

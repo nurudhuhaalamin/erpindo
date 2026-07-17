@@ -766,6 +766,45 @@ export const createInvoiceSchema = z.object({
 });
 export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>;
 
+// --- Import pesanan marketplace (Fase 11e) ---------------------------------
+export const MARKETPLACE_CHANNELS = ["shopee", "tokopedia", "tiktok", "lazada", "lainnya"] as const;
+export type MarketplaceChannel = (typeof MARKETPLACE_CHANNELS)[number];
+export const MARKETPLACE_CHANNEL_LABELS: Record<MarketplaceChannel, string> = {
+  shopee: "Shopee",
+  tokopedia: "Tokopedia",
+  tiktok: "TikTok Shop",
+  lazada: "Lazada",
+  lainnya: "Lainnya",
+};
+
+export const marketplaceImportSchema = z.object({
+  channel: z.enum(MARKETPLACE_CHANNELS),
+  warehouseId: z.string().min(1, "Gudang wajib dipilih"),
+  contactId: z.string().min(1, "Pelanggan marketplace wajib dipilih"),
+  rows: z
+    .array(
+      z.object({
+        externalOrderNo: z.string().trim().min(1, "No. pesanan wajib").max(60),
+        orderDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+        sku: z.string().trim().min(1, "SKU wajib").max(60),
+        qty: z.number().int().min(1).max(1_000_000),
+        unitPrice: z.number().int().min(0).max(1_000_000_000_000),
+        discountPct: z.number().min(0).max(100).optional(),
+      }),
+    )
+    .min(1, "Minimal 1 baris pesanan")
+    .max(1000, "Maksimal 1000 baris per impor"),
+});
+export type MarketplaceImportInput = z.infer<typeof marketplaceImportSchema>;
+
+export type ApiMarketplaceOrder = {
+  id: string;
+  channel: string;
+  externalOrderNo: string;
+  invoiceNo: string | null;
+  importedAt: string;
+};
+
 export const currencySchema = z.object({
   code: z.string().trim().length(3, "Kode mata uang 3 huruf").toUpperCase(),
   name: z.string().trim().min(2).max(50),
