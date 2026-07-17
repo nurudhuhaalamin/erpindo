@@ -468,6 +468,8 @@ export const api = {
     }>("POST", `/api/tenants/${tenantId}/marketplace/import`, input),
   marketplaceOrders: (tenantId: string) =>
     request<{ orders: ApiMarketplaceOrder[] }>("GET", `/api/tenants/${tenantId}/marketplace/orders`),
+  applyIndustryTemplate: (tenantId: string, industry: string) =>
+    request<{ productsAdded: number; contactsAdded: number }>("POST", `/api/tenants/${tenantId}/setup/industry-template`, { industry }),
   createInvoicePaymentLink: (tenantId: string, invoiceId: string) =>
     request<{ orderId: string; redirectUrl: string; amount: number }>("POST", `/api/tenants/${tenantId}/invoices/${invoiceId}/payment-link`),
   stockCard: (tenantId: string, productId: string, warehouseId: string) =>

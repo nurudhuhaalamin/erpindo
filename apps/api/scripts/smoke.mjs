@@ -1209,6 +1209,19 @@ try {
     mpOrders.status === 200 && mpOrders.json?.orders?.some((o) => o.externalOrderNo === "SHP-9001" && o.invoiceNo),
     `→ ${JSON.stringify(mpOrders.json?.orders?.slice(0, 2))}`);
 
+  // --- Template industri (Fase 11f) — di tenant Dewi (terisolasi) --------------
+  const indTplRetail = await admin("POST", `/api/tenants/${mpT}/setup/industry-template`, { industry: "retail" });
+  check("template industri retail: 5 produk + 2 kontak ditambahkan",
+    indTplRetail.status === 200 && indTplRetail.json?.productsAdded === 5 && indTplRetail.json?.contactsAdded === 2,
+    `→ ${JSON.stringify(indTplRetail.json)}`);
+  const indTplAgain = await admin("POST", `/api/tenants/${mpT}/setup/industry-template`, { industry: "retail" });
+  check("terapkan ulang template → idempoten (0 ditambahkan)",
+    indTplAgain.json?.productsAdded === 0 && indTplAgain.json?.contactsAdded === 0, `→ ${JSON.stringify(indTplAgain.json)}`);
+  const indTplBad = await admin("POST", `/api/tenants/${mpT}/setup/industry-template`, { industry: "tidak-ada" });
+  check("jenis usaha tak dikenal → 400", indTplBad.status === 400, `→ HTTP ${indTplBad.status}`);
+  const indTplViewer = await viewer("POST", `/api/tenants/${tenantId}/setup/industry-template`, { industry: "retail" });
+  check("viewer DITOLAK menerapkan template (403)", indTplViewer.status === 403, `→ HTTP ${indTplViewer.status}`);
+
   const thresholdByViewer = await viewer("POST", `/api/tenants/${tenantId}/approval-threshold`, { amount: 1 });
   check("viewer DITOLAK mengatur ambang (403)", thresholdByViewer.status === 403);
   const setThreshold = await owner("POST", `/api/tenants/${tenantId}/approval-threshold`, { amount: 1_000_000 });

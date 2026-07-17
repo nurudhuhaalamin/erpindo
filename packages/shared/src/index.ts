@@ -805,6 +805,77 @@ export type ApiMarketplaceOrder = {
   importedAt: string;
 };
 
+// --- Template industri (Fase 11f) ------------------------------------------
+// Paket data awal per jenis usaha: contoh produk + kontak agar pengguna baru
+// bisa langsung mencoba alur (bisa diubah/hapus kapan saja).
+export const INDUSTRY_KEYS = ["retail", "fnb", "jasa", "grosir"] as const;
+export type IndustryKey = (typeof INDUSTRY_KEYS)[number];
+export const INDUSTRY_LABELS: Record<IndustryKey, string> = {
+  retail: "Toko Retail / Kelontong",
+  fnb: "Kuliner / F&B",
+  jasa: "Jasa / Servis",
+  grosir: "Grosir / Distribusi",
+};
+
+type TemplateProduct = { sku: string; name: string; unit: string; sellPrice: number; buyPrice: number; isService?: boolean };
+type TemplateContact = { type: "customer" | "supplier"; name: string };
+
+export const INDUSTRY_TEMPLATES: Record<IndustryKey, { products: TemplateProduct[]; contacts: TemplateContact[] }> = {
+  retail: {
+    products: [
+      { sku: "RTL-001", name: "Air Mineral 600ml", unit: "botol", sellPrice: 3_000, buyPrice: 2_000 },
+      { sku: "RTL-002", name: "Mie Instan Goreng", unit: "pcs", sellPrice: 3_500, buyPrice: 2_500 },
+      { sku: "RTL-003", name: "Gula Pasir 1kg", unit: "pak", sellPrice: 15_000, buyPrice: 12_000 },
+      { sku: "RTL-004", name: "Minyak Goreng 1L", unit: "botol", sellPrice: 18_000, buyPrice: 15_000 },
+      { sku: "RTL-005", name: "Rokok (bungkus)", unit: "bungkus", sellPrice: 25_000, buyPrice: 22_000 },
+    ],
+    contacts: [
+      { type: "customer", name: "Pelanggan Umum" },
+      { type: "supplier", name: "Distributor Sembako" },
+    ],
+  },
+  fnb: {
+    products: [
+      { sku: "FNB-001", name: "Es Teh Manis", unit: "gelas", sellPrice: 5_000, buyPrice: 1_500 },
+      { sku: "FNB-002", name: "Kopi Susu", unit: "gelas", sellPrice: 18_000, buyPrice: 6_000 },
+      { sku: "FNB-003", name: "Nasi Goreng Spesial", unit: "porsi", sellPrice: 25_000, buyPrice: 10_000 },
+      { sku: "FNB-004", name: "Ayam Geprek", unit: "porsi", sellPrice: 22_000, buyPrice: 9_000 },
+      { sku: "FNB-005", name: "Kentang Goreng", unit: "porsi", sellPrice: 15_000, buyPrice: 5_000 },
+    ],
+    contacts: [
+      { type: "customer", name: "Pelanggan Dine-in" },
+      { type: "supplier", name: "Pemasok Bahan Baku" },
+    ],
+  },
+  jasa: {
+    products: [
+      { sku: "JSA-001", name: "Konsultasi (per jam)", unit: "jam", sellPrice: 150_000, buyPrice: 0, isService: true },
+      { sku: "JSA-002", name: "Servis Ringan", unit: "unit", sellPrice: 100_000, buyPrice: 0, isService: true },
+      { sku: "JSA-003", name: "Servis Berat", unit: "unit", sellPrice: 350_000, buyPrice: 0, isService: true },
+      { sku: "JSA-004", name: "Biaya Pemanggilan", unit: "kali", sellPrice: 50_000, buyPrice: 0, isService: true },
+    ],
+    contacts: [
+      { type: "customer", name: "Klien" },
+      { type: "supplier", name: "Vendor Suku Cadang" },
+    ],
+  },
+  grosir: {
+    products: [
+      { sku: "GRS-001", name: "Beras 25kg (karung)", unit: "karung", sellPrice: 320_000, buyPrice: 290_000 },
+      { sku: "GRS-002", name: "Gula Pasir 50kg", unit: "karung", sellPrice: 700_000, buyPrice: 650_000 },
+      { sku: "GRS-003", name: "Minyak Goreng 1 dus (12L)", unit: "dus", sellPrice: 200_000, buyPrice: 175_000 },
+      { sku: "GRS-004", name: "Mie Instan 1 dus", unit: "dus", sellPrice: 110_000, buyPrice: 95_000 },
+    ],
+    contacts: [
+      { type: "customer", name: "Toko Langganan" },
+      { type: "supplier", name: "Pabrik / Principal" },
+    ],
+  },
+};
+
+export const industryTemplateSchema = z.object({ industry: z.enum(INDUSTRY_KEYS) });
+export type IndustryTemplateInput = z.infer<typeof industryTemplateSchema>;
+
 export const currencySchema = z.object({
   code: z.string().trim().length(3, "Kode mata uang 3 huruf").toUpperCase(),
   name: z.string().trim().min(2).max(50),
