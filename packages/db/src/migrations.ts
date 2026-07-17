@@ -165,6 +165,53 @@ export const CONTROL_PLANE_MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    // Billing langganan via Midtrans (Fase 11b). Setiap upaya bayar = satu
+    // subscription_invoice (order_id unik). Webhook Midtrans yang terverifikasi
+    // tanda tangannya menandai invoice 'paid' → tenant.status 'active' +
+    // subscription_ends_at diperpanjang 1 bulan. Cron menurunkan active →
+    // past_due saat subscription_ends_at lewat (NULL = comped, tak diturunkan).
+    id: "0008_billing",
+    statements: [
+      `CREATE TABLE subscription_invoices (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT NOT NULL,
+        order_id TEXT NOT NULL UNIQUE,
+        amount INTEGER NOT NULL,
+        period_months INTEGER NOT NULL DEFAULT 1,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','paid','failed','expired')),
+        redirect_url TEXT,
+        transaction_status TEXT,
+        paid_at TEXT,
+        created_by TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX idx_sub_invoices_tenant ON subscription_invoices (tenant_id, created_at)`,
+      `ALTER TABLE tenants ADD COLUMN subscription_ends_at TEXT`,
+    ],
+  },
+  {
+    // Payment collection (Fase 11d): link pembayaran online per faktur penjualan
+    // via Midtrans. Menandai link 'paid' saat webhook terverifikasi masuk;
+    // pencatatan ke buku besar tetap aksi Pemilik (nudge di UI).
+    id: "0009_payment_links",
+    statements: [
+      `CREATE TABLE payment_links (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT NOT NULL,
+        invoice_id TEXT NOT NULL,
+        invoice_no TEXT NOT NULL,
+        order_id TEXT NOT NULL UNIQUE,
+        amount INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','paid','expired','failed')),
+        redirect_url TEXT,
+        paid_at TEXT,
+        created_by TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX idx_payment_links_invoice ON payment_links (tenant_id, invoice_id)`,
+    ],
+  },
 ];
 
 /**
@@ -1366,6 +1413,22 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `CREATE INDEX IF NOT EXISTS idx_payroll_loan_cuts_run ON payroll_loan_cuts(run_id)`,
     ],
   },
+  {
+    // Import pesanan marketplace (Fase 11e): pesanan Shopee/Tokopedia/TikTok
+    // (ekspor CSV) → faktur penjualan + stok keluar otomatis. Tabel ini menjaga
+    // idempotensi: satu (channel, external_order_no) hanya diimpor sekali.
+    id: "0038_marketplace",
+    statements: [
+      `CREATE TABLE marketplace_orders (
+        id TEXT PRIMARY KEY,
+        channel TEXT NOT NULL,
+        external_order_no TEXT NOT NULL,
+        invoice_id TEXT REFERENCES invoices(id),
+        imported_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE UNIQUE INDEX marketplace_orders_uq ON marketplace_orders (channel, external_order_no)`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */
@@ -1374,9 +1437,11 @@ export type SqlExecutor = {
     bind(...values: unknown[]): {
       all<T = unknown>(): Promise<{ results: T[] }>;
       run(): Promise<unknown>;
+      first<T = unknown>(): Promise<T | null>;
     };
     all<T = unknown>(): Promise<{ results: T[] }>;
     run(): Promise<unknown>;
+    first<T = unknown>(): Promise<T | null>;
   };
 };
 

@@ -49,15 +49,25 @@ class HttpD1Executor implements SqlExecutor {
       return { results: (body.result?.[0]?.results ?? []) as T[] };
     };
 
+    // `.first()` melengkapi antarmuka D1 nyata (mode lokal) agar kode yang
+    // memakainya tetap berjalan identik di mode cloudflare — ambil baris pertama
+    // dalam SATU round-trip REST (bukan tarik semua lalu iris di sisi Worker).
+    const first = async <T>(params: unknown[]): Promise<T | null> => {
+      const { results } = await exec<T>(params);
+      return results.length > 0 ? (results[0] as T) : null;
+    };
+
     const statement = (params: unknown[]) => ({
       all: <T = unknown>() => exec<T>(params),
       run: () => exec(params),
+      first: <T = unknown>() => first<T>(params),
     });
 
     return {
       bind: (...values: unknown[]) => statement(values),
       all: <T = unknown>() => exec<T>([]),
       run: () => exec([]),
+      first: <T = unknown>() => first<T>([]),
     };
   }
 }
@@ -120,6 +130,80 @@ export async function provisionTenantDb(env: Env, tenantSlug: string, usedRefs: 
   const db = getTenantDb(env, dbRef);
   await applyMigrations(db, TENANT_MIGRATIONS);
   return dbRef;
+}
+
+/**
+ * Pastikan database sebuah tenant berada di versi skema terkini.
+ *
+ * Ini menutup celah kapasitas/kompatibilitas utama sebelum Fase 11: dulu
+ * `applyMigrations` hanya dijalankan SEKALI saat provisioning, sehingga tenant
+ * lama TIDAK pernah menerima migrasi baru yang ditambahkan pada rilis berikut.
+ * Fungsi ini dipanggil "malas" saat tenant diakses (middleware) dan borongan
+ * lewat {@link migrateAllTenants} (cron/endpoint admin).
+ *
+ * Aman dipanggil di setiap request: bila `schemaVersion` sudah mutakhir, ia
+ * langsung kembali tanpa menyentuh database tenant. `applyMigrations` sendiri
+ * idempoten (mencatat id di tabel `_migrations`), jadi dua request paralel yang
+ * sama-sama memicu migrasi tidak akan merusak apa pun. Mengembalikan versi
+ * terbaru tenant tersebut.
+ */
+export async function ensureTenantMigrated(
+  env: Env,
+  tenant: { id: string; dbRef: string; schemaVersion: number },
+): Promise<number> {
+  if (tenant.schemaVersion >= TENANT_SCHEMA_VERSION) return tenant.schemaVersion;
+  const db = getTenantDb(env, tenant.dbRef);
+  const applied = await applyMigrations(db, TENANT_MIGRATIONS);
+  await env.DB.prepare(`UPDATE tenants SET schema_version = ? WHERE id = ?`)
+    .bind(TENANT_SCHEMA_VERSION, tenant.id)
+    .run();
+  if (applied.length > 0) {
+    console.log(`[db] tenant ${tenant.id} migrasi diterapkan (v${tenant.schemaVersion}→v${TENANT_SCHEMA_VERSION}): ${applied.join(", ")}`);
+  }
+  return TENANT_SCHEMA_VERSION;
+}
+
+export type TenantMigrationResult = {
+  id: string;
+  slug: string;
+  from: number;
+  to: number;
+  applied: string[];
+  ok: boolean;
+  error?: string;
+};
+
+/**
+ * Terapkan migrasi tenant yang tertinggal ke SEMUA tenant. Dipakai saat rilis
+ * skema baru agar tenant yang jarang/tak pernah dibuka (mis. hanya disentuh
+ * cron) tetap termutakhirkan. Per-tenant di-try/catch terpisah: satu tenant
+ * gagal tidak menghentikan sisanya (resumable — jalankan lagi untuk mencoba
+ * ulang yang gagal, karena versi hanya dinaikkan saat sukses).
+ */
+export async function migrateAllTenants(env: Env): Promise<TenantMigrationResult[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT id, slug, db_ref, schema_version FROM tenants ORDER BY created_at`,
+  ).all<{ id: string; slug: string; db_ref: string; schema_version: number }>();
+
+  const out: TenantMigrationResult[] = [];
+  for (const t of results) {
+    const from = t.schema_version;
+    if (from >= TENANT_SCHEMA_VERSION) {
+      out.push({ id: t.id, slug: t.slug, from, to: from, applied: [], ok: true });
+      continue;
+    }
+    try {
+      const db = getTenantDb(env, t.db_ref);
+      const applied = await applyMigrations(db, TENANT_MIGRATIONS);
+      await env.DB.prepare(`UPDATE tenants SET schema_version = ? WHERE id = ?`)
+        .bind(TENANT_SCHEMA_VERSION, t.id)
+        .run();
+      out.push({ id: t.id, slug: t.slug, from, to: TENANT_SCHEMA_VERSION, applied, ok: true });
+    } catch (err) {
+      out.push({ id: t.id, slug: t.slug, from, to: from, applied: [], ok: false, error: (err as Error).message });
+    }
+  }
+  return out;
 }
 
 export { TENANT_SCHEMA_VERSION };

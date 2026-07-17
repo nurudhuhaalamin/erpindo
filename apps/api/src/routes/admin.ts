@@ -12,6 +12,7 @@ import type { AppEnv } from "../env";
 import { audit } from "../lib/audit";
 import { requireAuth, requirePlatformAdmin } from "../middleware/auth";
 import { rateLimitUser } from "../middleware/rateLimit";
+import { migrateAllTenants, TENANT_SCHEMA_VERSION } from "../lib/tenantDb";
 import { clientIp } from "./auth";
 
 /**
@@ -178,6 +179,60 @@ export const adminRoutes = new Hono<AppEnv>()
       total: count?.n ?? 0,
       limit,
       offset,
+    });
+  })
+
+  // -------------------------------------------------------------------------
+  // Infra & kapasitas (Fase 11a): mode database tenant, versi skema terkini,
+  // dan sebaran versi tenant — agar admin melihat siapa yang tertinggal migrasi
+  // dan mendeteksi tenant yang mendekati batas D1.
+  // -------------------------------------------------------------------------
+  .get("/infra", requireAuth, requirePlatformAdmin, async (c) => {
+    const [total, byVersion, behind, byMode] = await Promise.all([
+      c.env.DB.prepare(`SELECT COUNT(*) AS n FROM tenants`).first<{ n: number }>(),
+      c.env.DB.prepare(
+        `SELECT schema_version AS v, COUNT(*) AS n FROM tenants GROUP BY schema_version ORDER BY v`,
+      ).all<{ v: number; n: number }>(),
+      c.env.DB.prepare(
+        `SELECT id, name, slug, schema_version FROM tenants WHERE schema_version < ? ORDER BY schema_version, created_at LIMIT 100`,
+      )
+        .bind(TENANT_SCHEMA_VERSION)
+        .all<{ id: string; name: string; slug: string; schema_version: number }>(),
+      // Sebaran jenis referensi DB: 'binding:' (pool lokal) vs 'uuid:' (D1 dinamis).
+      c.env.DB.prepare(
+        `SELECT CASE WHEN db_ref LIKE 'uuid:%' THEN 'cloudflare' ELSE 'binding' END AS kind, COUNT(*) AS n
+         FROM tenants GROUP BY kind`,
+      ).all<{ kind: string; n: number }>(),
+    ]);
+    return c.json({
+      dbMode: c.env.TENANT_DB_MODE,
+      schemaVersion: TENANT_SCHEMA_VERSION,
+      totalTenants: total?.n ?? 0,
+      tenantsBehind: behind.results.length,
+      versionDistribution: byVersion.results,
+      refKinds: Object.fromEntries(byMode.results.map((r) => [r.kind, r.n])),
+      behind: behind.results.map((r) => ({ id: r.id, name: r.name, slug: r.slug, schemaVersion: r.schema_version })),
+    });
+  })
+
+  // Terapkan migrasi tenant yang tertinggal ke SEMUA tenant (idempoten,
+  // resumable). Dipakai saat rilis skema baru agar tenant idle ikut mutakhir.
+  .post("/migrate-tenants", requireAuth, requirePlatformAdmin, async (c) => {
+    const results = await migrateAllTenants(c.env);
+    const migrated = results.filter((r) => r.applied.length > 0);
+    const failed = results.filter((r) => !r.ok);
+    await audit(c.env, {
+      action: "admin.tenants_migrated",
+      userId: c.get("user").id,
+      detail: { total: results.length, migrated: migrated.length, failed: failed.length },
+      ip: clientIp(c),
+    });
+    return c.json({
+      schemaVersion: TENANT_SCHEMA_VERSION,
+      total: results.length,
+      migrated: migrated.length,
+      failed: failed.length,
+      results,
     });
   })
 

@@ -3,14 +3,16 @@ import { Hono } from "hono";
 import { secureHeaders } from "hono/secure-headers";
 import type { AppEnv, Env } from "./env";
 import { getMailer } from "./lib/mailer";
-import { getTenantDb } from "./lib/tenantDb";
+import { getTenantDb, migrateAllTenants } from "./lib/tenantDb";
 import { accountingRoutes } from "./routes/accounting";
 import { aiRoutes } from "./routes/ai";
 import { approvalEngineRoutes } from "./routes/approvalsEngine";
 import { assetRoutes, runDepreciation } from "./routes/assets";
 import { adminRoutes, feedbackRoutes } from "./routes/admin";
 import { authRoutes } from "./routes/auth";
+import { billingRoutes, billingWebhookRoutes } from "./routes/billing";
 import { blogRoutes } from "./routes/blog";
+import { collectionRoutes } from "./routes/collections";
 import { googleAuthRoutes } from "./routes/authGoogle";
 import { budgetRoutes } from "./routes/budgets";
 import { commerceRoutes } from "./routes/commerce";
@@ -23,8 +25,10 @@ import { helpdeskRoutes } from "./routes/helpdesk";
 import { maintenanceRoutes, runMaintenance } from "./routes/maintenance";
 import { manufacturingRoutes } from "./routes/manufacturing";
 import { reportRoutes } from "./routes/reports";
+import { setupRoutes } from "./routes/setup";
 import { posRoutes } from "./routes/pos";
 import { returnRoutes } from "./routes/returns";
+import { marketplaceRoutes } from "./routes/marketplace";
 import { masterDataRoutes } from "./routes/masterdata";
 import { payrollRoutes } from "./routes/payroll";
 import { procurementRoutes } from "./routes/procurement";
@@ -93,6 +97,8 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", financeExtraRoutes)
   .route("/api/tenants", aiRoutes)
   .route("/api/tenants", masterDataRoutes)
+  .route("/api/tenants", marketplaceRoutes)
+  .route("/api/tenants", setupRoutes)
   .route("/api/tenants", commerceRoutes)
   .route("/api/tenants", reportRoutes)
   .route("/api/tenants", returnRoutes)
@@ -118,6 +124,9 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", orgStructureRoutes)
   .route("/api/tenants", driveRoutes)
   .route("/api/drive", driveCallbackRoutes)
+  .route("/api/tenants", billingRoutes)
+  .route("/api/tenants", collectionRoutes)
+  .route("/api/billing", billingWebhookRoutes)
   .route("/api/admin", adminRoutes)
   .route("/api/feedback", feedbackRoutes)
   .route("/", blogRoutes)
@@ -169,6 +178,21 @@ async function markMonthlyDone(env: Env, task: string, tenantId: string, month: 
 
 async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
   await ensureMigrated(env);
+
+  // Sapu migrasi skema tenant: pastikan SETIAP tenant — termasuk yang jarang
+  // dibuka dan hanya disentuh cron — memakai skema terkini sebelum tugas bisnis
+  // di bawah menyentuh database mereka. Murah bila semua sudah mutakhir (hanya
+  // satu SELECT + banding versi). Melengkapi auto-migrasi malas di middleware.
+  try {
+    const migr = await migrateAllTenants(env);
+    const bumped = migr.filter((r) => r.applied.length > 0);
+    const failed = migr.filter((r) => !r.ok);
+    if (bumped.length > 0) console.log(`[cron] migrasi skema tenant: ${bumped.length} tenant dimutakhirkan`);
+    if (failed.length > 0) console.error(`[cron] migrasi skema gagal untuk ${failed.length} tenant: ${failed.map((r) => r.slug).join(", ")}`);
+  } catch (err) {
+    console.error(`[cron] sapu migrasi skema tenant galat:`, err);
+  }
+
   const mailer = getMailer(env);
   const nowIso = new Date().toISOString();
   // Anggaran wall-clock lunak: Worker punya batas waktu/subrequest — lebih baik
@@ -202,6 +226,32 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
     }
   }
   if (expired.length > 0) console.log(`[cron] ${expired.length} tenant trial berakhir → past_due`);
+
+  // 1b) Langganan berbayar habis (Fase 11b): active → past_due saat
+  //     subscription_ends_at lewat. Comped (subscription_ends_at NULL) tak
+  //     tersentuh. Bayar via Midtrans mengembalikan ke 'active' lewat webhook.
+  const { results: lapsed } = await env.DB.prepare(
+    `SELECT id, name FROM tenants WHERE status = 'active' AND subscription_ends_at IS NOT NULL AND subscription_ends_at < ?`,
+  )
+    .bind(nowIso)
+    .all<{ id: string; name: string }>();
+  for (const tenant of lapsed) {
+    await env.DB.prepare(`UPDATE tenants SET status = 'past_due' WHERE id = ?`).bind(tenant.id).run();
+    await env.DB.prepare(
+      `INSERT INTO audit_logs (id, tenant_id, user_id, action, detail, ip, created_at)
+       VALUES (?, ?, NULL, 'billing.subscription_lapsed', ?, NULL, ?)`,
+    )
+      .bind(crypto.randomUUID(), tenant.id, JSON.stringify({ name: tenant.name }), nowIso)
+      .run();
+    for (const owner of await ownerEmails(env, tenant.id)) {
+      await mailer.send({
+        to: owner.email,
+        subject: `Langganan ${tenant.name} telah berakhir`,
+        text: `Halo ${owner.name},\n\nLangganan ${tenant.name} di ERPindo telah berakhir dan akun kini dalam mode baca-saja. Perpanjang langganan lewat menu Pengaturan agar operasional kembali normal — data Anda tetap aman.\n\n— Tim ERPindo`,
+      });
+    }
+  }
+  if (lapsed.length > 0) console.log(`[cron] ${lapsed.length} langganan berakhir → past_due`);
 
   // 2) Pengingat trial akan berakhir dalam ≤3 hari (sekali per tenant).
   const in3Days = new Date(Date.now() + 3 * 86_400_000).toISOString();

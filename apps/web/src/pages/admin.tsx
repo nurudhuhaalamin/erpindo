@@ -33,7 +33,7 @@ import { useWorkspace } from "./app";
  * pengguna, dan tulis artikel blog (tayang SSR di /blog).
  */
 
-const TABS = ["Ringkasan", "Tenant", "Masukan", "Blog"] as const;
+const TABS = ["Ringkasan", "Tenant", "Infra", "Masukan", "Blog"] as const;
 type Tab = (typeof TABS)[number];
 
 const STATUS_TONE: Record<string, "green" | "amber" | "red" | "neutral" | "brand"> = {
@@ -84,6 +84,7 @@ export function AdminPage() {
 
       {tab === "Ringkasan" ? <OverviewTab /> : null}
       {tab === "Tenant" ? <TenantsTab /> : null}
+      {tab === "Infra" ? <InfraTab /> : null}
       {tab === "Masukan" ? <FeedbackTab /> : null}
       {tab === "Blog" ? <BlogTab /> : null}
     </div>
@@ -240,6 +241,139 @@ function TenantsTab() {
         )}
       </CardBody>
     </Card>
+  );
+}
+
+/**
+ * Infra & kapasitas (Fase 11a): mode database tenant, versi skema, dan sebaran
+ * migrasi antar-tenant. Tombol "Migrasi sekarang" menerapkan migrasi skema baru
+ * ke tenant yang tertinggal (idempoten & resumable).
+ */
+function InfraTab() {
+  const toast = useToast();
+  const qc = useQueryClient();
+  const query = useQuery({ queryKey: ["admin-infra"], queryFn: api.adminInfra });
+  const migrate = useMutation({
+    mutationFn: api.adminMigrateTenants,
+    onSuccess: (r) => {
+      toast(
+        r.failed ? "error" : "success",
+        r.migrated > 0
+          ? `${r.migrated} perusahaan dimutakhirkan${r.failed ? `, ${r.failed} gagal` : ""}.`
+          : "Semua perusahaan sudah di versi skema terkini.",
+      );
+      void qc.invalidateQueries({ queryKey: ["admin-infra"] });
+    },
+    onError: (e) => toast("error", (e as Error).message),
+  });
+
+  const d = query.data;
+  const behind = d?.tenantsBehind ?? 0;
+  const stats = d
+    ? [
+        { label: "Mode database tenant", value: d.dbMode === "cloudflare" ? "Cloudflare (D1 dinamis)" : "Lokal (pool binding)" },
+        { label: "Versi skema terkini", value: `v${d.schemaVersion}` },
+        { label: "Total perusahaan", value: String(d.totalTenants) },
+        { label: "Tertinggal migrasi", value: String(behind) },
+      ]
+    : [];
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader
+          title="Infrastruktur & kapasitas"
+          description="Mode database tenant, versi skema, dan status migrasi antar-perusahaan."
+        />
+        <CardBody className="space-y-4">
+          {query.isLoading ? (
+            <Spinner />
+          ) : !d ? (
+            <Alert tone="error">Gagal memuat status infra.</Alert>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {stats.map((s) => (
+                  <div key={s.label} className="rounded-xl bg-slate-50 p-3 ring-1 ring-inset ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
+                    <div className="text-xs text-slate-500 dark:text-slate-400">{s.label}</div>
+                    <div className="mt-1 text-lg font-bold tabular-nums">{s.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {behind > 0 ? (
+                <Alert tone="info">
+                  {behind} perusahaan belum di versi skema terkini. Klik “Migrasi sekarang” untuk menerapkan migrasi.
+                </Alert>
+              ) : (
+                <Alert tone="success">Semua perusahaan berada di versi skema terkini.</Alert>
+              )}
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button onClick={() => migrate.mutate()} disabled={migrate.isPending}>
+                  {migrate.isPending ? "Memigrasi…" : "Migrasi sekarang"}
+                </Button>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  Aman dijalankan berulang — hanya perusahaan yang tertinggal yang disentuh.
+                </span>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <h3 className="mb-2 text-sm font-semibold">Sebaran versi skema</h3>
+                  <div className="space-y-1">
+                    {d.versionDistribution.map((v) => (
+                      <div key={v.v} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-1.5 text-sm dark:bg-slate-900">
+                        <span>v{v.v}{v.v === d.schemaVersion ? " (terkini)" : ""}</span>
+                        <span className="tabular-nums text-slate-500 dark:text-slate-400">{v.n} perusahaan</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <h3 className="mb-2 text-sm font-semibold">Jenis penyimpanan</h3>
+                  <div className="space-y-1">
+                    {Object.entries(d.refKinds).map(([kind, n]) => (
+                      <div key={kind} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-1.5 text-sm dark:bg-slate-900">
+                        <span>{kind === "cloudflare" ? "D1 dinamis (uuid)" : "Pool binding lokal"}</span>
+                        <span className="tabular-nums text-slate-500 dark:text-slate-400">{n} perusahaan</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {d.behind.length > 0 ? (
+                <div>
+                  <h3 className="mb-2 text-sm font-semibold">Perusahaan tertinggal</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                          <th className="pb-2 pr-4 font-medium">Perusahaan</th>
+                          <th className="pb-2 font-medium">Versi skema</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {d.behind.map((t) => (
+                          <tr key={t.id} className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
+                            <td className="py-2 pr-4">
+                              <div className="font-medium">{t.name}</div>
+                              <div className="text-xs text-slate-400">{t.slug}</div>
+                            </td>
+                            <td className="py-2 tabular-nums">v{t.schemaVersion} → v{d.schemaVersion}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : null}
+            </>
+          )}
+        </CardBody>
+      </Card>
+    </div>
   );
 }
 

@@ -57,6 +57,14 @@ export type Env = {
   MAIL_FROM?: string;
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
+
+  /**
+   * Billing langganan Midtrans (Fase 11b). Tanpa server key, seluruh fitur
+   * billing degradasi anggun (UI menampilkan instruksi, checkout 503).
+   * MIDTRANS_IS_PRODUCTION="true" → pakai endpoint produksi; selain itu sandbox.
+   */
+  MIDTRANS_SERVER_KEY?: string;
+  MIDTRANS_IS_PRODUCTION?: string;
 };
 
 /** Data yang disematkan middleware auth ke konteks Hono. */

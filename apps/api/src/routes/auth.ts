@@ -396,7 +396,7 @@ export const authRoutes = new Hono<AppEnv>()
   .get("/me", requireAuth, async (c) => {
     const user = c.get("user");
     const { results } = await c.env.DB.prepare(
-      `SELECT t.id AS tenant_id, t.name, t.slug, t.status, t.plan, t.trial_ends_at, m.role
+      `SELECT t.id AS tenant_id, t.name, t.slug, t.status, t.plan, t.trial_ends_at, t.subscription_ends_at, m.role
        FROM memberships m JOIN tenants t ON t.id = m.tenant_id
        WHERE m.user_id = ? ORDER BY m.created_at`,
     )
@@ -408,6 +408,7 @@ export const authRoutes = new Hono<AppEnv>()
         status: TenantStatus;
         plan: Plan;
         trial_ends_at: string | null;
+        subscription_ends_at: string | null;
         role: Role;
       }>();
 
@@ -433,6 +434,7 @@ export const authRoutes = new Hono<AppEnv>()
         role: r.role,
         plan: r.plan,
         trialEndsAt: r.trial_ends_at,
+        subscriptionEndsAt: r.subscription_ends_at,
       })),
     };
     return c.json(body);

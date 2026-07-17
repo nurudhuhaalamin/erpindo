@@ -35,6 +35,9 @@ const PUBLIC_ALLOWLIST = new Set([
   'blog.ts GET "/blog/:slug"',
   'blog.ts GET "/sitemap.xml"',
   'blog.ts GET "/robots.txt"',
+  // Webhook notifikasi Midtrans (Fase 11b) — dipanggil server Midtrans, bukan
+  // pengguna; diamankan lewat verifikasi tanda tangan SHA-512, bukan sesi.
+  'billing.ts POST "/notification"',
 ]);
 
 /** Endpoint ber-requireAuth yang memang tanpa role gate: ber-scope user
@@ -58,6 +61,15 @@ const USER_SCOPED_ALLOWLIST = new Set([
   // ber-scope user, rate-limited, tanpa konteks tenant.
   'admin.ts POST "/"',
   'admin.ts GET "/mine"',
+  // Billing (Fase 11b): sengaja tanpa requireTenantRole — memeriksa keanggotaan
+  // & peran owner secara manual agar tenant PAST_DUE tetap boleh membayar
+  // (requireTenantRole memblokir tulis saat past_due).
+  'billing.ts GET "/:tenantId/billing"',
+  'billing.ts POST "/:tenantId/billing/checkout"',
+  // Payment collection (Fase 11d): sama seperti billing — cek keanggotaan/peran
+  // manual agar tenant past_due tetap boleh menagih pelanggannya.
+  'collections.ts GET "/:tenantId/invoices/:id/payment-link"',
+  'collections.ts POST "/:tenantId/invoices/:id/payment-link"',
 ]);
 
 type Registration = { key: string; middleware: string };

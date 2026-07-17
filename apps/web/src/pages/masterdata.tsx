@@ -1,4 +1,4 @@
-import { contactSchema, productSchema, warehouseSchema, type ContactType } from "@erpindo/shared";
+import { contactSchema, INDUSTRY_KEYS, INDUSTRY_LABELS, productSchema, warehouseSchema, type ContactType, type IndustryKey } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Contact, Package, Search, Upload, Warehouse } from "lucide-react";
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
@@ -309,6 +309,46 @@ function SerialManager({ product }: { product: ProductRow }) {
   );
 }
 
+/** Mulai cepat (Fase 11f): isi contoh produk & kontak sesuai jenis usaha. */
+function IndustryTemplateCard() {
+  const { tenant } = useWorkspace();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [industry, setIndustry] = useState<IndustryKey>("retail");
+  const apply = useMutation({
+    mutationFn: () => api.applyIndustryTemplate(tenant.tenantId, industry),
+    onSuccess: (r) => {
+      toast("success", `${r.productsAdded} contoh produk & ${r.contactsAdded} kontak ditambahkan.`);
+      void qc.invalidateQueries({ queryKey: ["products", tenant.tenantId] });
+      void qc.invalidateQueries({ queryKey: ["contacts", tenant.tenantId] });
+    },
+    onError: (e) => toast("error", (e as Error).message),
+  });
+  return (
+    <Card>
+      <CardHeader
+        title="Mulai cepat: contoh data usaha"
+        description="Belum punya produk? Pilih jenis usaha untuk mengisi contoh produk & kontak — semua bisa diubah/hapus kapan saja."
+      />
+      <CardBody className="flex flex-wrap items-end gap-3">
+        <div>
+          <Label>Jenis usaha</Label>
+          <Select value={industry} onChange={(e) => setIndustry(e.target.value as IndustryKey)} className="w-56">
+            {INDUSTRY_KEYS.map((k) => (
+              <option key={k} value={k}>
+                {INDUSTRY_LABELS[k]}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <Button onClick={() => apply.mutate()} disabled={apply.isPending}>
+          {apply.isPending ? "Mengisi…" : "Isi contoh data"}
+        </Button>
+      </CardBody>
+    </Card>
+  );
+}
+
 export function ProductsPage() {
   const {
     isAdmin, query, create, update, archive, issues, setIssues, editing, setEditing, toArchive, setToArchive,
@@ -350,6 +390,8 @@ export function ProductsPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Produk</h1>
       <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Katalog barang & jasa Anda — harga jual/beli, satuan, pelacakan kedaluwarsa, dan ambang stok minimum.</p>
+
+      {isAdmin && (query.data?.total ?? 0) === 0 ? <IndustryTemplateCard /> : null}
 
       {isAdmin ? (
         <Card>

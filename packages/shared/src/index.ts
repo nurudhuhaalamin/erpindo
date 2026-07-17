@@ -259,7 +259,57 @@ export type ApiMembership = {
   role: Role;
   plan: Plan;
   trialEndsAt: string | null;
+  /** Tanggal langganan berakhir (Fase 11b); NULL untuk trial/comped. */
+  subscriptionEndsAt?: string | null;
 };
+
+// --- Billing langganan (Fase 11b) ------------------------------------------
+export type ApiSubscriptionInvoice = {
+  id: string;
+  orderId: string;
+  amount: number;
+  periodMonths: number;
+  status: "pending" | "paid" | "failed" | "expired";
+  transactionStatus: string | null;
+  paidAt: string | null;
+  createdAt: string;
+};
+
+export type BillingStatus = {
+  /** true bila server key Midtrans terpasang → checkout aktif. */
+  configured: boolean;
+  plan: Plan;
+  status: TenantStatus;
+  trialEndsAt: string | null;
+  subscriptionEndsAt: string | null;
+  pricePerMonth: number;
+  invoices: ApiSubscriptionInvoice[];
+};
+
+// --- Payment collection + WhatsApp share (Fase 11d) ------------------------
+export type ApiPaymentLink = {
+  orderId: string;
+  amount: number;
+  status: "pending" | "paid" | "expired" | "failed";
+  redirectUrl: string | null;
+  paidAt: string | null;
+  createdAt: string;
+};
+
+/**
+ * Bangun tautan WhatsApp klik-untuk-kirim (wa.me) — TANPA API/kunci, langsung
+ * bekerja. Menormalkan nomor Indonesia (0812… → 62812…). Mengembalikan null
+ * bila nomor tidak memadai (pemanggil bisa fallback ke wa.me tanpa nomor).
+ */
+export function waLink(phone: string | null | undefined, text: string): string | null {
+  if (!phone) return null;
+  let p = phone.replace(/[^0-9]/g, "");
+  if (p.startsWith("620")) p = "62" + p.slice(3);
+  else if (p.startsWith("0")) p = "62" + p.slice(1);
+  else if (!p.startsWith("62")) p = "62" + p;
+  if (p.length < 9) return null;
+  return `https://wa.me/${p}?text=${encodeURIComponent(text)}`;
+}
 
 export type MeResponse = {
   user: ApiUser;
@@ -338,6 +388,12 @@ export const aiJurnalSchema = z.object({
   prompt: z.string().trim().min(5, "Tulis deskripsi transaksi, mis. 'bayar listrik 500 ribu dari kas'").max(500),
 });
 export type AiJurnalInput = z.infer<typeof aiJurnalSchema>;
+
+/** Tanya-jawab laporan bahasa natural (Fase 11c) — dijawab dari data buku nyata (read-only). */
+export const aiReportSchema = z.object({
+  question: z.string().trim().min(3, "Tulis pertanyaan, mis. 'berapa laba bulan ini?'").max(500),
+});
+export type AiReportInput = z.infer<typeof aiReportSchema>;
 
 /** Draf jurnal usulan AI — hanya usulan; manusia yang memposting lewat form Jurnal Umum. */
 export type ApiAiJournalDraft = {
@@ -709,6 +765,116 @@ export const createInvoiceSchema = z.object({
   lines: z.array(commerceLineSchema).min(1, "Minimal 1 baris barang"),
 });
 export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>;
+
+// --- Import pesanan marketplace (Fase 11e) ---------------------------------
+export const MARKETPLACE_CHANNELS = ["shopee", "tokopedia", "tiktok", "lazada", "lainnya"] as const;
+export type MarketplaceChannel = (typeof MARKETPLACE_CHANNELS)[number];
+export const MARKETPLACE_CHANNEL_LABELS: Record<MarketplaceChannel, string> = {
+  shopee: "Shopee",
+  tokopedia: "Tokopedia",
+  tiktok: "TikTok Shop",
+  lazada: "Lazada",
+  lainnya: "Lainnya",
+};
+
+export const marketplaceImportSchema = z.object({
+  channel: z.enum(MARKETPLACE_CHANNELS),
+  warehouseId: z.string().min(1, "Gudang wajib dipilih"),
+  contactId: z.string().min(1, "Pelanggan marketplace wajib dipilih"),
+  rows: z
+    .array(
+      z.object({
+        externalOrderNo: z.string().trim().min(1, "No. pesanan wajib").max(60),
+        orderDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+        sku: z.string().trim().min(1, "SKU wajib").max(60),
+        qty: z.number().int().min(1).max(1_000_000),
+        unitPrice: z.number().int().min(0).max(1_000_000_000_000),
+        discountPct: z.number().min(0).max(100).optional(),
+      }),
+    )
+    .min(1, "Minimal 1 baris pesanan")
+    .max(1000, "Maksimal 1000 baris per impor"),
+});
+export type MarketplaceImportInput = z.infer<typeof marketplaceImportSchema>;
+
+export type ApiMarketplaceOrder = {
+  id: string;
+  channel: string;
+  externalOrderNo: string;
+  invoiceNo: string | null;
+  importedAt: string;
+};
+
+// --- Template industri (Fase 11f) ------------------------------------------
+// Paket data awal per jenis usaha: contoh produk + kontak agar pengguna baru
+// bisa langsung mencoba alur (bisa diubah/hapus kapan saja).
+export const INDUSTRY_KEYS = ["retail", "fnb", "jasa", "grosir"] as const;
+export type IndustryKey = (typeof INDUSTRY_KEYS)[number];
+export const INDUSTRY_LABELS: Record<IndustryKey, string> = {
+  retail: "Toko Retail / Kelontong",
+  fnb: "Kuliner / F&B",
+  jasa: "Jasa / Servis",
+  grosir: "Grosir / Distribusi",
+};
+
+type TemplateProduct = { sku: string; name: string; unit: string; sellPrice: number; buyPrice: number; isService?: boolean };
+type TemplateContact = { type: "customer" | "supplier"; name: string };
+
+export const INDUSTRY_TEMPLATES: Record<IndustryKey, { products: TemplateProduct[]; contacts: TemplateContact[] }> = {
+  retail: {
+    products: [
+      { sku: "RTL-001", name: "Air Mineral 600ml", unit: "botol", sellPrice: 3_000, buyPrice: 2_000 },
+      { sku: "RTL-002", name: "Mie Instan Goreng", unit: "pcs", sellPrice: 3_500, buyPrice: 2_500 },
+      { sku: "RTL-003", name: "Gula Pasir 1kg", unit: "pak", sellPrice: 15_000, buyPrice: 12_000 },
+      { sku: "RTL-004", name: "Minyak Goreng 1L", unit: "botol", sellPrice: 18_000, buyPrice: 15_000 },
+      { sku: "RTL-005", name: "Rokok (bungkus)", unit: "bungkus", sellPrice: 25_000, buyPrice: 22_000 },
+    ],
+    contacts: [
+      { type: "customer", name: "Pelanggan Umum" },
+      { type: "supplier", name: "Distributor Sembako" },
+    ],
+  },
+  fnb: {
+    products: [
+      { sku: "FNB-001", name: "Es Teh Manis", unit: "gelas", sellPrice: 5_000, buyPrice: 1_500 },
+      { sku: "FNB-002", name: "Kopi Susu", unit: "gelas", sellPrice: 18_000, buyPrice: 6_000 },
+      { sku: "FNB-003", name: "Nasi Goreng Spesial", unit: "porsi", sellPrice: 25_000, buyPrice: 10_000 },
+      { sku: "FNB-004", name: "Ayam Geprek", unit: "porsi", sellPrice: 22_000, buyPrice: 9_000 },
+      { sku: "FNB-005", name: "Kentang Goreng", unit: "porsi", sellPrice: 15_000, buyPrice: 5_000 },
+    ],
+    contacts: [
+      { type: "customer", name: "Pelanggan Dine-in" },
+      { type: "supplier", name: "Pemasok Bahan Baku" },
+    ],
+  },
+  jasa: {
+    products: [
+      { sku: "JSA-001", name: "Konsultasi (per jam)", unit: "jam", sellPrice: 150_000, buyPrice: 0, isService: true },
+      { sku: "JSA-002", name: "Servis Ringan", unit: "unit", sellPrice: 100_000, buyPrice: 0, isService: true },
+      { sku: "JSA-003", name: "Servis Berat", unit: "unit", sellPrice: 350_000, buyPrice: 0, isService: true },
+      { sku: "JSA-004", name: "Biaya Pemanggilan", unit: "kali", sellPrice: 50_000, buyPrice: 0, isService: true },
+    ],
+    contacts: [
+      { type: "customer", name: "Klien" },
+      { type: "supplier", name: "Vendor Suku Cadang" },
+    ],
+  },
+  grosir: {
+    products: [
+      { sku: "GRS-001", name: "Beras 25kg (karung)", unit: "karung", sellPrice: 320_000, buyPrice: 290_000 },
+      { sku: "GRS-002", name: "Gula Pasir 50kg", unit: "karung", sellPrice: 700_000, buyPrice: 650_000 },
+      { sku: "GRS-003", name: "Minyak Goreng 1 dus (12L)", unit: "dus", sellPrice: 200_000, buyPrice: 175_000 },
+      { sku: "GRS-004", name: "Mie Instan 1 dus", unit: "dus", sellPrice: 110_000, buyPrice: 95_000 },
+    ],
+    contacts: [
+      { type: "customer", name: "Toko Langganan" },
+      { type: "supplier", name: "Pabrik / Principal" },
+    ],
+  },
+};
+
+export const industryTemplateSchema = z.object({ industry: z.enum(INDUSTRY_KEYS) });
+export type IndustryTemplateInput = z.infer<typeof industryTemplateSchema>;
 
 export const currencySchema = z.object({
   code: z.string().trim().length(3, "Kode mata uang 3 huruf").toUpperCase(),

@@ -8,7 +8,25 @@ import {
   terCategory,
   terRate,
   toSlug,
+  waLink,
 } from "../src/index";
+
+describe("waLink (WhatsApp share, Fase 11d)", () => {
+  it("menormalkan nomor Indonesia ke format 62", () => {
+    expect(waLink("0812-3456-7890", "hai")).toBe("https://wa.me/6281234567890?text=hai");
+    expect(waLink("+62 812 3456 7890", "hai")).toBe("https://wa.me/6281234567890?text=hai");
+    expect(waLink("62081234567890", "hai")).toBe("https://wa.me/6281234567890?text=hai");
+    expect(waLink("81234567890", "hai")).toBe("https://wa.me/6281234567890?text=hai");
+  });
+  it("meng-encode teks", () => {
+    expect(waLink("08123456789", "Rp 1.000 & lunas")).toContain("?text=Rp%201.000%20%26%20lunas");
+  });
+  it("mengembalikan null bila nomor kosong/terlalu pendek", () => {
+    expect(waLink(null, "x")).toBeNull();
+    expect(waLink("", "x")).toBeNull();
+    expect(waLink("123", "x")).toBeNull();
+  });
+});
 
 describe("createJournalEntrySchema (double-entry)", () => {
   const base = { entryDate: "2026-07-02", memo: "tes" };

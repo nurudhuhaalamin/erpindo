@@ -1167,6 +1167,61 @@ try {
     `→ ${JSON.stringify(dewiCoRow)}`,
   );
 
+  // --- Import pesanan marketplace (Fase 11e) — di tenant Dewi (aktif, terisolasi
+  //     dari asersi angka tenant utama) ------------------------------------------
+  const mpT = dewiCo.json.tenantId;
+  const mpDate = new Date().toISOString().slice(0, 10);
+  const mpWh = (await admin("GET", `/api/tenants/${mpT}/warehouses`)).json.items.find((w) => w.code === "UTAMA").id;
+  const mpSupplier = await admin("POST", `/api/tenants/${mpT}/contacts`, { type: "supplier", name: "Pemasok MP" });
+  const mpCust = await admin("POST", `/api/tenants/${mpT}/contacts`, { type: "customer", name: "Pembeli Shopee" });
+  const mpProd = await admin("POST", `/api/tenants/${mpT}/products`, { sku: "MP-9Z", name: "Produk Marketplace", unit: "pcs", sellPrice: 50_000, buyPrice: 30_000 });
+  await admin("POST", `/api/tenants/${mpT}/purchases`, {
+    contactId: mpSupplier.json.id, invoiceDate: mpDate, taxRate: 0, warehouseId: mpWh,
+    lines: [{ productId: mpProd.json.id, qty: 20, unitPrice: 30_000 }],
+  });
+  const mpBody = (rows) => ({ channel: "shopee", warehouseId: mpWh, contactId: mpCust.json.id, rows });
+  const mpImport = await admin("POST", `/api/tenants/${mpT}/marketplace/import`, mpBody([
+    { externalOrderNo: "SHP-9001", orderDate: mpDate, sku: "MP-9Z", qty: 2, unitPrice: 50_000 },
+    { externalOrderNo: "SHP-9001", orderDate: mpDate, sku: "MP-9Z", qty: 1, unitPrice: 60_000 },
+    { externalOrderNo: "SHP-9002", orderDate: mpDate, sku: "mp-9z", qty: 1, unitPrice: 50_000 },
+  ]));
+  check("import marketplace: 2 pesanan → 2 faktur (baris digabung, SKU case-insensitive)",
+    mpImport.status === 200 && mpImport.json?.imported?.length === 2 && mpImport.json?.failed?.length === 0,
+    `→ ${JSON.stringify({ imported: mpImport.json?.imported?.length, failed: mpImport.json?.failed })}`);
+  const mpAgain = await admin("POST", `/api/tenants/${mpT}/marketplace/import`, mpBody([
+    { externalOrderNo: "SHP-9001", orderDate: mpDate, sku: "MP-9Z", qty: 2, unitPrice: 50_000 },
+    { externalOrderNo: "SHP-9002", orderDate: mpDate, sku: "MP-9Z", qty: 1, unitPrice: 50_000 },
+  ]));
+  check("re-import idempoten → 2 dilewati, 0 diimpor",
+    mpAgain.json?.imported?.length === 0 && mpAgain.json?.skipped?.length === 2,
+    `→ ${JSON.stringify({ imported: mpAgain.json?.imported?.length, skipped: mpAgain.json?.skipped?.length })}`);
+  const mpBad = await admin("POST", `/api/tenants/${mpT}/marketplace/import`, mpBody([
+    { externalOrderNo: "SHP-9003", orderDate: mpDate, sku: "SKU-TIDAK-ADA", qty: 1, unitPrice: 1_000 },
+  ]));
+  check("SKU tak dikenal → pesanan gagal (0 diimpor)",
+    mpBad.json?.failed?.length === 1 && mpBad.json?.imported?.length === 0, `→ ${JSON.stringify(mpBad.json)}`);
+  const mpNoSession = await fetch(`${BASE}/api/tenants/${mpT}/marketplace/import`, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(mpBody([])),
+  });
+  check("impor marketplace tanpa sesi → 401", mpNoSession.status === 401, `→ HTTP ${mpNoSession.status}`);
+  const mpOrders = await admin("GET", `/api/tenants/${mpT}/marketplace/orders`);
+  check("daftar pesanan marketplace memuat SHP-9001 dengan nomor faktur",
+    mpOrders.status === 200 && mpOrders.json?.orders?.some((o) => o.externalOrderNo === "SHP-9001" && o.invoiceNo),
+    `→ ${JSON.stringify(mpOrders.json?.orders?.slice(0, 2))}`);
+
+  // --- Template industri (Fase 11f) — di tenant Dewi (terisolasi) --------------
+  const indTplRetail = await admin("POST", `/api/tenants/${mpT}/setup/industry-template`, { industry: "retail" });
+  check("template industri retail: 5 produk + 2 kontak ditambahkan",
+    indTplRetail.status === 200 && indTplRetail.json?.productsAdded === 5 && indTplRetail.json?.contactsAdded === 2,
+    `→ ${JSON.stringify(indTplRetail.json)}`);
+  const indTplAgain = await admin("POST", `/api/tenants/${mpT}/setup/industry-template`, { industry: "retail" });
+  check("terapkan ulang template → idempoten (0 ditambahkan)",
+    indTplAgain.json?.productsAdded === 0 && indTplAgain.json?.contactsAdded === 0, `→ ${JSON.stringify(indTplAgain.json)}`);
+  const indTplBad = await admin("POST", `/api/tenants/${mpT}/setup/industry-template`, { industry: "tidak-ada" });
+  check("jenis usaha tak dikenal → 400", indTplBad.status === 400, `→ HTTP ${indTplBad.status}`);
+  const indTplViewer = await viewer("POST", `/api/tenants/${tenantId}/setup/industry-template`, { industry: "retail" });
+  check("viewer DITOLAK menerapkan template (403)", indTplViewer.status === 403, `→ HTTP ${indTplViewer.status}`);
+
   const thresholdByViewer = await viewer("POST", `/api/tenants/${tenantId}/approval-threshold`, { amount: 1 });
   check("viewer DITOLAK mengatur ambang (403)", thresholdByViewer.status === 403);
   const setThreshold = await owner("POST", `/api/tenants/${tenantId}/approval-threshold`, { amount: 1_000_000 });
@@ -3317,6 +3372,19 @@ try {
     aiJurnal.status !== 503 || aiJurnal.json?.detail === "binding-absent",
     `→ ${JSON.stringify(aiJurnal.json)}`,
   );
+  // Fase 11c: tanya laporan bahasa natural (read-only, semua anggota).
+  const aiLaporanAnon = await fetch(`${BASE}/api/tenants/${tenantId}/ai/laporan`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ question: "berapa laba bulan ini?" }),
+  });
+  check("AI laporan tanpa sesi DITOLAK 401", aiLaporanAnon.status === 401, `→ HTTP ${aiLaporanAnon.status}`);
+  const aiLaporan = await viewer("POST", `/api/tenants/${tenantId}/ai/laporan`, { question: "berapa laba bulan ini?" });
+  check(
+    "AI laporan (viewer) membalas 200 (produksi) ATAU 503 binding-absent",
+    aiLaporan.status === 200 || (aiLaporan.status === 503 && aiLaporan.json?.detail === "binding-absent"),
+    `→ ${aiLaporan.status} ${JSON.stringify(aiLaporan.json)}`,
+  );
 
   // --- Arus kas (Fase 2b-1) -------------------------------------------------------
   console.log("12. Arus kas");
@@ -3993,6 +4061,68 @@ try {
     aTenants.status === 200 && Array.isArray(aTenants.json?.tenants) && aTenants.json.tenants.every((t) => t.status === "trial"),
     `→ ${aTenants.json?.tenants?.map((t) => t.status).join(",")}`,
   );
+
+  // --- Fase 11a: infra & auto-migrasi skema tenant ---------------------------
+  const infraByDewi = await admin("GET", "/api/admin/infra");
+  check("admin/infra oleh non-admin (Dewi) DITOLAK 403", infraByDewi.status === 403, `→ HTTP ${infraByDewi.status}`);
+  const infra = await owner("GET", "/api/admin/infra");
+  check(
+    "admin/infra 200 + mode DB + versi skema + tak ada tenant tertinggal",
+    infra.status === 200 &&
+      typeof infra.json?.dbMode === "string" &&
+      infra.json?.schemaVersion >= 1 &&
+      infra.json?.totalTenants >= 1 &&
+      infra.json?.tenantsBehind === 0,
+    `→ ${JSON.stringify({ dbMode: infra.json?.dbMode, v: infra.json?.schemaVersion, total: infra.json?.totalTenants, behind: infra.json?.tenantsBehind })}`,
+  );
+  check(
+    "admin/infra: semua tenant di versi skema terkini (distribusi 1 entri = schemaVersion)",
+    Array.isArray(infra.json?.versionDistribution) &&
+      infra.json.versionDistribution.length === 1 &&
+      infra.json.versionDistribution[0].v === infra.json.schemaVersion,
+    `→ ${JSON.stringify(infra.json?.versionDistribution)}`,
+  );
+  // migrate-tenants idempoten: tenant baru sudah mutakhir → 0 dimigrasi, 0 gagal.
+  const migrateByDewi = await admin("POST", "/api/admin/migrate-tenants");
+  check("admin/migrate-tenants oleh non-admin DITOLAK 403", migrateByDewi.status === 403, `→ HTTP ${migrateByDewi.status}`);
+  const migrate = await owner("POST", "/api/admin/migrate-tenants");
+  check(
+    "admin/migrate-tenants 200 + idempoten (0 gagal, semua tenant tercakup)",
+    migrate.status === 200 && migrate.json?.failed === 0 && migrate.json?.total >= 1 && migrate.json?.migrated === 0,
+    `→ ${JSON.stringify({ total: migrate.json?.total, migrated: migrate.json?.migrated, failed: migrate.json?.failed })}`,
+  );
+
+  // --- Fase 11b: billing langganan (tanpa kunci Midtrans → degradasi anggun) ---
+  const billNoAuth = await makeClient()("GET", `/api/tenants/${tenantId}/billing`);
+  check("billing tanpa sesi DITOLAK 401", billNoAuth.status === 401, `→ HTTP ${billNoAuth.status}`);
+  const billStatus = await owner("GET", `/api/tenants/${tenantId}/billing`);
+  check(
+    "billing status 200 + configured=false + harga Rp389.000",
+    billStatus.status === 200 && billStatus.json?.configured === false && billStatus.json?.pricePerMonth === 389000 && Array.isArray(billStatus.json?.invoices),
+    `→ ${JSON.stringify({ configured: billStatus.json?.configured, price: billStatus.json?.pricePerMonth })}`,
+  );
+  const billCheckoutOwner = await owner("POST", `/api/tenants/${tenantId}/billing/checkout`);
+  check("billing checkout tanpa konfigurasi Midtrans → 503", billCheckoutOwner.status === 503, `→ HTTP ${billCheckoutOwner.status}`);
+  // Dewi = anggota admin (bukan owner) di tenant ini → ditolak mengatur langganan.
+  const billCheckoutAdmin = await admin("POST", `/api/tenants/${tenantId}/billing/checkout`);
+  check("billing checkout oleh non-Pemilik → 403", billCheckoutAdmin.status === 403, `→ HTTP ${billCheckoutAdmin.status}`);
+  // Webhook tanpa kunci → diabaikan sopan (200), tak mengubah apa pun.
+  const billWebhook = await makeClient()("POST", "/api/billing/notification", { order_id: "x", transaction_status: "settlement" });
+  check("webhook billing tanpa kunci → 200 diabaikan", billWebhook.status === 200 && billWebhook.json?.ignored === true, `→ HTTP ${billWebhook.status}`);
+
+  // Fase 11d: payment collection link (tanpa Midtrans → degradasi anggun).
+  const plStatus = await owner("GET", `/api/tenants/${tenantId}/invoices/inv-x/payment-link`);
+  check(
+    "payment-link status 200 + configured=false + link null",
+    plStatus.status === 200 && plStatus.json?.configured === false && plStatus.json?.link === null,
+    `→ ${JSON.stringify(plStatus.json)}`,
+  );
+  const plCreate = await owner("POST", `/api/tenants/${tenantId}/invoices/inv-x/payment-link`);
+  check("buat payment-link tanpa konfigurasi Midtrans → 503", plCreate.status === 503, `→ HTTP ${plCreate.status}`);
+  const plViewer = await viewer("POST", `/api/tenants/${tenantId}/invoices/inv-x/payment-link`);
+  check("buat payment-link oleh viewer → 403", plViewer.status === 403, `→ HTTP ${plViewer.status}`);
+  const plAnon = await fetch(`${BASE}/api/tenants/${tenantId}/invoices/inv-x/payment-link`);
+  check("payment-link status tanpa sesi → 401", plAnon.status === 401, `→ HTTP ${plAnon.status}`);
 
   // Masukan pengguna (dukungan) — Budi mengirim, lalu admin mengubah statusnya.
   const fbBad = await owner("POST", "/api/feedback", { category: "salah-kategori", message: "Halo dukungan" });

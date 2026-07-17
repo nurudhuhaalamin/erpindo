@@ -122,6 +122,10 @@ import type {
   MeResponse,
   ApiFeedback,
   ApiBlogPost,
+  BillingStatus,
+  ApiPaymentLink,
+  MarketplaceImportInput,
+  ApiMarketplaceOrder,
   FeedbackInput,
   BlogPostInput,
   ProductInput,
@@ -208,6 +212,11 @@ export const api = {
   googleAvailable: () => request<{ available: boolean }>("GET", "/api/auth/google/available"),
 
   // --- Dukungan/masukan + admin platform + blog (Fase 10e) -------------------
+  // Billing langganan Midtrans (Fase 11b).
+  billing: (tenantId: string) => request<BillingStatus>("GET", `/api/tenants/${tenantId}/billing`),
+  billingCheckout: (tenantId: string) =>
+    request<{ orderId: string; redirectUrl: string }>("POST", `/api/tenants/${tenantId}/billing/checkout`),
+
   submitFeedback: (input: FeedbackInput) => request<{ ok: true; id: string }>("POST", "/api/feedback", input),
   myFeedback: () => request<{ feedback: ApiFeedback[] }>("GET", "/api/feedback/mine"),
   adminOverview: () =>
@@ -248,6 +257,22 @@ export const api = {
       total: number;
     }>("GET", `/api/admin/tenants${qs ? `?${qs}` : ""}`);
   },
+  // Infra & kapasitas (Fase 11a): mode DB tenant, versi skema & sebaran migrasi.
+  adminInfra: () =>
+    request<{
+      dbMode: string;
+      schemaVersion: number;
+      totalTenants: number;
+      tenantsBehind: number;
+      versionDistribution: { v: number; n: number }[];
+      refKinds: Record<string, number>;
+      behind: { id: string; name: string; slug: string; schemaVersion: number }[];
+    }>("GET", "/api/admin/infra"),
+  adminMigrateTenants: () =>
+    request<{ schemaVersion: number; total: number; migrated: number; failed: number }>(
+      "POST",
+      "/api/admin/migrate-tenants",
+    ),
   adminFeedback: (status?: string) =>
     request<{ feedback: ApiFeedback[] }>("GET", `/api/admin/feedback${status ? `?status=${status}` : ""}`),
   adminUpdateFeedback: (id: string, input: { status?: string; adminNote?: string }) =>
@@ -431,6 +456,22 @@ export const api = {
     request<{ reply: string; quotaRemaining?: number }>("POST", `/api/tenants/${tenantId}/ai/chat`, { messages }, { timeoutMs: 35_000 }),
   aiJurnal: (tenantId: string, prompt: string) =>
     request<{ draft: ApiAiJournalDraft; quotaRemaining?: number }>("POST", `/api/tenants/${tenantId}/ai/jurnal`, { prompt }, { timeoutMs: 35_000 }),
+  aiLaporan: (tenantId: string, question: string) =>
+    request<{ reply: string; quotaRemaining?: number }>("POST", `/api/tenants/${tenantId}/ai/laporan`, { question }, { timeoutMs: 35_000 }),
+  invoicePaymentLink: (tenantId: string, invoiceId: string) =>
+    request<{ link: ApiPaymentLink | null; configured: boolean }>("GET", `/api/tenants/${tenantId}/invoices/${invoiceId}/payment-link`),
+  marketplaceImport: (tenantId: string, input: MarketplaceImportInput) =>
+    request<{
+      imported: { externalOrderNo: string; invoiceNo: string }[];
+      skipped: { externalOrderNo: string; reason: string }[];
+      failed: { externalOrderNo: string; reason: string }[];
+    }>("POST", `/api/tenants/${tenantId}/marketplace/import`, input),
+  marketplaceOrders: (tenantId: string) =>
+    request<{ orders: ApiMarketplaceOrder[] }>("GET", `/api/tenants/${tenantId}/marketplace/orders`),
+  applyIndustryTemplate: (tenantId: string, industry: string) =>
+    request<{ productsAdded: number; contactsAdded: number }>("POST", `/api/tenants/${tenantId}/setup/industry-template`, { industry }),
+  createInvoicePaymentLink: (tenantId: string, invoiceId: string) =>
+    request<{ orderId: string; redirectUrl: string; amount: number }>("POST", `/api/tenants/${tenantId}/invoices/${invoiceId}/payment-link`),
   stockCard: (tenantId: string, productId: string, warehouseId: string) =>
     request<{ rows: ApiStockCardRow[]; balance: number }>(
       "GET",
