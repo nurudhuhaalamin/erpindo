@@ -2790,6 +2790,8 @@ export function toSlug(name: string): string {
     name
       .toLowerCase()
       .normalize("NFKD")
+      // Buang tanda diakritik hasil dekomposisi NFKD (é → e + ́) agar tidak menjadi "-".
+      .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "")
       .slice(0, 40)
