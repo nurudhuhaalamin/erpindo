@@ -122,6 +122,7 @@ import type {
   MeResponse,
   ApiFeedback,
   ApiBlogPost,
+  BillingStatus,
   FeedbackInput,
   BlogPostInput,
   ProductInput,
@@ -208,6 +209,11 @@ export const api = {
   googleAvailable: () => request<{ available: boolean }>("GET", "/api/auth/google/available"),
 
   // --- Dukungan/masukan + admin platform + blog (Fase 10e) -------------------
+  // Billing langganan Midtrans (Fase 11b).
+  billing: (tenantId: string) => request<BillingStatus>("GET", `/api/tenants/${tenantId}/billing`),
+  billingCheckout: (tenantId: string) =>
+    request<{ orderId: string; redirectUrl: string }>("POST", `/api/tenants/${tenantId}/billing/checkout`),
+
   submitFeedback: (input: FeedbackInput) => request<{ ok: true; id: string }>("POST", "/api/feedback", input),
   myFeedback: () => request<{ feedback: ApiFeedback[] }>("GET", "/api/feedback/mine"),
   adminOverview: () =>

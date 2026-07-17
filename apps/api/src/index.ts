@@ -10,6 +10,7 @@ import { approvalEngineRoutes } from "./routes/approvalsEngine";
 import { assetRoutes, runDepreciation } from "./routes/assets";
 import { adminRoutes, feedbackRoutes } from "./routes/admin";
 import { authRoutes } from "./routes/auth";
+import { billingRoutes, billingWebhookRoutes } from "./routes/billing";
 import { blogRoutes } from "./routes/blog";
 import { googleAuthRoutes } from "./routes/authGoogle";
 import { budgetRoutes } from "./routes/budgets";
@@ -118,6 +119,8 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", orgStructureRoutes)
   .route("/api/tenants", driveRoutes)
   .route("/api/drive", driveCallbackRoutes)
+  .route("/api/tenants", billingRoutes)
+  .route("/api/billing", billingWebhookRoutes)
   .route("/api/admin", adminRoutes)
   .route("/api/feedback", feedbackRoutes)
   .route("/", blogRoutes)
@@ -217,6 +220,32 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
     }
   }
   if (expired.length > 0) console.log(`[cron] ${expired.length} tenant trial berakhir → past_due`);
+
+  // 1b) Langganan berbayar habis (Fase 11b): active → past_due saat
+  //     subscription_ends_at lewat. Comped (subscription_ends_at NULL) tak
+  //     tersentuh. Bayar via Midtrans mengembalikan ke 'active' lewat webhook.
+  const { results: lapsed } = await env.DB.prepare(
+    `SELECT id, name FROM tenants WHERE status = 'active' AND subscription_ends_at IS NOT NULL AND subscription_ends_at < ?`,
+  )
+    .bind(nowIso)
+    .all<{ id: string; name: string }>();
+  for (const tenant of lapsed) {
+    await env.DB.prepare(`UPDATE tenants SET status = 'past_due' WHERE id = ?`).bind(tenant.id).run();
+    await env.DB.prepare(
+      `INSERT INTO audit_logs (id, tenant_id, user_id, action, detail, ip, created_at)
+       VALUES (?, ?, NULL, 'billing.subscription_lapsed', ?, NULL, ?)`,
+    )
+      .bind(crypto.randomUUID(), tenant.id, JSON.stringify({ name: tenant.name }), nowIso)
+      .run();
+    for (const owner of await ownerEmails(env, tenant.id)) {
+      await mailer.send({
+        to: owner.email,
+        subject: `Langganan ${tenant.name} telah berakhir`,
+        text: `Halo ${owner.name},\n\nLangganan ${tenant.name} di ERPindo telah berakhir dan akun kini dalam mode baca-saja. Perpanjang langganan lewat menu Pengaturan agar operasional kembali normal — data Anda tetap aman.\n\n— Tim ERPindo`,
+      });
+    }
+  }
+  if (lapsed.length > 0) console.log(`[cron] ${lapsed.length} langganan berakhir → past_due`);
 
   // 2) Pengingat trial akan berakhir dalam ≤3 hari (sekali per tenant).
   const in3Days = new Date(Date.now() + 3 * 86_400_000).toISOString();

@@ -442,18 +442,39 @@ function AuditLogCard({ tenantId }: { tenantId: string }) {
   );
 }
 
+const INVOICE_STATUS_LABEL: Record<string, string> = {
+  pending: "Menunggu bayar",
+  paid: "Lunas",
+  failed: "Gagal",
+  expired: "Kedaluwarsa",
+};
+
 function SubscriptionCard() {
   const { tenant } = useWorkspace();
-  const limits = PLAN_LIMITS[tenant.plan];
+  const toast = useToast();
+  const isOwner = tenant.role === "owner";
+  const billing = useQuery({ queryKey: ["billing", tenant.tenantId], queryFn: () => api.billing(tenant.tenantId) });
+
+  const checkout = useMutation({
+    mutationFn: () => api.billingCheckout(tenant.tenantId),
+    onSuccess: (r) => {
+      // Alur redirect Snap (bukan popup snap.js) — aman terhadap CSP.
+      window.location.href = r.redirectUrl;
+    },
+    onError: (e) => toast("error", (e as Error).message),
+  });
+
+  const b = billing.data;
   const daysLeft = tenant.trialEndsAt
     ? Math.max(Math.ceil((Date.parse(tenant.trialEndsAt) - Date.now()) / 86_400_000), 0)
     : null;
+  const subUntil = b?.subscriptionEndsAt ?? tenant.subscriptionEndsAt ?? null;
 
   return (
     <Card>
-      <CardHeader title="Langganan" description="Paket dan status akun perusahaan Anda." />
-      <CardBody className="space-y-2 text-sm">
-        <div className="flex items-center gap-2">
+      <CardHeader title="Langganan" description="Paket, status, dan pembayaran akun perusahaan Anda." />
+      <CardBody className="space-y-3 text-sm">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-slate-500 dark:text-slate-400">Paket:</span>
           <Badge tone="brand">{PLAN_LABELS[tenant.plan]}</Badge>
           {tenant.tenantStatus === "past_due" ? (
@@ -461,21 +482,65 @@ function SubscriptionCard() {
           ) : tenant.tenantStatus === "trial" && daysLeft !== null ? (
             <Badge tone="amber">trial, sisa {daysLeft} hari</Badge>
           ) : (
-            <Badge>aktif</Badge>
+            <Badge>aktif{subUntil ? ` s/d ${formatDate(subUntil.slice(0, 10))}` : ""}</Badge>
           )}
         </div>
-        <p className="text-slate-500 dark:text-slate-400">
-          Batas pengguna paket ini:{" "}
-          {limits.maxUsers === Number.MAX_SAFE_INTEGER ? "tak terbatas" : `${limits.maxUsers} pengguna`}.
-        </p>
+
         <p className="text-slate-500 dark:text-slate-400">
           Satu harga untuk semua: paket {SINGLE_PLAN.label}{" "}
-          {`Rp ${SINGLE_PLAN.pricePerMonth.toLocaleString("id-ID")}`}/bulan — seluruh modul & pengguna tak terbatas.
+          <span className="font-semibold text-slate-700 dark:text-slate-200">
+            Rp {SINGLE_PLAN.pricePerMonth.toLocaleString("id-ID")}
+          </span>
+          /bulan — seluruh modul &amp; pengguna tak terbatas ({PLAN_LIMITS[tenant.plan].maxUsers === Number.MAX_SAFE_INTEGER ? "tanpa batas pengguna" : `${PLAN_LIMITS[tenant.plan].maxUsers} pengguna`}).
         </p>
-        <p className="text-slate-500 dark:text-slate-400">
-          Pembayaran langganan online (QRIS/transfer/e-wallet) sedang disiapkan — untuk saat ini hubungi kami untuk
-          aktivasi paket.
-        </p>
+
+        {b?.configured ? (
+          <div className="space-y-2">
+            {isOwner ? (
+              <Button onClick={() => checkout.mutate()} disabled={checkout.isPending}>
+                {checkout.isPending
+                  ? "Mengalihkan ke pembayaran…"
+                  : tenant.tenantStatus === "past_due"
+                    ? "Aktifkan kembali langganan"
+                    : tenant.tenantStatus === "trial"
+                      ? "Berlangganan sekarang"
+                      : "Perpanjang 1 bulan"}
+              </Button>
+            ) : (
+              <p className="text-slate-500 dark:text-slate-400">Hubungi Pemilik perusahaan untuk mengatur pembayaran langganan.</p>
+            )}
+            <p className="text-xs text-slate-400">
+              Pembayaran aman via Midtrans (QRIS, transfer bank, kartu, e-wallet). Akun aktif otomatis setelah pembayaran terkonfirmasi.
+            </p>
+          </div>
+        ) : (
+          <p className="text-slate-500 dark:text-slate-400">
+            Pembayaran langganan online sedang disiapkan — untuk saat ini hubungi kami untuk aktivasi paket.
+          </p>
+        )}
+
+        {b && b.invoices.length > 0 ? (
+          <div className="pt-1">
+            <div className="mb-1 font-medium text-slate-600 dark:text-slate-300">Riwayat tagihan</div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <tbody>
+                  {b.invoices.slice(0, 6).map((inv) => (
+                    <tr key={inv.id} className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
+                      <td className="py-1.5 pr-3 text-slate-500 dark:text-slate-400">{formatDate(inv.createdAt.slice(0, 10))}</td>
+                      <td className="py-1.5 pr-3 tabular-nums">Rp {inv.amount.toLocaleString("id-ID")}</td>
+                      <td className="py-1.5">
+                        <Badge tone={inv.status === "paid" ? "green" : inv.status === "pending" ? "amber" : "neutral"}>
+                          {INVOICE_STATUS_LABEL[inv.status] ?? inv.status}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
       </CardBody>
     </Card>
   );

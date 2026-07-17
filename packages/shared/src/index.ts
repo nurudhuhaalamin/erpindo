@@ -259,6 +259,31 @@ export type ApiMembership = {
   role: Role;
   plan: Plan;
   trialEndsAt: string | null;
+  /** Tanggal langganan berakhir (Fase 11b); NULL untuk trial/comped. */
+  subscriptionEndsAt?: string | null;
+};
+
+// --- Billing langganan (Fase 11b) ------------------------------------------
+export type ApiSubscriptionInvoice = {
+  id: string;
+  orderId: string;
+  amount: number;
+  periodMonths: number;
+  status: "pending" | "paid" | "failed" | "expired";
+  transactionStatus: string | null;
+  paidAt: string | null;
+  createdAt: string;
+};
+
+export type BillingStatus = {
+  /** true bila server key Midtrans terpasang → checkout aktif. */
+  configured: boolean;
+  plan: Plan;
+  status: TenantStatus;
+  trialEndsAt: string | null;
+  subscriptionEndsAt: string | null;
+  pricePerMonth: number;
+  invoices: ApiSubscriptionInvoice[];
 };
 
 export type MeResponse = {

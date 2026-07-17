@@ -4024,6 +4024,24 @@ try {
     `→ ${JSON.stringify({ total: migrate.json?.total, migrated: migrate.json?.migrated, failed: migrate.json?.failed })}`,
   );
 
+  // --- Fase 11b: billing langganan (tanpa kunci Midtrans → degradasi anggun) ---
+  const billNoAuth = await makeClient()("GET", `/api/tenants/${tenantId}/billing`);
+  check("billing tanpa sesi DITOLAK 401", billNoAuth.status === 401, `→ HTTP ${billNoAuth.status}`);
+  const billStatus = await owner("GET", `/api/tenants/${tenantId}/billing`);
+  check(
+    "billing status 200 + configured=false + harga Rp389.000",
+    billStatus.status === 200 && billStatus.json?.configured === false && billStatus.json?.pricePerMonth === 389000 && Array.isArray(billStatus.json?.invoices),
+    `→ ${JSON.stringify({ configured: billStatus.json?.configured, price: billStatus.json?.pricePerMonth })}`,
+  );
+  const billCheckoutOwner = await owner("POST", `/api/tenants/${tenantId}/billing/checkout`);
+  check("billing checkout tanpa konfigurasi Midtrans → 503", billCheckoutOwner.status === 503, `→ HTTP ${billCheckoutOwner.status}`);
+  // Dewi = anggota admin (bukan owner) di tenant ini → ditolak mengatur langganan.
+  const billCheckoutAdmin = await admin("POST", `/api/tenants/${tenantId}/billing/checkout`);
+  check("billing checkout oleh non-Pemilik → 403", billCheckoutAdmin.status === 403, `→ HTTP ${billCheckoutAdmin.status}`);
+  // Webhook tanpa kunci → diabaikan sopan (200), tak mengubah apa pun.
+  const billWebhook = await makeClient()("POST", "/api/billing/notification", { order_id: "x", transaction_status: "settlement" });
+  check("webhook billing tanpa kunci → 200 diabaikan", billWebhook.status === 200 && billWebhook.json?.ignored === true, `→ HTTP ${billWebhook.status}`);
+
   // Masukan pengguna (dukungan) — Budi mengirim, lalu admin mengubah statusnya.
   const fbBad = await owner("POST", "/api/feedback", { category: "salah-kategori", message: "Halo dukungan" });
   check("kirim masukan dengan kategori salah DITOLAK 400", fbBad.status === 400, `→ HTTP ${fbBad.status}`);

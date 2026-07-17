@@ -165,6 +165,31 @@ export const CONTROL_PLANE_MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    // Billing langganan via Midtrans (Fase 11b). Setiap upaya bayar = satu
+    // subscription_invoice (order_id unik). Webhook Midtrans yang terverifikasi
+    // tanda tangannya menandai invoice 'paid' → tenant.status 'active' +
+    // subscription_ends_at diperpanjang 1 bulan. Cron menurunkan active →
+    // past_due saat subscription_ends_at lewat (NULL = comped, tak diturunkan).
+    id: "0008_billing",
+    statements: [
+      `CREATE TABLE subscription_invoices (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT NOT NULL,
+        order_id TEXT NOT NULL UNIQUE,
+        amount INTEGER NOT NULL,
+        period_months INTEGER NOT NULL DEFAULT 1,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','paid','failed','expired')),
+        redirect_url TEXT,
+        transaction_status TEXT,
+        paid_at TEXT,
+        created_by TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX idx_sub_invoices_tenant ON subscription_invoices (tenant_id, created_at)`,
+      `ALTER TABLE tenants ADD COLUMN subscription_ends_at TEXT`,
+    ],
+  },
 ];
 
 /**

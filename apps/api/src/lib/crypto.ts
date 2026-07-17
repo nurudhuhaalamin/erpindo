@@ -73,6 +73,12 @@ export async function sha256Hex(input: string): Promise<string> {
   return toHex(digest);
 }
 
+/** SHA-512 hex — dipakai memverifikasi tanda tangan webhook Midtrans (Fase 11b). */
+export async function sha512Hex(input: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-512", new TextEncoder().encode(input));
+  return toHex(digest);
+}
+
 // ---------------------------------------------------------------------------
 // Enkripsi simetris AES-GCM (Fase 8b) — untuk rahasia yang harus bisa dibaca
 // kembali (mis. refresh token Google Drive). Kunci diturunkan dari secret
