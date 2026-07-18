@@ -302,6 +302,24 @@ try {
   check("F6 POS: keranjang → bayar tunai → transaksi 201", true);
   check("F6 POS bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
 
+  // F6b — POS quick wins (Fase 12e): tombol nominal cepat + kembalian menonjol + rekap.
+  resetErrors();
+  await page.getByPlaceholder("Cari produk / SKU…").fill("Kopi Arabika");
+  await page.waitForTimeout(400);
+  await page.locator("button", { hasText: "Rp" }).filter({ hasNotText: "Rp 0" }).first().click();
+  await page.getByRole("button", { name: "Uang pas", exact: true }).click();
+  await page.getByRole("button", { name: "+50rb", exact: true }).click();
+  await page.getByText("Kembalian:").first().waitFor({ timeout: 10_000 });
+  check("F6b POS: 'Uang pas' + '+50rb' → kembalian Rp 50.000 tampil menonjol", true);
+  const salePost2 = postDone("/pos/sales");
+  await page.getByRole("button", { name: "Bayar & Cetak Struk" }).click();
+  await salePost2;
+  check("F6b POS: bayar via nominal cepat → transaksi 201", true);
+  await page.getByRole("button", { name: "Lihat rekap" }).click();
+  await page.getByText("Per metode").first().waitFor({ timeout: 10_000 });
+  check("F6b POS: kartu 'Rekap hari ini' terbuka berisi rekap per jam/shift/metode", true);
+  check("F6b POS quick wins bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
+
   // F7 — Penjualan: terima pembayaran faktur outstanding → lunas.
   resetErrors();
   await gotoRoute("/app/penjualan", 1000);

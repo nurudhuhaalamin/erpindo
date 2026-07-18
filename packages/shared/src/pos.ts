@@ -77,3 +77,14 @@ export type ApiPosReceipt = {
   lines: { productId: string; productName: string; qty: number; qtyReturnable: number; unitPrice: number }[];
 };
 
+
+/** Rekap penjualan POS satu hari (Fase 12e): per jam, per shift, per metode. */
+export type ApiPosRecap = {
+  date: string;
+  salesCount: number;
+  salesTotal: number;
+  /** Jam dalam UTC (0–23) — klien mengonversi ke jam lokal perangkat. */
+  byHour: { hourUtc: number; count: number; total: number }[];
+  byShift: { shiftNo: string; status: "open" | "closed"; count: number; total: number; cashTotal: number }[];
+  byMethod: { method: string; amount: number }[];
+};

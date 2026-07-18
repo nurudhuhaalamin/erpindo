@@ -964,6 +964,24 @@ try {
     lines: [{ productId: prodPos.json.id, qty: 1, unitPrice: 150_000 }],
   });
   check("total pembayaran kurang DITOLAK 400", underPay2.status === 400);
+
+  // Rekap penjualan harian POS (Fase 12e): per jam, per shift, per metode.
+  const recap = await owner("GET", `/api/tenants/${tenantId}/pos/recap`);
+  check(
+    "rekap POS hari ini 200: memuat penjualan split (QRIS 50rb tercatat per metode)",
+    recap.status === 200 && recap.json?.byMethod?.some((m) => m.method === "qris" && m.amount === 50_000),
+    `→ ${JSON.stringify(recap.json?.byMethod)}`,
+  );
+  check(
+    "rekap POS: total per jam konsisten dengan total keseluruhan",
+    Array.isArray(recap.json?.byHour) &&
+      recap.json.byHour.reduce((s, h) => s + h.total, 0) === recap.json?.salesTotal &&
+      recap.json?.salesCount >= 2,
+    `→ ${JSON.stringify({ n: recap.json?.salesCount, total: recap.json?.salesTotal })}`,
+  );
+  check("rekap POS: memuat baris per shift", recap.json?.byShift?.length >= 1, `→ ${recap.json?.byShift?.length}`);
+  const recapAnon = await anon("GET", `/api/tenants/${tenantId}/pos/recap`);
+  check("rekap POS tanpa login DITOLAK 401", recapAnon.status === 401);
   const hold1 = await owner("POST", `/api/tenants/${tenantId}/pos/held`, {
     shiftId: shift2.json.id, label: "Meja 3", cart: [{ productId: prodPos.json.id, qty: 2, unitPrice: 150_000 }], taxRate: 0,
   });
