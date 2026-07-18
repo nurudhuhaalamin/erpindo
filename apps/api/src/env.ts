@@ -1,4 +1,4 @@
-import type { Role } from "@erpindo/shared";
+import type { Plan, Role } from "@erpindo/shared";
 
 /** Antarmuka minimal Workers AI — binding opsional (hanya terpasang di produksi). */
 export type WorkersAi = {
@@ -83,6 +83,8 @@ export type TenantContext = {
   dbRef: string;
   status: string;
   role: Role;
+  plan: Plan;
+  legacyFullAccess: boolean;
 };
 
 export type AppVariables = {

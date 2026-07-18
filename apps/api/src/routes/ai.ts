@@ -1,4 +1,4 @@
-import { aiChatSchema, aiJurnalSchema, aiReportSchema, type ApiAiJournalDraft } from "@erpindo/shared";
+import { aiChatSchema, aiJurnalSchema, aiReportSchema, PLAN_LIMITS, type ApiAiJournalDraft, type Plan } from "@erpindo/shared";
 import { Hono } from "hono";
 import { z } from "zod";
 import type { AppEnv, Env } from "../env";
@@ -24,7 +24,11 @@ import { requireAuth, requireTenantRole } from "../middleware/auth";
 // resmi yang direkomendasikan (multibahasa, cepat); varian -fast llama
 // dinyatakan tetap aktif oleh Cloudflare.
 const AI_MODELS = ["@cf/zai-org/glm-4.7-flash", "@cf/meta/llama-3.1-8b-instruct-fast"];
-const DAILY_LIMIT = 100;
+
+/** Kuota AI harian per paket (Fase 13a) — Starter 25, Business 100, Enterprise 250, Trial 100. */
+function aiDailyLimit(plan: Plan): number {
+  return PLAN_LIMITS[plan].aiDailyLimit;
+}
 
 const AI_UNAVAILABLE_MSG = "Fitur AI belum tersedia di lingkungan ini. Coba lagi nanti.";
 
@@ -41,17 +45,17 @@ async function quotaUsed(env: Env, tenantId: string): Promise<number> {
   return Number((await env.RATE_KV.get(quotaKey(tenantId))) ?? 0);
 }
 
-async function quotaExceeded(env: Env, tenantId: string): Promise<boolean> {
-  return (await quotaUsed(env, tenantId)) >= DAILY_LIMIT;
+async function quotaExceeded(env: Env, tenantId: string, limit: number): Promise<boolean> {
+  return (await quotaUsed(env, tenantId)) >= limit;
 }
 
 /** Dipanggil HANYA setelah model sukses — panggilan gagal tidak memakan kuota.
  * Mengembalikan sisa kuota hari ini agar UI bisa menampilkannya. */
-async function countQuota(env: Env, tenantId: string): Promise<number> {
+async function countQuota(env: Env, tenantId: string, limit: number): Promise<number> {
   const key = quotaKey(tenantId);
   const used = (await quotaUsed(env, tenantId)) + 1;
   await env.RATE_KV.put(key, String(used), { expirationTtl: 172_800 });
-  return Math.max(DAILY_LIMIT - used, 0);
+  return Math.max(limit - used, 0);
 }
 
 type ChatMessage = { role: string; content: string };
@@ -113,8 +117,8 @@ export const aiRoutes = new Hono<AppEnv>()
       return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
     }
     const tenant = c.get("tenant");
-    if (await quotaExceeded(c.env, tenant.id)) {
-      return c.json({ error: `Kuota asisten AI hari ini habis (${DAILY_LIMIT} pertanyaan/hari). Coba lagi besok.` }, 429);
+    if (await quotaExceeded(c.env, tenant.id, aiDailyLimit(tenant.plan))) {
+      return c.json({ error: `Kuota asisten AI hari ini habis (${aiDailyLimit(tenant.plan)} pertanyaan/hari). Coba lagi besok.` }, 429);
     }
 
     const lastUser = [...parsed.data.messages].reverse().find((m) => m.role === "user")?.content ?? "";
@@ -135,7 +139,7 @@ export const aiRoutes = new Hono<AppEnv>()
 
     const result = await runModel(c.env, [{ role: "system", content: system }, ...parsed.data.messages], 600);
     if (!result.ok) return c.json(unavailable(result.detail), 503);
-    const quotaRemaining = await countQuota(c.env, tenant.id);
+    const quotaRemaining = await countQuota(c.env, tenant.id, aiDailyLimit(tenant.plan));
     return c.json({ reply: result.text.trim(), quotaRemaining });
   })
 
@@ -149,8 +153,8 @@ export const aiRoutes = new Hono<AppEnv>()
       return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
     }
     const tenant = c.get("tenant");
-    if (await quotaExceeded(c.env, tenant.id)) {
-      return c.json({ error: `Kuota asisten AI hari ini habis (${DAILY_LIMIT} permintaan/hari). Coba lagi besok.` }, 429);
+    if (await quotaExceeded(c.env, tenant.id, aiDailyLimit(tenant.plan))) {
+      return c.json({ error: `Kuota asisten AI hari ini habis (${aiDailyLimit(tenant.plan)} permintaan/hari). Coba lagi besok.` }, 429);
     }
 
     const db = getTenantDb(c.env, tenant.dbRef);
@@ -176,7 +180,7 @@ export const aiRoutes = new Hono<AppEnv>()
       500,
     );
     if (!result.ok) return c.json(unavailable(result.detail), 503);
-    const quotaRemaining = await countQuota(c.env, tenant.id);
+    const quotaRemaining = await countQuota(c.env, tenant.id, aiDailyLimit(tenant.plan));
     const raw = result.text;
 
     // Model kadang membungkus JSON dengan pagar kode/teks — ambil objek pertama.
@@ -226,8 +230,8 @@ export const aiRoutes = new Hono<AppEnv>()
       return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
     }
     const tenant = c.get("tenant");
-    if (await quotaExceeded(c.env, tenant.id)) {
-      return c.json({ error: `Kuota asisten AI hari ini habis (${DAILY_LIMIT} pertanyaan/hari). Coba lagi besok.` }, 429);
+    if (await quotaExceeded(c.env, tenant.id, aiDailyLimit(tenant.plan))) {
+      return c.json({ error: `Kuota asisten AI hari ini habis (${aiDailyLimit(tenant.plan)} pertanyaan/hari). Coba lagi besok.` }, 429);
     }
 
     const db = getTenantDb(c.env, tenant.dbRef);
@@ -250,7 +254,7 @@ export const aiRoutes = new Hono<AppEnv>()
       500,
     );
     if (!result.ok) return c.json(unavailable(result.detail), 503);
-    const quotaRemaining = await countQuota(c.env, tenant.id);
+    const quotaRemaining = await countQuota(c.env, tenant.id, aiDailyLimit(tenant.plan));
     return c.json({ reply: result.text.trim(), quotaRemaining });
   })
 
@@ -273,8 +277,8 @@ export const aiRoutes = new Hono<AppEnv>()
     }
 
     if (!c.env.AI) return c.json(unavailable("binding-absent"), 503);
-    if (await quotaExceeded(c.env, tenant.id)) {
-      return c.json({ error: `Kuota asisten AI hari ini habis (${DAILY_LIMIT} pertanyaan/hari). Coba lagi besok.` }, 429);
+    if (await quotaExceeded(c.env, tenant.id, aiDailyLimit(tenant.plan))) {
+      return c.json({ error: `Kuota asisten AI hari ini habis (${aiDailyLimit(tenant.plan)} pertanyaan/hari). Coba lagi besok.` }, 429);
     }
 
     const db = getTenantDb(c.env, tenant.dbRef);
@@ -300,7 +304,7 @@ export const aiRoutes = new Hono<AppEnv>()
     const body = { summary: result.text.trim(), generatedAt: new Date().toISOString() };
     // TTL 8 hari — kunci berganti tiap Senin, sisa cache lama kedaluwarsa sendiri.
     await c.env.RATE_KV.put(cacheKey, JSON.stringify(body), { expirationTtl: 8 * 86_400 });
-    const quotaRemaining = await countQuota(c.env, tenant.id);
+    const quotaRemaining = await countQuota(c.env, tenant.id, aiDailyLimit(tenant.plan));
     return c.json({ ...body, cached: false, quotaRemaining });
   });
 

@@ -4144,6 +4144,20 @@ try {
     `→ ${JSON.stringify({ total: migrate.json?.total, migrated: migrate.json?.migrated, failed: migrate.json?.failed })}`,
   );
 
+  // --- Fase 13a: gerbang paket tidak memblokir tenant TRIAL (akses penuh) ---
+  const gateEmployees = await owner("GET", `/api/tenants/${tenantId}/employees`);
+  check(
+    "gerbang paket: tenant trial boleh akses modul Business (employees bukan 403 upgrade)",
+    !(gateEmployees.status === 403 && gateEmployees.json?.detail === "plan-upgrade-required"),
+    `→ ${gateEmployees.status} ${gateEmployees.json?.detail ?? ""}`,
+  );
+  const gateCostCenters = await owner("GET", `/api/tenants/${tenantId}/cost-centers`);
+  check(
+    "gerbang paket: tenant trial boleh akses modul Enterprise (cost-centers bukan 403 upgrade)",
+    !(gateCostCenters.status === 403 && gateCostCenters.json?.detail === "plan-upgrade-required"),
+    `→ ${gateCostCenters.status} ${gateCostCenters.json?.detail ?? ""}`,
+  );
+
   // --- Fase 11b: billing langganan (tanpa kunci Midtrans → degradasi anggun) ---
   const billNoAuth = await makeClient()("GET", `/api/tenants/${tenantId}/billing`);
   check("billing tanpa sesi DITOLAK 401", billNoAuth.status === 401, `→ HTTP ${billNoAuth.status}`);

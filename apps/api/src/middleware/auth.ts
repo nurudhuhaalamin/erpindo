@@ -1,6 +1,17 @@
-import { PRESET_PERMISSIONS, ROLE_LEVEL, type PermissionKey, type Role } from "@erpindo/shared";
+import {
+  MODULE_LABELS,
+  minPlanForModule,
+  PLAN_LABELS,
+  planIncludesModule,
+  PRESET_PERMISSIONS,
+  ROLE_LEVEL,
+  type ModuleKey,
+  type PermissionKey,
+  type Plan,
+  type Role,
+} from "@erpindo/shared";
 import { getCookie } from "hono/cookie";
-import type { MiddlewareHandler } from "hono";
+import { Hono, type MiddlewareHandler } from "hono";
 import type { AppEnv } from "../env";
 import { sha256Hex } from "../lib/crypto";
 import { ensureTenantMigrated, TENANT_SCHEMA_VERSION } from "../lib/tenantDb";
@@ -73,12 +84,12 @@ export function requireTenantRole(minRole: Role): MiddlewareHandler<AppEnv> {
 
     const user = c.get("user");
     const row = await c.env.DB.prepare(
-      `SELECT t.id, t.name, t.slug, t.db_ref, t.status, t.schema_version, m.role
+      `SELECT t.id, t.name, t.slug, t.db_ref, t.status, t.plan, t.legacy_full_access, t.schema_version, m.role
        FROM memberships m JOIN tenants t ON t.id = m.tenant_id
        WHERE m.user_id = ? AND m.tenant_id = ?`,
     )
       .bind(user.id, tenantId)
-      .first<{ id: string; name: string; slug: string; db_ref: string; status: string; schema_version: number; role: Role }>();
+      .first<{ id: string; name: string; slug: string; db_ref: string; status: string; plan: Plan; legacy_full_access: number; schema_version: number; role: Role }>();
 
     if (!row) return c.json({ error: "Anda bukan anggota perusahaan ini." }, 403);
     if (row.status === "suspended") {
@@ -116,9 +127,65 @@ export function requireTenantRole(minRole: Role): MiddlewareHandler<AppEnv> {
       dbRef: row.db_ref,
       status: row.status,
       role: row.role,
+      plan: row.plan,
+      legacyFullAccess: row.legacy_full_access === 1,
     });
     await next();
   };
+}
+
+/**
+ * Penegakan paket langganan (Fase 13a). Modul operasional/skala hanya terbuka
+ * pada paket yang mencakupnya; di bawahnya → 403 `plan-upgrade-required` berisi
+ * paket minimum (dipakai UI untuk kartu upsell, bukan error keras).
+ *
+ * Bersifat ADITIF & tidak membocorkan info: hanya menambahkan penolakan paket.
+ * Semua urusan auth/keanggotaan/read-only diserahkan ke requireTenantRole yang
+ * berjalan setelahnya (via planGated) — sesi buruk / bukan anggota jatuh ke
+ * pesan standarnya, bukan ke pesan paket.
+ */
+export function requirePlanModule(module: ModuleKey): MiddlewareHandler<AppEnv> {
+  return async (c, next) => {
+    const tenantId = c.req.param("tenantId");
+    const raw = getCookie(c, SESSION_COOKIE);
+    if (!tenantId || !raw) return next();
+
+    const sessionId = await sha256Hex(raw);
+    const row = await c.env.DB.prepare(
+      `SELECT t.plan, t.legacy_full_access, s.expires_at
+       FROM sessions s
+       JOIN memberships m ON m.user_id = s.user_id
+       JOIN tenants t ON t.id = m.tenant_id
+       WHERE s.id = ? AND m.tenant_id = ?`,
+    )
+      .bind(sessionId, tenantId)
+      .first<{ plan: Plan; legacy_full_access: number; expires_at: string }>();
+
+    // Sesi tak valid / bukan anggota → biarkan requireTenantRole yang menjawab.
+    if (!row || new Date(row.expires_at).getTime() < Date.now()) return next();
+    if (row.legacy_full_access === 1) return next();
+    if (!planIncludesModule(row.plan, module)) {
+      return c.json(
+        {
+          error: `Modul ${MODULE_LABELS[module]} tersedia mulai paket ${PLAN_LABELS[minPlanForModule(module)]}. Tingkatkan paket untuk membukanya.`,
+          detail: "plan-upgrade-required",
+          module,
+          requiredPlan: minPlanForModule(module),
+        },
+        403,
+      );
+    }
+    await next();
+  };
+}
+
+/**
+ * Bungkus router modul dengan penjaga paket (Fase 13a). Dipasang di titik mount
+ * (index.ts) sehingga tidak perlu menyentuh tiap handler; requirePlanModule
+ * berjalan sebelum requireTenantRole milik router.
+ */
+export function planGated(module: ModuleKey, router: Hono<AppEnv>): Hono<AppEnv> {
+  return new Hono<AppEnv>().use("/:tenantId/*", requirePlanModule(module)).route("/", router);
 }
 
 /**
