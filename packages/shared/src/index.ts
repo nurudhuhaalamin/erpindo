@@ -14,4 +14,5 @@ export * from "./pos";
 export * from "./salesStaged";
 export * from "./audit";
 export * from "./platform";
+export * from "./migration";
 export * from "./text";

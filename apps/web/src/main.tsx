@@ -124,6 +124,11 @@ const appChildren = [
   }),
   createRoute({
     getParentRoute: () => appRoute,
+    path: "/migrasi",
+    component: lazyRouteComponent(() => import("./pages/migration"), "MigrationPage"),
+  }),
+  createRoute({
+    getParentRoute: () => appRoute,
     path: "/admin",
     component: lazyRouteComponent(() => import("./pages/admin"), "AdminPage"),
   }),

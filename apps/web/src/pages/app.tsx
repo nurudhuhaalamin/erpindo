@@ -29,6 +29,7 @@ import {
   Layers,
   LayoutDashboard,
   LifeBuoy,
+  UploadCloud,
   LineChart,
   ListTree,
   LogOut,
@@ -135,6 +136,7 @@ const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; 
   { to: "/app/persetujuan", label: "Persetujuan", exact: false, section: "Lainnya", icon: CheckSquare, module: "persetujuan" },
   { to: "/app/alat", label: "Alat Bantu", exact: false, section: "Lainnya", icon: Calculator },
   { to: "/app/dukungan", label: "Dukungan", exact: false, section: "Lainnya", icon: LifeBuoy },
+  { to: "/app/migrasi", label: "Migrasi", exact: false, section: "Lainnya", icon: UploadCloud },
   { to: "/app/admin", label: "Admin", exact: false, section: "Lainnya", icon: ShieldCheck, adminOnly: true },
   { to: "/app/pengaturan", label: "Pengaturan", exact: false, section: "Lainnya", icon: Settings },
 ];
