@@ -9,6 +9,7 @@ import { aiRoutes } from "./routes/ai";
 import { approvalEngineRoutes } from "./routes/approvalsEngine";
 import { assetRoutes, runDepreciation } from "./routes/assets";
 import { adminRoutes, feedbackRoutes } from "./routes/admin";
+import { demoRoutes } from "./routes/demo";
 import { authRoutes } from "./routes/auth";
 import { billingRoutes, billingWebhookRoutes } from "./routes/billing";
 import { blogRoutes } from "./routes/blog";
@@ -133,6 +134,7 @@ const app = new Hono<AppEnv>()
   .route("/api/billing", billingWebhookRoutes)
   .route("/api/admin", adminRoutes)
   .route("/api/feedback", feedbackRoutes)
+  .route("/api/demo-requests", demoRoutes)
   .route("/", blogRoutes)
   .route("/api/tenants", helpdeskRoutes)
   .route("/api/consolidation", consolidationRoutes)

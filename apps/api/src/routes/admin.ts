@@ -13,6 +13,7 @@ import type { AppEnv } from "../env";
 import { audit } from "../lib/audit";
 import { requireAuth, requirePlatformAdmin } from "../middleware/auth";
 import { rateLimitUser } from "../middleware/rateLimit";
+import { toApiDemo, type DemoRow } from "./demo";
 import { migrateAllTenants, TENANT_SCHEMA_VERSION } from "../lib/tenantDb";
 import { clientIp } from "./auth";
 
@@ -275,6 +276,15 @@ export const adminRoutes = new Hono<AppEnv>()
     return c.json({ ok: true, plan });
   })
 
+  // Permintaan demo dari landing (Fase 13c) — daftar untuk tim sales.
+  .get("/demo-requests", requireAuth, requirePlatformAdmin, async (c) => {
+    const { results } = await c.env.DB.prepare(
+      `SELECT id, name, company, email, phone, employees, message, status, created_at
+       FROM demo_requests ORDER BY created_at DESC LIMIT 200`,
+    ).all<DemoRow>();
+    return c.json({ demoRequests: results.map(toApiDemo) });
+  })
+
   // -------------------------------------------------------------------------
   // Masukan pengguna: daftar + ubah status/catatan.
   // -------------------------------------------------------------------------
@@ -463,3 +473,4 @@ export const feedbackRoutes = new Hono<AppEnv>()
       .all<FeedbackRow>();
     return c.json({ feedback: results.map(toApiFeedback) });
   });
+

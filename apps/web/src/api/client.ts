@@ -129,6 +129,8 @@ import type {
   MarketplaceImportInput,
   ApiMarketplaceOrder,
   FeedbackInput,
+  DemoRequestInput,
+  ApiDemoRequest,
   BlogPostInput,
   ProductInput,
   QuotationStatusInput,
@@ -221,6 +223,10 @@ export const api = {
 
   submitFeedback: (input: FeedbackInput) => request<{ ok: true; id: string }>("POST", "/api/feedback", input),
   myFeedback: () => request<{ feedback: ApiFeedback[] }>("GET", "/api/feedback/mine"),
+  submitDemoRequest: (input: DemoRequestInput) =>
+    request<{ ok: true; id: string }>("POST", "/api/demo-requests", input),
+  adminDemoRequests: () =>
+    request<{ demoRequests: ApiDemoRequest[] }>("GET", "/api/admin/demo-requests"),
   adminOverview: () =>
     request<{
       totals: { users: number; tenants: number; feedbackBaru: number };

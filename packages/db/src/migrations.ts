@@ -230,6 +230,24 @@ export const CONTROL_PLANE_MIGRATIONS: Migration[] = [
     id: "0011_invoice_plan",
     statements: [`ALTER TABLE subscription_invoices ADD COLUMN plan TEXT NOT NULL DEFAULT 'business'`],
   },
+  {
+    // Fase 13c: permintaan demo/kontak dari landing (motion sales-assisted).
+    id: "0012_demo_requests",
+    statements: [
+      `CREATE TABLE demo_requests (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        company TEXT NOT NULL,
+        email TEXT NOT NULL,
+        phone TEXT,
+        employees TEXT,
+        message TEXT,
+        status TEXT NOT NULL DEFAULT 'baru',
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX idx_demo_requests_created ON demo_requests (created_at)`,
+    ],
+  },
 ];
 
 /**

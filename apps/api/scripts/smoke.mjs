@@ -4266,6 +4266,22 @@ try {
   const fbMine2 = await owner("GET", "/api/feedback/mine");
   check("status masukan berubah jadi 'dibaca'", fbMine2.json?.feedback?.find((f) => f.id === fbOk.json.id)?.status === "dibaca");
 
+  // Permintaan demo dari landing (Fase 13c) — publik, admin bisa melihat.
+  const demoBad = await makeClient()("POST", "/api/demo-requests", { name: "X" });
+  check("permintaan demo tanpa email valid DITOLAK 400", demoBad.status === 400, `→ HTTP ${demoBad.status}`);
+  const demoOk = await makeClient()("POST", "/api/demo-requests", {
+    name: "Rina Sales", company: "PT Calon Besar", email: "rina@calonbesar.co.id", employees: "150", message: "Butuh demo untuk 3 cabang.",
+  });
+  check("permintaan demo valid (publik) 201", demoOk.status === 201 && Boolean(demoOk.json?.id), `→ ${JSON.stringify(demoOk.json)}`);
+  const demoListAnon = await admin("GET", "/api/admin/demo-requests");
+  check("daftar demo oleh non-admin platform DITOLAK 403", demoListAnon.status === 403, `→ HTTP ${demoListAnon.status}`);
+  const demoList = await owner("GET", "/api/admin/demo-requests");
+  check(
+    "admin platform melihat permintaan demo (memuat entri baru)",
+    demoList.status === 200 && demoList.json?.demoRequests?.some((d) => d.id === demoOk.json.id && d.company === "PT Calon Besar"),
+    `→ ${demoList.json?.demoRequests?.length} entri`,
+  );
+
   // Blog SEO — draft dulu (404 publik), lalu terbit (200 SSR ber-<title>).
   const blogSlug = "tips-pembukuan-umkm";
   const blogNew = await owner("POST", "/api/admin/blog-posts", {

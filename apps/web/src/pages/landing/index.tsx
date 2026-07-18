@@ -1,10 +1,12 @@
-import { SINGLE_PLAN, TRIAL_DAYS } from "@erpindo/shared";
+import { ASSUMED_PER_USER_PRICE, perUserMonthlyCost, PLAN_LIMITS, TRIAL_DAYS, demoRequestSchema } from "@erpindo/shared";
 import { Link } from "@tanstack/react-router";
 import { Check, Eye, Menu, Moon, ShieldCheck, Sparkles, Sun, X } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client";
 import { BrandWordmark, Button, useDarkMode } from "../../components/ui";
 import {
+  CATEGORY_COMPARISON,
+  CATEGORY_COMPARISON_HEADERS,
   COMPARISON,
   FAQ,
   FEATURE_GROUPS,
@@ -12,7 +14,6 @@ import {
   SECURITY_POINTS,
   SHOWCASE,
   SINGLE_PLAN_MODULES,
-  SINGLE_PLAN_PERKS,
   TRUST_POINTS,
 } from "./sections";
 
@@ -322,62 +323,236 @@ function Comparison() {
   );
 }
 
+const TIER_INFO: { plan: "starter" | "business" | "enterprise"; tagline: string; features: string[]; popular?: boolean }[] = [
+  {
+    plan: "starter",
+    tagline: "Untuk toko, jasa & usaha keluarga",
+    features: ["Akuntansi, penjualan & pembelian", "Kasir (POS) + stok multi-gudang", "Pajak: PPN, PPh final, e-Faktur", "Semua laporan keuangan", "Pengguna tak terbatas"],
+  },
+  {
+    plan: "business",
+    tagline: "Untuk PT dengan tim & proses",
+    popular: true,
+    features: ["Semua di Starter, plus:", "HR & Payroll (PPh 21 TER + BPJS)", "Proyek, manufaktur & pengadaan", "Persetujuan berjenjang + peran kustom", "CRM pipeline & kontrak berulang"],
+  },
+  {
+    plan: "enterprise",
+    tagline: "Untuk grup, multi-cabang & holding",
+    features: ["Semua di Business, plus:", `Multi-entitas (${PLAN_LIMITS.enterprise.maxEntities} perusahaan) + konsolidasi`, "Dimensi / cost center per cabang", "API publik & webhook", "Keamanan lanjutan + dukungan prioritas"],
+  },
+];
+
+/** Kalkulator perbandingan implisit: biaya sistem per-pengguna vs ERPindo tetap. */
+function PerUserCalculator() {
+  const [users, setUsers] = useState(20);
+  const perUser = perUserMonthlyCost(users);
+  return (
+    <div className="mx-auto mt-12 max-w-2xl rounded-2xl border border-slate-200 bg-slate-50 p-5 sm:p-6 dark:border-slate-800 dark:bg-slate-900/60">
+      <h3 className="text-center font-semibold">Bandingkan dengan sistem yang menagih per pengguna</h3>
+      <label className="mt-4 block text-sm text-slate-600 dark:text-slate-300">
+        Jumlah pengguna di tim Anda: <span className="font-semibold text-slate-900 dark:text-white">{users}</span>
+        <input
+          type="range"
+          min={1}
+          max={100}
+          value={users}
+          onChange={(e) => setUsers(Number(e.target.value))}
+          aria-label="Jumlah pengguna"
+          className="mt-2 w-full accent-brand-600"
+        />
+      </label>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-xl border border-slate-200 bg-white p-3 text-center dark:border-slate-800 dark:bg-slate-950">
+          <div className="text-xs text-slate-400">Sistem per-pengguna (± {formatRupiah(ASSUMED_PER_USER_PRICE)}/user)</div>
+          <div className="mt-1 text-2xl font-bold text-slate-500 line-through">{formatRupiah(perUser)}</div>
+          <div className="text-xs text-slate-400">per bulan</div>
+        </div>
+        <div className="rounded-xl border border-brand-500 bg-brand-50/60 p-3 text-center dark:bg-brand-950/40">
+          <div className="text-xs text-brand-700 dark:text-brand-300">Dengan ERPindo</div>
+          <div className="mt-1 text-2xl font-bold text-brand-700 dark:text-brand-300">Tetap</div>
+          <div className="text-xs text-slate-400">satu harga, berapa pun jumlah tim</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CategoryComparison() {
+  return (
+    <div className="mt-14">
+      <h3 className="text-center text-xl font-semibold">Di mana posisi ERPindo?</h3>
+      <div className="mt-6 overflow-x-auto">
+        <table className="w-full min-w-[720px] border-separate border-spacing-0 overflow-hidden rounded-2xl border border-slate-200 text-sm dark:border-slate-800">
+          <thead>
+            <tr className="bg-slate-100 text-left dark:bg-slate-900">
+              <th className="px-3 py-3 font-semibold"> </th>
+              {CATEGORY_COMPARISON_HEADERS.map((h) => (
+                <th
+                  key={h}
+                  className={`px-3 py-3 font-semibold ${h === "ERPindo" ? "bg-brand-600 text-white" : "text-slate-500 dark:text-slate-400"}`}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {CATEGORY_COMPARISON.map((row, i) => (
+              <tr key={row.label} className={i % 2 === 0 ? "bg-white dark:bg-slate-950" : "bg-slate-50 dark:bg-slate-900/60"}>
+                <td className="px-3 py-2.5 font-medium">{row.label}</td>
+                {row.rows.map((cell, j) => (
+                  <td
+                    key={j}
+                    className={`px-3 py-2.5 ${j === row.rows.length - 1 ? "bg-brand-50/60 font-medium text-slate-800 dark:bg-brand-950/40 dark:text-slate-100" : "text-slate-500 dark:text-slate-400"}`}
+                  >
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-3 text-center text-xs text-slate-400">Perbandingan per kategori solusi — bukan merek tertentu.</p>
+    </div>
+  );
+}
+
 function Pricing() {
   return (
     <section id="harga" className="scroll-mt-16 border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-      <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-        <h2 className="text-center text-3xl font-bold tracking-tight">Satu harga. Semua fitur. Titik.</h2>
+      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+        <h2 className="text-center text-3xl font-bold tracking-tight">Satu sistem, dari toko pertama sampai grup perusahaan</h2>
         <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600 dark:text-slate-300">
-          Tidak ada tingkatan paket, tidak ada fitur yang dikunci, tidak ada biaya per pengguna. Mulai gratis{" "}
-          {TRIAL_DAYS} hari — lalu satu harga untuk seluruh sistem.
+          Pengguna <span className="font-semibold">selalu tak terbatas</span> di semua paket. Mulai gratis {TRIAL_DAYS} hari
+          dengan akses penuh — tanpa kartu kredit.
         </p>
-        <div className="mx-auto mt-10 max-w-3xl">
-          <div className="relative flex flex-col rounded-2xl border border-brand-500 bg-white p-6 shadow-lg shadow-brand-500/10 sm:p-8 dark:bg-slate-950">
-            <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-brand-500 to-brand-700 px-3 py-0.5 text-xs font-semibold text-white">
-              Semua yang Anda butuhkan
-            </span>
-            <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
-              <div>
-                <h3 className="text-lg font-semibold">Paket {SINGLE_PLAN.label}</h3>
-                <div className="mt-2 flex items-end gap-1">
-                  <span className="text-4xl font-bold">{formatRupiah(SINGLE_PLAN.pricePerMonth)}</span>
-                  <span className="pb-1.5 text-sm font-normal text-slate-400">/bulan</span>
+
+        <div className="mx-auto mt-10 grid max-w-5xl gap-5 lg:grid-cols-3">
+          {TIER_INFO.map((tier) => {
+            const info = PLAN_LIMITS[tier.plan];
+            return (
+              <div
+                key={tier.plan}
+                className={`relative flex flex-col rounded-2xl border bg-white p-6 dark:bg-slate-950 ${
+                  tier.popular ? "border-brand-500 shadow-lg shadow-brand-500/10 lg:-mt-2 lg:mb-2" : "border-slate-200 dark:border-slate-800"
+                }`}
+              >
+                {tier.popular ? (
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-brand-500 to-brand-700 px-3 py-0.5 text-xs font-semibold text-white">
+                    Paling populer
+                  </span>
+                ) : null}
+                <h3 className="text-lg font-semibold">{info.label}</h3>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{tier.tagline}</p>
+                <div className="mt-3 flex items-end gap-1">
+                  <span className="text-3xl font-bold">{formatRupiah(info.pricePerMonth)}</span>
+                  <span className="pb-1 text-sm font-normal text-slate-400">/bulan</span>
                 </div>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Gratis penuh {TRIAL_DAYS} hari pertama — tanpa kartu kredit.
-                </p>
-              </div>
-              <div className="flex w-full flex-col gap-2 sm:w-auto">
-                <Link to="/daftar">
-                  <Button className="w-full sm:w-44">Mulai Gratis</Button>
+                <ul className="mt-5 flex-1 space-y-2 text-sm">
+                  {tier.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2">
+                      <Check className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden /> {f}
+                    </li>
+                  ))}
+                </ul>
+                <Link to="/daftar" className="mt-5">
+                  <Button variant={tier.popular ? "primary" : "secondary"} className="w-full">
+                    Mulai Gratis {TRIAL_DAYS} Hari
+                  </Button>
                 </Link>
-                <DemoButton size="md" />
               </div>
-            </div>
-            <ul className="mt-6 grid gap-2 text-sm sm:grid-cols-2">
-              {SINGLE_PLAN_PERKS.map((p) => (
-                <li key={p} className="flex items-start gap-2">
-                  <Check className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden /> {p}
-                </li>
-              ))}
-            </ul>
-            <div className="mt-6 border-t border-slate-200 pt-5 dark:border-slate-800">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Semua modul termasuk — tanpa tambahan biaya
-              </div>
-              <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-slate-600 sm:grid-cols-3 lg:grid-cols-4 dark:text-slate-300">
-                {SINGLE_PLAN_MODULES.map((m) => (
-                  <li key={m} className="flex items-start gap-1.5">
-                    <Check className="mt-0.5 size-3.5 shrink-0 text-brand-500" aria-hidden /> {m}
-                  </li>
-                ))}
-              </ul>
-            </div>
+            );
+          })}
+        </div>
+
+        <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
+          Semua paket termasuk: {SINGLE_PLAN_MODULES.slice(0, 6).join(" · ")}, dan banyak lagi. Harga belum termasuk PPN.
+        </p>
+
+        <PerUserCalculator />
+        <CategoryComparison />
+
+        {/* Untuk grup & holding + layanan implementasi */}
+        <div className="mt-14 grid gap-5 rounded-2xl border border-slate-200 bg-slate-50 p-6 sm:grid-cols-2 sm:p-8 dark:border-slate-800 dark:bg-slate-900/60">
+          <div>
+            <h3 className="text-xl font-semibold">Untuk grup &amp; holding</h3>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+              Kelola beberapa badan usaha dalam satu akun dengan laporan konsolidasi lintas perusahaan, dimensi per cabang,
+              dan dukungan prioritas. Paket Enterprise sudah mencakup {PLAN_LIMITS.enterprise.maxEntities} entitas.
+            </p>
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold">Layanan pendampingan</h3>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+              Butuh migrasi data dari sistem lama, penyusunan bagan akun, atau pelatihan tim? Tim kami siap mendampingi
+              implementasi Anda — hubungi kami untuk penawaran.
+            </p>
+            <a href="#demo" className="mt-3 inline-block text-sm font-semibold text-brand-600 hover:underline dark:text-brand-400">
+              Jadwalkan demo &amp; konsultasi →
+            </a>
           </div>
         </div>
-        <p className="mt-6 text-center text-xs text-slate-400">
-          Harga belum termasuk PPN. Pembayaran online sedang disiapkan — untuk saat ini aktivasi via hubungi kami.
+      </div>
+    </section>
+  );
+}
+
+function DemoRequest() {
+  const [form, setForm] = useState({ name: "", company: "", email: "", phone: "", employees: "", message: "" });
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const parsed = demoRequestSchema.safeParse(form);
+    if (!parsed.success) {
+      setError("Mohon lengkapi nama, perusahaan, dan email yang valid.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.submitDemoRequest(parsed.data);
+      setSent(true);
+    } catch (err) {
+      setError((err as Error).message || "Gagal mengirim. Coba lagi.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const field = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950";
+  return (
+    <section id="demo" className="scroll-mt-16 border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <div className="mx-auto max-w-2xl px-4 py-16 sm:px-6">
+        <h2 className="text-center text-3xl font-bold tracking-tight">Jadwalkan demo</h2>
+        <p className="mx-auto mt-3 max-w-xl text-center text-slate-600 dark:text-slate-300">
+          Ingin melihat ERPindo untuk perusahaan Anda, atau butuh pendampingan implementasi? Tinggalkan kontak — tim kami menghubungi Anda.
         </p>
+        {sent ? (
+          <div className="mt-8 rounded-2xl border border-emerald-300 bg-emerald-50 p-6 text-center dark:border-emerald-800 dark:bg-emerald-950/40">
+            <Check className="mx-auto size-8 text-emerald-600 dark:text-emerald-400" aria-hidden />
+            <p className="mt-2 font-medium">Terima kasih! Permintaan Anda sudah kami terima.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Tim kami akan menghubungi Anda secepatnya.</p>
+          </div>
+        ) : (
+          <form onSubmit={submit} className="mt-8 grid gap-3 sm:grid-cols-2">
+            <input className={field} placeholder="Nama Anda" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} aria-label="Nama" />
+            <input className={field} placeholder="Nama perusahaan" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} aria-label="Perusahaan" />
+            <input className={field} type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} aria-label="Email" />
+            <input className={field} placeholder="No. WhatsApp (opsional)" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} aria-label="Telepon" />
+            <input className={`${field} sm:col-span-2`} placeholder="Perkiraan jumlah karyawan (opsional)" value={form.employees} onChange={(e) => setForm({ ...form, employees: e.target.value })} aria-label="Jumlah karyawan" />
+            <textarea className={`${field} sm:col-span-2`} rows={3} placeholder="Pesan / kebutuhan (opsional)" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} aria-label="Pesan" />
+            {error ? <p className="text-sm text-red-600 sm:col-span-2 dark:text-red-400">{error}</p> : null}
+            <div className="sm:col-span-2">
+              <Button type="submit" disabled={busy} className="w-full sm:w-auto">
+                {busy ? "Mengirim…" : "Kirim permintaan demo"}
+              </Button>
+            </div>
+          </form>
+        )}
       </div>
     </section>
   );
@@ -487,6 +662,7 @@ export function LandingPage() {
         <Comparison />
         <Pricing />
         <Security />
+        <DemoRequest />
         <Faq />
         <CtaBand />
       </main>

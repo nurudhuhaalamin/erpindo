@@ -420,6 +420,42 @@ export const setTenantPlanSchema = z.object({
 });
 export type SetTenantPlanInput = z.infer<typeof setTenantPlanSchema>;
 
+/**
+ * Kalkulator perbandingan implisit (Fase 13c): asumsi biaya ERP per-pengguna
+ * (kategori, tanpa menyebut merek) untuk menonjolkan bahwa ERPindo TIDAK
+ * menagih per user. Nilai konservatif Rp350rb/pengguna/bulan.
+ */
+export const ASSUMED_PER_USER_PRICE = 350_000;
+
+/** Estimasi biaya bulanan sistem ERP per-pengguna untuk N pengguna. */
+export function perUserMonthlyCost(users: number, pricePerUser = ASSUMED_PER_USER_PRICE): number {
+  const n = Math.max(0, Math.floor(users));
+  return n * pricePerUser;
+}
+
+/** Permintaan demo/kontak dari landing (Fase 13c) — motion sales-assisted. */
+export const demoRequestSchema = z.object({
+  name: z.string().trim().min(2, "Nama minimal 2 karakter").max(100),
+  company: z.string().trim().min(2, "Nama perusahaan minimal 2 karakter").max(120),
+  email: emailSchema,
+  phone: z.string().trim().max(30).optional(),
+  employees: z.string().trim().max(40).optional(),
+  message: z.string().trim().max(1000).optional(),
+});
+export type DemoRequestInput = z.infer<typeof demoRequestSchema>;
+
+export type ApiDemoRequest = {
+  id: string;
+  name: string;
+  company: string;
+  email: string;
+  phone: string | null;
+  employees: string | null;
+  message: string | null;
+  status: string;
+  createdAt: string;
+};
+
 // --- Payment collection + WhatsApp share (Fase 11d) ------------------------
 export type ApiPaymentLink = {
   orderId: string;

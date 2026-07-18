@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  ASSUMED_PER_USER_PRICE,
   MODULE_KEYS,
   MODULE_MIN_PLAN,
   minPlanForModule,
   modulesForPlan,
+  perUserMonthlyCost,
   PLAN_LIMITS,
   PLANS,
   planIncludesModule,
@@ -77,5 +79,16 @@ describe("minPlanForModule", () => {
     expect(minPlanForModule("consolidation")).toBe("enterprise");
     expect(minPlanForModule("dimensions")).toBe("enterprise");
     expect(minPlanForModule("apiAccess")).toBe("enterprise");
+  });
+});
+
+describe("perUserMonthlyCost (kalkulator perbandingan implisit, Fase 13c)", () => {
+  it("mengalikan jumlah pengguna dengan harga per-pengguna", () => {
+    expect(perUserMonthlyCost(1)).toBe(ASSUMED_PER_USER_PRICE);
+    expect(perUserMonthlyCost(30)).toBe(30 * ASSUMED_PER_USER_PRICE);
+  });
+  it("membulatkan ke bawah & menolak negatif", () => {
+    expect(perUserMonthlyCost(2.9)).toBe(2 * ASSUMED_PER_USER_PRICE);
+    expect(perUserMonthlyCost(-5)).toBe(0);
   });
 });
