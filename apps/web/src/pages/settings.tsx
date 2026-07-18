@@ -2,7 +2,7 @@
 // Pengaturan (dipisah dari app.tsx pada Fase 9d — nama ekspor tak berubah:
 // app.tsx me-re-export SettingsPage sehingga import lama tetap jalan).
 // ---------------------------------------------------------------------------
-import { PERMISSIONS, PLAN_LABELS, PLAN_LIMITS, SINGLE_PLAN, type ApiAuditLog, type ApiCustomRole, type PermissionKey } from "@erpindo/shared";
+import { PERMISSIONS, PLAN_LABELS, PLAN_LIMITS, type ApiAuditLog, type ApiCustomRole, type PermissionKey } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { api, formatDate, formatIDR } from "../api/client";
@@ -456,7 +456,7 @@ function SubscriptionCard() {
   const billing = useQuery({ queryKey: ["billing", tenant.tenantId], queryFn: () => api.billing(tenant.tenantId) });
 
   const checkout = useMutation({
-    mutationFn: () => api.billingCheckout(tenant.tenantId),
+    mutationFn: (plan: "starter" | "business" | "enterprise") => api.billingCheckout(tenant.tenantId, plan),
     onSuccess: (r) => {
       // Alur redirect Snap (bukan popup snap.js) — aman terhadap CSP.
       window.location.href = r.redirectUrl;
@@ -469,11 +469,12 @@ function SubscriptionCard() {
     ? Math.max(Math.ceil((Date.parse(tenant.trialEndsAt) - Date.now()) / 86_400_000), 0)
     : null;
   const subUntil = b?.subscriptionEndsAt ?? tenant.subscriptionEndsAt ?? null;
+  const legacy = b?.legacyFullAccess ?? false;
 
   return (
     <Card>
       <CardHeader title="Langganan" description="Paket, status, dan pembayaran akun perusahaan Anda." />
-      <CardBody className="space-y-3 text-sm">
+      <CardBody className="space-y-4 text-sm">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-slate-500 dark:text-slate-400">Paket:</span>
           <Badge tone="brand">{PLAN_LABELS[tenant.plan]}</Badge>
@@ -484,38 +485,77 @@ function SubscriptionCard() {
           ) : (
             <Badge>aktif{subUntil ? ` s/d ${formatDate(subUntil.slice(0, 10))}` : ""}</Badge>
           )}
+          {legacy ? <Badge tone="brand">akses penuh (pelanggan awal)</Badge> : null}
         </div>
 
-        <p className="text-slate-500 dark:text-slate-400">
-          Satu harga untuk semua: paket {SINGLE_PLAN.label}{" "}
-          <span className="font-semibold text-slate-700 dark:text-slate-200">
-            Rp {SINGLE_PLAN.pricePerMonth.toLocaleString("id-ID")}
-          </span>
-          /bulan — seluruh modul &amp; pengguna tak terbatas ({PLAN_LIMITS[tenant.plan].maxUsers === Number.MAX_SAFE_INTEGER ? "tanpa batas pengguna" : `${PLAN_LIMITS[tenant.plan].maxUsers} pengguna`}).
-        </p>
+        {legacy ? (
+          <p className="text-slate-500 dark:text-slate-400">
+            Sebagai pelanggan awal, akun Anda mendapat <span className="font-medium">akses semua modul</span> tanpa
+            perubahan harga. Terima kasih sudah bergabung sejak awal. 🙏
+          </p>
+        ) : null}
 
-        {b?.configured ? (
-          <div className="space-y-2">
-            {isOwner ? (
-              <Button onClick={() => checkout.mutate()} disabled={checkout.isPending}>
-                {checkout.isPending
-                  ? "Mengalihkan ke pembayaran…"
-                  : tenant.tenantStatus === "past_due"
-                    ? "Aktifkan kembali langganan"
-                    : tenant.tenantStatus === "trial"
-                      ? "Berlangganan sekarang"
-                      : "Perpanjang 1 bulan"}
-              </Button>
-            ) : (
-              <p className="text-slate-500 dark:text-slate-400">Hubungi Pemilik perusahaan untuk mengatur pembayaran langganan.</p>
-            )}
-            <p className="text-xs text-slate-400">
-              Pembayaran aman via Midtrans (QRIS, transfer bank, kartu, e-wallet). Akun aktif otomatis setelah pembayaran terkonfirmasi.
-            </p>
-          </div>
-        ) : (
+        {/* Pemilih paket (Fase 13b): kartu Starter / Business / Enterprise. */}
+        <div className="grid gap-3 sm:grid-cols-3">
+          {(["starter", "business", "enterprise"] as const).map((plan) => {
+            const info = PLAN_LIMITS[plan];
+            const current = tenant.plan === plan;
+            const popular = plan === "business";
+            return (
+              <div
+                key={plan}
+                className={`flex flex-col rounded-xl border p-3 ${
+                  current
+                    ? "border-brand-500 bg-brand-50/50 dark:border-brand-500 dark:bg-brand-950/30"
+                    : "border-slate-200 dark:border-slate-800"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-800 dark:text-slate-100">{info.label}</span>
+                  {popular ? <Badge tone="brand">Populer</Badge> : null}
+                </div>
+                <div className="mt-1 text-lg font-bold tabular-nums">
+                  Rp {info.pricePerMonth.toLocaleString("id-ID")}
+                  <span className="text-xs font-normal text-slate-400">/bln</span>
+                </div>
+                <ul className="mt-2 flex-1 space-y-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  <li>Pengguna tak terbatas</li>
+                  <li>
+                    {plan === "starter"
+                      ? "Akuntansi, penjualan, POS, stok, pajak"
+                      : plan === "business"
+                        ? "+ HR, proyek, manufaktur, pengadaan, CRM"
+                        : "+ multi-entitas, konsolidasi, API, keamanan"}
+                  </li>
+                  <li>AI {info.aiDailyLimit}/hari{info.maxEntities > 1 ? ` · ${info.maxEntities} entitas` : ""}</li>
+                </ul>
+                {b?.configured && isOwner && !current ? (
+                  <Button
+                    className="mt-2 h-8 w-full text-xs"
+                    variant={popular ? "primary" : "secondary"}
+                    onClick={() => checkout.mutate(plan)}
+                    disabled={checkout.isPending}
+                  >
+                    {checkout.isPending ? "Mengalihkan…" : "Pilih paket"}
+                  </Button>
+                ) : current ? (
+                  <div className="mt-2 text-center text-xs font-medium text-brand-600 dark:text-brand-400">Paket Anda</div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+
+        {!b?.configured ? (
           <p className="text-slate-500 dark:text-slate-400">
             Pembayaran langganan online sedang disiapkan — untuk saat ini hubungi kami untuk aktivasi paket.
+          </p>
+        ) : !isOwner ? (
+          <p className="text-slate-500 dark:text-slate-400">Hubungi Pemilik perusahaan untuk mengatur pembayaran langganan.</p>
+        ) : (
+          <p className="text-xs text-slate-400">
+            Pembayaran aman via Midtrans (QRIS, transfer bank, kartu, e-wallet). Akun aktif otomatis setelah pembayaran
+            terkonfirmasi. Tim &amp; grup perusahaan dapat menghubungi kami untuk penawaran khusus.
           </p>
         )}
 

@@ -151,6 +151,25 @@ export const SINGLE_PLAN_MODULES = [
   "Laporan lengkap + Excel",
 ];
 
+/**
+ * Perbandingan implisit per KATEGORI (Fase 13c) — tanpa menyebut merek. Kolom
+ * mewakili jenis solusi; pembaca tahu sendiri siapa yang dimaksud.
+ */
+export const CATEGORY_COMPARISON: { label: string; rows: string[] }[] = [
+  { label: "Biaya per pengguna", rows: ["—", "Naik per user", "Rp 300–400rb/user", "Lisensi mahal", "Rp 0 (tak terbatas)"] },
+  { label: "Modul operasional (HR, manufaktur, proyek)", rows: ["✗", "✗", "Add-on berbayar", "✓", "✓ (paket Business)"] },
+  { label: "Waktu sampai aktif", rows: ["—", "Beberapa hari", "Berminggu-minggu", "Berbulan-bulan", "Hari ini"] },
+  { label: "Biaya implementasi", rows: ["—", "—", "Jutaan", "Ratusan juta", "Mulai Rp 0 (mandiri)"] },
+  { label: "Multi-perusahaan + konsolidasi", rows: ["✗", "Terbatas", "Add-on", "✓", "✓ (paket Enterprise)"] },
+];
+export const CATEGORY_COMPARISON_HEADERS = [
+  "Spreadsheet",
+  "Software akuntansi",
+  "ERP per-pengguna",
+  "ERP konvensional",
+  "ERPindo",
+];
+
 export const SECURITY_POINTS: { title: string; desc: string }[] = [
   { title: "Database terpisah per perusahaan", desc: "Data Anda tidak bercampur dengan pengguna lain — setiap perusahaan berdiri di database sendiri." },
   { title: "Terenkripsi & jurnal terkunci", desc: "Seluruh lalu lintas lewat HTTPS, kredensial sensitif tersimpan terenkripsi, dan jurnal akuntansi permanen — dikoreksi lewat jurnal pembalik, tak pernah dihapus." },
@@ -161,7 +180,7 @@ export const SECURITY_POINTS: { title: string; desc: string }[] = [
 
 export const FAQ = [
   { q: "Apakah butuh kartu kredit untuk mencoba?", a: `Tidak. Uji coba ${TRIAL_DAYS} hari gratis dengan semua fitur — tanpa kartu kredit, siap dipakai dalam 1 menit.` },
-  { q: "Kenapa hanya ada satu paket harga?", a: "Karena kami percaya UMKM tidak perlu membanding-bandingkan tabel fitur. Satu harga — Rp 389.000 per bulan — sudah berisi seluruh modul dan pengguna tak terbatas. Tidak ada fitur yang dikunci di paket yang lebih mahal." },
+  { q: "Bagaimana pilihan paketnya?", a: "Ada tiga paket — Starter, Business, dan Enterprise — yang dibedakan oleh kedalaman modul dan jumlah entitas, BUKAN jumlah pengguna. Pengguna selalu tak terbatas di semua paket. Akuntansi inti (jurnal, faktur, POS, stok, pajak, laporan) tersedia di semua paket." },
   { q: "Bisakah melihat-lihat dulu tanpa mendaftar?", a: "Bisa. Klik \"Lihat Demo\" untuk masuk ke perusahaan contoh yang datanya sudah terisi lengkap — mode baca-saja, tanpa membuat akun." },
   { q: "Apakah data saya aman dan terpisah?", a: "Ya. Setiap perusahaan punya database sendiri (terisolasi), dilengkapi peran & hak akses, verifikasi dua langkah (2FA), audit log, dan tutup buku." },
   { q: "Bisakah mengelola beberapa perusahaan?", a: "Bisa — dari satu akun Anda dapat membuat beberapa badan usaha, lalu melihat laporan Laba Rugi & Neraca konsolidasi lintas perusahaan." },
@@ -169,7 +188,7 @@ export const FAQ = [
   { q: "Bisakah dipakai saat offline?", a: "Bisa. erpindo adalah PWA yang bisa dipasang di HP/tablet/komputer dan tetap terbuka saat koneksi terputus." },
   { q: "Berapa lama proses setup-nya?", a: "Daftar, verifikasi email, dan langsung pakai — bagan akun standar Indonesia sudah tersedia otomatis. Checklist 'Mulai cepat' memandu langkah pertama Anda." },
   { q: "Saya sudah punya data di Excel. Bisa dipindahkan?", a: "Bisa. Impor produk dan kontak dari berkas CSV/Excel dengan pratinjau & laporan per baris, jadi tidak perlu mengetik ulang." },
-  { q: "Bagaimana cara pembayaran langganan?", a: "Saat ini aktivasi paket dilakukan dengan menghubungi kami. Pembayaran online (QRIS/transfer/e-wallet) sedang disiapkan." },
+  { q: "Bagaimana cara pembayaran langganan?", a: "Pembayaran online via Midtrans (QRIS/transfer/kartu/e-wallet) — akun aktif otomatis setelah pembayaran terkonfirmasi. Untuk grup/holding atau butuh pendampingan implementasi, jadwalkan demo dan tim kami akan menghubungi Anda." },
   { q: "Bagaimana jika saya berhenti berlangganan?", a: "Data Anda tetap milik Anda. Akun beralih ke mode baca-saja dan Anda tetap bisa mengunduh seluruh data (ZIP berisi CSV per tabel) kapan pun." },
 ];
 

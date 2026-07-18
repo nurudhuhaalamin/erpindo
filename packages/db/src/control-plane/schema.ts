@@ -26,6 +26,8 @@ export const tenants = sqliteTable("tenants", {
   dbRef: text("db_ref").notNull(),
   status: text("status").notNull(),
   plan: text("plan").notNull().default("trial"),
+  /** Grandfather (Fase 13a): pelanggan lama harga tunggal → akses semua modul. */
+  legacyFullAccess: integer("legacy_full_access", { mode: "boolean" }).notNull().default(false),
   trialEndsAt: text("trial_ends_at"),
   schemaVersion: integer("schema_version").notNull().default(0),
   createdAt: text("created_at").notNull(),

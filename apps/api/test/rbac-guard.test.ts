@@ -38,6 +38,9 @@ const PUBLIC_ALLOWLIST = new Set([
   // Webhook notifikasi Midtrans (Fase 11b) — dipanggil server Midtrans, bukan
   // pengguna; diamankan lewat verifikasi tanda tangan SHA-512, bukan sesi.
   'billing.ts POST "/notification"',
+  // Permintaan demo dari landing (Fase 13c) — publik (calon pelanggan belum
+  // punya akun); diamankan lewat rate-limit per IP, bukan sesi.
+  'demo.ts POST "/"',
 ]);
 
 /** Endpoint ber-requireAuth yang memang tanpa role gate: ber-scope user

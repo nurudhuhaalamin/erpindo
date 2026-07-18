@@ -9,6 +9,7 @@ import { aiRoutes } from "./routes/ai";
 import { approvalEngineRoutes } from "./routes/approvalsEngine";
 import { assetRoutes, runDepreciation } from "./routes/assets";
 import { adminRoutes, feedbackRoutes } from "./routes/admin";
+import { demoRoutes } from "./routes/demo";
 import { authRoutes } from "./routes/auth";
 import { billingRoutes, billingWebhookRoutes } from "./routes/billing";
 import { blogRoutes } from "./routes/blog";
@@ -43,6 +44,7 @@ import { exportRoutes } from "./routes/export";
 import { orgStructureRoutes } from "./routes/orgStructure";
 import { previousMonth, runMonthlyRecap, scheduledReportsRoutes } from "./routes/scheduledReports";
 import { inviteRoutes, tenantRoutes } from "./routes/tenants";
+import { enforcePlanByPath } from "./middleware/auth";
 
 /**
  * Worker utama erpindo: API Hono di bawah /api/*, sisanya SPA dari binding
@@ -89,6 +91,9 @@ const app = new Hono<AppEnv>()
     await ensureMigrated(c.env);
     await next();
   })
+  // Penegakan paket langganan (Fase 13b): satu gerbang untuk semua rute tenant —
+  // segmen path yang tergolong modul berpaket ditolak 403 bila paket tak cukup.
+  .use("/api/tenants/:tenantId/*", enforcePlanByPath)
   .get("/api/health", (c) => c.json({ ok: true, service: "erpindo", time: new Date().toISOString() }))
   .route("/api/auth/google", googleAuthRoutes)
   .route("/api/auth", authRoutes)
@@ -129,6 +134,7 @@ const app = new Hono<AppEnv>()
   .route("/api/billing", billingWebhookRoutes)
   .route("/api/admin", adminRoutes)
   .route("/api/feedback", feedbackRoutes)
+  .route("/api/demo-requests", demoRoutes)
   .route("/", blogRoutes)
   .route("/api/tenants", helpdeskRoutes)
   .route("/api/consolidation", consolidationRoutes)

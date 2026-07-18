@@ -129,26 +129,146 @@ export const PLANS = ["trial", "starter", "business", "enterprise"] as const;
 export type Plan = (typeof PLANS)[number];
 
 /**
- * Fase 10b: satu harga untuk semua — paket "Lengkap" Rp389.000/bulan berisi
- * SELURUH fitur tanpa batas pengguna. Nilai enum kolom `plan` lama TIDAK
- * diubah (aman untuk data yang sudah ada); semua nilai berbayar kini dilabeli
- * dan dihargai sama.
+ * Fase 13a: pemaketan 4 tingkat. Harga per bulan per perusahaan; pengguna
+ * SELALU tak terbatas di semua paket (pembeda utama vs ERP per-user). Tier
+ * dibedakan oleh kedalaman operasional, jumlah entitas, dan kuota AI — TIDAK
+ * PERNAH oleh jumlah user, dan TIDAK memotong akuntansi inti. Trial = akses
+ * penuh 30 hari (rasa Enterprise) untuk konversi terbaik.
+ *
+ * SEMUA nilai keputusan bisnis terpusat di sini — menggeser modul antar paket
+ * cukup mengubah satu baris di MODULE_MIN_PLAN.
+ */
+export const PLAN_LIMITS: Record<
+  Plan,
+  { label: string; pricePerMonth: number; aiDailyLimit: number; maxEntities: number; maxUsers: number }
+> = {
+  trial: { label: "Trial", pricePerMonth: 0, aiDailyLimit: 100, maxEntities: 1, maxUsers: Number.MAX_SAFE_INTEGER },
+  starter: { label: "Starter", pricePerMonth: 499_000, aiDailyLimit: 25, maxEntities: 1, maxUsers: Number.MAX_SAFE_INTEGER },
+  business: { label: "Business", pricePerMonth: 999_000, aiDailyLimit: 100, maxEntities: 1, maxUsers: Number.MAX_SAFE_INTEGER },
+  enterprise: { label: "Enterprise", pricePerMonth: 2_499_000, aiDailyLimit: 250, maxEntities: 3, maxUsers: Number.MAX_SAFE_INTEGER },
+};
+
+/** Biaya per entitas tambahan di atas kuota paket Enterprise (Fase 13a). */
+export const EXTRA_ENTITY_PRICE = 750_000;
+
+export const PLAN_LABELS: Record<Plan, string> = {
+  trial: PLAN_LIMITS.trial.label,
+  starter: PLAN_LIMITS.starter.label,
+  business: PLAN_LIMITS.business.label,
+  enterprise: PLAN_LIMITS.enterprise.label,
+};
+
+/** Paket berbayar yang bisa dibeli (trial tidak dijual). */
+export const PAID_PLANS = ["starter", "business", "enterprise"] as const;
+export type PaidPlan = (typeof PAID_PLANS)[number];
+
+/**
+ * Alias kompatibilitas (deprecated): billing lama memakai satu harga Rp389rb.
+ * Dipertahankan agar billing.ts belum berubah di Fase 13a; billing 4 paket
+ * (Fase 13b) mengganti pemakaiannya dengan harga per-paket dari PLAN_LIMITS.
  */
 export const SINGLE_PLAN = { label: "Lengkap", pricePerMonth: 389_000 } as const;
 
-export const PLAN_LABELS: Record<Plan, string> = {
-  trial: "Trial",
-  starter: SINGLE_PLAN.label,
-  business: SINGLE_PLAN.label,
-  enterprise: SINGLE_PLAN.label,
+// ---------------------------------------------------------------------------
+// Peta modul → paket minimum (Fase 13a). Modul yang TIDAK terdaftar di sini
+// termasuk INTI dan tersedia di semua paket (akuntansi, penjualan/pembelian,
+// POS, stok, kas & bank, laporan, pajak, master data). Yang terdaftar butuh
+// paket minimal tertentu; di bawahnya API menolak 403 `plan-upgrade-required`.
+// ---------------------------------------------------------------------------
+export const MODULE_KEYS = [
+  // Operasional — minimal Business
+  "payroll",
+  "attendance",
+  "manufacturing",
+  "projects",
+  "procurement",
+  "approvals",
+  "customRoles",
+  "crm",
+  "maintenance",
+  "helpdesk",
+  "salesStaged",
+  "currency",
+  "contracts",
+  "scheduledReports",
+  "driveBackup",
+  "orgStructure",
+  // Skala — minimal Enterprise
+  "consolidation",
+  "dimensions",
+  "apiAccess",
+  "advancedSecurity",
+] as const;
+export type ModuleKey = (typeof MODULE_KEYS)[number];
+
+export const MODULE_MIN_PLAN: Record<ModuleKey, Plan> = {
+  payroll: "business",
+  attendance: "business",
+  manufacturing: "business",
+  projects: "business",
+  procurement: "business",
+  approvals: "business",
+  customRoles: "business",
+  crm: "business",
+  maintenance: "business",
+  helpdesk: "business",
+  salesStaged: "business",
+  currency: "business",
+  contracts: "business",
+  scheduledReports: "business",
+  driveBackup: "business",
+  orgStructure: "business",
+  consolidation: "enterprise",
+  dimensions: "enterprise",
+  apiAccess: "enterprise",
+  advancedSecurity: "enterprise",
 };
 
-export const PLAN_LIMITS: Record<Plan, { maxUsers: number; pricePerMonth: number }> = {
-  trial: { maxUsers: Number.MAX_SAFE_INTEGER, pricePerMonth: 0 },
-  starter: { maxUsers: Number.MAX_SAFE_INTEGER, pricePerMonth: SINGLE_PLAN.pricePerMonth },
-  business: { maxUsers: Number.MAX_SAFE_INTEGER, pricePerMonth: SINGLE_PLAN.pricePerMonth },
-  enterprise: { maxUsers: Number.MAX_SAFE_INTEGER, pricePerMonth: SINGLE_PLAN.pricePerMonth },
+export const MODULE_LABELS: Record<ModuleKey, string> = {
+  payroll: "HR & Penggajian",
+  attendance: "Absensi",
+  manufacturing: "Manufaktur",
+  projects: "Proyek",
+  procurement: "Pengadaan",
+  approvals: "Persetujuan berjenjang",
+  customRoles: "Peran kustom (RBAC)",
+  crm: "CRM",
+  maintenance: "Pemeliharaan aset",
+  helpdesk: "Helpdesk",
+  salesStaged: "Penjualan bertahap (SO/DO)",
+  currency: "Multi mata uang",
+  contracts: "Kontrak berulang",
+  scheduledReports: "Laporan terjadwal",
+  driveBackup: "Backup Google Drive",
+  orgStructure: "Struktur organisasi",
+  consolidation: "Konsolidasi multi-perusahaan",
+  dimensions: "Dimensi / cost center",
+  apiAccess: "API publik & webhook",
+  advancedSecurity: "Keamanan lanjutan (2FA wajib, IP)",
 };
+
+/**
+ * Peringkat akses paket. Trial disamakan dengan Enterprise (akses penuh 30 hari).
+ * Bukan urutan harga — melainkan urutan cakupan fitur.
+ */
+const PLAN_ACCESS_RANK: Record<Plan, number> = { starter: 1, business: 2, enterprise: 3, trial: 3 };
+
+/** Apakah paket mencakup modul tertentu. Modul inti (tak terdaftar) selalu true. */
+export function planIncludesModule(plan: Plan, module: ModuleKey): boolean {
+  const min = MODULE_MIN_PLAN[module];
+  if (!min) return true;
+  return PLAN_ACCESS_RANK[plan] >= PLAN_ACCESS_RANK[min];
+}
+
+/** Paket berbayar minimum yang membuka modul (untuk pesan upsell). */
+export function minPlanForModule(module: ModuleKey): Plan {
+  return MODULE_MIN_PLAN[module] ?? "starter";
+}
+
+/** Daftar modul yang tersedia pada suatu paket (dipakai UI untuk badge/upsell). */
+export function modulesForPlan(plan: Plan): ModuleKey[] {
+  return MODULE_KEYS.filter((m) => planIncludesModule(plan, m));
+}
 
 // ---------------------------------------------------------------------------
 // Skema validasi bersama (dipakai form web & endpoint API)
@@ -279,8 +399,61 @@ export type BillingStatus = {
   status: TenantStatus;
   trialEndsAt: string | null;
   subscriptionEndsAt: string | null;
+  /** Harga paket saat ini (0 bila trial). Katalog paket dibaca UI dari PLAN_LIMITS. */
   pricePerMonth: number;
+  /** Grandfather: pelanggan lama harga tunggal → akses penuh walau paketnya starter/business. */
+  legacyFullAccess: boolean;
   invoices: ApiSubscriptionInvoice[];
+};
+
+/** Pilih paket berbayar yang akan di-checkout (Fase 13b). */
+export const checkoutSchema = z.object({
+  plan: z.enum(PAID_PLANS),
+});
+export type CheckoutInput = z.infer<typeof checkoutSchema>;
+
+/** Set paket tenant manual oleh platform admin (Fase 13b). */
+export const setTenantPlanSchema = z.object({
+  plan: z.enum(PLANS),
+  status: z.enum(["trial", "active", "past_due", "suspended", "provisioning"]).optional(),
+  legacyFullAccess: z.boolean().optional(),
+});
+export type SetTenantPlanInput = z.infer<typeof setTenantPlanSchema>;
+
+/**
+ * Kalkulator perbandingan implisit (Fase 13c): asumsi biaya ERP per-pengguna
+ * (kategori, tanpa menyebut merek) untuk menonjolkan bahwa ERPindo TIDAK
+ * menagih per user. Nilai konservatif Rp350rb/pengguna/bulan.
+ */
+export const ASSUMED_PER_USER_PRICE = 350_000;
+
+/** Estimasi biaya bulanan sistem ERP per-pengguna untuk N pengguna. */
+export function perUserMonthlyCost(users: number, pricePerUser = ASSUMED_PER_USER_PRICE): number {
+  const n = Math.max(0, Math.floor(users));
+  return n * pricePerUser;
+}
+
+/** Permintaan demo/kontak dari landing (Fase 13c) — motion sales-assisted. */
+export const demoRequestSchema = z.object({
+  name: z.string().trim().min(2, "Nama minimal 2 karakter").max(100),
+  company: z.string().trim().min(2, "Nama perusahaan minimal 2 karakter").max(120),
+  email: emailSchema,
+  phone: z.string().trim().max(30).optional(),
+  employees: z.string().trim().max(40).optional(),
+  message: z.string().trim().max(1000).optional(),
+});
+export type DemoRequestInput = z.infer<typeof demoRequestSchema>;
+
+export type ApiDemoRequest = {
+  id: string;
+  name: string;
+  company: string;
+  email: string;
+  phone: string | null;
+  employees: string | null;
+  message: string | null;
+  status: string;
+  createdAt: string;
 };
 
 // --- Payment collection + WhatsApp share (Fase 11d) ------------------------

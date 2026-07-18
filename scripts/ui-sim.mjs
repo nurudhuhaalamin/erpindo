@@ -54,7 +54,22 @@ makeDevConfig();
 console.log(`Menyiapkan wrangler dev di :${PORT} (persist ${persistDir})...`);
 const dev = spawn(
   "pnpm",
-  ["exec", "wrangler", "dev", "-c", "../../wrangler.dev.jsonc", "--port", String(PORT), "--persist-to", persistDir, "--show-interactive-dev-session=false"],
+  [
+    "exec",
+    "wrangler",
+    "dev",
+    "-c",
+    "../../wrangler.dev.jsonc",
+    "--port",
+    String(PORT),
+    "--persist-to",
+    persistDir,
+    "--show-interactive-dev-session=false",
+    // Akun demo publik (Fase 13b): comped → aktif permanen + kebal pagar trial,
+    // sehingga seed bisa membuat perusahaan kedua (PT Demo Sejahtera).
+    "--var",
+    `COMPED_EMAILS:${EMAIL}`,
+  ],
   { cwd: path.join(ROOT, "apps/api"), stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, CI: "1" } },
 );
 dev.stdout.on("data", () => {});
@@ -544,7 +559,14 @@ try {
   check("F19 Pengaturan memakai bilah tab (role=tablist)", (await page.locator('[role="tablist"]').count()) >= 1);
   await page.getByRole("tab", { name: "Perusahaan" }).click();
   await page.waitForTimeout(400);
-  check("F19 tab Perusahaan menampilkan kartu Profil perusahaan", (await page.innerText("body")).includes("Profil perusahaan"));
+  const perusahaanBody = await page.innerText("body");
+  check("F19 tab Perusahaan menampilkan kartu Profil perusahaan", perusahaanBody.includes("Profil perusahaan"));
+  // Fase 13b: kartu 3 paket di Langganan (Starter/Business/Enterprise + harga).
+  check(
+    "F19 Langganan menampilkan 3 paket (Starter/Business/Enterprise + harga Rp999.000)",
+    perusahaanBody.includes("Starter") && perusahaanBody.includes("Business") && perusahaanBody.includes("Enterprise") && /Rp\s?999\.000/.test(perusahaanBody),
+    `→ ${/Rp\s?999\.000/.test(perusahaanBody)}`,
+  );
 
   await gotoRoute("/app/hr/penggajian", 900);
   check("F19 Penggajian bertab: default tab Karyawan (form #emp-name)", (await page.locator("#emp-name").count()) === 1);
@@ -560,17 +582,30 @@ try {
   check("F19 kalkulator PPh 21 TER menampilkan tarif efektif", (await page.innerText("body")).includes("Tarif efektif"));
   check("F19 alur Fase 10g bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
 
-  // F15 — Fase 10b: landing harga tunggal + masuk mode demo tanpa daftar.
+  // F15 — landing harga 3 paket (Fase 13c) + masuk mode demo tanpa daftar.
   // Dijalankan TERAKHIR karena tombol demo mengganti cookie sesi konteks ini.
-  console.log("3. Landing harga tunggal & mode demo (Fase 10b)");
+  console.log("3. Landing harga 3 paket & mode demo (Fase 13c)");
   resetErrors();
   await gotoRoute("/", 600);
   const landingText = (await page.innerText("body")).replace(/\u00A0/g, " ");
   check(
-    "F15 landing menampilkan harga tunggal Rp 389.000",
-    /Rp\s?389\.000/.test(landingText),
-    `→ tidak ditemukan di landing`,
+    "F15 landing menampilkan 3 paket (Starter/Business/Enterprise + Rp999.000)",
+    landingText.includes("Starter") && landingText.includes("Business") && landingText.includes("Enterprise") && /Rp\s?999\.000/.test(landingText),
+    `→ harga 3 paket tidak lengkap`,
   );
+  check(
+    "F15 landing memuat kalkulator per-pengguna + perbandingan kategori",
+    landingText.includes("per pengguna") && landingText.includes("ERPindo"),
+  );
+  // Form Jadwalkan Demo (Fase 13c): isi + kirim -> konfirmasi.
+  await page.locator('input[aria-label="Nama"]').fill("Uji Sim");
+  await page.locator('input[aria-label="Perusahaan"]').fill("PT Uji Simulasi");
+  await page.locator('input[aria-label="Email"]').fill("uji.demo@contoh.co.id");
+  const demoPost = postDone("/demo-requests");
+  await page.getByRole("button", { name: "Kirim permintaan demo" }).click();
+  await demoPost;
+  await page.getByText("Terima kasih!").first().waitFor({ timeout: 10_000 });
+  check("F15 form Jadwalkan Demo terkirim (201 + konfirmasi)", true);
   const demoButtons = await page.getByRole("button", { name: /Lihat Demo/ }).count();
   check("F15 landing memuat tombol 'Lihat Demo'", demoButtons >= 1, `→ ${demoButtons} tombol`);
   await page.getByRole("button", { name: /Lihat Demo/ }).first().click();

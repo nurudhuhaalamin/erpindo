@@ -1,4 +1,15 @@
-import { PRESET_PERMISSIONS, ROLE_LEVEL, type PermissionKey, type Role } from "@erpindo/shared";
+import {
+  MODULE_LABELS,
+  minPlanForModule,
+  PLAN_LABELS,
+  planIncludesModule,
+  PRESET_PERMISSIONS,
+  ROLE_LEVEL,
+  type ModuleKey,
+  type PermissionKey,
+  type Plan,
+  type Role,
+} from "@erpindo/shared";
 import { getCookie } from "hono/cookie";
 import type { MiddlewareHandler } from "hono";
 import type { AppEnv } from "../env";
@@ -73,12 +84,12 @@ export function requireTenantRole(minRole: Role): MiddlewareHandler<AppEnv> {
 
     const user = c.get("user");
     const row = await c.env.DB.prepare(
-      `SELECT t.id, t.name, t.slug, t.db_ref, t.status, t.schema_version, m.role
+      `SELECT t.id, t.name, t.slug, t.db_ref, t.status, t.plan, t.legacy_full_access, t.schema_version, m.role
        FROM memberships m JOIN tenants t ON t.id = m.tenant_id
        WHERE m.user_id = ? AND m.tenant_id = ?`,
     )
       .bind(user.id, tenantId)
-      .first<{ id: string; name: string; slug: string; db_ref: string; status: string; schema_version: number; role: Role }>();
+      .first<{ id: string; name: string; slug: string; db_ref: string; status: string; plan: Plan; legacy_full_access: number; schema_version: number; role: Role }>();
 
     if (!row) return c.json({ error: "Anda bukan anggota perusahaan ini." }, 403);
     if (row.status === "suspended") {
@@ -116,10 +127,112 @@ export function requireTenantRole(minRole: Role): MiddlewareHandler<AppEnv> {
       dbRef: row.db_ref,
       status: row.status,
       role: row.role,
+      plan: row.plan,
+      legacyFullAccess: row.legacy_full_access === 1,
     });
     await next();
   };
 }
+
+/**
+ * Penegakan paket langganan (Fase 13a). Modul operasional/skala hanya terbuka
+ * pada paket yang mencakupnya; di bawahnya → 403 `plan-upgrade-required` berisi
+ * paket minimum (dipakai UI untuk kartu upsell, bukan error keras).
+ *
+ * Bersifat ADITIF & tidak membocorkan info: hanya menambahkan penolakan paket.
+ * Semua urusan auth/keanggotaan/read-only diserahkan ke requireTenantRole yang
+ * berjalan setelahnya (via planGated) — sesi buruk / bukan anggota jatuh ke
+ * pesan standarnya, bukan ke pesan paket.
+ */
+export function requirePlanModule(module: ModuleKey): MiddlewareHandler<AppEnv> {
+  return async (c, next) => {
+    const tenantId = c.req.param("tenantId");
+    const raw = getCookie(c, SESSION_COOKIE);
+    if (!tenantId || !raw) return next();
+
+    const sessionId = await sha256Hex(raw);
+    const row = await c.env.DB.prepare(
+      `SELECT t.plan, t.legacy_full_access, s.expires_at
+       FROM sessions s
+       JOIN memberships m ON m.user_id = s.user_id
+       JOIN tenants t ON t.id = m.tenant_id
+       WHERE s.id = ? AND m.tenant_id = ?`,
+    )
+      .bind(sessionId, tenantId)
+      .first<{ plan: Plan; legacy_full_access: number; expires_at: string }>();
+
+    // Sesi tak valid / bukan anggota → biarkan requireTenantRole yang menjawab.
+    if (!row || new Date(row.expires_at).getTime() < Date.now()) return next();
+    if (row.legacy_full_access === 1) return next();
+    if (!planIncludesModule(row.plan, module)) {
+      return c.json(
+        {
+          error: `Modul ${MODULE_LABELS[module]} tersedia mulai paket ${PLAN_LABELS[minPlanForModule(module)]}. Tingkatkan paket untuk membukanya.`,
+          detail: "plan-upgrade-required",
+          module,
+          requiredPlan: minPlanForModule(module),
+        },
+        403,
+      );
+    }
+    await next();
+  };
+}
+
+/**
+ * Peta segmen path pertama (setelah /api/tenants/:tenantId/) → modul berpaket.
+ * Segmen yang TIDAK ada di sini = modul inti (tersedia semua paket). Sengaja
+ * hanya memetakan segmen spesifik agar tidak menabrak rute inti — mis. segmen
+ * "reports" milik laporan inti TIDAK dipetakan (endpoint dimensi hanya
+ * cost-centers & bank-match-rules yang digerbangi).
+ */
+const MODULE_ROUTE_PREFIXES: Record<string, ModuleKey> = {
+  // payroll (Business)
+  employees: "payroll",
+  "payroll-runs": "payroll",
+  "payroll-adjustments": "payroll",
+  "employee-loans": "payroll",
+  "leave-requests": "payroll",
+  attendance: "attendance",
+  // operasional lain (Business)
+  crm: "crm",
+  leads: "crm",
+  quotations: "crm",
+  projects: "projects",
+  requisitions: "procurement",
+  "purchase-orders": "procurement",
+  "goods-receipts": "procurement",
+  "approval-flows": "approvals",
+  "approval-rules": "approvals",
+  "sales-orders": "salesStaged",
+  boms: "manufacturing",
+  "production-orders": "manufacturing",
+  "work-centers": "manufacturing",
+  maintenance: "maintenance",
+  tickets: "helpdesk",
+  contracts: "contracts",
+  currencies: "currency",
+  "report-snapshots": "scheduledReports",
+  departments: "orgStructure",
+  "org-chart": "orgStructure",
+  drive: "driveBackup",
+  // skala (Enterprise)
+  "cost-centers": "dimensions",
+  "bank-match-rules": "dimensions",
+};
+
+/**
+ * Penegakan paket berbasis path (Fase 13b). SATU middleware global di
+ * `/api/tenants/:tenantId/*`: memetakan segmen path ke modul lalu memanggil
+ * requirePlanModule bila modul berpaket. Menggantikan pembungkus per-router
+ * yang bocor (pola `/:tenantId/*` menangkap rute modul lain).
+ */
+export const enforcePlanByPath: MiddlewareHandler<AppEnv> = async (c, next) => {
+  const segment = c.req.path.split("/")[4] ?? ""; // ["", "api", "tenants", id, segment, ...]
+  const module = MODULE_ROUTE_PREFIXES[segment];
+  if (!module) return next();
+  return requirePlanModule(module)(c, next);
+};
 
 /**
  * Izin modul efektif seorang anggota (Fase 7e). Owner selalu penuh; anggota

@@ -129,6 +129,8 @@ import type {
   MarketplaceImportInput,
   ApiMarketplaceOrder,
   FeedbackInput,
+  DemoRequestInput,
+  ApiDemoRequest,
   BlogPostInput,
   ProductInput,
   QuotationStatusInput,
@@ -216,11 +218,15 @@ export const api = {
   // --- Dukungan/masukan + admin platform + blog (Fase 10e) -------------------
   // Billing langganan Midtrans (Fase 11b).
   billing: (tenantId: string) => request<BillingStatus>("GET", `/api/tenants/${tenantId}/billing`),
-  billingCheckout: (tenantId: string) =>
-    request<{ orderId: string; redirectUrl: string }>("POST", `/api/tenants/${tenantId}/billing/checkout`),
+  billingCheckout: (tenantId: string, plan: "starter" | "business" | "enterprise") =>
+    request<{ orderId: string; redirectUrl: string }>("POST", `/api/tenants/${tenantId}/billing/checkout`, { plan }),
 
   submitFeedback: (input: FeedbackInput) => request<{ ok: true; id: string }>("POST", "/api/feedback", input),
   myFeedback: () => request<{ feedback: ApiFeedback[] }>("GET", "/api/feedback/mine"),
+  submitDemoRequest: (input: DemoRequestInput) =>
+    request<{ ok: true; id: string }>("POST", "/api/demo-requests", input),
+  adminDemoRequests: () =>
+    request<{ demoRequests: ApiDemoRequest[] }>("GET", "/api/admin/demo-requests"),
   adminOverview: () =>
     request<{
       totals: { users: number; tenants: number; feedbackBaru: number };

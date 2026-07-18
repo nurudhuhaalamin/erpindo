@@ -212,6 +212,42 @@ export const CONTROL_PLANE_MIGRATIONS: Migration[] = [
       `CREATE INDEX idx_payment_links_invoice ON payment_links (tenant_id, invoice_id)`,
     ],
   },
+  {
+    // Fase 13a: paket 4 tingkat. `legacy_full_access` menandai pelanggan lama
+    // (harga tunggal Rp389rb) agar tetap punya akses semua modul walau paketnya
+    // "starter/business" — grandfather, tidak boleh diturunkan paksa.
+    id: "0010_plan_tiers",
+    statements: [
+      `ALTER TABLE tenants ADD COLUMN legacy_full_access INTEGER NOT NULL DEFAULT 0`,
+      // Semua tenant berbayar yang sudah ada saat migrasi ini berjalan = pelanggan
+      // lama → beri akses penuh permanen.
+      `UPDATE tenants SET legacy_full_access = 1 WHERE plan IN ('starter','business','enterprise')`,
+    ],
+  },
+  {
+    // Fase 13b: checkout memilih paket → paket yang dibeli disimpan di invoice
+    // agar webhook mengaktifkan paket yang tepat (bukan mewarisi paket lama).
+    id: "0011_invoice_plan",
+    statements: [`ALTER TABLE subscription_invoices ADD COLUMN plan TEXT NOT NULL DEFAULT 'business'`],
+  },
+  {
+    // Fase 13c: permintaan demo/kontak dari landing (motion sales-assisted).
+    id: "0012_demo_requests",
+    statements: [
+      `CREATE TABLE demo_requests (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        company TEXT NOT NULL,
+        email TEXT NOT NULL,
+        phone TEXT,
+        employees TEXT,
+        message TEXT,
+        status TEXT NOT NULL DEFAULT 'baru',
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX idx_demo_requests_created ON demo_requests (created_at)`,
+    ],
+  },
 ];
 
 /**
