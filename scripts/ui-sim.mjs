@@ -180,6 +180,19 @@ try {
   check("workspace aktif menampilkan PT Demo Sejahtera", (await page.innerText("body")).includes("PT Demo Sejahtera"));
   check("login & pindah workspace tanpa galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
 
+  // Quick wins dashboard (Fase 12d): KPI Laba, filter rentang grafik, KPI klik-tembus.
+  resetErrors();
+  const dashBody = await page.innerText("body");
+  check("dashboard memuat KPI 'Laba Bulan Ini' (Fase 12d)", dashBody.includes("Laba Bulan Ini"));
+  await page.getByRole("button", { name: "7 hari", exact: true }).click();
+  await page.getByText("Penjualan 7 hari terakhir").first().waitFor({ timeout: 10_000 });
+  check("filter grafik 7/30/90: klik '7 hari' → judul & grafik ikut", true);
+  await page.getByLabel("Kas & Bank — buka laporan sumber").click();
+  await page.waitForURL("**/app/keuangan/kas-bank", { timeout: 15_000 });
+  check("kartu KPI Kas & Bank bisa diklik → halaman Kas & Bank", true);
+  check("quick wins dashboard bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
+  await gotoRoute("/app", 600);
+
   // -------------------------------------------------------------------------
   // 1. Sapu semua rute: render + bebas galat.
   // -------------------------------------------------------------------------

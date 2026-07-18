@@ -116,6 +116,9 @@ export type ApiDashboard = {
   payableOutstanding: number;
   inventoryValue: number;
   openLeadsCount: number;
+  /** Laba bersih bulan berjalan & bulan lalu dari jurnal terposting (Fase 12d). */
+  profitThisMonth: number;
+  profitLastMonth: number;
 };
 
 // ---------------------------------------------------------------------------

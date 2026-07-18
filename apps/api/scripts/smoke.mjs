@@ -609,6 +609,25 @@ try {
   );
   check("dashboard: kas & bank 52.999.500", dash.json?.cashAndBank === 52_999_500, `→ ${dash.json?.cashAndBank}`);
   check("dashboard: memuat penjualan bulan lalu (untuk delta)", typeof dash.json?.salesLastMonth === "number");
+  // KPI Laba Bulan Ini (Fase 12d): dari jurnal terposting, konsisten dengan laba rugi.
+  check(
+    "dashboard: laba bulan ini & bulan lalu (Fase 12d) berupa angka",
+    typeof dash.json?.profitThisMonth === "number" && typeof dash.json?.profitLastMonth === "number",
+    `→ ${JSON.stringify({ cur: dash.json?.profitThisMonth, prev: dash.json?.profitLastMonth })}`,
+  );
+  {
+    // Konsistensi (bebas-jam): laba bulan ini di dashboard = netProfit laporan
+    // laba rugi untuk bulan kalender berjalan.
+    const now = new Date();
+    const mFrom = `${now.toISOString().slice(0, 7)}-01`;
+    const mTo = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+    const plCur = await owner("GET", `/api/tenants/${tenantId}/reports/income-statement?from=${mFrom}&to=${mTo}`);
+    check(
+      "dashboard: laba bulan ini konsisten dengan laporan laba rugi",
+      plCur.status === 200 && dash.json?.profitThisMonth === plCur.json?.netProfit,
+      `→ dashboard ${dash.json?.profitThisMonth} vs L/R ${plCur.json?.netProfit}`,
+    );
+  }
 
   const viewerPl = await viewer(
     "GET",
@@ -3212,6 +3231,11 @@ try {
   );
   const duTrendClamp = await owner("GET", `/api/tenants/${tenantId}/reports/sales-daily?days=999`);
   check("parameter days di-clamp maksimal 90", duTrendClamp.json?.days === 90);
+  // Filter rentang grafik dashboard (Fase 12d): 7 hari valid, di bawahnya di-clamp.
+  const duTrend7 = await owner("GET", `/api/tenants/${tenantId}/reports/sales-daily?days=7`);
+  check("rentang 7 hari diterima apa adanya", duTrend7.status === 200 && duTrend7.json?.days === 7);
+  const duTrendMin = await owner("GET", `/api/tenants/${tenantId}/reports/sales-daily?days=1`);
+  check("parameter days di-clamp minimal 7", duTrendMin.json?.days === 7);
   const duTrendViewer = await viewer("GET", `/api/tenants/${tenantId}/reports/sales-daily`);
   check("viewer boleh membaca tren penjualan (200)", duTrendViewer.status === 200);
 

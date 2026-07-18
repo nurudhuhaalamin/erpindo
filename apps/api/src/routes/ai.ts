@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { AppEnv, Env } from "../env";
 import { pickRelevant } from "../lib/guideKnowledge";
+import { monthStart, profitLoss } from "../lib/reports";
 import { getTenantDb } from "../lib/tenantDb";
 import { requireAuth, requireTenantRole } from "../middleware/auth";
 
@@ -259,31 +260,9 @@ export const aiRoutes = new Hono<AppEnv>()
  * piutang, hutang. Dikembalikan sebagai teks ringkas berbahasa Indonesia.
  */
 async function buildReportSnapshot(db: ReturnType<typeof getTenantDb>): Promise<string> {
-  const now = new Date();
-  const monthStart = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
-  const curStart = monthStart(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)));
-  const nextStart = monthStart(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)));
-  const prevStart = monthStart(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)));
-
-  const pl = async (from: string, to: string) => {
-    const { results } = await db
-      .prepare(
-        `SELECT a.type AS type, SUM(jl.debit) AS d, SUM(jl.credit) AS cr
-         FROM journal_lines jl JOIN accounts a ON a.id = jl.account_id
-         JOIN journal_entries e ON e.id = jl.entry_id
-         WHERE e.status = 'posted' AND e.entry_date >= ? AND e.entry_date < ?
-         GROUP BY a.type`,
-      )
-      .bind(from, to)
-      .all<{ type: string; d: number; cr: number }>();
-    let income = 0;
-    let expense = 0;
-    for (const r of results) {
-      if (r.type === "income") income += (r.cr ?? 0) - (r.d ?? 0);
-      else if (r.type === "expense") expense += (r.d ?? 0) - (r.cr ?? 0);
-    }
-    return { income, expense, profit: income - expense };
-  };
+  const curStart = monthStart(0);
+  const nextStart = monthStart(1);
+  const prevStart = monthStart(-1);
 
   const { results: bal } = await db
     .prepare(
@@ -296,7 +275,7 @@ async function buildReportSnapshot(db: ReturnType<typeof getTenantDb>): Promise<
     .all<{ code: string; name: string; bal: number }>();
   const balByCode = new Map(bal.map((b) => [b.code, b.bal ?? 0]));
 
-  const [cur, prev] = await Promise.all([pl(curStart, nextStart), pl(prevStart, curStart)]);
+  const [cur, prev] = await Promise.all([profitLoss(db, curStart, nextStart), profitLoss(db, prevStart, curStart)]);
   const rp = (n: number) => `Rp ${Math.round(n).toLocaleString("id-ID")}`;
   const cash = (balByCode.get("1-1000") ?? 0) + (balByCode.get("1-1100") ?? 0);
   const ar = balByCode.get("1-1200") ?? 0;

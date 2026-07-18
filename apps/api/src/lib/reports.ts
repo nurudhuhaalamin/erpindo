@@ -112,3 +112,39 @@ export async function computeBalanceSheet(db: SqlExecutor, asOf: string): Promis
     balanced: totalAssets === totalLiabilities + totalEquity,
   };
 }
+
+/**
+ * Agregasi laba-rugi ringan (grup per tipe akun, tanpa rincian per akun) untuk
+ * rentang [from, to) — dipakai KPI "Laba Bulan Ini" di dashboard dan grounding
+ * AI laporan (dipindah dari routes/ai.ts pada Fase 12d).
+ */
+export async function profitLoss(
+  db: SqlExecutor,
+  from: string,
+  to: string,
+): Promise<{ income: number; expense: number; profit: number }> {
+  const { results } = await db
+    .prepare(
+      `SELECT a.type AS type, SUM(jl.debit) AS d, SUM(jl.credit) AS cr
+       FROM journal_lines jl JOIN accounts a ON a.id = jl.account_id
+       JOIN journal_entries e ON e.id = jl.entry_id
+       WHERE e.status = 'posted' AND e.entry_date >= ? AND e.entry_date < ?
+       GROUP BY a.type`,
+    )
+    .bind(from, to)
+    .all<{ type: string; d: number; cr: number }>();
+  let income = 0;
+  let expense = 0;
+  for (const r of results) {
+    if (r.type === "income") income += (r.cr ?? 0) - (r.d ?? 0);
+    else if (r.type === "expense") expense += (r.d ?? 0) - (r.cr ?? 0);
+  }
+  return { income, expense, profit: income - expense };
+}
+
+/** Tanggal 1 bulan (UTC) dengan offset bulan dari sekarang, format YYYY-MM-DD. */
+export function monthStart(offsetMonths = 0): string {
+  const now = new Date();
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offsetMonths, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
+}

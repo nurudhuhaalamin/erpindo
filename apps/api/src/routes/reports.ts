@@ -11,7 +11,7 @@ import {
 } from "@erpindo/shared";
 import { Hono } from "hono";
 import type { AppEnv } from "../env";
-import { computeBalanceSheet, computeIncomeStatement } from "../lib/reports";
+import { computeBalanceSheet, computeIncomeStatement, monthStart, profitLoss } from "../lib/reports";
 import { getTenantDb } from "../lib/tenantDb";
 import { requireAuth, requireTenantRole } from "../middleware/auth";
 import { rateLimitUser } from "../middleware/rateLimit";
@@ -501,7 +501,7 @@ export const reportRoutes = new Hono<AppEnv>()
     const monthPrefix = new Date().toISOString().slice(0, 7); // YYYY-MM
     const lastMonthPrefix = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toISOString().slice(0, 7);
 
-    const [cashRows, salesRows, lastMonthRows, arRows, apRows, stockRows, leadRows] = await Promise.all([
+    const [cashRows, salesRows, lastMonthRows, arRows, apRows, stockRows, leadRows, plCur, plPrev] = await Promise.all([
       db
         .prepare(
           `SELECT COALESCE(SUM(l.debit - l.credit), 0) AS balance
@@ -527,6 +527,9 @@ export const reportRoutes = new Hono<AppEnv>()
         .all<{ outstanding: number }>(),
       db.prepare(`SELECT COALESCE(SUM(qty * avg_cost), 0) AS value FROM stock_levels`).all<{ value: number }>(),
       db.prepare(`SELECT COUNT(*) AS n FROM leads WHERE status = 'open'`).all<{ n: number }>(),
+      // Laba bulan berjalan vs bulan lalu dari jurnal terposting (Fase 12d).
+      profitLoss(db, monthStart(0), monthStart(1)),
+      profitLoss(db, monthStart(-1), monthStart(0)),
     ]);
 
     const body: ApiDashboard = {
@@ -538,6 +541,8 @@ export const reportRoutes = new Hono<AppEnv>()
       payableOutstanding: apRows.results[0]?.outstanding ?? 0,
       inventoryValue: stockRows.results[0]?.value ?? 0,
       openLeadsCount: leadRows.results[0]?.n ?? 0,
+      profitThisMonth: plCur.profit,
+      profitLastMonth: plPrev.profit,
     };
     return c.json(body);
   });
