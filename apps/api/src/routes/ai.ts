@@ -252,7 +252,134 @@ export const aiRoutes = new Hono<AppEnv>()
     if (!result.ok) return c.json(unavailable(result.detail), 503);
     const quotaRemaining = await countQuota(c.env, tenant.id);
     return c.json({ reply: result.text.trim(), quotaRemaining });
+  })
+
+  // -------------------------------------------------------------------------
+  // Ringkasan bisnis mingguan (Fase 12f): narasi bahasa alami di dashboard,
+  // di-grounding pada angka minggu ini vs minggu lalu. Cache KV per minggu —
+  // on-demand (bukan cron) sehingga tenant pasif tidak membakar neuron, dan
+  // hit cache tidak memakan kuota harian (≈1 panggilan model/tenant/minggu).
+  // -------------------------------------------------------------------------
+  .get("/:tenantId/ai/ringkasan-mingguan", requireAuth, requireTenantRole("viewer"), async (c) => {
+    const tenant = c.get("tenant");
+    const week = currentWeekStart();
+    const cacheKey = `ai:weekly:${tenant.id}:${week}`;
+
+    // Cache dulu — ringkasan minggu berjalan tetap tersaji walau AI sedang absen.
+    const cached = await c.env.RATE_KV.get(cacheKey);
+    if (cached) {
+      const parsedCache = JSON.parse(cached) as { summary: string; generatedAt: string };
+      return c.json({ ...parsedCache, cached: true });
+    }
+
+    if (!c.env.AI) return c.json(unavailable("binding-absent"), 503);
+    if (await quotaExceeded(c.env, tenant.id)) {
+      return c.json({ error: `Kuota asisten AI hari ini habis (${DAILY_LIMIT} pertanyaan/hari). Coba lagi besok.` }, 429);
+    }
+
+    const db = getTenantDb(c.env, tenant.dbRef);
+    const snapshot = await buildWeeklySnapshot(db, week);
+
+    const system = [
+      "Kamu asisten keuangan ERPindo untuk UMKM Indonesia.",
+      "Tulis RINGKASAN BISNIS MINGGUAN dalam bahasa Indonesia yang hangat dan mudah dipahami pemilik usaha, ±100 kata, satu paragraf.",
+      "Gunakan HANYA angka pada DATA di bawah — JANGAN mengarang angka. Sebutkan perubahan penting dalam persen (naik/turun) dan satu saran singkat yang relevan.",
+      `DATA (per ${new Date().toISOString().slice(0, 10)}):\n${snapshot}`,
+    ].join("\n\n");
+
+    const result = await runModel(
+      c.env,
+      [
+        { role: "system", content: system },
+        { role: "user", content: "Buat ringkasan mingguan untuk dashboard saya." },
+      ],
+      400,
+    );
+    if (!result.ok) return c.json(unavailable(result.detail), 503);
+
+    const body = { summary: result.text.trim(), generatedAt: new Date().toISOString() };
+    // TTL 8 hari — kunci berganti tiap Senin, sisa cache lama kedaluwarsa sendiri.
+    await c.env.RATE_KV.put(cacheKey, JSON.stringify(body), { expirationTtl: 8 * 86_400 });
+    const quotaRemaining = await countQuota(c.env, tenant.id);
+    return c.json({ ...body, cached: false, quotaRemaining });
   });
+
+/** Tanggal Senin minggu berjalan (UTC), YYYY-MM-DD — kunci cache mingguan. */
+function currentWeekStart(): string {
+  const now = new Date();
+  const dow = (now.getUTCDay() + 6) % 7; // 0 = Senin
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - dow)).toISOString().slice(0, 10);
+}
+
+/**
+ * Ringkasan angka minggu ini vs minggu lalu untuk grounding ringkasan mingguan:
+ * omzet & jumlah faktur, laba dari jurnal terposting, kas/piutang/hutang,
+ * plus 3 produk terlaris minggu ini.
+ */
+async function buildWeeklySnapshot(db: ReturnType<typeof getTenantDb>, weekStart: string): Promise<string> {
+  const shift = (date: string, days: number) => {
+    const d = new Date(`${date}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+  };
+  const nextWeek = shift(weekStart, 7);
+  const prevWeek = shift(weekStart, -7);
+
+  const sales = async (from: string, to: string) => {
+    const { results } = await db
+      .prepare(
+        `SELECT COALESCE(SUM(total), 0) AS total, COUNT(*) AS n FROM invoices
+         WHERE voided_at IS NULL AND invoice_date >= ? AND invoice_date < ?`,
+      )
+      .bind(from, to)
+      .all<{ total: number; n: number }>();
+    return { total: results[0]?.total ?? 0, count: results[0]?.n ?? 0 };
+  };
+
+  const [curSales, prevSales, curPl, prevPl, balRows, topRows] = await Promise.all([
+    sales(weekStart, nextWeek),
+    sales(prevWeek, weekStart),
+    profitLoss(db, weekStart, nextWeek),
+    profitLoss(db, prevWeek, weekStart),
+    db
+      .prepare(
+        `SELECT a.code AS code, SUM(jl.debit - jl.credit) AS bal
+         FROM journal_lines jl JOIN accounts a ON a.id = jl.account_id
+         JOIN journal_entries e ON e.id = jl.entry_id
+         WHERE e.status = 'posted' AND a.code IN ('1-1000','1-1100','1-1200','2-1000')
+         GROUP BY a.code`,
+      )
+      .all<{ code: string; bal: number }>(),
+    db
+      .prepare(
+        `SELECT p.name AS name, SUM(il.qty) AS qty, SUM(il.amount) AS revenue
+         FROM invoice_lines il
+         JOIN invoices i ON i.id = il.invoice_id
+         JOIN products p ON p.id = il.product_id
+         WHERE i.voided_at IS NULL AND i.invoice_date >= ? AND i.invoice_date < ?
+         GROUP BY p.id ORDER BY revenue DESC LIMIT 3`,
+      )
+      .bind(weekStart, nextWeek)
+      .all<{ name: string; qty: number; revenue: number }>(),
+  ]);
+
+  const balByCode = new Map(balRows.results.map((b) => [b.code, b.bal ?? 0]));
+  const rp = (n: number) => `Rp ${Math.round(n).toLocaleString("id-ID")}`;
+  const cash = (balByCode.get("1-1000") ?? 0) + (balByCode.get("1-1100") ?? 0);
+  const ar = balByCode.get("1-1200") ?? 0;
+  const ap = -(balByCode.get("2-1000") ?? 0);
+  const top =
+    topRows.results.length > 0
+      ? topRows.results.map((t) => `${t.name} (${t.qty} unit, ${rp(t.revenue)})`).join("; ")
+      : "belum ada";
+
+  return [
+    `Minggu ini (mulai ${weekStart}): omzet ${rp(curSales.total)} dari ${curSales.count} faktur; pendapatan ${rp(curPl.income)}, beban ${rp(curPl.expense)}, laba ${rp(curPl.profit)}.`,
+    `Minggu lalu (mulai ${prevWeek}): omzet ${rp(prevSales.total)} dari ${prevSales.count} faktur; laba ${rp(prevPl.profit)}.`,
+    `Saldo kas & bank: ${rp(cash)}. Piutang: ${rp(ar)}. Hutang: ${rp(ap)}.`,
+    `Produk terlaris minggu ini: ${top}.`,
+  ].join("\n");
+}
 
 /**
  * Ringkasan angka buku untuk grounding AI laporan (Fase 11c). Semua dari jurnal

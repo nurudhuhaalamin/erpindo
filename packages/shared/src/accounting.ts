@@ -68,6 +68,14 @@ export const aiReportSchema = z.object({
 });
 export type AiReportInput = z.infer<typeof aiReportSchema>;
 
+/** Ringkasan bisnis mingguan AI di dashboard (Fase 12f) — cache KV per minggu. */
+export type ApiAiWeeklySummary = {
+  summary: string;
+  generatedAt: string;
+  cached: boolean;
+  quotaRemaining?: number;
+};
+
 /** Draf jurnal usulan AI — hanya usulan; manusia yang memposting lewat form Jurnal Umum. */
 export type ApiAiJournalDraft = {
   entryDate: string;

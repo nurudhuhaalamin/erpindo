@@ -1,6 +1,7 @@
 import type {
   ApiAccount,
   ApiAgingRow,
+  ApiAiWeeklySummary,
   ApiApprovalFlow,
   ApiApprovalRule,
   ApiAttendance,
@@ -459,6 +460,8 @@ export const api = {
     request<{ draft: ApiAiJournalDraft; quotaRemaining?: number }>("POST", `/api/tenants/${tenantId}/ai/jurnal`, { prompt }, { timeoutMs: 35_000 }),
   aiLaporan: (tenantId: string, question: string) =>
     request<{ reply: string; quotaRemaining?: number }>("POST", `/api/tenants/${tenantId}/ai/laporan`, { question }, { timeoutMs: 35_000 }),
+  aiWeeklySummary: (tenantId: string) =>
+    request<ApiAiWeeklySummary>("GET", `/api/tenants/${tenantId}/ai/ringkasan-mingguan`, undefined, { timeoutMs: 35_000 }),
   invoicePaymentLink: (tenantId: string, invoiceId: string) =>
     request<{ link: ApiPaymentLink | null; configured: boolean }>("GET", `/api/tenants/${tenantId}/invoices/${invoiceId}/payment-link`),
   marketplaceImport: (tenantId: string, input: MarketplaceImportInput) =>

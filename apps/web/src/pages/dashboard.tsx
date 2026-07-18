@@ -4,9 +4,9 @@
 // ---------------------------------------------------------------------------
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ArrowDownToLine, ArrowUpFromLine, Boxes, LineChart, Receipt, Check, ShoppingCart, SlidersHorizontal, Target, TrendingUp, Users, Wallet, type LucideIcon } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Boxes, LineChart, Receipt, Check, ShoppingCart, SlidersHorizontal, Sparkles, Target, TrendingUp, Users, Wallet, type LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
-import { api, formatDate, formatIDR } from "../api/client";
+import { api, ApiRequestError, formatDate, formatIDR } from "../api/client";
 import { Alert, Button, Card, CardBody, CardHeader, Skeleton, useToast } from "../components/ui";
 import { useWorkspace } from "./app";
 import { AUDIT_ACTION_LABELS } from "./settings";
@@ -539,9 +539,56 @@ function ScheduledReportsWidget({ tenantId, canRun }: { tenantId: string; canRun
   );
 }
 
+/**
+ * Ringkasan bisnis mingguan AI (Fase 12f): narasi bahasa alami dari angka buku
+ * nyata, di-cache per minggu di server. Saat AI tak tersedia (503) widget
+ * menampilkan teks redup — tidak pernah error state (pola asisten.tsx).
+ */
+function AiWeeklySummaryWidget({ tenantId }: { tenantId: string }) {
+  const query = useQuery({
+    queryKey: ["ai-weekly-summary", tenantId],
+    queryFn: () => api.aiWeeklySummary(tenantId),
+    retry: false,
+    staleTime: 60 * 60 * 1000, // server sudah meng-cache per minggu; jangan refetch agresif
+  });
+  const unavailable =
+    query.isError && (!(query.error instanceof ApiRequestError) || [503, 408, 429, 0].includes(query.error.status));
+
+  return (
+    <Card>
+      <CardHeader
+        title="Ringkasan mingguan AI"
+        description="Narasi singkat kinerja minggu ini vs minggu lalu — dihitung dari buku Anda."
+        action={<Sparkles className="size-4 text-brand-500" aria-hidden />}
+      />
+      <CardBody>
+        {query.isLoading ? (
+          <Skeleton className="h-16 w-full" />
+        ) : query.isSuccess ? (
+          <>
+            <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-200">{query.data.summary}</p>
+            <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+              Dibuat {formatDate(query.data.generatedAt.slice(0, 10))} · diperbarui otomatis tiap minggu.
+            </p>
+          </>
+        ) : unavailable ? (
+          <p className="py-2 text-sm text-slate-400 dark:text-slate-500">
+            Fitur AI belum tersedia di lingkungan ini — fitur lain tetap berjalan normal.
+          </p>
+        ) : (
+          <p className="py-2 text-sm text-slate-400 dark:text-slate-500">
+            Ringkasan belum bisa dimuat. {(query.error as Error)?.message ?? ""}
+          </p>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
 /** Widget dashboard yang bisa disembunyikan/ditampilkan (Fase 7h). */
 const DASHBOARD_WIDGETS = [
   { key: "kpi", label: "Ringkasan angka (KPI)" },
+  { key: "aiRingkasan", label: "Ringkasan mingguan AI" },
   { key: "trenHarian", label: "Grafik penjualan 30 hari" },
   { key: "trenBulanan", label: "Grafik tren bulanan" },
   { key: "jatuhTempo", label: "Faktur jatuh tempo" },
@@ -783,6 +830,7 @@ export function DashboardPage() {
       </div>
       ) : null}
 
+      {widgets.isVisible("aiRingkasan") ? <AiWeeklySummaryWidget tenantId={tenant.tenantId} /> : null}
       {widgets.isVisible("trenHarian") ? <SalesTrendChart tenantId={tenant.tenantId} /> : null}
       {widgets.isVisible("trenBulanan") ? <MonthlyTrendChart tenantId={tenant.tenantId} /> : null}
       {widgets.isVisible("laporanTerjadwal") ? (

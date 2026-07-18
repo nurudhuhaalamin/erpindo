@@ -125,6 +125,9 @@ try {
     if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push(`console: ${m.text()}`);
   });
   page.on("response", (r) => {
+    // 503 endpoint AI = degradasi anggun yang DIHARAPKAN di dev/CI tanpa binding
+    // Workers AI (widget menampilkan teks redup, bukan error) — bukan galat.
+    if (r.status() === 503 && r.url().includes("/ai/")) return;
     if (r.status() >= 500) errors.push(`${r.status()} ${r.url()}`);
     // POST 4xx saat simulasi = aksi ditolak — catat ke log agar kegagalan alur
     // langsung terlihat penyebabnya di keluaran CI.
@@ -184,6 +187,14 @@ try {
   resetErrors();
   const dashBody = await page.innerText("body");
   check("dashboard memuat KPI 'Laba Bulan Ini' (Fase 12d)", dashBody.includes("Laba Bulan Ini"));
+  // Widget ringkasan mingguan AI (Fase 12f): di CI tanpa binding harus tampil
+  // fallback redup — bukan error state; di produksi berisi narasi ("Dibuat …").
+  await page.getByText("Ringkasan mingguan AI").first().waitFor({ timeout: 15_000 });
+  await page
+    .getByText(/Fitur AI belum tersedia|Dibuat/)
+    .first()
+    .waitFor({ timeout: 15_000 });
+  check("widget Ringkasan mingguan AI tampil dengan fallback/narasi (tanpa error)", true);
   await page.getByRole("button", { name: "7 hari", exact: true }).click();
   await page.getByText("Penjualan 7 hari terakhir").first().waitFor({ timeout: 10_000 });
   check("filter grafik 7/30/90: klik '7 hari' → judul & grafik ikut", true);

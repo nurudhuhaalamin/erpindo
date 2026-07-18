@@ -3427,6 +3427,16 @@ try {
     aiLaporan.status === 200 || (aiLaporan.status === 503 && aiLaporan.json?.detail === "binding-absent"),
     `→ ${aiLaporan.status} ${JSON.stringify(aiLaporan.json)}`,
   );
+  // Fase 12f: ringkasan bisnis mingguan (cache KV per minggu, on-demand).
+  const aiWeeklyAnon = await anon("GET", `/api/tenants/${tenantId}/ai/ringkasan-mingguan`);
+  check("AI ringkasan mingguan tanpa sesi DITOLAK 401", aiWeeklyAnon.status === 401, `→ HTTP ${aiWeeklyAnon.status}`);
+  const aiWeekly = await viewer("GET", `/api/tenants/${tenantId}/ai/ringkasan-mingguan`);
+  check(
+    "AI ringkasan mingguan (viewer) 200 (produksi/cache) ATAU 503 binding-absent",
+    (aiWeekly.status === 200 && typeof aiWeekly.json?.summary === "string") ||
+      (aiWeekly.status === 503 && aiWeekly.json?.detail === "binding-absent"),
+    `→ ${aiWeekly.status} ${JSON.stringify(aiWeekly.json)}`,
+  );
 
   // --- Arus kas (Fase 2b-1) -------------------------------------------------------
   console.log("12. Arus kas");
