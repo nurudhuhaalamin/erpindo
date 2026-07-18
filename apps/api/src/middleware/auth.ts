@@ -11,7 +11,7 @@ import {
   type Role,
 } from "@erpindo/shared";
 import { getCookie } from "hono/cookie";
-import { Hono, type MiddlewareHandler } from "hono";
+import type { MiddlewareHandler } from "hono";
 import type { AppEnv } from "../env";
 import { sha256Hex } from "../lib/crypto";
 import { ensureTenantMigrated, TENANT_SCHEMA_VERSION } from "../lib/tenantDb";
@@ -180,13 +180,59 @@ export function requirePlanModule(module: ModuleKey): MiddlewareHandler<AppEnv> 
 }
 
 /**
- * Bungkus router modul dengan penjaga paket (Fase 13a). Dipasang di titik mount
- * (index.ts) sehingga tidak perlu menyentuh tiap handler; requirePlanModule
- * berjalan sebelum requireTenantRole milik router.
+ * Peta segmen path pertama (setelah /api/tenants/:tenantId/) → modul berpaket.
+ * Segmen yang TIDAK ada di sini = modul inti (tersedia semua paket). Sengaja
+ * hanya memetakan segmen spesifik agar tidak menabrak rute inti — mis. segmen
+ * "reports" milik laporan inti TIDAK dipetakan (endpoint dimensi hanya
+ * cost-centers & bank-match-rules yang digerbangi).
  */
-export function planGated(module: ModuleKey, router: Hono<AppEnv>): Hono<AppEnv> {
-  return new Hono<AppEnv>().use("/:tenantId/*", requirePlanModule(module)).route("/", router);
-}
+const MODULE_ROUTE_PREFIXES: Record<string, ModuleKey> = {
+  // payroll (Business)
+  employees: "payroll",
+  "payroll-runs": "payroll",
+  "payroll-adjustments": "payroll",
+  "employee-loans": "payroll",
+  "leave-requests": "payroll",
+  attendance: "attendance",
+  // operasional lain (Business)
+  crm: "crm",
+  leads: "crm",
+  quotations: "crm",
+  projects: "projects",
+  requisitions: "procurement",
+  "purchase-orders": "procurement",
+  "goods-receipts": "procurement",
+  "approval-flows": "approvals",
+  "approval-rules": "approvals",
+  "sales-orders": "salesStaged",
+  boms: "manufacturing",
+  "production-orders": "manufacturing",
+  "work-centers": "manufacturing",
+  maintenance: "maintenance",
+  tickets: "helpdesk",
+  contracts: "contracts",
+  currencies: "currency",
+  "report-snapshots": "scheduledReports",
+  departments: "orgStructure",
+  "org-chart": "orgStructure",
+  drive: "driveBackup",
+  // skala (Enterprise)
+  "cost-centers": "dimensions",
+  "bank-match-rules": "dimensions",
+};
+
+/**
+ * Penegakan paket berbasis path (Fase 13b). SATU middleware global di
+ * `/api/tenants/:tenantId/*`: memetakan segmen path ke modul lalu memanggil
+ * requirePlanModule bila modul berpaket. Menggantikan pembungkus per-router
+ * yang bocor (pola `/:tenantId/*` menangkap rute modul lain).
+ */
+export const enforcePlanByPath: MiddlewareHandler<AppEnv> = async (c, next) => {
+  const segment = c.req.path.split("/")[4] ?? ""; // ["", "api", "tenants", id, segment, ...]
+  const module = MODULE_ROUTE_PREFIXES[segment];
+  if (!module) return next();
+  return requirePlanModule(module)(c, next);
+};
 
 /**
  * Izin modul efektif seorang anggota (Fase 7e). Owner selalu penuh; anggota

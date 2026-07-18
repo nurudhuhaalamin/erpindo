@@ -224,6 +224,12 @@ export const CONTROL_PLANE_MIGRATIONS: Migration[] = [
       `UPDATE tenants SET legacy_full_access = 1 WHERE plan IN ('starter','business','enterprise')`,
     ],
   },
+  {
+    // Fase 13b: checkout memilih paket → paket yang dibeli disimpan di invoice
+    // agar webhook mengaktifkan paket yang tepat (bukan mewarisi paket lama).
+    id: "0011_invoice_plan",
+    statements: [`ALTER TABLE subscription_invoices ADD COLUMN plan TEXT NOT NULL DEFAULT 'business'`],
+  },
 ];
 
 /**

@@ -2589,8 +2589,14 @@ try {
   console.log("11n. Konsolidasi multi-perusahaan (laporan gabungan lintas tenant)");
 
   // Owner "budi" membuat perusahaan kedua di bawah akun yang sama.
+  // Fase 13b: pagar trial (1 perusahaan trial/akun) memblokir ini; multi-entitas
+  // = kapabilitas Enterprise. Buka sesaat via admin set-plan (budi = platform
+  // admin), lalu kembalikan status trial semula agar uji siklus trial di bawah
+  // tak berubah.
+  await owner("POST", `/api/admin/tenants/${tenantId}/plan`, { plan: "enterprise", status: "active" });
   const co2 = await owner("POST", "/api/auth/companies", { companyName: "PT Anak Usaha" });
   check("buat perusahaan kedua 201", co2.status === 201, `→ ${co2.status} ${JSON.stringify(co2.json)}`);
+  await owner("POST", `/api/admin/tenants/${tenantId}/plan`, { plan: "trial", status: "trial" });
   const tenant2 = co2.json?.tenantId;
 
   const meMulti = await owner("GET", "/api/auth/me");
@@ -2698,6 +2704,58 @@ try {
       consBS.json.totalEquity === bs1.totalEquity + bs2.totalEquity &&
       consBS.json.totalAssetsByCompany?.[tenant2] === 42_000_000,
     `→ ${JSON.stringify({ ta: consBS.json?.totalAssets, a2: consBS.json?.totalAssetsByCompany?.[tenant2] })}`,
+  );
+
+  // --- Fase 13b: penegakan paket (matriks modul × paket) + pagar trial --------
+  // Dipakai perusahaan kedua (tenant2) yang sudah ada agar tidak menabrak batas
+  // pool DB tenant lokal / rate-limit register. Paket disetel via admin (budi =
+  // platform admin); tenant2 dikembalikan ke trial di akhir.
+  console.log("11n2. Penegakan paket langganan (Fase 13b)");
+  await owner("POST", `/api/admin/tenants/${tenant2}/plan`, { plan: "starter", status: "active" });
+  const starterCore = await owner("GET", `/api/tenants/${tenant2}/accounts`);
+  check("Starter: modul inti (akun) tetap terbuka (200)", starterCore.status === 200, `→ ${starterCore.status}`);
+  const starterPayroll = await owner("GET", `/api/tenants/${tenant2}/employees`);
+  check(
+    "Starter: modul Business (payroll) → 403 plan-upgrade-required (butuh business)",
+    starterPayroll.status === 403 && starterPayroll.json?.detail === "plan-upgrade-required" && starterPayroll.json?.requiredPlan === "business",
+    `→ ${starterPayroll.status} ${JSON.stringify(starterPayroll.json)}`,
+  );
+  const starterDim = await owner("GET", `/api/tenants/${tenant2}/cost-centers`);
+  check(
+    "Starter: modul Enterprise (cost-centers) → 403 upgrade (butuh enterprise)",
+    starterDim.status === 403 && starterDim.json?.requiredPlan === "enterprise",
+    `→ ${starterDim.status} ${JSON.stringify(starterDim.json)}`,
+  );
+
+  await owner("POST", `/api/admin/tenants/${tenant2}/plan`, { plan: "business", status: "active" });
+  const bizPayroll = await owner("GET", `/api/tenants/${tenant2}/employees`);
+  check("Business: modul payroll kini terbuka (bukan 403 upgrade)", !(bizPayroll.status === 403 && bizPayroll.json?.detail === "plan-upgrade-required"), `→ ${bizPayroll.status}`);
+  const bizDim = await owner("GET", `/api/tenants/${tenant2}/cost-centers`);
+  check("Business: modul Enterprise (cost-centers) tetap 403 upgrade", bizDim.status === 403 && bizDim.json?.detail === "plan-upgrade-required", `→ ${bizDim.status}`);
+
+  await owner("POST", `/api/admin/tenants/${tenant2}/plan`, { plan: "enterprise", status: "active" });
+  const entDim = await owner("GET", `/api/tenants/${tenant2}/cost-centers`);
+  check("Enterprise: modul cost-centers terbuka (bukan 403 upgrade)", !(entDim.status === 403 && entDim.json?.detail === "plan-upgrade-required"), `→ ${entDim.status}`);
+
+  // Grandfather: legacy_full_access membuka semua walau paket Starter.
+  await owner("POST", `/api/admin/tenants/${tenant2}/plan`, { plan: "starter", status: "active", legacyFullAccess: true });
+  const legacyPayroll = await owner("GET", `/api/tenants/${tenant2}/employees`);
+  check("Grandfather: legacy_full_access buka modul walau paket Starter", !(legacyPayroll.status === 403 && legacyPayroll.json?.detail === "plan-upgrade-required"), `→ ${legacyPayroll.status}`);
+
+  // set-plan hanya untuk platform admin (dewi comped = admin biasa, bukan platform admin).
+  const notAdminSetPlan = await admin("POST", `/api/admin/tenants/${tenant2}/plan`, { plan: "enterprise" });
+  check("set-plan oleh non-admin platform → 403", notAdminSetPlan.status === 403, `→ ${notAdminSetPlan.status}`);
+
+  // Kembalikan tenant2 ke trial (bebas legacy) agar uji siklus trial di bawah tak berubah.
+  await owner("POST", `/api/admin/tenants/${tenant2}/plan`, { plan: "trial", status: "trial", legacyFullAccess: false });
+
+  // Pagar trial: budi kini punya perusahaan berstatus trial → membuat perusahaan
+  // lagi ditolak (satu perusahaan trial per akun).
+  const trialGate = await owner("POST", "/api/auth/companies", { companyName: "PT Trial Ekstra" });
+  check(
+    "pagar trial: buat perusahaan baru saat masih ada trial → 402 trial-limit",
+    trialGate.status === 402 && trialGate.json?.detail === "trial-limit",
+    `→ ${trialGate.status} ${JSON.stringify(trialGate.json)}`,
   );
 
   // --- Manufaktur + QC (Fase 2u) -------------------------------------------------
@@ -4163,11 +4221,14 @@ try {
   check("billing tanpa sesi DITOLAK 401", billNoAuth.status === 401, `→ HTTP ${billNoAuth.status}`);
   const billStatus = await owner("GET", `/api/tenants/${tenantId}/billing`);
   check(
-    "billing status 200 + configured=false + harga Rp389.000",
-    billStatus.status === 200 && billStatus.json?.configured === false && billStatus.json?.pricePerMonth === 389000 && Array.isArray(billStatus.json?.invoices),
-    `→ ${JSON.stringify({ configured: billStatus.json?.configured, price: billStatus.json?.pricePerMonth })}`,
+    "billing status 200 + configured=false + harga sesuai paket (trial=0)",
+    billStatus.status === 200 && billStatus.json?.configured === false && billStatus.json?.pricePerMonth === 0 && Array.isArray(billStatus.json?.invoices),
+    `→ ${JSON.stringify({ configured: billStatus.json?.configured, plan: billStatus.json?.plan, price: billStatus.json?.pricePerMonth })}`,
   );
-  const billCheckoutOwner = await owner("POST", `/api/tenants/${tenantId}/billing/checkout`);
+  // Checkout paket (Fase 13b): kirim paket valid; tanpa kunci Midtrans → 503.
+  const billCheckoutBadPlan = await owner("POST", `/api/tenants/${tenantId}/billing/checkout`, { plan: "gratis" });
+  check("billing checkout paket tak dikenal → 400", billCheckoutBadPlan.status === 400, `→ HTTP ${billCheckoutBadPlan.status}`);
+  const billCheckoutOwner = await owner("POST", `/api/tenants/${tenantId}/billing/checkout`, { plan: "business" });
   check("billing checkout tanpa konfigurasi Midtrans → 503", billCheckoutOwner.status === 503, `→ HTTP ${billCheckoutOwner.status}`);
   // Dewi = anggota admin (bukan owner) di tenant ini → ditolak mengatur langganan.
   const billCheckoutAdmin = await admin("POST", `/api/tenants/${tenantId}/billing/checkout`);

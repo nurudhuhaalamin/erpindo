@@ -54,7 +54,22 @@ makeDevConfig();
 console.log(`Menyiapkan wrangler dev di :${PORT} (persist ${persistDir})...`);
 const dev = spawn(
   "pnpm",
-  ["exec", "wrangler", "dev", "-c", "../../wrangler.dev.jsonc", "--port", String(PORT), "--persist-to", persistDir, "--show-interactive-dev-session=false"],
+  [
+    "exec",
+    "wrangler",
+    "dev",
+    "-c",
+    "../../wrangler.dev.jsonc",
+    "--port",
+    String(PORT),
+    "--persist-to",
+    persistDir,
+    "--show-interactive-dev-session=false",
+    // Akun demo publik (Fase 13b): comped → aktif permanen + kebal pagar trial,
+    // sehingga seed bisa membuat perusahaan kedua (PT Demo Sejahtera).
+    "--var",
+    `COMPED_EMAILS:${EMAIL}`,
+  ],
   { cwd: path.join(ROOT, "apps/api"), stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, CI: "1" } },
 );
 dev.stdout.on("data", () => {});
@@ -544,7 +559,14 @@ try {
   check("F19 Pengaturan memakai bilah tab (role=tablist)", (await page.locator('[role="tablist"]').count()) >= 1);
   await page.getByRole("tab", { name: "Perusahaan" }).click();
   await page.waitForTimeout(400);
-  check("F19 tab Perusahaan menampilkan kartu Profil perusahaan", (await page.innerText("body")).includes("Profil perusahaan"));
+  const perusahaanBody = await page.innerText("body");
+  check("F19 tab Perusahaan menampilkan kartu Profil perusahaan", perusahaanBody.includes("Profil perusahaan"));
+  // Fase 13b: kartu 3 paket di Langganan (Starter/Business/Enterprise + harga).
+  check(
+    "F19 Langganan menampilkan 3 paket (Starter/Business/Enterprise + harga Rp999.000)",
+    perusahaanBody.includes("Starter") && perusahaanBody.includes("Business") && perusahaanBody.includes("Enterprise") && /Rp\s?999\.000/.test(perusahaanBody),
+    `→ ${/Rp\s?999\.000/.test(perusahaanBody)}`,
+  );
 
   await gotoRoute("/app/hr/penggajian", 900);
   check("F19 Penggajian bertab: default tab Karyawan (form #emp-name)", (await page.locator("#emp-name").count()) === 1);

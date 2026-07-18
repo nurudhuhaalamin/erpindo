@@ -1,5 +1,5 @@
 import type { ApiSubscriptionInvoice, BillingStatus, Plan, Role, TenantStatus } from "@erpindo/shared";
-import { SINGLE_PLAN } from "@erpindo/shared";
+import { checkoutSchema, PLAN_LABELS, PLAN_LIMITS } from "@erpindo/shared";
 import { Hono } from "hono";
 import type { AppEnv, Env } from "../env";
 import { audit } from "../lib/audit";
@@ -121,16 +121,35 @@ function toApiInvoice(r: InvoiceRow): ApiSubscriptionInvoice {
  */
 async function loadMembership(
   c: { env: Env; get: (k: "user") => { id: string }; req: { param: (k: string) => string | undefined } },
-): Promise<{ tenantId: string; row: { id: string; status: TenantStatus; plan: Plan; trial_ends_at: string | null; subscription_ends_at: string | null; role: Role } } | null> {
+): Promise<{
+  tenantId: string;
+  row: {
+    id: string;
+    status: TenantStatus;
+    plan: Plan;
+    legacy_full_access: number;
+    trial_ends_at: string | null;
+    subscription_ends_at: string | null;
+    role: Role;
+  };
+} | null> {
   const tenantId = c.req.param("tenantId");
   if (!tenantId) return null;
   const row = await c.env.DB.prepare(
-    `SELECT t.id, t.status, t.plan, t.trial_ends_at, t.subscription_ends_at, m.role
+    `SELECT t.id, t.status, t.plan, t.legacy_full_access, t.trial_ends_at, t.subscription_ends_at, m.role
      FROM memberships m JOIN tenants t ON t.id = m.tenant_id
      WHERE m.user_id = ? AND m.tenant_id = ?`,
   )
     .bind(c.get("user").id, tenantId)
-    .first<{ id: string; status: TenantStatus; plan: Plan; trial_ends_at: string | null; subscription_ends_at: string | null; role: Role }>();
+    .first<{
+      id: string;
+      status: TenantStatus;
+      plan: Plan;
+      legacy_full_access: number;
+      trial_ends_at: string | null;
+      subscription_ends_at: string | null;
+      role: Role;
+    }>();
   return row ? { tenantId, row } : null;
 }
 
@@ -152,7 +171,8 @@ export const billingRoutes = new Hono<AppEnv>()
       status: m.row.status,
       trialEndsAt: m.row.trial_ends_at,
       subscriptionEndsAt: m.row.subscription_ends_at,
-      pricePerMonth: SINGLE_PLAN.pricePerMonth,
+      pricePerMonth: PLAN_LIMITS[m.row.plan].pricePerMonth,
+      legacyFullAccess: m.row.legacy_full_access === 1,
       invoices: results.map(toApiInvoice),
     };
     return c.json(body);
@@ -162,20 +182,24 @@ export const billingRoutes = new Hono<AppEnv>()
     const m = await loadMembership(c);
     if (!m) return c.json({ error: "Anda bukan anggota perusahaan ini." }, 403);
     if (m.row.role !== "owner") return c.json({ error: "Hanya Pemilik yang dapat mengatur langganan." }, 403);
+    // Paket yang dibeli (Fase 13b) — Starter/Business/Enterprise, harga dari PLAN_LIMITS.
+    const parsed = checkoutSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: "Paket tidak valid." }, 400);
+    const plan = parsed.data.plan;
     if (!billingConfigured(c.env)) {
       return c.json({ error: "Pembayaran online belum dikonfigurasi. Hubungi kami untuk aktivasi." }, 503);
     }
 
     const user = c.get("user");
-    const amount = SINGLE_PLAN.pricePerMonth;
+    const amount = PLAN_LIMITS[plan].pricePerMonth;
     const orderId = `sub-${m.tenantId.slice(0, 8)}-${Date.now()}`;
     const invoiceId = crypto.randomUUID();
 
     const snap = await createSnapTransaction(c.env, {
       orderId,
       amount,
-      itemId: "langganan-bulanan",
-      itemName: `Langganan ERPindo ${SINGLE_PLAN.label} (1 bulan)`,
+      itemId: `langganan-${plan}`,
+      itemName: `Langganan ERPindo ${PLAN_LABELS[plan]} (1 bulan)`,
       customerEmail: user.email,
       customerName: user.name,
       finishUrl: `${appOrigin(c)}/app/pengaturan`,
@@ -184,16 +208,16 @@ export const billingRoutes = new Hono<AppEnv>()
     const redirectUrl = snap.redirectUrl;
 
     await c.env.DB.prepare(
-      `INSERT INTO subscription_invoices (id, tenant_id, order_id, amount, period_months, status, redirect_url, created_by)
-       VALUES (?, ?, ?, ?, 1, 'pending', ?, ?)`,
+      `INSERT INTO subscription_invoices (id, tenant_id, order_id, amount, period_months, status, plan, redirect_url, created_by)
+       VALUES (?, ?, ?, ?, 1, 'pending', ?, ?, ?)`,
     )
-      .bind(invoiceId, m.tenantId, orderId, amount, redirectUrl, user.id)
+      .bind(invoiceId, m.tenantId, orderId, amount, plan, redirectUrl, user.id)
       .run();
     await audit(c.env, {
       action: "billing.checkout",
       userId: user.id,
       tenantId: m.tenantId,
-      detail: { orderId, amount },
+      detail: { orderId, amount, plan },
       ip: clientIp(c),
     });
     return c.json({ orderId, redirectUrl }, 201);
@@ -215,12 +239,12 @@ export const billingWebhookRoutes = new Hono<AppEnv>().post("/notification", asy
   if (!valid) return c.json({ error: "Tanda tangan tidak sah." }, 403);
 
   const invoice = await c.env.DB.prepare(
-    `SELECT si.id, si.tenant_id, si.status, si.period_months, t.subscription_ends_at, t.plan
+    `SELECT si.id, si.tenant_id, si.status, si.period_months, si.plan, t.subscription_ends_at
      FROM subscription_invoices si JOIN tenants t ON t.id = si.tenant_id
      WHERE si.order_id = ?`,
   )
     .bind(n.order_id)
-    .first<{ id: string; tenant_id: string; status: string; period_months: number; subscription_ends_at: string | null; plan: Plan }>();
+    .first<{ id: string; tenant_id: string; status: string; period_months: number; plan: Plan; subscription_ends_at: string | null }>();
   if (!invoice) {
     // Order langganan tak dikenal → coba payment link faktur (Fase 11d).
     const link = await c.env.DB.prepare(
@@ -255,8 +279,8 @@ export const billingWebhookRoutes = new Hono<AppEnv>().post("/notification", asy
     const now = new Date().toISOString();
     const base = invoice.subscription_ends_at && invoice.subscription_ends_at > now ? invoice.subscription_ends_at : now;
     const newEnd = addMonths(base, invoice.period_months);
-    // Pertahankan enum plan berbayar; naikkan 'trial' → 'business'.
-    const newPlan: Plan = invoice.plan === "trial" ? "business" : invoice.plan;
+    // Paket yang diaktifkan = paket yang dibeli di checkout (Fase 13b).
+    const newPlan: Plan = invoice.plan;
     await c.env.DB.prepare(
       `UPDATE subscription_invoices SET status = 'paid', transaction_status = ?, paid_at = ? WHERE id = ?`,
     )

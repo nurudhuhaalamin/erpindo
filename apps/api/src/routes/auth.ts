@@ -244,6 +244,29 @@ export const authRoutes = new Hono<AppEnv>()
     const user = c.get("user");
     const { companyName } = parsed.data;
 
+    // Pagar anti-abuse (Fase 13b): satu perusahaan berstatus trial per akun.
+    // Tanpa ini, seorang pengguna bisa membuat perusahaan trial tanpa batas dan
+    // memakai akses gratis terus-menerus. Email comped dikecualikan; perusahaan
+    // tambahan diizinkan setelah akun punya perusahaan berbayar (status aktif).
+    if (!isComped(c.env, user.email)) {
+      const trialCount = await c.env.DB.prepare(
+        `SELECT COUNT(*) AS n FROM memberships m JOIN tenants t ON t.id = m.tenant_id
+         WHERE m.user_id = ? AND m.role = 'owner' AND t.status = 'trial'`,
+      )
+        .bind(user.id)
+        .first<{ n: number }>();
+      if ((trialCount?.n ?? 0) >= 1) {
+        return c.json(
+          {
+            error:
+              "Anda masih memiliki perusahaan dalam masa trial. Aktifkan langganannya dulu sebelum menambah perusahaan baru (satu perusahaan trial per akun).",
+            detail: "trial-limit",
+          },
+          402,
+        );
+      }
+    }
+
     const base = toSlug(companyName);
     let slug = base;
     for (let i = 2; ; i++) {

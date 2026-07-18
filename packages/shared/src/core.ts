@@ -399,9 +399,26 @@ export type BillingStatus = {
   status: TenantStatus;
   trialEndsAt: string | null;
   subscriptionEndsAt: string | null;
+  /** Harga paket saat ini (0 bila trial). Katalog paket dibaca UI dari PLAN_LIMITS. */
   pricePerMonth: number;
+  /** Grandfather: pelanggan lama harga tunggal → akses penuh walau paketnya starter/business. */
+  legacyFullAccess: boolean;
   invoices: ApiSubscriptionInvoice[];
 };
+
+/** Pilih paket berbayar yang akan di-checkout (Fase 13b). */
+export const checkoutSchema = z.object({
+  plan: z.enum(PAID_PLANS),
+});
+export type CheckoutInput = z.infer<typeof checkoutSchema>;
+
+/** Set paket tenant manual oleh platform admin (Fase 13b). */
+export const setTenantPlanSchema = z.object({
+  plan: z.enum(PLANS),
+  status: z.enum(["trial", "active", "past_due", "suspended", "provisioning"]).optional(),
+  legacyFullAccess: z.boolean().optional(),
+});
+export type SetTenantPlanInput = z.infer<typeof setTenantPlanSchema>;
 
 // --- Payment collection + WhatsApp share (Fase 11d) ------------------------
 export type ApiPaymentLink = {

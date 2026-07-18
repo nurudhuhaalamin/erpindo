@@ -2,6 +2,7 @@ import {
   blogPostSchema,
   FEEDBACK_STATUSES,
   feedbackSchema,
+  setTenantPlanSchema,
   type ApiBlogPost,
   type ApiFeedback,
   type FeedbackCategory,
@@ -234,6 +235,44 @@ export const adminRoutes = new Hono<AppEnv>()
       failed: failed.length,
       results,
     });
+  })
+
+  // -------------------------------------------------------------------------
+  // Set paket tenant manual (Fase 13b): untuk grant/koreksi paket, comped, atau
+  // grandfather. Juga seam pengujian penegakan paket. Platform admin saja.
+  // -------------------------------------------------------------------------
+  .post("/tenants/:id/plan", requireAuth, requirePlatformAdmin, async (c) => {
+    const tenantId = c.req.param("id");
+    const parsed = setTenantPlanSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: "Data tidak valid.", issues: parsed.error.flatten().fieldErrors }, 400);
+    const { plan, status, legacyFullAccess } = parsed.data;
+
+    const exists = await c.env.DB.prepare(`SELECT id FROM tenants WHERE id = ?`).bind(tenantId).first();
+    if (!exists) return c.json({ error: "Perusahaan tidak ditemukan." }, 404);
+
+    // Bangun UPDATE dinamis hanya untuk field yang dikirim.
+    const sets: string[] = ["plan = ?"];
+    const binds: (string | number)[] = [plan];
+    if (status !== undefined) {
+      sets.push("status = ?");
+      binds.push(status);
+    }
+    if (legacyFullAccess !== undefined) {
+      sets.push("legacy_full_access = ?");
+      binds.push(legacyFullAccess ? 1 : 0);
+    }
+    binds.push(tenantId);
+    await c.env.DB.prepare(`UPDATE tenants SET ${sets.join(", ")} WHERE id = ?`)
+      .bind(...binds)
+      .run();
+    await audit(c.env, {
+      action: "admin.tenant_plan_set",
+      userId: c.get("user").id,
+      tenantId,
+      detail: { plan, status, legacyFullAccess },
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true, plan });
   })
 
   // -------------------------------------------------------------------------

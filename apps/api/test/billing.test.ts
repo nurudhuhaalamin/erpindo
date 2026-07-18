@@ -26,7 +26,7 @@ describe("midtransSignatureValid", () => {
 
 /** Control-plane DB tiruan untuk jalur webhook (1 invoice + 1 tenant). */
 function fakeDb(state: {
-  invoice: { id: string; order_id: string; tenant_id: string; status: string; period_months: number } | null;
+  invoice: { id: string; order_id: string; tenant_id: string; status: string; period_months: number; plan?: string } | null;
   tenant: { status: string; plan: string; subscription_ends_at: string | null };
   audits: unknown[];
 }) {
@@ -55,7 +55,8 @@ function fakeDb(state: {
             status: state.invoice.status,
             period_months: state.invoice.period_months,
             subscription_ends_at: state.tenant.subscription_ends_at,
-            plan: state.tenant.plan,
+            // Fase 13b: paket yang diaktifkan = paket yang dibeli (tersimpan di invoice).
+            plan: state.invoice.plan ?? "business",
           });
         }
         return Promise.resolve(null);
@@ -96,13 +97,13 @@ describe("webhook notifikasi billing", () => {
   });
 
   it("settlement + tanda tangan sah → invoice lunas + tenant aktif + langganan diperpanjang", async () => {
-    const state = { invoice: { id: "i1", order_id: "sub-abc-1", tenant_id: "t1", status: "pending", period_months: 1 }, tenant: { status: "trial", plan: "trial", subscription_ends_at: null as string | null }, audits: [] as unknown[] };
+    const state = { invoice: { id: "i1", order_id: "sub-abc-1", tenant_id: "t1", status: "pending", period_months: 1, plan: "business" }, tenant: { status: "trial", plan: "trial", subscription_ends_at: null as string | null }, audits: [] as unknown[] };
     const call = appWithDb({ MIDTRANS_SERVER_KEY: SERVER_KEY, DB: fakeDb(state) as unknown as Env["DB"] });
     const res = await call(await signedNotif({ transaction_status: "settlement", fraud_status: "accept" }));
     expect(res.status).toBe(200);
     expect(state.invoice.status).toBe("paid");
     expect(state.tenant.status).toBe("active");
-    expect(state.tenant.plan).toBe("business"); // trial dinaikkan
+    expect(state.tenant.plan).toBe("business"); // paket yang dibeli diaktifkan
     expect(state.tenant.subscription_ends_at).toBeTruthy();
     expect(Date.parse(state.tenant.subscription_ends_at as string)).toBeGreaterThan(Date.now());
     expect(state.audits.length).toBe(1);

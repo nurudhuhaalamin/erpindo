@@ -43,7 +43,7 @@ import { exportRoutes } from "./routes/export";
 import { orgStructureRoutes } from "./routes/orgStructure";
 import { previousMonth, runMonthlyRecap, scheduledReportsRoutes } from "./routes/scheduledReports";
 import { inviteRoutes, tenantRoutes } from "./routes/tenants";
-import { planGated } from "./middleware/auth";
+import { enforcePlanByPath } from "./middleware/auth";
 
 /**
  * Worker utama erpindo: API Hono di bawah /api/*, sisanya SPA dari binding
@@ -90,6 +90,9 @@ const app = new Hono<AppEnv>()
     await ensureMigrated(c.env);
     await next();
   })
+  // Penegakan paket langganan (Fase 13b): satu gerbang untuk semua rute tenant —
+  // segmen path yang tergolong modul berpaket ditolak 403 bila paket tak cukup.
+  .use("/api/tenants/:tenantId/*", enforcePlanByPath)
   .get("/api/health", (c) => c.json({ ok: true, service: "erpindo", time: new Date().toISOString() }))
   .route("/api/auth/google", googleAuthRoutes)
   .route("/api/auth", authRoutes)
@@ -104,26 +107,26 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", reportRoutes)
   .route("/api/tenants", returnRoutes)
   .route("/api/tenants", posRoutes)
-  .route("/api/tenants", planGated("crm", crmRoutes))
+  .route("/api/tenants", crmRoutes)
   .route("/api/tenants", budgetRoutes)
-  .route("/api/tenants", planGated("payroll", payrollRoutes))
+  .route("/api/tenants", payrollRoutes)
   .route("/api/tenants", assetRoutes)
-  .route("/api/tenants", planGated("projects", projectRoutes))
-  .route("/api/tenants", planGated("procurement", procurementRoutes))
-  .route("/api/tenants", planGated("approvals", approvalEngineRoutes))
-  .route("/api/tenants", planGated("salesStaged", salesOrderRoutes))
+  .route("/api/tenants", projectRoutes)
+  .route("/api/tenants", procurementRoutes)
+  .route("/api/tenants", approvalEngineRoutes)
+  .route("/api/tenants", salesOrderRoutes)
   .route("/api/tenants", stockAdvancedRoutes)
   .route("/api/tenants", taxRoutes)
-  .route("/api/tenants", planGated("dimensions", dimensionRoutes))
-  .route("/api/tenants", planGated("currency", currencyRoutes))
-  .route("/api/tenants", planGated("contracts", contractRoutes))
-  .route("/api/tenants", planGated("manufacturing", manufacturingRoutes))
-  .route("/api/tenants", planGated("manufacturing", manufacturingRoutingRoutes))
-  .route("/api/tenants", planGated("maintenance", maintenanceRoutes))
-  .route("/api/tenants", planGated("scheduledReports", scheduledReportsRoutes))
+  .route("/api/tenants", dimensionRoutes)
+  .route("/api/tenants", currencyRoutes)
+  .route("/api/tenants", contractRoutes)
+  .route("/api/tenants", manufacturingRoutes)
+  .route("/api/tenants", manufacturingRoutingRoutes)
+  .route("/api/tenants", maintenanceRoutes)
+  .route("/api/tenants", scheduledReportsRoutes)
   .route("/api/tenants", exportRoutes)
-  .route("/api/tenants", planGated("orgStructure", orgStructureRoutes))
-  .route("/api/tenants", planGated("driveBackup", driveRoutes))
+  .route("/api/tenants", orgStructureRoutes)
+  .route("/api/tenants", driveRoutes)
   .route("/api/drive", driveCallbackRoutes)
   .route("/api/tenants", billingRoutes)
   .route("/api/tenants", collectionRoutes)
@@ -131,7 +134,7 @@ const app = new Hono<AppEnv>()
   .route("/api/admin", adminRoutes)
   .route("/api/feedback", feedbackRoutes)
   .route("/", blogRoutes)
-  .route("/api/tenants", planGated("helpdesk", helpdeskRoutes))
+  .route("/api/tenants", helpdeskRoutes)
   .route("/api/consolidation", consolidationRoutes)
   .route("/api/invites", inviteRoutes)
   .notFound((c) =>
