@@ -4,6 +4,8 @@ import { Check, Eye, Menu, Moon, ShieldCheck, Sparkles, Sun, X } from "lucide-re
 import { useState } from "react";
 import { api } from "../../api/client";
 import { BrandWordmark, Button, useDarkMode } from "../../components/ui";
+import { useLang, type Lang } from "../../i18n";
+import { LangSwitcher } from "../../i18n/LangSwitcher";
 import {
   CATEGORY_COMPARISON,
   CATEGORY_COMPARISON_HEADERS,
@@ -22,16 +24,22 @@ import {
  * gambar produk asli (WebP) dilayani statis dari /landing/*.
  */
 
-const NAV_LINKS = [
-  ["#fitur", "Fitur"],
-  ["#harga", "Harga"],
-  ["/panduan", "Panduan"],
-  ["#faq", "FAQ"],
-] as const;
+const NAV_LINKS: [string, { id: string; en: string }][] = [
+  ["#fitur", { id: "Fitur", en: "Features" }],
+  ["#harga", { id: "Harga", en: "Pricing" }],
+  ["/panduan", { id: "Panduan", en: "Guide" }],
+  ["#faq", { id: "FAQ", en: "FAQ" }],
+];
+
+/** Helper pilih string sesuai bahasa aktif (landing). */
+function L(lang: Lang, id: string, en: string): string {
+  return lang === "en" ? en : id;
+}
 
 function Header() {
   const { dark, toggle } = useDarkMode();
   const [menuOpen, setMenuOpen] = useState(false);
+  const lang = useLang();
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-slate-50/80 backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-3 sm:px-6">
@@ -45,9 +53,10 @@ function Header() {
               href={href}
               className="hidden rounded-lg px-3 py-2 text-sm text-slate-600 hover:text-slate-900 md:block dark:text-slate-300 dark:hover:text-white"
             >
-              {label}
+              {label[lang]}
             </a>
           ))}
+          <LangSwitcher className="hidden sm:inline-flex" />
           <button
             onClick={toggle}
             className="rounded-lg p-2 text-slate-500 hover:bg-slate-200/60 dark:text-slate-400 dark:hover:bg-slate-800"
@@ -57,10 +66,10 @@ function Header() {
             {dark ? <Sun className="size-4" aria-hidden /> : <Moon className="size-4" aria-hidden />}
           </button>
           <Link to="/masuk" className="hidden sm:block">
-            <Button variant="ghost">Masuk</Button>
+            <Button variant="ghost">{L(lang, "Masuk", "Sign in")}</Button>
           </Link>
           <Link to="/daftar">
-            <Button className="px-3 sm:px-4">Coba Gratis</Button>
+            <Button className="px-3 sm:px-4">{L(lang, "Coba Gratis", "Try Free")}</Button>
           </Link>
           <button
             onClick={() => setMenuOpen((o) => !o)}
@@ -81,7 +90,7 @@ function Header() {
               onClick={() => setMenuOpen(false)}
               className="block rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-200/60 dark:text-slate-200 dark:hover:bg-slate-800"
             >
-              {label}
+              {label[lang]}
             </a>
           ))}
           <Link
@@ -89,8 +98,11 @@ function Header() {
             onClick={() => setMenuOpen(false)}
             className="block rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-200/60 sm:hidden dark:text-slate-200 dark:hover:bg-slate-800"
           >
-            Masuk
+            {L(lang, "Masuk", "Sign in")}
           </Link>
+          <div className="px-3 py-2 sm:hidden">
+            <LangSwitcher />
+          </div>
         </nav>
       ) : null}
     </header>
@@ -131,31 +143,42 @@ function DemoButton({ size = "lg" }: { size?: "md" | "lg" }) {
 }
 
 function Hero() {
+  const lang = useLang();
   return (
     <section className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 mx-auto h-96 max-w-4xl bg-brand-400/25 blur-3xl dark:bg-brand-600/20" />
       <div className="mx-auto max-w-4xl px-4 pt-14 text-center sm:px-6 sm:pt-20">
         <div className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700 dark:border-brand-800 dark:bg-brand-950 dark:text-brand-300">
-          <Sparkles className="size-3.5" aria-hidden /> ERP lengkap untuk UMKM Indonesia
+          <Sparkles className="size-3.5" aria-hidden />{" "}
+          {L(lang, "ERP lengkap untuk bisnis Indonesia", "Complete ERP for Indonesian business")}
         </div>
         <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
-          Pembukuan, stok, gaji, dan pajak —{" "}
+          {L(lang, "Pembukuan, stok, gaji, dan pajak —", "Accounting, stock, payroll, and tax —")}{" "}
           <span className="bg-gradient-to-r from-brand-600 to-brand-400 bg-clip-text text-transparent dark:from-brand-400 dark:to-brand-300">
-            beres dalam satu aplikasi
+            {L(lang, "beres dalam satu aplikasi", "all in one app")}
           </span>
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-600 dark:text-slate-300">
-          Catat transaksi sekali — jurnal double-entry, stok, laporan keuangan, PPN, sampai PPh 21 karyawan beres
-          sendiri. Siap Coretax 2026.
+          {L(
+            lang,
+            "Catat transaksi sekali — jurnal double-entry, stok, laporan keuangan, PPN, sampai PPh 21 karyawan beres sendiri. Siap Coretax 2026.",
+            "Record once — double-entry journals, inventory, financial reports, VAT, and payroll tax all handled automatically. Ready for Coretax 2026.",
+          )}
         </p>
         <div className="mt-8 flex flex-wrap items-start justify-center gap-3">
           <Link to="/daftar">
-            <Button size="lg">Coba Gratis {TRIAL_DAYS} Hari</Button>
+            <Button size="lg">
+              {L(lang, `Coba Gratis ${TRIAL_DAYS} Hari`, `Try Free for ${TRIAL_DAYS} Days`)}
+            </Button>
           </Link>
           <DemoButton />
         </div>
         <p className="mt-3 text-xs text-slate-400">
-          Tanpa kartu kredit · siap dipakai dalam 1 menit · demo tanpa daftar
+          {L(
+            lang,
+            "Tanpa kartu kredit · siap dipakai dalam 1 menit · demo tanpa daftar",
+            "No credit card · ready in 1 minute · demo without signing up",
+          )}
         </p>
       </div>
 
@@ -323,22 +346,41 @@ function Comparison() {
   );
 }
 
-const TIER_INFO: { plan: "starter" | "business" | "enterprise"; tagline: string; features: string[]; popular?: boolean }[] = [
+type TierInfo = { plan: "starter" | "business" | "enterprise"; tagline: { id: string; en: string }; features: { id: string; en: string }[]; popular?: boolean };
+const TIER_INFO: TierInfo[] = [
   {
     plan: "starter",
-    tagline: "Untuk toko, jasa & usaha keluarga",
-    features: ["Akuntansi, penjualan & pembelian", "Kasir (POS) + stok multi-gudang", "Pajak: PPN, PPh final, e-Faktur", "Semua laporan keuangan", "Pengguna tak terbatas"],
+    tagline: { id: "Untuk toko, jasa & usaha keluarga", en: "For shops, services & family businesses" },
+    features: [
+      { id: "Akuntansi, penjualan & pembelian", en: "Accounting, sales & purchasing" },
+      { id: "Kasir (POS) + stok multi-gudang", en: "POS + multi-warehouse stock" },
+      { id: "Pajak: PPN, PPh final, e-Faktur", en: "Tax: VAT, final income tax, e-Faktur" },
+      { id: "Semua laporan keuangan", en: "All financial reports" },
+      { id: "Pengguna tak terbatas", en: "Unlimited users" },
+    ],
   },
   {
     plan: "business",
-    tagline: "Untuk PT dengan tim & proses",
+    tagline: { id: "Untuk PT dengan tim & proses", en: "For companies with teams & processes" },
     popular: true,
-    features: ["Semua di Starter, plus:", "HR & Payroll (PPh 21 TER + BPJS)", "Proyek, manufaktur & pengadaan", "Persetujuan berjenjang + peran kustom", "CRM pipeline & kontrak berulang"],
+    features: [
+      { id: "Semua di Starter, plus:", en: "Everything in Starter, plus:" },
+      { id: "HR & Payroll (PPh 21 TER + BPJS)", en: "HR & Payroll (income tax + social security)" },
+      { id: "Proyek, manufaktur & pengadaan", en: "Projects, manufacturing & procurement" },
+      { id: "Persetujuan berjenjang + peran kustom", en: "Multi-level approvals + custom roles" },
+      { id: "CRM pipeline & kontrak berulang", en: "CRM pipeline & recurring contracts" },
+    ],
   },
   {
     plan: "enterprise",
-    tagline: "Untuk grup, multi-cabang & holding",
-    features: ["Semua di Business, plus:", `Multi-entitas (${PLAN_LIMITS.enterprise.maxEntities} perusahaan) + konsolidasi`, "Dimensi / cost center per cabang", "API publik & webhook", "Keamanan lanjutan + dukungan prioritas"],
+    tagline: { id: "Untuk grup, multi-cabang & holding", en: "For groups, multi-branch & holdings" },
+    features: [
+      { id: "Semua di Business, plus:", en: "Everything in Business, plus:" },
+      { id: `Multi-entitas (${PLAN_LIMITS.enterprise.maxEntities} perusahaan) + konsolidasi`, en: `Multi-entity (${PLAN_LIMITS.enterprise.maxEntities} companies) + consolidation` },
+      { id: "Dimensi / cost center per cabang", en: "Dimensions / cost centers per branch" },
+      { id: "API publik & webhook", en: "Public API & webhooks" },
+      { id: "Keamanan lanjutan + dukungan prioritas", en: "Advanced security + priority support" },
+    ],
   },
 ];
 
@@ -419,13 +461,16 @@ function CategoryComparison() {
 }
 
 function Pricing() {
+  const lang = useLang();
   return (
     <section id="harga" className="scroll-mt-16 border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <h2 className="text-center text-3xl font-bold tracking-tight">Satu sistem, dari toko pertama sampai grup perusahaan</h2>
+        <h2 className="text-center text-3xl font-bold tracking-tight">
+          {L(lang, "Satu sistem, dari toko pertama sampai grup perusahaan", "One system, from your first shop to a group of companies")}
+        </h2>
         <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600 dark:text-slate-300">
-          Pengguna <span className="font-semibold">selalu tak terbatas</span> di semua paket. Mulai gratis {TRIAL_DAYS} hari
-          dengan akses penuh — tanpa kartu kredit.
+          {L(lang, "Pengguna", "Users are")} <span className="font-semibold">{L(lang, "selalu tak terbatas", "always unlimited")}</span>{" "}
+          {L(lang, `di semua paket. Mulai gratis ${TRIAL_DAYS} hari dengan akses penuh — tanpa kartu kredit.`, `on every plan. Start free for ${TRIAL_DAYS} days with full access — no credit card.`)}
         </p>
 
         <div className="mx-auto mt-10 grid max-w-5xl gap-5 lg:grid-cols-3">
@@ -440,25 +485,25 @@ function Pricing() {
               >
                 {tier.popular ? (
                   <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-brand-500 to-brand-700 px-3 py-0.5 text-xs font-semibold text-white">
-                    Paling populer
+                    {L(lang, "Paling populer", "Most popular")}
                   </span>
                 ) : null}
                 <h3 className="text-lg font-semibold">{info.label}</h3>
-                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{tier.tagline}</p>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{tier.tagline[lang]}</p>
                 <div className="mt-3 flex items-end gap-1">
                   <span className="text-3xl font-bold">{formatRupiah(info.pricePerMonth)}</span>
-                  <span className="pb-1 text-sm font-normal text-slate-400">/bulan</span>
+                  <span className="pb-1 text-sm font-normal text-slate-400">{L(lang, "/bulan", "/month")}</span>
                 </div>
                 <ul className="mt-5 flex-1 space-y-2 text-sm">
                   {tier.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2">
-                      <Check className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden /> {f}
+                    <li key={f.id} className="flex items-start gap-2">
+                      <Check className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden /> {f[lang]}
                     </li>
                   ))}
                 </ul>
                 <Link to="/daftar" className="mt-5">
                   <Button variant={tier.popular ? "primary" : "secondary"} className="w-full">
-                    Mulai Gratis {TRIAL_DAYS} Hari
+                    {L(lang, `Mulai Gratis ${TRIAL_DAYS} Hari`, `Start Free — ${TRIAL_DAYS} Days`)}
                   </Button>
                 </Link>
               </div>
@@ -499,6 +544,7 @@ function Pricing() {
 }
 
 function DemoRequest() {
+  const lang = useLang();
   const [form, setForm] = useState({ name: "", company: "", email: "", phone: "", employees: "", message: "" });
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -509,7 +555,7 @@ function DemoRequest() {
     setError(null);
     const parsed = demoRequestSchema.safeParse(form);
     if (!parsed.success) {
-      setError("Mohon lengkapi nama, perusahaan, dan email yang valid.");
+      setError(L(lang, "Mohon lengkapi nama, perusahaan, dan email yang valid.", "Please provide a valid name, company, and email."));
       return;
     }
     setBusy(true);
@@ -517,7 +563,7 @@ function DemoRequest() {
       await api.submitDemoRequest(parsed.data);
       setSent(true);
     } catch (err) {
-      setError((err as Error).message || "Gagal mengirim. Coba lagi.");
+      setError((err as Error).message || L(lang, "Gagal mengirim. Coba lagi.", "Failed to send. Please try again."));
     } finally {
       setBusy(false);
     }
@@ -527,28 +573,32 @@ function DemoRequest() {
   return (
     <section id="demo" className="scroll-mt-16 border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <div className="mx-auto max-w-2xl px-4 py-16 sm:px-6">
-        <h2 className="text-center text-3xl font-bold tracking-tight">Jadwalkan demo</h2>
+        <h2 className="text-center text-3xl font-bold tracking-tight">{L(lang, "Jadwalkan demo", "Schedule a demo")}</h2>
         <p className="mx-auto mt-3 max-w-xl text-center text-slate-600 dark:text-slate-300">
-          Ingin melihat ERPindo untuk perusahaan Anda, atau butuh pendampingan implementasi? Tinggalkan kontak — tim kami menghubungi Anda.
+          {L(
+            lang,
+            "Ingin melihat ERPindo untuk perusahaan Anda, atau butuh pendampingan implementasi? Tinggalkan kontak — tim kami menghubungi Anda.",
+            "Want to see ERPindo for your company, or need implementation support? Leave your contact — our team will reach out.",
+          )}
         </p>
         {sent ? (
           <div className="mt-8 rounded-2xl border border-emerald-300 bg-emerald-50 p-6 text-center dark:border-emerald-800 dark:bg-emerald-950/40">
             <Check className="mx-auto size-8 text-emerald-600 dark:text-emerald-400" aria-hidden />
-            <p className="mt-2 font-medium">Terima kasih! Permintaan Anda sudah kami terima.</p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Tim kami akan menghubungi Anda secepatnya.</p>
+            <p className="mt-2 font-medium">{L(lang, "Terima kasih! Permintaan Anda sudah kami terima.", "Thank you! We've received your request.")}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{L(lang, "Tim kami akan menghubungi Anda secepatnya.", "Our team will contact you shortly.")}</p>
           </div>
         ) : (
           <form onSubmit={submit} className="mt-8 grid gap-3 sm:grid-cols-2">
-            <input className={field} placeholder="Nama Anda" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} aria-label="Nama" />
-            <input className={field} placeholder="Nama perusahaan" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} aria-label="Perusahaan" />
+            <input className={field} placeholder={L(lang, "Nama Anda", "Your name")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} aria-label="Nama" />
+            <input className={field} placeholder={L(lang, "Nama perusahaan", "Company name")} value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} aria-label="Perusahaan" />
             <input className={field} type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} aria-label="Email" />
-            <input className={field} placeholder="No. WhatsApp (opsional)" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} aria-label="Telepon" />
-            <input className={`${field} sm:col-span-2`} placeholder="Perkiraan jumlah karyawan (opsional)" value={form.employees} onChange={(e) => setForm({ ...form, employees: e.target.value })} aria-label="Jumlah karyawan" />
-            <textarea className={`${field} sm:col-span-2`} rows={3} placeholder="Pesan / kebutuhan (opsional)" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} aria-label="Pesan" />
+            <input className={field} placeholder={L(lang, "No. WhatsApp (opsional)", "WhatsApp no. (optional)")} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} aria-label="Telepon" />
+            <input className={`${field} sm:col-span-2`} placeholder={L(lang, "Perkiraan jumlah karyawan (opsional)", "Approx. number of employees (optional)")} value={form.employees} onChange={(e) => setForm({ ...form, employees: e.target.value })} aria-label="Jumlah karyawan" />
+            <textarea className={`${field} sm:col-span-2`} rows={3} placeholder={L(lang, "Pesan / kebutuhan (opsional)", "Message / needs (optional)")} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} aria-label="Pesan" />
             {error ? <p className="text-sm text-red-600 sm:col-span-2 dark:text-red-400">{error}</p> : null}
             <div className="sm:col-span-2">
               <Button type="submit" disabled={busy} className="w-full sm:w-auto">
-                {busy ? "Mengirim…" : "Kirim permintaan demo"}
+                {busy ? L(lang, "Mengirim…", "Sending…") : L(lang, "Kirim permintaan demo", "Send demo request")}
               </Button>
             </div>
           </form>

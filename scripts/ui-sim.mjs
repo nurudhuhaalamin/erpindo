@@ -597,6 +597,18 @@ try {
     "F15 landing memuat kalkulator per-pengguna + perbandingan kategori",
     landingText.includes("per pengguna") && landingText.includes("ERPindo"),
   );
+  // Multibahasa (Fase 13d): toggle EN → hero & harga berbahasa Inggris, lalu kembali ID.
+  await page.getByRole("button", { name: "EN", exact: true }).first().click();
+  await page.waitForTimeout(300);
+  const enText = await page.innerText("body");
+  check(
+    "F15 toggle EN menerjemahkan hero + harga ke Inggris",
+    enText.includes("all in one app") && enText.includes("Most popular") && enText.includes("/month"),
+    `→ EN tidak lengkap`,
+  );
+  await page.getByRole("button", { name: "ID", exact: true }).first().click();
+  await page.waitForTimeout(300);
+  check("F15 toggle kembali ke ID", (await page.innerText("body")).includes("beres dalam satu aplikasi"));
   // Form Jadwalkan Demo (Fase 13c): isi + kirim -> konfirmasi.
   await page.locator('input[aria-label="Nama"]').fill("Uji Sim");
   await page.locator('input[aria-label="Perusahaan"]').fill("PT Uji Simulasi");
