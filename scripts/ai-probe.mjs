@@ -57,9 +57,9 @@ if (!tenantId) {
 }
 
 /** Panggil endpoint AI + ukur latensi (kunci diagnosa "berpikir… abadi"). */
-async function timed(label, path, body) {
+async function timed(label, path, body, method = "POST") {
   const t0 = Date.now();
-  const res = await api("POST", path, body);
+  const res = await api(method, path, body);
   const ms = Date.now() - t0;
   console.log(`\n=== HASIL PROBE ${label} ===`);
   console.log(`HTTP ${res.status} · ${ms} ms`);
@@ -82,3 +82,5 @@ await timed("/ai/chat", `/api/tenants/${tenantId}/ai/chat`, {
 await timed("/ai/jurnal", `/api/tenants/${tenantId}/ai/jurnal`, {
   prompt: "bayar listrik 500 ribu dari kas",
 });
+// Fase 12f: ringkasan mingguan dashboard (GET; panggilan kedua seharusnya cache).
+await timed("/ai/ringkasan-mingguan", `/api/tenants/${tenantId}/ai/ringkasan-mingguan`, undefined, "GET");

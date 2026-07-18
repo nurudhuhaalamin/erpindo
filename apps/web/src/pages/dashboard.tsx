@@ -4,9 +4,9 @@
 // ---------------------------------------------------------------------------
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ArrowDownToLine, ArrowUpFromLine, Boxes, LineChart, Receipt, Check, ShoppingCart, SlidersHorizontal, Target, Users, Wallet, type LucideIcon } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Boxes, LineChart, Receipt, Check, ShoppingCart, SlidersHorizontal, Sparkles, Target, TrendingUp, Users, Wallet, type LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
-import { api, formatDate, formatIDR } from "../api/client";
+import { api, ApiRequestError, formatDate, formatIDR } from "../api/client";
 import { Alert, Button, Card, CardBody, CardHeader, Skeleton, useToast } from "../components/ui";
 import { useWorkspace } from "./app";
 import { AUDIT_ACTION_LABELS } from "./settings";
@@ -38,10 +38,14 @@ function niceCeil(n: number): number {
  * (judul kartu yang menamai), tooltip per batang dengan hit-target penuh,
  * teks memakai token teks — bukan warna seri.
  */
+const TREND_RANGES = [7, 30, 90] as const;
+
 function SalesTrendChart({ tenantId }: { tenantId: string }) {
+  // Filter rentang 7/30/90 hari (Fase 12d) — API sudah menerima ?days= sejak lama.
+  const [range, setRange] = useState<(typeof TREND_RANGES)[number]>(30);
   const query = useQuery({
-    queryKey: ["sales-daily", tenantId],
-    queryFn: () => api.salesDaily(tenantId, 30),
+    queryKey: ["sales-daily", tenantId, range],
+    queryFn: () => api.salesDaily(tenantId, range),
   });
   const [hover, setHover] = useState<number | null>(null);
 
@@ -49,13 +53,13 @@ function SalesTrendChart({ tenantId }: { tenantId: string }) {
   const days = useMemo(() => {
     const byDate = new Map((query.data?.rows ?? []).map((r) => [r.date, r]));
     const out: { date: string; total: number; count: number }[] = [];
-    for (let i = 29; i >= 0; i--) {
+    for (let i = range - 1; i >= 0; i--) {
       const date = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
       const row = byDate.get(date);
       out.push({ date, total: row?.total ?? 0, count: row?.count ?? 0 });
     }
     return out;
-  }, [query.data]);
+  }, [query.data, range]);
 
   const W = 600;
   const H = 190;
@@ -70,12 +74,31 @@ function SalesTrendChart({ tenantId }: { tenantId: string }) {
   const y = (v: number) => PAD_T + plotH - (v / yMax) * plotH;
   const ticks = [0, yMax / 2, yMax];
   const hovered = hover !== null ? days[hover] : null;
+  const labelStep = range === 7 ? 1 : range === 30 ? 7 : 14; // kerapatan label sumbu X
 
   return (
     <Card>
       <CardHeader
-        title="Penjualan 30 hari terakhir"
+        title={`Penjualan ${range} hari terakhir`}
         description="Total faktur penjualan per hari (dokumen dibatalkan tidak dihitung)."
+        action={
+          <div className="flex gap-1" role="group" aria-label="Rentang grafik">
+            {TREND_RANGES.map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setRange(r)}
+                className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+                  range === r
+                    ? "bg-brand-600 text-white dark:bg-brand-400 dark:text-slate-900"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                }`}
+              >
+                {r} hari
+              </button>
+            ))}
+          </div>
+        }
       />
       <CardBody>
         {query.isLoading ? (
@@ -84,10 +107,10 @@ function SalesTrendChart({ tenantId }: { tenantId: string }) {
           <div className="relative">
             {days.every((d) => d.total === 0) ? (
               <p className="absolute inset-0 z-10 flex items-center justify-center px-6 text-center text-sm text-slate-400 dark:text-slate-500">
-                Belum ada penjualan 30 hari terakhir — mulai dari faktur pertama Anda di menu Penjualan.
+                Belum ada penjualan {range} hari terakhir — mulai dari faktur pertama Anda di menu Penjualan.
               </p>
             ) : null}
-            <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Grafik penjualan harian 30 hari">
+            <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Grafik penjualan harian ${range} hari`}>
               {ticks.map((t) => (
                 <g key={t}>
                   <line
@@ -140,7 +163,7 @@ function SalesTrendChart({ tenantId }: { tenantId: string }) {
                       onPointerEnter={() => setHover(i)}
                       onPointerLeave={() => setHover(null)}
                     />
-                    {i % 7 === 1 ? (
+                    {i % labelStep === (labelStep > 1 ? 1 : 0) ? (
                       <text
                         x={cx}
                         y={H - 6}
@@ -516,9 +539,56 @@ function ScheduledReportsWidget({ tenantId, canRun }: { tenantId: string; canRun
   );
 }
 
+/**
+ * Ringkasan bisnis mingguan AI (Fase 12f): narasi bahasa alami dari angka buku
+ * nyata, di-cache per minggu di server. Saat AI tak tersedia (503) widget
+ * menampilkan teks redup — tidak pernah error state (pola asisten.tsx).
+ */
+function AiWeeklySummaryWidget({ tenantId }: { tenantId: string }) {
+  const query = useQuery({
+    queryKey: ["ai-weekly-summary", tenantId],
+    queryFn: () => api.aiWeeklySummary(tenantId),
+    retry: false,
+    staleTime: 60 * 60 * 1000, // server sudah meng-cache per minggu; jangan refetch agresif
+  });
+  const unavailable =
+    query.isError && (!(query.error instanceof ApiRequestError) || [503, 408, 429, 0].includes(query.error.status));
+
+  return (
+    <Card>
+      <CardHeader
+        title="Ringkasan mingguan AI"
+        description="Narasi singkat kinerja minggu ini vs minggu lalu — dihitung dari buku Anda."
+        action={<Sparkles className="size-4 text-brand-500" aria-hidden />}
+      />
+      <CardBody>
+        {query.isLoading ? (
+          <Skeleton className="h-16 w-full" />
+        ) : query.isSuccess ? (
+          <>
+            <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-200">{query.data.summary}</p>
+            <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+              Dibuat {formatDate(query.data.generatedAt.slice(0, 10))} · diperbarui otomatis tiap minggu.
+            </p>
+          </>
+        ) : unavailable ? (
+          <p className="py-2 text-sm text-slate-400 dark:text-slate-500">
+            Fitur AI belum tersedia di lingkungan ini — fitur lain tetap berjalan normal.
+          </p>
+        ) : (
+          <p className="py-2 text-sm text-slate-400 dark:text-slate-500">
+            Ringkasan belum bisa dimuat. {(query.error as Error)?.message ?? ""}
+          </p>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
 /** Widget dashboard yang bisa disembunyikan/ditampilkan (Fase 7h). */
 const DASHBOARD_WIDGETS = [
   { key: "kpi", label: "Ringkasan angka (KPI)" },
+  { key: "aiRingkasan", label: "Ringkasan mingguan AI" },
   { key: "trenHarian", label: "Grafik penjualan 30 hari" },
   { key: "trenBulanan", label: "Grafik tren bulanan" },
   { key: "jatuhTempo", label: "Faktur jatuh tempo" },
@@ -551,6 +621,15 @@ function useDashboardWidgets(tenantId: string) {
   return { isVisible, toggle };
 }
 
+/** Sapaan sesuai jam perangkat pengguna. */
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 11) return "Selamat pagi";
+  if (h < 15) return "Selamat siang";
+  if (h < 19) return "Selamat sore";
+  return "Selamat malam";
+}
+
 export function DashboardPage() {
   const { me, tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
@@ -560,20 +639,31 @@ export function DashboardPage() {
     queryKey: ["dashboard", tenant.tenantId],
     queryFn: () => api.dashboard(tenant.tenantId),
   });
+  // Sapaan kontekstual (Fase 12d): jumlah faktur lewat jatuh tempo dari mesin
+  // notifikasi — query di-share dengan DueInvoicesWidget (queryKey sama).
+  const notifQuery = useQuery({
+    queryKey: ["notifications", tenant.tenantId],
+    queryFn: () => api.notifications(tenant.tenantId),
+  });
+  const overdueCount = (notifQuery.data?.notifications ?? []).filter((n) => n.type === "overdue_invoice").length;
 
   const fmt = formatIDR;
 
-  const salesDelta =
-    dash.data && dash.data.salesLastMonth > 0
-      ? Math.round(((dash.data.salesThisMonth - dash.data.salesLastMonth) / dash.data.salesLastMonth) * 100)
-      : null;
+  // Delta % vs bulan lalu; untuk laba, basis pembagi memakai nilai absolut agar
+  // perbandingan tetap bermakna saat bulan lalu rugi.
+  const pctDelta = (cur: number | undefined, prev: number | undefined) =>
+    cur !== undefined && prev !== undefined && prev !== 0 ? Math.round(((cur - prev) / Math.abs(prev)) * 100) : null;
+  const salesDelta = pctDelta(dash.data?.salesThisMonth, dash.data?.salesLastMonth);
+  const profitDelta = pctDelta(dash.data?.profitThisMonth, dash.data?.profitLastMonth);
 
-  const stats: { label: string; value?: number; hint?: string; delta?: number | null; icon: LucideIcon; chip: string; currency?: boolean }[] = [
+  // Tiap kartu KPI kini tautan ke laporan sumbernya (Fase 12d).
+  const stats: { label: string; value?: number; hint?: string; delta?: number | null; icon: LucideIcon; chip: string; currency?: boolean; to: string }[] = [
     {
       label: "Kas & Bank",
       value: dash.data?.cashAndBank,
       icon: Wallet,
       chip: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300",
+      to: "/app/keuangan/kas-bank",
     },
     {
       label: "Penjualan Bulan Ini",
@@ -582,24 +672,36 @@ export function DashboardPage() {
       delta: salesDelta,
       icon: LineChart,
       chip: "bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-300",
+      to: "/app/laporan/penjualan",
+    },
+    {
+      label: "Laba Bulan Ini",
+      value: dash.data?.profitThisMonth,
+      delta: profitDelta,
+      icon: TrendingUp,
+      chip: "bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300",
+      to: "/app/keuangan/laba-rugi",
     },
     {
       label: "Piutang Belum Lunas",
       value: dash.data?.receivableOutstanding,
       icon: ArrowDownToLine,
       chip: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
+      to: "/app/keuangan/umur-tagihan",
     },
     {
       label: "Hutang Belum Lunas",
       value: dash.data?.payableOutstanding,
       icon: ArrowUpFromLine,
       chip: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
+      to: "/app/keuangan/umur-tagihan",
     },
     {
       label: "Nilai Persediaan",
       value: dash.data?.inventoryValue,
       icon: Boxes,
       chip: "bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300",
+      to: "/app/stok",
     },
     {
       label: "Lead Terbuka",
@@ -607,6 +709,7 @@ export function DashboardPage() {
       currency: false,
       icon: Target,
       chip: "bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300",
+      to: "/app/crm/leads",
     },
   ];
 
@@ -621,9 +724,15 @@ export function DashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Selamat datang, {me.user.name.split(" ")[0]}</h1>
+          <h1 className="text-2xl font-semibold">{greeting()}, {me.user.name.split(" ")[0]}</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             Ringkasan <span className="font-medium">{tenant.tenantName}</span> hari ini.
+            {overdueCount > 0 ? (
+              <>
+                {" "}
+                Ada <span className="font-medium text-amber-600 dark:text-amber-400">{overdueCount} faktur lewat jatuh tempo</span> yang perlu ditagih.
+              </>
+            ) : null}
           </p>
         </div>
         <Button variant="secondary" onClick={() => setCustomizing((v) => !v)}>
@@ -682,12 +791,18 @@ export function DashboardPage() {
       ) : null}
 
       {widgets.isVisible("kpi") ? (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {stats.map((stat) => (
-          <Card key={stat.label}>
+          <Link
+            key={stat.label}
+            to={stat.to}
+            aria-label={`${stat.label} — buka laporan sumber`}
+            className="group block rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
+          >
+          <Card hover className="h-full">
             <CardBody>
               <div className="flex items-start justify-between gap-2">
-                <div className="text-sm text-slate-500 dark:text-slate-400">{stat.label}</div>
+                <div className="text-sm text-slate-500 group-hover:text-brand-700 dark:text-slate-400 dark:group-hover:text-brand-300">{stat.label}</div>
                 <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${stat.chip}`}>
                   <stat.icon className="size-4" aria-hidden />
                 </span>
@@ -710,10 +825,12 @@ export function DashboardPage() {
               </div>
             </CardBody>
           </Card>
+          </Link>
         ))}
       </div>
       ) : null}
 
+      {widgets.isVisible("aiRingkasan") ? <AiWeeklySummaryWidget tenantId={tenant.tenantId} /> : null}
       {widgets.isVisible("trenHarian") ? <SalesTrendChart tenantId={tenant.tenantId} /> : null}
       {widgets.isVisible("trenBulanan") ? <MonthlyTrendChart tenantId={tenant.tenantId} /> : null}
       {widgets.isVisible("laporanTerjadwal") ? (

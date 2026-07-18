@@ -5,7 +5,7 @@ import { audit } from "../lib/audit";
 import { getTenantDb } from "../lib/tenantDb";
 import { requireAuth, requireTenantRole } from "../middleware/auth";
 import { clientIp } from "./auth";
-import { executeInvoice } from "./commerce";
+import { executeInvoice } from "../lib/commercePosting";
 
 /**
  * Import pesanan marketplace (Fase 11e) — jembatan omnichannel tanpa kunci API.

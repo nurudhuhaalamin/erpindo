@@ -16,7 +16,7 @@ import { audit } from "../lib/audit";
 import { getTenantDb } from "../lib/tenantDb";
 import { requireAuth, requireTenantRole } from "../middleware/auth";
 import { clientIp } from "./auth";
-import { executeInvoice } from "./commerce";
+import { executeInvoice } from "../lib/commercePosting";
 
 /**
  * Penjualan bertahap (Fase 7b): Sales Order → Surat Jalan (DO) → Faktur.

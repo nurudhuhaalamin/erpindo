@@ -6,6 +6,7 @@ import {
   posSaleSchema,
   type ApiHeldSale,
   type ApiPosReceipt,
+  type ApiPosRecap,
   type ApiPosShift,
   type PosPaymentMethod,
 } from "@erpindo/shared";
@@ -115,6 +116,87 @@ export const posRoutes = new Hono<AppEnv>()
       expectedCash: shift.opening_cash + totals.cashTotal,
     };
     return c.json({ shift: body });
+  })
+
+  // -------------------------------------------------------------------------
+  // Rekap penjualan harian (Fase 12e): per jam, per shift, per metode — untuk
+  // analisis jam ramai & kinerja shift. Jam dikembalikan dalam UTC; klien yang
+  // mengonversi ke jam lokal perangkat (Indonesia punya 3 zona waktu).
+  // -------------------------------------------------------------------------
+  .get("/:tenantId/pos/recap", requireAuth, requireTenantRole("viewer"), async (c) => {
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+    const q = c.req.query("date");
+    const date = q && /^\d{4}-\d{2}-\d{2}$/.test(q) ? q : new Date().toISOString().slice(0, 10);
+
+    const [totalRows, hourRows, shiftRows, methodRows, legacyRows] = await Promise.all([
+      db
+        .prepare(
+          `SELECT COUNT(*) AS n, COALESCE(SUM(total), 0) AS total FROM invoices
+           WHERE pos_shift_id IS NOT NULL AND voided_at IS NULL AND invoice_date = ?`,
+        )
+        .bind(date)
+        .all<{ n: number; total: number }>(),
+      db
+        .prepare(
+          `SELECT CAST(strftime('%H', created_at) AS INTEGER) AS h, COUNT(*) AS n, COALESCE(SUM(total), 0) AS total
+           FROM invoices
+           WHERE pos_shift_id IS NOT NULL AND voided_at IS NULL AND invoice_date = ?
+           GROUP BY h ORDER BY h`,
+        )
+        .bind(date)
+        .all<{ h: number; n: number; total: number }>(),
+      db
+        .prepare(
+          `SELECT s.shift_no, s.status, COUNT(i.id) AS n, COALESCE(SUM(i.total), 0) AS total,
+                  COALESCE((SELECT SUM(p.amount) FROM pos_sale_payments p
+                            JOIN invoices pi ON pi.id = p.invoice_id
+                            WHERE p.shift_id = s.id AND p.method = 'tunai'
+                              AND pi.voided_at IS NULL AND pi.invoice_date = ?), 0) AS cash
+           FROM pos_shifts s
+           JOIN invoices i ON i.pos_shift_id = s.id AND i.voided_at IS NULL AND i.invoice_date = ?
+           GROUP BY s.id ORDER BY s.shift_no`,
+        )
+        .bind(date, date)
+        .all<{ shift_no: string; status: "open" | "closed"; n: number; total: number; cash: number }>(),
+      db
+        .prepare(
+          `SELECT p.method AS method, COALESCE(SUM(p.amount), 0) AS amount
+           FROM pos_sale_payments p JOIN invoices i ON i.id = p.invoice_id
+           WHERE i.pos_shift_id IS NOT NULL AND i.voided_at IS NULL AND i.invoice_date = ?
+           GROUP BY p.method`,
+        )
+        .bind(date)
+        .all<{ method: string; amount: number }>(),
+      // Faktur POS lama tanpa baris pembayaran = tunai penuh (kompatibilitas, pola shiftTotals).
+      db
+        .prepare(
+          `SELECT COALESCE(SUM(total), 0) AS c FROM invoices
+           WHERE pos_shift_id IS NOT NULL AND voided_at IS NULL AND invoice_date = ?
+             AND id NOT IN (SELECT invoice_id FROM pos_sale_payments)`,
+        )
+        .bind(date)
+        .all<{ c: number }>(),
+    ]);
+
+    const byMethod = new Map(methodRows.results.map((r) => [r.method, r.amount]));
+    const legacyCash = legacyRows.results[0]?.c ?? 0;
+    if (legacyCash > 0) byMethod.set("tunai", (byMethod.get("tunai") ?? 0) + legacyCash);
+
+    const body: ApiPosRecap = {
+      date,
+      salesCount: totalRows.results[0]?.n ?? 0,
+      salesTotal: totalRows.results[0]?.total ?? 0,
+      byHour: hourRows.results.map((r) => ({ hourUtc: r.h, count: r.n, total: r.total })),
+      byShift: shiftRows.results.map((r) => ({
+        shiftNo: r.shift_no,
+        status: r.status,
+        count: r.n,
+        total: r.total,
+        cashTotal: r.cash,
+      })),
+      byMethod: [...byMethod.entries()].map(([method, amount]) => ({ method, amount })),
+    };
+    return c.json(body);
   })
 
   .post("/:tenantId/pos/shift/open", requireAuth, requireTenantRole("admin"), async (c) => {

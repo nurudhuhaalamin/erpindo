@@ -46,17 +46,17 @@ piutang/hutang, persediaan), widget jatuh tempo, feed aktivitas, checklist "Mula
 berprogres, lonceng notifikasi.
 
 **Quick wins (≤ 1 hari):**
-- Filter rentang tanggal pada grafik penjualan (7/30/90 hari).
-- Kartu KPI bisa diklik menuju laporan sumbernya.
-- Sapaan kontekstual ("Selamat pagi, ada 3 faktur jatuh tempo minggu ini").
+- ~~Filter rentang tanggal pada grafik penjualan (7/30/90 hari).~~ ✅ **Fase 12d**
+- ~~Kartu KPI bisa diklik menuju laporan sumbernya.~~ ✅ **Fase 12d**
+- ~~Sapaan kontekstual ("Selamat pagi, ada 3 faktur jatuh tempo minggu ini").~~ ✅ **Fase 12d**
 
 **Pengembangan lanjutan:**
 
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
 | Dashboard bisa dikustomisasi (pilih & susun widget per pengguna) | S | S | – |
-| Ringkasan bisnis mingguan berbahasa alami di dashboard ("penjualan naik 12%, margin turun karena…") | T | S | ✓ |
-| Perbandingan periode otomatis (bulan ini vs bulan lalu vs tahun lalu) pada semua KPI | T | R | – |
+| ~~Ringkasan bisnis mingguan berbahasa alami di dashboard ("penjualan naik 12%, margin turun karena…")~~ ✅ **Fase 12f** | T | S | ✓ |
+| Perbandingan periode otomatis (bulan ini vs bulan lalu vs tahun lalu) pada semua KPI — *sebagian di Fase 12d: delta bulan lalu pada KPI Penjualan & Laba* | T | R | – |
 | Target bulanan owner + progress bar (terhubung modul Anggaran) | S | R | – |
 
 ## 2. POS / Kasir
@@ -65,7 +65,7 @@ berprogres, lonceng notifikasi.
 dengan hitung kas fisik + selisih berjurnal, struk dengan logo, pembayaran tunai.
 
 **Quick wins (≤ 1 hari):**
-- Tombol nominal cepat (Rp 50rb/100rb) + hitung kembalian menonjol.
+- ~~Tombol nominal cepat (Rp 50rb/100rb) + hitung kembalian menonjol.~~ ✅ **Fase 12e**
 - Catatan per transaksi (nama pelanggan/meja) tercetak di struk.
 - Produk favorit/pinned di atas hasil pencarian.
 
@@ -74,10 +74,10 @@ dengan hitung kas fisik + selisih berjurnal, struk dengan logo, pembayaran tunai
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
 | **Barcode scanner via kamera HP (zxing di browser)** — scan langsung menambah item ke keranjang | T | S | – |
-| Pembayaran non-tunai tercatat (QRIS statis/transfer, pilih metode → jurnal ke akun bank) | T | R | – |
+| ~~Pembayaran non-tunai tercatat (QRIS statis/transfer, pilih metode → jurnal ke akun bank)~~ ✅ **sudah ada sejak Fase 7a** (koreksi Fase 12e) | T | R | – |
 | Mode offline penuh POS: antre transaksi di IndexedDB, sinkron saat online (PWA sudah ada — tinggal antrean) | T | T | – |
 | Member/pelanggan di POS + riwayat belanja & poin sederhana | S | S | – |
-| Rekap penjualan per jam/kasir untuk analisis shift | S | R | – |
+| ~~Rekap penjualan per jam/kasir untuk analisis shift~~ ✅ **Fase 12e** | S | R | – |
 
 ## 3. Penjualan
 

@@ -125,6 +125,9 @@ try {
     if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push(`console: ${m.text()}`);
   });
   page.on("response", (r) => {
+    // 503 endpoint AI = degradasi anggun yang DIHARAPKAN di dev/CI tanpa binding
+    // Workers AI (widget menampilkan teks redup, bukan error) — bukan galat.
+    if (r.status() === 503 && r.url().includes("/ai/")) return;
     if (r.status() >= 500) errors.push(`${r.status()} ${r.url()}`);
     // POST 4xx saat simulasi = aksi ditolak — catat ke log agar kegagalan alur
     // langsung terlihat penyebabnya di keluaran CI.
@@ -179,6 +182,27 @@ try {
   await gotoRoute("/app", 900);
   check("workspace aktif menampilkan PT Demo Sejahtera", (await page.innerText("body")).includes("PT Demo Sejahtera"));
   check("login & pindah workspace tanpa galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
+
+  // Quick wins dashboard (Fase 12d): KPI Laba, filter rentang grafik, KPI klik-tembus.
+  resetErrors();
+  const dashBody = await page.innerText("body");
+  check("dashboard memuat KPI 'Laba Bulan Ini' (Fase 12d)", dashBody.includes("Laba Bulan Ini"));
+  // Widget ringkasan mingguan AI (Fase 12f): di CI tanpa binding harus tampil
+  // fallback redup — bukan error state; di produksi berisi narasi ("Dibuat …").
+  await page.getByText("Ringkasan mingguan AI").first().waitFor({ timeout: 15_000 });
+  await page
+    .getByText(/Fitur AI belum tersedia|Dibuat/)
+    .first()
+    .waitFor({ timeout: 15_000 });
+  check("widget Ringkasan mingguan AI tampil dengan fallback/narasi (tanpa error)", true);
+  await page.getByRole("button", { name: "7 hari", exact: true }).click();
+  await page.getByText("Penjualan 7 hari terakhir").first().waitFor({ timeout: 10_000 });
+  check("filter grafik 7/30/90: klik '7 hari' → judul & grafik ikut", true);
+  await page.getByLabel("Kas & Bank — buka laporan sumber").click();
+  await page.waitForURL("**/app/keuangan/kas-bank", { timeout: 15_000 });
+  check("kartu KPI Kas & Bank bisa diklik → halaman Kas & Bank", true);
+  check("quick wins dashboard bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
+  await gotoRoute("/app", 600);
 
   // -------------------------------------------------------------------------
   // 1. Sapu semua rute: render + bebas galat.
@@ -288,6 +312,24 @@ try {
   await salePost;
   check("F6 POS: keranjang → bayar tunai → transaksi 201", true);
   check("F6 POS bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
+
+  // F6b — POS quick wins (Fase 12e): tombol nominal cepat + kembalian menonjol + rekap.
+  resetErrors();
+  await page.getByPlaceholder("Cari produk / SKU…").fill("Kopi Arabika");
+  await page.waitForTimeout(400);
+  await page.locator("button", { hasText: "Rp" }).filter({ hasNotText: "Rp 0" }).first().click();
+  await page.getByRole("button", { name: "Uang pas", exact: true }).click();
+  await page.getByRole("button", { name: "+50rb", exact: true }).click();
+  await page.getByText("Kembalian:").first().waitFor({ timeout: 10_000 });
+  check("F6b POS: 'Uang pas' + '+50rb' → kembalian Rp 50.000 tampil menonjol", true);
+  const salePost2 = postDone("/pos/sales");
+  await page.getByRole("button", { name: "Bayar & Cetak Struk" }).click();
+  await salePost2;
+  check("F6b POS: bayar via nominal cepat → transaksi 201", true);
+  await page.getByRole("button", { name: "Lihat rekap" }).click();
+  await page.getByText("Per metode").first().waitFor({ timeout: 10_000 });
+  check("F6b POS: kartu 'Rekap hari ini' terbuka berisi rekap per jam/shift/metode", true);
+  check("F6b POS quick wins bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
 
   // F7 — Penjualan: terima pembayaran faktur outstanding → lunas.
   resetErrors();

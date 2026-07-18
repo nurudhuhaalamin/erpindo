@@ -609,6 +609,25 @@ try {
   );
   check("dashboard: kas & bank 52.999.500", dash.json?.cashAndBank === 52_999_500, `→ ${dash.json?.cashAndBank}`);
   check("dashboard: memuat penjualan bulan lalu (untuk delta)", typeof dash.json?.salesLastMonth === "number");
+  // KPI Laba Bulan Ini (Fase 12d): dari jurnal terposting, konsisten dengan laba rugi.
+  check(
+    "dashboard: laba bulan ini & bulan lalu (Fase 12d) berupa angka",
+    typeof dash.json?.profitThisMonth === "number" && typeof dash.json?.profitLastMonth === "number",
+    `→ ${JSON.stringify({ cur: dash.json?.profitThisMonth, prev: dash.json?.profitLastMonth })}`,
+  );
+  {
+    // Konsistensi (bebas-jam): laba bulan ini di dashboard = netProfit laporan
+    // laba rugi untuk bulan kalender berjalan.
+    const now = new Date();
+    const mFrom = `${now.toISOString().slice(0, 7)}-01`;
+    const mTo = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+    const plCur = await owner("GET", `/api/tenants/${tenantId}/reports/income-statement?from=${mFrom}&to=${mTo}`);
+    check(
+      "dashboard: laba bulan ini konsisten dengan laporan laba rugi",
+      plCur.status === 200 && dash.json?.profitThisMonth === plCur.json?.netProfit,
+      `→ dashboard ${dash.json?.profitThisMonth} vs L/R ${plCur.json?.netProfit}`,
+    );
+  }
 
   const viewerPl = await viewer(
     "GET",
@@ -945,6 +964,24 @@ try {
     lines: [{ productId: prodPos.json.id, qty: 1, unitPrice: 150_000 }],
   });
   check("total pembayaran kurang DITOLAK 400", underPay2.status === 400);
+
+  // Rekap penjualan harian POS (Fase 12e): per jam, per shift, per metode.
+  const recap = await owner("GET", `/api/tenants/${tenantId}/pos/recap`);
+  check(
+    "rekap POS hari ini 200: memuat penjualan split (QRIS 50rb tercatat per metode)",
+    recap.status === 200 && recap.json?.byMethod?.some((m) => m.method === "qris" && m.amount === 50_000),
+    `→ ${JSON.stringify(recap.json?.byMethod)}`,
+  );
+  check(
+    "rekap POS: total per jam konsisten dengan total keseluruhan",
+    Array.isArray(recap.json?.byHour) &&
+      recap.json.byHour.reduce((s, h) => s + h.total, 0) === recap.json?.salesTotal &&
+      recap.json?.salesCount >= 2,
+    `→ ${JSON.stringify({ n: recap.json?.salesCount, total: recap.json?.salesTotal })}`,
+  );
+  check("rekap POS: memuat baris per shift", recap.json?.byShift?.length >= 1, `→ ${recap.json?.byShift?.length}`);
+  const recapAnon = await anon("GET", `/api/tenants/${tenantId}/pos/recap`);
+  check("rekap POS tanpa login DITOLAK 401", recapAnon.status === 401);
   const hold1 = await owner("POST", `/api/tenants/${tenantId}/pos/held`, {
     shiftId: shift2.json.id, label: "Meja 3", cart: [{ productId: prodPos.json.id, qty: 2, unitPrice: 150_000 }], taxRate: 0,
   });
@@ -3212,6 +3249,11 @@ try {
   );
   const duTrendClamp = await owner("GET", `/api/tenants/${tenantId}/reports/sales-daily?days=999`);
   check("parameter days di-clamp maksimal 90", duTrendClamp.json?.days === 90);
+  // Filter rentang grafik dashboard (Fase 12d): 7 hari valid, di bawahnya di-clamp.
+  const duTrend7 = await owner("GET", `/api/tenants/${tenantId}/reports/sales-daily?days=7`);
+  check("rentang 7 hari diterima apa adanya", duTrend7.status === 200 && duTrend7.json?.days === 7);
+  const duTrendMin = await owner("GET", `/api/tenants/${tenantId}/reports/sales-daily?days=1`);
+  check("parameter days di-clamp minimal 7", duTrendMin.json?.days === 7);
   const duTrendViewer = await viewer("GET", `/api/tenants/${tenantId}/reports/sales-daily`);
   check("viewer boleh membaca tren penjualan (200)", duTrendViewer.status === 200);
 
@@ -3384,6 +3426,16 @@ try {
     "AI laporan (viewer) membalas 200 (produksi) ATAU 503 binding-absent",
     aiLaporan.status === 200 || (aiLaporan.status === 503 && aiLaporan.json?.detail === "binding-absent"),
     `→ ${aiLaporan.status} ${JSON.stringify(aiLaporan.json)}`,
+  );
+  // Fase 12f: ringkasan bisnis mingguan (cache KV per minggu, on-demand).
+  const aiWeeklyAnon = await anon("GET", `/api/tenants/${tenantId}/ai/ringkasan-mingguan`);
+  check("AI ringkasan mingguan tanpa sesi DITOLAK 401", aiWeeklyAnon.status === 401, `→ HTTP ${aiWeeklyAnon.status}`);
+  const aiWeekly = await viewer("GET", `/api/tenants/${tenantId}/ai/ringkasan-mingguan`);
+  check(
+    "AI ringkasan mingguan (viewer) 200 (produksi/cache) ATAU 503 binding-absent",
+    (aiWeekly.status === 200 && typeof aiWeekly.json?.summary === "string") ||
+      (aiWeekly.status === 503 && aiWeekly.json?.detail === "binding-absent"),
+    `→ ${aiWeekly.status} ${JSON.stringify(aiWeekly.json)}`,
   );
 
   // --- Arus kas (Fase 2b-1) -------------------------------------------------------

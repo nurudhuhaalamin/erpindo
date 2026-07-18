@@ -62,6 +62,91 @@ function printReceipt(opts: {
  * Panel Struk & Refund (Fase 10c): struk POS lunas tidak bisa dibatalkan —
  * koreksinya refund tunai dari laci shift yang sedang terbuka.
  */
+/**
+ * Rekap penjualan hari ini (Fase 12e): per jam, per shift, per metode — kartu
+ * lipat agar layar kasir tetap ringkas; data baru diambil saat dibuka.
+ */
+function RecapCard({ tenantId }: { tenantId: string }) {
+  const [open, setOpen] = useState(false);
+  const query = useQuery({
+    queryKey: ["pos-recap", tenantId],
+    queryFn: () => api.posRecap(tenantId),
+    enabled: open,
+  });
+  // Jam dari API dalam UTC → konversi ke jam lokal perangkat kasir.
+  const localHour = (hUtc: number) => new Date(Date.UTC(2000, 0, 1, hUtc)).getHours();
+  const recap = query.data;
+
+  return (
+    <Card>
+      <CardHeader
+        title="Rekap hari ini"
+        description="Penjualan POS per jam, per shift, dan per metode pembayaran."
+        action={
+          <Button variant="secondary" onClick={() => setOpen((v) => !v)}>
+            {open ? "Tutup" : "Lihat rekap"}
+          </Button>
+        }
+      />
+      {open ? (
+        <CardBody>
+          {query.isLoading ? (
+            <Spinner />
+          ) : !recap || recap.salesCount === 0 ? (
+            <p className="py-2 text-center text-sm text-slate-500 dark:text-slate-400">
+              Belum ada penjualan POS hari ini.
+            </p>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-3">
+              <div>
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Per jam ({recap.salesCount} transaksi · {formatIDR(recap.salesTotal)})
+                </div>
+                <ul className="space-y-1 text-sm">
+                  {recap.byHour.map((h) => (
+                    <li key={h.hourUtc} className="flex justify-between">
+                      <span className="text-slate-500 dark:text-slate-400">
+                        {String(localHour(h.hourUtc)).padStart(2, "0")}:00 · {h.count} trx
+                      </span>
+                      <span className="tabular-nums">{formatIDR(h.total)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Per shift</div>
+                <ul className="space-y-1 text-sm">
+                  {recap.byShift.map((s) => (
+                    <li key={s.shiftNo} className="flex justify-between gap-2">
+                      <span className="min-w-0 truncate text-slate-500 dark:text-slate-400">
+                        {s.shiftNo} {s.status === "open" ? "(buka)" : ""} · {s.count} trx
+                      </span>
+                      <span className="tabular-nums">{formatIDR(s.total)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Per metode</div>
+                <ul className="space-y-1 text-sm">
+                  {recap.byMethod.map((m) => (
+                    <li key={m.method} className="flex justify-between">
+                      <span className="text-slate-500 dark:text-slate-400">
+                        {POS_PAYMENT_METHOD_LABELS[m.method as PosPaymentMethod] ?? m.method}
+                      </span>
+                      <span className="tabular-nums">{formatIDR(m.amount)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+        </CardBody>
+      ) : null}
+    </Card>
+  );
+}
+
 function RefundPanel({ tenantId, onDone }: { tenantId: string; onDone: () => void }) {
   const toast = useToast();
   const [search, setSearch] = useState("");
@@ -318,6 +403,21 @@ export function PosPage() {
     // Prefill sisa yang harus dibayar (untuk tunai boleh diubah lebih besar untuk kembalian).
     setTenders((t) => [...t, { method, amount: remaining > 0 ? String(remaining) : "" }]);
   }
+  /**
+   * Tombol nominal cepat (Fase 12e): "Uang pas" mengisi tender tunai persis
+   * sebesar sisa di luar metode non-tunai; +50rb/+100rb menambah nominal tunai
+   * (pelanggan menyerahkan lembaran uang).
+   */
+  function quickCash(add?: number) {
+    setTenders((t) => {
+      const nonCash = t.filter((x) => x.method !== "tunai").reduce((s, x) => s + (Number(x.amount) || 0), 0);
+      const idx = t.findIndex((x) => x.method === "tunai");
+      const cur = idx >= 0 ? Number(t[idx]!.amount) || 0 : 0;
+      const amount = add === undefined ? Math.max(total - nonCash, 0) : cur + add;
+      const next = { method: "tunai" as PosPaymentMethod, amount: String(amount) };
+      return idx >= 0 ? t.map((x, i) => (i === idx ? next : x)) : [...t, next];
+    });
+  }
   function setTenderAmount(idx: number, amount: string) {
     setTenders((t) => t.map((x, i) => (i === idx ? { ...x, amount } : x)));
   }
@@ -551,13 +651,40 @@ export function PosPage() {
                   </button>
                 </div>
               ))}
-              <div className="flex justify-between text-sm">
+              {/* Nominal cepat tunai (Fase 12e) */}
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => quickCash()}
+                  disabled={cart.length === 0}
+                  className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 disabled:opacity-40 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                >
+                  Uang pas
+                </button>
+                {[50_000, 100_000].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => quickCash(n)}
+                    disabled={cart.length === 0}
+                    className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 disabled:opacity-40 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                  >
+                    +{n / 1000}rb
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-baseline justify-between text-sm">
                 {remaining > 0 ? (
                   <span className="text-amber-600 dark:text-amber-400">Sisa: {formatIDR(remaining)}</span>
                 ) : (
                   <span className="text-emerald-600 dark:text-emerald-400">Lunas</span>
                 )}
-                {change > 0 ? <span>Kembalian: <strong className="tabular-nums">{formatIDR(change)}</strong></span> : null}
+                {change > 0 ? (
+                  // Kembalian dibuat menonjol agar kasir tak salah hitung (Fase 12e).
+                  <span className="text-base font-bold text-emerald-600 dark:text-emerald-400">
+                    Kembalian: <span className="tabular-nums">{formatIDR(change)}</span>
+                  </span>
+                ) : null}
               </div>
             </div>
 
@@ -592,6 +719,9 @@ export function PosPage() {
           </CardBody>
         </Card>
       </div>
+
+      <RecapCard tenantId={tenant.tenantId} />
+
       <span className="hidden">{me.user.name}</span>
     </div>
   );

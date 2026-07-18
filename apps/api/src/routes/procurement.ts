@@ -17,7 +17,7 @@ import { audit } from "../lib/audit";
 import { getTenantDb } from "../lib/tenantDb";
 import { requireAuth, requireTenantRole } from "../middleware/auth";
 import { clientIp } from "./auth";
-import { executePurchase } from "./commerce";
+import { executePurchase } from "../lib/commercePosting";
 
 /**
  * Procurement / procure-to-pay (Fase 6d): permintaan pembelian (PR) → pesanan ke

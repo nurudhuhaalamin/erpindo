@@ -1,6 +1,7 @@
 import type {
   ApiAccount,
   ApiAgingRow,
+  ApiAiWeeklySummary,
   ApiApprovalFlow,
   ApiApprovalRule,
   ApiAttendance,
@@ -58,6 +59,7 @@ import type {
   ApiPayrollRun,
   ApiProject,
   ApiProjectDetail,
+  ApiPosRecap,
   ApiPosShift,
   ApiPosReceipt,
   ApiPayment,
@@ -458,6 +460,8 @@ export const api = {
     request<{ draft: ApiAiJournalDraft; quotaRemaining?: number }>("POST", `/api/tenants/${tenantId}/ai/jurnal`, { prompt }, { timeoutMs: 35_000 }),
   aiLaporan: (tenantId: string, question: string) =>
     request<{ reply: string; quotaRemaining?: number }>("POST", `/api/tenants/${tenantId}/ai/laporan`, { question }, { timeoutMs: 35_000 }),
+  aiWeeklySummary: (tenantId: string) =>
+    request<ApiAiWeeklySummary>("GET", `/api/tenants/${tenantId}/ai/ringkasan-mingguan`, undefined, { timeoutMs: 35_000 }),
   invoicePaymentLink: (tenantId: string, invoiceId: string) =>
     request<{ link: ApiPaymentLink | null; configured: boolean }>("GET", `/api/tenants/${tenantId}/invoices/${invoiceId}/payment-link`),
   marketplaceImport: (tenantId: string, input: MarketplaceImportInput) =>
@@ -905,6 +909,8 @@ export const api = {
   ) => request<{ ok: true; qty: number; value: number }>("POST", `/api/tenants/${tenantId}/stock-transfers`, input),
   updateProfile: (name: string) => request<{ ok: true }>("PATCH", "/api/auth/profile", { name }),
   posShift: (tenantId: string) => request<{ shift: ApiPosShift | null }>("GET", `/api/tenants/${tenantId}/pos/shift`),
+  posRecap: (tenantId: string, date?: string) =>
+    request<ApiPosRecap>("GET", `/api/tenants/${tenantId}/pos/recap${date ? `?date=${date}` : ""}`),
   posOpenShift: (tenantId: string, input: { warehouseId: string; openingCash: number }) =>
     request<{ ok: true; id: string; shiftNo: string }>("POST", `/api/tenants/${tenantId}/pos/shift/open`, input),
   posSale: (
