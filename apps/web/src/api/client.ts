@@ -131,6 +131,8 @@ import type {
   FeedbackInput,
   DemoRequestInput,
   ApiDemoRequest,
+  ApiOpeningStatus,
+  OpeningBalanceInput,
   BlogPostInput,
   ProductInput,
   QuotationStatusInput,
@@ -480,6 +482,14 @@ export const api = {
     request<{ orders: ApiMarketplaceOrder[] }>("GET", `/api/tenants/${tenantId}/marketplace/orders`),
   applyIndustryTemplate: (tenantId: string, industry: string) =>
     request<{ productsAdded: number; contactsAdded: number }>("POST", `/api/tenants/${tenantId}/setup/industry-template`, { industry }),
+  openingStatus: (tenantId: string) =>
+    request<ApiOpeningStatus>("GET", `/api/tenants/${tenantId}/migration/opening-status`),
+  setOpeningBalances: (tenantId: string, input: OpeningBalanceInput) =>
+    request<{ ok: true; entryNo: string; stockValue: number; balancing: number }>(
+      "POST",
+      `/api/tenants/${tenantId}/migration/opening-balances`,
+      input,
+    ),
   createInvoicePaymentLink: (tenantId: string, invoiceId: string) =>
     request<{ orderId: string; redirectUrl: string; amount: number }>("POST", `/api/tenants/${tenantId}/invoices/${invoiceId}/payment-link`),
   stockCard: (tenantId: string, productId: string, warehouseId: string) =>

@@ -47,5 +47,6 @@ export const AUDIT_ROUTES = [
   ["/app/konsolidasi", "konsolidasi"],
   ["/app/manufaktur", "manufaktur"],
   ["/app/maintenance", "maintenance"],
+  ["/app/migrasi", "migrasi"],
   ["/app/pengaturan", "pengaturan"],
 ];

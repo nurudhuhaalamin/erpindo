@@ -260,6 +260,39 @@ try {
   const members = await owner("GET", `/api/tenants/${tenantId}/members`);
   check("owner melihat 2 anggota", members.status === 200 && members.json?.members?.length === 2);
 
+  // --- Migrasi & saldo awal (Fase 13f) — diuji di "Toko Sari" (buku kosong) ------
+  // Sari (viewer di tenant utama) adalah OWNER perusahaannya sendiri yang masih kosong.
+  const sariTenant = regViewer.json.tenantId;
+  const openStat = await viewer("GET", `/api/tenants/${sariTenant}/migration/opening-status`);
+  check("saldo awal: buku kosong → canSetOpening true", openStat.status === 200 && openStat.json?.canSetOpening === true, `→ ${JSON.stringify(openStat.json)}`);
+  // Siapkan 1 gudang + 1 produk untuk stok awal.
+  const sariWh = await viewer("POST", `/api/tenants/${sariTenant}/warehouses`, { code: "UT", name: "Gudang Utama" });
+  const sariProd = await viewer("POST", `/api/tenants/${sariTenant}/products`, { sku: "MIG-1", name: "Barang Migrasi", unit: "pcs", sellPrice: 10000, buyPrice: 6000 });
+  // Saldo awal: Kas 5jt + Bank 20jt (debit); Hutang 4jt (kredit). Persediaan dari stok:
+  // 100 × 6.000 = 600.000. Total debit = 25.600.000, kredit = 4.000.000 → selisih
+  // 21.600.000 masuk Ekuitas Saldo Awal (kredit). Jurnal seimbang otomatis.
+  const openPost = await viewer("POST", `/api/tenants/${sariTenant}/migration/opening-balances`, {
+    asOfDate: "2026-01-01",
+    accounts: [
+      { accountCode: "1-1000", debit: 5_000_000, credit: 0 },
+      { accountCode: "1-1100", debit: 20_000_000, credit: 0 },
+      { accountCode: "2-1000", debit: 0, credit: 4_000_000 },
+    ],
+    stock: [{ productId: sariProd.json.id, warehouseId: sariWh.json.id, qty: 100, unitCost: 6_000 }],
+  });
+  check("saldo awal: jurnal pembuka tersimpan 201 + nilai stok 600rb", openPost.status === 201 && openPost.json?.stockValue === 600_000, `→ ${JSON.stringify(openPost.json)}`);
+  const sariBs = await viewer("GET", `/api/tenants/${sariTenant}/reports/balance-sheet?asOf=2026-12-31`);
+  check("saldo awal: neraca Toko Sari SEIMBANG (aset = kewajiban + ekuitas)", sariBs.json?.balanced === true, `→ ${JSON.stringify({ a: sariBs.json?.totalAssets, l: sariBs.json?.totalLiabilities, e: sariBs.json?.totalEquity })}`);
+  check("saldo awal: total aset = kas 5jt + bank 20jt + persediaan 600rb = 25.600.000", sariBs.json?.totalAssets === 25_600_000, `→ ${sariBs.json?.totalAssets}`);
+  const sariCard = await viewer("GET", `/api/tenants/${sariTenant}/stock-card/${sariProd.json.id}?warehouseId=${sariWh.json.id}`);
+  check("saldo awal: kartu stok memuat mutasi masuk 100 (nilai persediaan sinkron)", (sariCard.json?.rows ?? []).some((r) => r.qty === 100), `→ ${JSON.stringify(sariCard.json?.rows?.[0])}`);
+  const openStat2 = await viewer("GET", `/api/tenants/${sariTenant}/migration/opening-status`);
+  check("saldo awal: setelah diisi, canSetOpening false", openStat2.json?.canSetOpening === false);
+  const openAgain = await viewer("POST", `/api/tenants/${sariTenant}/migration/opening-balances`, { asOfDate: "2026-01-01", accounts: [{ accountCode: "1-1000", debit: 1000, credit: 0 }] });
+  check("saldo awal: pengisian kedua DITOLAK 409 (buku sudah berisi)", openAgain.status === 409 && openAgain.json?.detail === "books-not-empty", `→ ${openAgain.status}`);
+  const openInvalid = await viewer("POST", `/api/tenants/${sariTenant}/migration/opening-balances`, { asOfDate: "bukan-tanggal", accounts: [] });
+  check("saldo awal: data tidak valid DITOLAK 400", openInvalid.status === 400, `→ ${openInvalid.status}`);
+
   // --- Kelola peran anggota (Fase 6a) ---------------------------------------------
   const ownerRow = members.json.members.find((m) => m.role === "owner");
   const viewerRow = members.json.members.find((m) => m.role === "viewer");
