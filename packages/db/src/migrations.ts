@@ -259,6 +259,52 @@ export const CONTROL_PLANE_MIGRATIONS: Migration[] = [
       `ALTER TABLE tenants ADD COLUMN allowed_ips TEXT`,
     ],
   },
+  {
+    // Fase 13h: API publik + webhook (paket Enterprise). API key per tenant
+    // (hash disimpan, kunci penuh hanya tampil sekali), webhook langganan
+    // peristiwa, dan antrean pengiriman webhook dengan retry berjenjang.
+    id: "0014_public_api",
+    statements: [
+      `CREATE TABLE api_keys (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        key_hash TEXT NOT NULL,
+        prefix TEXT NOT NULL,
+        scope TEXT NOT NULL DEFAULT 'read' CHECK (scope IN ('read','write')),
+        created_at TEXT NOT NULL,
+        last_used_at TEXT,
+        revoked_at TEXT
+      )`,
+      `CREATE INDEX api_keys_hash ON api_keys (key_hash)`,
+      `CREATE INDEX api_keys_tenant ON api_keys (tenant_id)`,
+      `CREATE TABLE webhooks (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT NOT NULL,
+        url TEXT NOT NULL,
+        secret TEXT NOT NULL,
+        events TEXT NOT NULL,
+        active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL,
+        last_status TEXT,
+        last_attempt_at TEXT
+      )`,
+      `CREATE INDEX webhooks_tenant ON webhooks (tenant_id)`,
+      `CREATE TABLE webhook_deliveries (
+        id TEXT PRIMARY KEY,
+        webhook_id TEXT NOT NULL,
+        tenant_id TEXT NOT NULL,
+        event TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','delivered','failed')),
+        attempts INTEGER NOT NULL DEFAULT 0,
+        next_attempt_at TEXT NOT NULL,
+        last_error TEXT,
+        created_at TEXT NOT NULL
+      )`,
+      `CREATE INDEX webhook_deliveries_pending ON webhook_deliveries (status, next_attempt_at)`,
+    ],
+  },
 ];
 
 /**

@@ -12,6 +12,9 @@ import { adminRoutes, feedbackRoutes } from "./routes/admin";
 import { demoRoutes } from "./routes/demo";
 import { migrationRoutes } from "./routes/migration";
 import { securityRoutes } from "./routes/security";
+import { publicApiAdminRoutes, publicApiV1Routes } from "./routes/publicApi";
+import { apiDocsRoutes } from "./routes/apiDocs";
+import { runWebhookDeliveries } from "./lib/webhooks";
 import { authRoutes } from "./routes/auth";
 import { billingRoutes, billingWebhookRoutes } from "./routes/billing";
 import { blogRoutes } from "./routes/blog";
@@ -108,6 +111,9 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", setupRoutes)
   .route("/api/tenants", migrationRoutes)
   .route("/api/tenants", securityRoutes)
+  .route("/api/tenants", publicApiAdminRoutes)
+  .route("/api/v1", publicApiV1Routes)
+  .route("/", apiDocsRoutes)
   .route("/api/tenants", commerceRoutes)
   .route("/api/tenants", reportRoutes)
   .route("/api/tenants", returnRoutes)
@@ -430,6 +436,17 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
   }
   if (billed > 0) console.log(`[cron] ${billed} faktur kontrak diterbitkan`);
   if (woGenerated > 0) console.log(`[cron] ${woGenerated} work order servis diterbitkan`);
+
+  // 5) Kirim antrean webhook keluar yang jatuh tempo (Fase 13h). Control-plane,
+  //    satu batch — retry berjenjang menjadwalkan ulang yang gagal.
+  try {
+    const wh = await runWebhookDeliveries(env, 100);
+    if (wh.delivered + wh.failed + wh.retried > 0) {
+      console.log(`[cron] webhook: ${wh.delivered} terkirim, ${wh.retried} dijadwalkan ulang, ${wh.failed} gagal permanen`);
+    }
+  } catch (err) {
+    console.error(`[cron] pengiriman webhook galat:`, err);
+  }
 }
 
 export default { fetch: app.fetch, scheduled };

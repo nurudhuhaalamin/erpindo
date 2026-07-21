@@ -41,6 +41,8 @@ const PUBLIC_ALLOWLIST = new Set([
   // Permintaan demo dari landing (Fase 13c) — publik (calon pelanggan belum
   // punya akun); diamankan lewat rate-limit per IP, bukan sesi.
   'demo.ts POST "/"',
+  // Dokumentasi API publik SSR (Fase 13h) — halaman pemasaran statis.
+  'apiDocs.ts GET "/api-docs"',
 ]);
 
 /** Endpoint ber-requireAuth yang memang tanpa role gate: ber-scope user
@@ -102,7 +104,9 @@ describe("penjaga RBAC per-registrasi rute", () => {
 
   it("semua endpoint non-publik memakai requireAuth", () => {
     const missing = regs
-      .filter((r) => !r.middleware.includes("requireAuth"))
+      // requireApiKey (Fase 13h): autentikasi via Bearer API key untuk /api/v1 —
+      // penjaga yang setara requireAuth (menyematkan konteks tenant, menolak 401).
+      .filter((r) => !r.middleware.includes("requireAuth") && !r.middleware.includes("requireApiKey"))
       .map((r) => r.key)
       .filter((k) => !PUBLIC_ALLOWLIST.has(k));
     expect(missing).toEqual([]);

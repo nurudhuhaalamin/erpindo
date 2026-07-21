@@ -2,7 +2,19 @@
 // Pengaturan (dipisah dari app.tsx pada Fase 9d — nama ekspor tak berubah:
 // app.tsx me-re-export SettingsPage sehingga import lama tetap jalan).
 // ---------------------------------------------------------------------------
-import { PERMISSIONS, PLAN_LABELS, PLAN_LIMITS, type ApiAuditLog, type ApiCustomRole, type PermissionKey } from "@erpindo/shared";
+import {
+  PERMISSIONS,
+  PLAN_LABELS,
+  PLAN_LIMITS,
+  WEBHOOK_EVENTS,
+  WEBHOOK_EVENT_LABELS,
+  type ApiAuditLog,
+  type ApiCustomRole,
+  type ApiApiKey,
+  type ApiWebhook,
+  type PermissionKey,
+  type WebhookEvent,
+} from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { api, ApiRequestError, formatDate, formatIDR } from "../api/client";
@@ -77,6 +89,7 @@ export function SettingsPage() {
 
       {tab === "lainnya" ? (
         <div className="space-y-6">
+          {isOwner ? <ApiIntegrationCard tenantId={tenant.tenantId} /> : null}
           {isOwner ? <CloseBooksCard tenantId={tenant.tenantId} /> : null}
           {!isOwner ? <p className="text-sm text-slate-500">Belum ada pengaturan lain untuk peran Anda.</p> : null}
         </div>
@@ -244,6 +257,10 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "tenant.role_deleted": "Peran kustom dihapus",
   "tenant.security_updated": "Kebijakan keamanan diubah",
   "tenant.audit_exported": "Audit log diekspor",
+  "api.key_created": "API key dibuat",
+  "api.key_revoked": "API key dicabut",
+  "api.webhook_created": "Webhook ditambahkan",
+  "api.webhook_deleted": "Webhook dihapus",
   // Akuntansi dimensi + rekonsiliasi v2
   "dimension.cost_center.created": "Cost center dibuat",
   "dimension.cost_center.archived": "Cost center diarsipkan",
@@ -499,6 +516,202 @@ function TenantSecurityCard({ tenantId }: { tenantId: string }) {
             </div>
           </>
         )}
+      </CardBody>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// API publik & webhook (Fase 13h) — modul apiAccess (paket Enterprise). Kelola
+// API key (Bearer) + webhook langganan peristiwa. 403 → kartu upsell.
+// ---------------------------------------------------------------------------
+function ApiIntegrationCard({ tenantId }: { tenantId: string }) {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const keys = useQuery({ queryKey: ["api-keys", tenantId], queryFn: () => api.apiKeys(tenantId), retry: false });
+  const hooks = useQuery({ queryKey: ["webhooks", tenantId], queryFn: () => api.webhooks(tenantId), retry: false });
+
+  const [keyName, setKeyName] = useState("");
+  const [keyScope, setKeyScope] = useState<"read" | "write">("read");
+  const [newKey, setNewKey] = useState<string | null>(null);
+  const [hookUrl, setHookUrl] = useState("");
+  const [hookEvents, setHookEvents] = useState<WebhookEvent[]>([...WEBHOOK_EVENTS]);
+  const [newSecret, setNewSecret] = useState<string | null>(null);
+
+  const createKey = useMutation({
+    mutationFn: () => api.createApiKey(tenantId, { name: keyName.trim(), scope: keyScope }),
+    onSuccess: (res) => {
+      setNewKey(res.key);
+      setKeyName("");
+      queryClient.invalidateQueries({ queryKey: ["api-keys", tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+  const revokeKey = useMutation({
+    mutationFn: (id: string) => api.revokeApiKey(tenantId, id),
+    onSuccess: () => {
+      toast("success", "API key dicabut.");
+      queryClient.invalidateQueries({ queryKey: ["api-keys", tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+  const createHook = useMutation({
+    mutationFn: () => api.createWebhook(tenantId, { url: hookUrl.trim(), events: hookEvents }),
+    onSuccess: (res) => {
+      setNewSecret(res.secret);
+      setHookUrl("");
+      queryClient.invalidateQueries({ queryKey: ["webhooks", tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+  const deleteHook = useMutation({
+    mutationFn: (id: string) => api.deleteWebhook(tenantId, id),
+    onSuccess: () => {
+      toast("success", "Webhook dihapus.");
+      queryClient.invalidateQueries({ queryKey: ["webhooks", tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  const err = keys.error as ApiRequestError | undefined;
+  if (err && err.status === 403) {
+    return (
+      <Card>
+        <CardHeader title="API & Integrasi" description="API publik & webhook untuk menghubungkan sistem lain." />
+        <CardBody>
+          <Alert tone="info">
+            <div className="font-medium">Tersedia di paket Enterprise</div>
+            <p className="mt-1 text-sm">
+              Buat API key (Bearer) untuk membaca &amp; menulis data lewat API terkurasi, dan terima webhook saat faktur
+              atau pembayaran terjadi. Lihat <a className="underline" href="/api-docs" target="_blank" rel="noreferrer">dokumentasi API</a>.
+              Tingkatkan ke Enterprise untuk mengaktifkannya.
+            </p>
+          </Alert>
+        </CardBody>
+      </Card>
+    );
+  }
+
+  const activeKeys = (keys.data?.keys ?? []).filter((k) => !k.revokedAt);
+
+  return (
+    <Card>
+      <CardHeader
+        title="API & Integrasi"
+        description="Hubungkan toko online / sistem lain lewat API publik & webhook."
+      />
+      <CardBody className="space-y-6">
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Panduan lengkap ada di <a className="text-brand-600 underline" href="/api-docs" target="_blank" rel="noreferrer">/api-docs</a>.
+        </p>
+
+        {/* --- API keys --- */}
+        <div>
+          <div className="text-sm font-semibold">API key</div>
+          <div className="mt-2 flex flex-wrap items-end gap-2">
+            <div className="flex-1 min-w-[10rem]">
+              <Label>Nama kunci</Label>
+              <Input value={keyName} onChange={(e) => setKeyName(e.target.value)} placeholder="mis. Integrasi toko online" />
+            </div>
+            <div>
+              <Label>Skop</Label>
+              <Select value={keyScope} onChange={(e) => setKeyScope(e.target.value as "read" | "write")}>
+                <option value="read">Baca saja</option>
+                <option value="write">Baca &amp; tulis</option>
+              </Select>
+            </div>
+            <Button onClick={() => createKey.mutate()} disabled={createKey.isPending || keyName.trim().length < 2}>
+              {createKey.isPending ? "Membuat…" : "Buat kunci"}
+            </Button>
+          </div>
+          {newKey ? (
+            <Alert tone="success">
+              <div className="text-sm font-medium">Salin kunci ini sekarang — hanya ditampilkan sekali:</div>
+              <code className="mt-1 block break-all rounded bg-white/70 px-2 py-1 text-xs dark:bg-slate-900/60">{newKey}</code>
+              <button className="mt-1 text-xs underline" onClick={() => setNewKey(null)}>Sudah saya salin</button>
+            </Alert>
+          ) : null}
+          <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800/60">
+            {keys.isLoading ? (
+              <Spinner />
+            ) : activeKeys.length === 0 ? (
+              <p className="py-2 text-xs text-slate-500 dark:text-slate-400">Belum ada API key aktif.</p>
+            ) : (
+              activeKeys.map((k: ApiApiKey) => (
+                <div key={k.id} className="flex items-center justify-between gap-3 py-2">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">{k.name}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      <code>{k.prefix}</code> · {k.scope === "write" ? "baca & tulis" : "baca"} ·{" "}
+                      {k.lastUsedAt ? `dipakai ${k.lastUsedAt.slice(0, 10)}` : "belum dipakai"}
+                    </div>
+                  </div>
+                  <Button variant="secondary" className="h-8" onClick={() => revokeKey.mutate(k.id)} disabled={revokeKey.isPending}>
+                    Cabut
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* --- Webhook --- */}
+        <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
+          <div className="text-sm font-semibold">Webhook</div>
+          <div className="mt-2 space-y-2">
+            <div>
+              <Label>URL penerima</Label>
+              <Input value={hookUrl} onChange={(e) => setHookUrl(e.target.value)} placeholder="https://sistem-anda.co.id/webhook" />
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {WEBHOOK_EVENTS.map((ev) => (
+                <label key={ev} className="flex items-center gap-1.5 text-xs">
+                  <input
+                    type="checkbox"
+                    className="h-3.5 w-3.5 rounded border-slate-300"
+                    checked={hookEvents.includes(ev)}
+                    onChange={(e) =>
+                      setHookEvents((prev) => (e.target.checked ? [...prev, ev] : prev.filter((x) => x !== ev)))
+                    }
+                  />
+                  {WEBHOOK_EVENT_LABELS[ev]}
+                </label>
+              ))}
+            </div>
+            <Button onClick={() => createHook.mutate()} disabled={createHook.isPending || hookUrl.trim().length < 8 || hookEvents.length === 0}>
+              {createHook.isPending ? "Menyimpan…" : "Tambah webhook"}
+            </Button>
+          </div>
+          {newSecret ? (
+            <Alert tone="success">
+              <div className="text-sm font-medium">Secret HMAC (untuk verifikasi tanda tangan) — simpan sekarang:</div>
+              <code className="mt-1 block break-all rounded bg-white/70 px-2 py-1 text-xs dark:bg-slate-900/60">{newSecret}</code>
+              <button className="mt-1 text-xs underline" onClick={() => setNewSecret(null)}>Sudah saya salin</button>
+            </Alert>
+          ) : null}
+          <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800/60">
+            {hooks.isLoading ? (
+              <Spinner />
+            ) : (hooks.data?.webhooks ?? []).length === 0 ? (
+              <p className="py-2 text-xs text-slate-500 dark:text-slate-400">Belum ada webhook.</p>
+            ) : (
+              (hooks.data?.webhooks ?? []).map((w: ApiWebhook) => (
+                <div key={w.id} className="flex items-center justify-between gap-3 py-2">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">{w.url}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      {w.events.join(", ")}
+                      {w.lastStatus ? ` · terakhir: ${w.lastStatus}` : ""}
+                    </div>
+                  </div>
+                  <Button variant="secondary" className="h-8" onClick={() => deleteHook.mutate(w.id)} disabled={deleteHook.isPending}>
+                    Hapus
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </CardBody>
     </Card>
   );

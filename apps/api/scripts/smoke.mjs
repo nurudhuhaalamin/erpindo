@@ -2840,6 +2840,95 @@ try {
   // Bersihkan kebijakan keamanan agar uji berikutnya (grandfather/trial) tak terhalang.
   await owner("PATCH", `/api/tenants/${tenant2}/security`, { require2fa: false, allowedIps: [] });
 
+  // --- Fase 13h: API publik (Bearer key) + webhook ---------------------------
+  console.log("10t. API publik (Bearer key) + webhook");
+  // Kunci dibuat di perusahaan utama (trial = akses penuh apiAccess).
+  const readKeyRes = await owner("POST", `/api/tenants/${tenantId}/api-keys`, { name: "Kunci Baca", scope: "read" });
+  const writeKeyRes = await owner("POST", `/api/tenants/${tenantId}/api-keys`, { name: "Kunci Tulis", scope: "write" });
+  check(
+    "api: buat API key read+write 201 + kunci penuh (erpk_) ditampilkan sekali",
+    readKeyRes.status === 201 && /^erpk_/.test(readKeyRes.json?.key ?? "") && writeKeyRes.status === 201 && /^erpk_/.test(writeKeyRes.json?.key ?? ""),
+    `→ ${readKeyRes.status}/${writeKeyRes.status}`,
+  );
+  const readKey = readKeyRes.json?.key;
+  const writeKey = writeKeyRes.json?.key;
+
+  // Klien API v1 tanpa cookie — hanya header Authorization Bearer.
+  const v1 = async (method, path, body, key) => {
+    const res = await fetch(`${BASE}/api/v1${path}`, {
+      method,
+      headers: { "Content-Type": "application/json", ...(key ? { Authorization: `Bearer ${key}` } : {}) },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const text = await res.text();
+    let json = null;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      /* non-JSON */
+    }
+    return { status: res.status, json, text };
+  };
+
+  const noKey = await v1("GET", "/products");
+  check("api: tanpa key → 401 missing-api-key", noKey.status === 401 && noKey.json?.detail === "missing-api-key", `→ ${noKey.status}`);
+  const badKey = await v1("GET", "/products", undefined, "erpk_kunci-palsu");
+  check("api: key tak valid → 401 invalid-api-key", badKey.status === 401 && badKey.json?.detail === "invalid-api-key", `→ ${badKey.status}`);
+  const listProd = await v1("GET", "/products", undefined, readKey);
+  check("api: GET /products (read key) → 200 + data array", listProd.status === 200 && Array.isArray(listProd.json?.data), `→ ${listProd.status}`);
+  const scopeDenied = await v1("POST", "/contacts", { type: "customer", name: "Ditolak" }, readKey);
+  check("api: POST dgn read key → 403 insufficient-scope", scopeDenied.status === 403 && scopeDenied.json?.detail === "insufficient-scope", `→ ${scopeDenied.status}`);
+  const apiContact = await v1("POST", "/contacts", { type: "customer", name: "PT API Client" }, writeKey);
+  check("api: POST /contacts (write key) → 201", apiContact.status === 201 && Boolean(apiContact.json?.id), `→ ${apiContact.status} ${JSON.stringify(apiContact.json)}`);
+  const apiProduct = await v1("POST", "/products", { sku: "API-001", name: "Produk via API", unit: "pcs", sellPrice: 12000, buyPrice: 8000 }, writeKey);
+  check("api: POST /products (write key) → 201", apiProduct.status === 201, `→ ${apiProduct.status} ${JSON.stringify(apiProduct.json)}`);
+  const apiSummary = await v1("GET", "/reports/summary", undefined, readKey);
+  check("api: GET /reports/summary → 200 + period", apiSummary.status === 200 && typeof apiSummary.json?.data?.period === "string", `→ ${apiSummary.status}`);
+  // Cabut read key → tak bisa dipakai lagi.
+  await owner("DELETE", `/api/tenants/${tenantId}/api-keys/${readKeyRes.json.id}`);
+  const afterRevoke = await v1("GET", "/products", undefined, readKey);
+  check("api: kunci dicabut → 401", afterRevoke.status === 401, `→ ${afterRevoke.status}`);
+
+  // Plan gate: turunkan tenant2 ke Business → key tenant2 ditolak plan-upgrade.
+  const t2Key = await owner("POST", `/api/tenants/${tenant2}/api-keys`, { name: "K2", scope: "read" });
+  await owner("POST", `/api/admin/tenants/${tenant2}/plan`, { plan: "business", status: "active" });
+  const gated = await v1("GET", "/products", undefined, t2Key.json?.key);
+  check("api: paket Business → 403 plan-upgrade-required", gated.status === 403 && gated.json?.detail === "plan-upgrade-required", `→ ${gated.status} ${JSON.stringify(gated.json)}`);
+  await owner("POST", `/api/admin/tenants/${tenant2}/plan`, { plan: "enterprise", status: "active" });
+
+  // Webhook: daftar → buat faktur (jasa) → antre → flush → status pengiriman.
+  const wh = await owner("POST", `/api/tenants/${tenantId}/webhooks`, { url: `${BASE}/api/billing/notification`, events: ["invoice.created"] });
+  check("api: buat webhook 201 + secret (whsec_) sekali", wh.status === 201 && /^whsec_/.test(wh.json?.secret ?? ""), `→ ${wh.status}`);
+  const svcWh = await owner("POST", `/api/tenants/${tenantId}/products`, { sku: "JASA-WH", name: "Jasa Webhook", unit: "jam", sellPrice: 100000, buyPrice: 0, isService: true });
+  const whInv = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id,
+    invoiceDate: "2026-07-20",
+    taxRate: 0,
+    warehouseId: whUtama.id,
+    lines: [{ productId: svcWh.json.id, qty: 1, unitPrice: 100000 }],
+  });
+  check("api: faktur jasa terbit (memicu invoice.created)", whInv.status === 201, `→ ${whInv.status} ${JSON.stringify(whInv.json)}`);
+  const pending = await owner("GET", `/api/tenants/${tenantId}/webhooks/deliveries`);
+  check("api: pengiriman webhook terantre utk invoice.created", (pending.json?.deliveries ?? []).some((d) => d.event === "invoice.created"), `→ ${JSON.stringify(pending.json?.deliveries?.[0])}`);
+  const flush = await owner("POST", `/api/tenants/${tenantId}/webhooks/deliveries/run`);
+  check("api: flush antrean webhook 200", flush.status === 200, `→ ${JSON.stringify(flush.json)}`);
+  const afterFlush = await owner("GET", `/api/tenants/${tenantId}/webhooks/deliveries`);
+  const del = (afterFlush.json?.deliveries ?? []).find((d) => d.event === "invoice.created");
+  check(
+    "api: pengiriman diproses (attempts≥1, status delivered/failed) + HMAC ditandatangani",
+    Boolean(del) && del.attempts >= 1 && ["delivered", "failed"].includes(del.status),
+    `→ ${JSON.stringify(del)}`,
+  );
+
+  // Halaman dokumentasi API publik SSR terlayani.
+  const apiDocs = await fetch(`${BASE}/api-docs`);
+  const apiDocsHtml = await apiDocs.text();
+  check(
+    "api: /api-docs SSR 200 + judul + basis URL",
+    apiDocs.status === 200 && apiDocsHtml.includes("Dokumentasi API ERPindo") && apiDocsHtml.includes("/api/v1"),
+    `→ ${apiDocs.status}`,
+  );
+
   // Grandfather: legacy_full_access membuka semua walau paket Starter.
   await owner("POST", `/api/admin/tenants/${tenant2}/plan`, { plan: "starter", status: "active", legacyFullAccess: true });
   const legacyPayroll = await owner("GET", `/api/tenants/${tenant2}/employees`);

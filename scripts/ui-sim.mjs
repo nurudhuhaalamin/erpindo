@@ -599,6 +599,18 @@ try {
     `→ ${keamananBody.includes("Keamanan lanjutan")}`,
   );
 
+  // Fase 13h: tab Lainnya menampilkan kartu API & Integrasi (API key + webhook).
+  await page.getByRole("tab", { name: "Lainnya" }).click();
+  await page.waitForTimeout(500);
+  const lainnyaBody = await page.innerText("body");
+  check(
+    "F19 API & Integrasi: kartu API key + webhook tampil (paket penuh)",
+    lainnyaBody.includes("API & Integrasi") &&
+      lainnyaBody.includes("API key") &&
+      lainnyaBody.includes("Webhook"),
+    `→ ${lainnyaBody.includes("API & Integrasi")}`,
+  );
+
   await gotoRoute("/app/hr/penggajian", 900);
   check("F19 Penggajian bertab: default tab Karyawan (form #emp-name)", (await page.locator("#emp-name").count()) === 1);
   await page.getByRole("tab", { name: "Kasbon" }).click();
