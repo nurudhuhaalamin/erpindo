@@ -44,4 +44,4 @@ pnpm dev:api      # wrangler dev di http://127.0.0.1:8787 (API + aplikasi)
 pnpm dev:web      # vite di http://127.0.0.1:5173 (proxy /api ke :8787)
 ```
 
-Validasi: `pnpm typecheck && pnpm test && pnpm build && pnpm smoke` + `node scripts/ui-sim.mjs` + `pnpm lint` (smoke = 835 skenario end-to-end terhadap wrangler dev; ui-sim = 181 cek Chromium nyata; unit = 127).
+Validasi: `pnpm typecheck && pnpm test && pnpm build && pnpm smoke` + `node scripts/ui-sim.mjs` + `pnpm lint` (smoke = 842 skenario end-to-end terhadap wrangler dev; ui-sim = 182 cek Chromium nyata; unit = 137).
