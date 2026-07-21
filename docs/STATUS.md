@@ -3,7 +3,7 @@
 > Halaman ini ditulis untuk pemilik produk (non-teknis). Selalu diperbarui setiap ada kemajuan.
 > Log teknis per fase ada di folder [docs/log/](./log/).
 
-**Terakhir diperbarui:** 17 Juli 2026
+**Terakhir diperbarui:** 21 Juli 2026
 
 ## Di mana kita sekarang?
 
@@ -100,6 +100,11 @@
 | **Fase 12d — Dashboard makin actionable** | Grafik penjualan bisa difilter **7/30/90 hari**; **semua kartu KPI bisa diklik** menuju laporan sumbernya; KPI baru **"Laba Bulan Ini"** dengan panah naik/turun vs bulan lalu; sapaan sesuai waktu + pengingat "ada N faktur lewat jatuh tempo" | ✅ **Selesai** |
 | **Fase 12e — Kasir makin cepat** | Tombol **"Uang pas" / +50rb / +100rb** (kembalian tampil besar agar tak salah hitung) + kartu **"Rekap hari ini"**: penjualan per jam, per shift, dan per metode pembayaran untuk analisis jam ramai | ✅ **Selesai** |
 | **Fase 12f — Ringkasan mingguan AI** | Dashboard kini punya widget **narasi mingguan berbahasa Indonesia** ("omzet naik/turun sekian %…") yang dihitung dari buku Anda sendiri — hemat kuota (sekali hitung per minggu, disimpan di cache), dan bila AI sedang tak tersedia widget diam-diam menampilkan info, bukan error | ✅ **Selesai** |
+| **Fase 13a–13c — Monetisasi 4 paket + reposisi jualan** | Pemaketan **4 tingkat**: **Trial Rp0 (30 hari) · Starter Rp499rb · Business Rp999rb · Enterprise Rp2.499rb** per bulan per perusahaan — **pengguna tak terbatas di semua paket** (pembeda utama vs pesaing per-user). Modul operasional (HR, manufaktur, proyek, dll.) mulai Business; skala/keamanan/API mulai Enterprise; akuntansi inti di semua paket. Pelanggan lama Rp389rb **tetap akses penuh** (grandfather). Landing baru: kalkulator "hemat berapa vs sistem per-user", tabel perbandingan kategori (tanpa menyebut merek), form **Jadwalkan Demo**, halaman **Layanan** (implementasi/migrasi berbayar). Checkout Midtrans per paket + kartu upsell (bukan error) untuk modul di luar paket | ✅ **Selesai** |
+| **Fase 13d–13e — Multibahasa (Indonesia + Inggris)** | Pemilih bahasa ID/EN (tersimpan) di landing & aplikasi; **landing, shell aplikasi (menu/pencarian), dan dashboard** kini dwibahasa. Angka/tanggal ikut format bahasa; mata uang tetap Rupiah. Halaman modul menyusul bertahap (kamus & pola sudah siap) | ✅ **Selesai** |
+| **Fase 13f — Wizard migrasi & saldo awal** | Menu **Migrasi**: impor **saldo awal akun** dari CSV → **jurnal pembuka seimbang otomatis** (selisih ke Ekuitas Saldo Awal), termasuk nilai persediaan awal yang sinkron dengan kartu stok. Penghancur hambatan terbesar pindah dari software lama | ✅ **Selesai** |
+| **Fase 13g — Keamanan enterprise** | Paket Enterprise: **2FA wajib** per perusahaan (anggota tanpa 2FA diminta menyiapkannya dulu), **pembatasan akses per IP** (daftar CIDR kantor), dan **ekspor audit log ke CSV**. Ada katup pengaman agar Owner tak pernah terkunci dari pengaturannya sendiri | ✅ **Selesai** |
+| **Fase 13h — API publik + webhook** | Paket Enterprise: **API key** per perusahaan (Bearer, skop baca/tulis) untuk menghubungkan toko online/sistem lain lewat **API terkurasi** (kontak, produk, faktur, pembayaran, ringkasan); **webhook** saat faktur/pembayaran/stok-menipis terjadi (bertanda tangan HMAC, dengan percobaan ulang); **halaman dokumentasi** publik di `/api-docs` | ✅ **Selesai** |
 | Fase 8b lapis 2 + 10d — Aktivasi Google (Drive & login) | Buat OAuth Client di console.cloud.google.com dengan DUA redirect URI: `https://<domain>/api/drive/callback` dan `https://<domain>/api/auth/google/callback` → simpan secret `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` di dashboard Workers — backup Drive & tombol masuk via Google aktif bersamaan | ⏸ **Menunggu kredensial dari Anda** |
 | Fase 10e — Aktivasi Admin Platform | Tambah variabel `PLATFORM_ADMIN_EMAILS` (isi dengan email Anda, pisah koma bila lebih dari satu) di dashboard Workers → menu **Admin** muncul di aplikasi untuk email tersebut | ⏸ **Menunggu Anda memasang PLATFORM_ADMIN_EMAILS** |
 | Fase 2m — Manajemen dokumen (lampiran file) | Lampiran di faktur/kontak/jurnal (penyimpanan Cloudflare R2) | ⏸ **Menunggu Anda mengaktifkan R2 di dashboard Cloudflare** |
@@ -166,7 +171,7 @@
 54. **Dashboard modern & panduan mulai** *(baru — Fase 3e)*: grafik tren penjualan 30 hari dengan tooltip, widget faktur lewat jatuh tempo, feed aktivitas terakhir, dan **checklist "Mulai cepat"** berprogres untuk perusahaan baru (hilang otomatis saat lengkap). Halaman daftar/masuk bergaya split modern; setiap halaman kini punya paragraf pengantar; nama menu dan judul halaman konsisten (Maintenance menjadi Pemeliharaan).
 55. **Ekspor e-Faktur XML Coretax** *(baru — Fase 3f)*: satu klik "Unduh XML Coretax" di halaman Ekspor e-Faktur menghasilkan berkas XML yang **langsung bisa diimpor ke Coretax DJP** (format satu-satunya yang diterima sejak 2025). Sistem otomatis memakai kode transaksi yang benar — 04 dengan DPP nilai lain 11/12 untuk barang non-mewah (PMK 131/2024), 01 untuk tarif 12% penuh — menormalkan NPWP ke TIN 16 digit, dan mengecualikan faktur yang dibatalkan/non-PPN. CSV rekap tetap tersedia.
 
-Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (749 skenario ujian end-to-end + 160 cek simulasi UI browser nyata + 33 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
+Semua hal di atas **diuji otomatis oleh mesin setiap kali ada perubahan kode** (835 skenario ujian end-to-end + 181 cek simulasi UI browser nyata + 127 unit test). Perubahan tidak bisa masuk ke versi utama bila ada ujian yang gagal.
 
 ## Apakah sudah bisa diakses di internet?
 

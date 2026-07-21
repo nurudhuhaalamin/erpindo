@@ -21,7 +21,18 @@ Menyediakan ERP terjangkau berbahasa Indonesia yang mencakup Keuangan & Akuntans
 
 ## Status
 
-🏗️ **Fase 0 (Fondasi) selesai** — autentikasi, multi-tenant (database per perusahaan), RBAC, design system, dan CI/CD sudah berjalan. Papan status untuk pemilik produk: [docs/STATUS.md](docs/STATUS.md) · log pekerjaan: [docs/log/](docs/log/).
+🚀 **Produk matang & terdeploy** — 40+ modul (akuntansi inti, penjualan/pembelian, POS, stok, pajak PPN/e-Faktur, HR & payroll, manufaktur, proyek, CRM, dll.), billing langganan, asisten AI, API publik + webhook, dan dukungan dwibahasa (ID/EN). Papan status untuk pemilik produk: [docs/STATUS.md](docs/STATUS.md) · log pekerjaan: [docs/log/](docs/log/).
+
+### Pemaketan (per perusahaan / bulan · pengguna tak terbatas di semua paket)
+
+| Paket | Harga | Cakupan |
+|---|---|---|
+| **Trial** | Rp0 (30 hari) | Akses penuh untuk mencoba |
+| **Starter** | Rp499.000 | Akuntansi inti, penjualan/pembelian, POS, stok, pajak, laporan |
+| **Business** | Rp999.000 | + operasional: HR & payroll, manufaktur, proyek, pengadaan, CRM, dll. |
+| **Enterprise** | Rp2.499.000 | + skala: multi-entitas & konsolidasi, keamanan lanjutan (2FA/IP), API publik & webhook |
+
+Perbedaan paket berdasarkan **kedalaman operasional & skala**, bukan jumlah pengguna. Pelanggan lama di-*grandfather* akses penuh. Rencana lengkap: [docs/04-rencana-monetisasi-tier.md](docs/04-rencana-monetisasi-tier.md).
 
 ## Menjalankan Secara Lokal
 
@@ -33,4 +44,4 @@ pnpm dev:api      # wrangler dev di http://127.0.0.1:8787 (API + aplikasi)
 pnpm dev:web      # vite di http://127.0.0.1:5173 (proxy /api ke :8787)
 ```
 
-Validasi: `pnpm typecheck && pnpm test && pnpm build && pnpm smoke` (smoke = 22 skenario end-to-end terhadap wrangler dev).
+Validasi: `pnpm typecheck && pnpm test && pnpm build && pnpm smoke` + `node scripts/ui-sim.mjs` + `pnpm lint` (smoke = 835 skenario end-to-end terhadap wrangler dev; ui-sim = 181 cek Chromium nyata; unit = 127).
