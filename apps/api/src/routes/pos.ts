@@ -318,7 +318,7 @@ export const posRoutes = new Hono<AppEnv>()
       accountIdByCode(db, SYS_ACCOUNTS.PERSEDIAAN),
     ]);
 
-    const docNo = await nextDocNo(db, "invoices", "INV");
+    const docNo = await nextDocNo(db, "invoices", "INV", { docType: "invoice", column: "invoice_no", date: today });
     const memo = `Penjualan POS ${docNo}`;
     const journal = await postJournal(db, {
       entryDate: today,
@@ -385,7 +385,7 @@ export const posRoutes = new Hono<AppEnv>()
       [bank, nonCashApplied],
     ] as const) {
       if (amt <= 0) continue;
-      const paymentNo = await nextDocNo(db, "payments", "PAY");
+      const paymentNo = await nextDocNo(db, "payments", "PAY", { docType: "payment", column: "payment_no", date: today });
       await db
         .prepare(
           `INSERT INTO payments (id, payment_no, direction, ref_type, ref_id, account_id, amount, payment_date,

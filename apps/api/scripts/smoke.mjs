@@ -2929,6 +2929,27 @@ try {
     `→ ${apiDocs.status}`,
   );
 
+  // --- Fase 13i: penomoran dokumen kustom -----------------------------------
+  console.log("10u. Penomoran dokumen kustom (pola per jenis dokumen)");
+  // Tolak pola tanpa {SEQ}.
+  const badPattern = await owner("PATCH", `/api/tenants/${tenantId}/doc-numbering`, { invoice: "TST-{YYYY}" });
+  check("penomoran: pola tanpa {SEQ} → 400", badPattern.status === 400, `→ ${badPattern.status}`);
+  // Set pola faktur kustom (reset per bulan).
+  const setPattern = await owner("PATCH", `/api/tenants/${tenantId}/doc-numbering`, { invoice: "TST-{YYYY}{MM}-{SEQ:3}" });
+  check("penomoran: simpan pola faktur 200", setPattern.status === 200 && setPattern.json?.numbering?.invoice === "TST-{YYYY}{MM}-{SEQ:3}", `→ ${setPattern.status} ${JSON.stringify(setPattern.json)}`);
+  const getPattern = await owner("GET", `/api/tenants/${tenantId}/doc-numbering`);
+  check("penomoran: GET mengembalikan pola tersimpan", getPattern.json?.numbering?.invoice === "TST-{YYYY}{MM}-{SEQ:3}", `→ ${JSON.stringify(getPattern.json)}`);
+  // Faktur jasa Juli 2026 → TST-202607-001, lalu 002.
+  const dnInv1 = await owner("POST", `/api/tenants/${tenantId}/invoices`, { contactId: customer.json.id, invoiceDate: "2026-07-22", taxRate: 0, warehouseId: whUtama.id, lines: [{ productId: svcWh.json.id, qty: 1, unitPrice: 50000 }] });
+  check("penomoran: faktur pertama → TST-202607-001", dnInv1.status === 201 && dnInv1.json?.docNo === "TST-202607-001", `→ ${dnInv1.status} ${dnInv1.json?.docNo}`);
+  const dnInv2 = await owner("POST", `/api/tenants/${tenantId}/invoices`, { contactId: customer.json.id, invoiceDate: "2026-07-23", taxRate: 0, warehouseId: whUtama.id, lines: [{ productId: svcWh.json.id, qty: 1, unitPrice: 50000 }] });
+  check("penomoran: faktur kedua bulan sama → TST-202607-002 (urut per periode)", dnInv2.json?.docNo === "TST-202607-002", `→ ${dnInv2.json?.docNo}`);
+  // Reset ke bawaan (kosong) → faktur berikutnya kembali format INV-.
+  const resetPattern = await owner("PATCH", `/api/tenants/${tenantId}/doc-numbering`, {});
+  check("penomoran: reset ke bawaan 200 + kosong", resetPattern.status === 200 && !resetPattern.json?.numbering?.invoice, `→ ${resetPattern.status} ${JSON.stringify(resetPattern.json)}`);
+  const dnInv3 = await owner("POST", `/api/tenants/${tenantId}/invoices`, { contactId: customer.json.id, invoiceDate: "2026-07-24", taxRate: 0, warehouseId: whUtama.id, lines: [{ productId: svcWh.json.id, qty: 1, unitPrice: 50000 }] });
+  check("penomoran: setelah reset, faktur kembali format bawaan INV-", /^INV-\d{5}$/.test(dnInv3.json?.docNo ?? ""), `→ ${dnInv3.json?.docNo}`);
+
   // Grandfather: legacy_full_access membuka semua walau paket Starter.
   await owner("POST", `/api/admin/tenants/${tenant2}/plan`, { plan: "starter", status: "active", legacyFullAccess: true });
   const legacyPayroll = await owner("GET", `/api/tenants/${tenant2}/employees`);
