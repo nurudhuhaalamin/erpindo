@@ -453,6 +453,7 @@ tabel perbandingan **kategori** (tanpa merek), form **Jadwalkan Demo**, halaman 
 - ✅ Wizard migrasi & saldo awal (jurnal pembuka seimbang otomatis) (13f) — penghancur hambatan pindah ERP.
 - ✅ Keamanan enterprise: 2FA wajib, pembatasan IP (CIDR), ekspor audit CSV (13g).
 - ✅ API publik (Bearer key) + webhook (HMAC) + halaman dokumentasi `/api-docs` (13h).
+- ✅ Penomoran dokumen kustom — pola per jenis dokumen (faktur jual/beli, pembayaran) dengan token, reset per periode (13i).
 
 **Pengembangan lanjutan (tersisa):**
 
@@ -461,7 +462,7 @@ tabel perbandingan **kategori** (tanpa merek), form **Jadwalkan Demo**, halaman 
 | **Payment gateway Midtrans** — checkout QRIS/VA/e-wallet aktif (**menunggu Server Key dari pemilik**; kode siap sejak 11b/13b) | T | T | – |
 | **Dunning otomatis** — rangkaian pengingat gagal bayar/berakhir (H-7/H-1/H+3) + masa tenggang sebelum read-only | T | S | – |
 | Upgrade/downgrade paket mandiri dengan prorata | S | S | – |
-| **Kustomisasi dokumen** (13i, opsional) — format nomor dokumen kustom + custom field per modul | S | S | – |
+| **Custom field per modul** (lanjutan 13i) — definisi field kustom (faktur/kontak/produk) yang tampil di form + cetakan + ekspor | S | S | – |
 | Tulis penuh via API publik (faktur/pembayaran, dengan kurasi posting jurnal) | S | S | – |
 | Kupon/referral untuk akuisisi awal | R | S | – |
 

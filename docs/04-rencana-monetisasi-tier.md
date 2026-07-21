@@ -47,6 +47,8 @@ plan-upgrade-required` (dipakai UI untuk kartu upsell, bukan error keras).
 | 13e | Multibahasa gelombang 2 (shell aplikasi + dashboard) | #87 |
 | 13g | Keamanan enterprise (2FA wajib, IP CIDR, audit CSV) | #88 |
 | 13h | API publik (Bearer) + webhook (HMAC) + `/api-docs` | #89 |
+| 13j | Penutup — laporan akhir, STATUS, roadmap, rencana ini, README | #90 |
+| 13i | Penomoran dokumen kustom (pola per jenis dokumen) | #91 |
 
 ## Keputusan default yang mudah digeser (satu tempat)
 
@@ -63,6 +65,6 @@ plan-upgrade-required` (dipakai UI untuk kartu upsell, bukan error keras).
 
 ## Sisa opsional (belum dikerjakan)
 
-- **13i — Kustomisasi dokumen**: format nomor dokumen kustom + custom field per modul (khas perusahaan besar).
+- **Custom field per modul** (lanjutan 13i): definisi field kustom (faktur/kontak/produk) yang tampil di form + cetakan + ekspor. Penomoran dokumen kustom (bagian 13i lain) sudah dikirim di #91.
 - Tulis penuh via API publik (faktur/pembayaran) dengan kurasi posting jurnal.
 - Dunning otomatis + upgrade/downgrade prorata mandiri.
