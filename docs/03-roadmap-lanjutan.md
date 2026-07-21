@@ -437,19 +437,32 @@ panduan 3 permukaan, seed demo.
 
 ## 23. Monetisasi & Langganan
 
-**Kondisi saat ini:** paket & limit ditegakkan, trial 30 hari + email pengingat, read-only saat
-menunggak, akun comped (`COMPED_EMAILS`), harga di landing. Belum ada pembayaran online.
+**Kondisi saat ini (diperbarui Fase 13):** pemaketan **4 tingkat** —
+Trial Rp0 (30 hari) · Starter Rp499rb · Business Rp999rb · Enterprise Rp2.499rb per bulan per
+perusahaan (pengguna **tak terbatas** di semua paket) — ditegakkan lewat satu middleware
+`enforcePlanByPath` (modul operasional = Business, skala/keamanan/API = Enterprise). Trial =
+akses penuh; pelanggan lama Rp389rb di-**grandfather** (`legacy_full_access`). Checkout Midtrans
+per paket + webhook aktivasi (Fase 11b/13b), read-only saat menunggak, akun comped
+(`COMPED_EMAILS`). Landing dwibahasa (ID/EN) dengan **kalkulator per-pengguna implisit**,
+tabel perbandingan **kategori** (tanpa merek), form **Jadwalkan Demo**, halaman Layanan.
 
-**Quick wins (≤ 1 hari):**
-- Halaman "Langganan" di Pengaturan yang menampilkan paket aktif, sisa trial, dan instruksi pembayaran manual (transfer + konfirmasi) sebagai jembatan sebelum gateway.
+**Sudah selesai (Fase 13):**
+- ✅ Struktur 4 paket + penegakan modul per-path (13a) & billing per paket + upsell UI (13b).
+- ✅ Halaman harga + reposisi landing + form demo + halaman Layanan (13c).
+- ✅ Multibahasa ID/EN — landing, shell aplikasi, dashboard (13d/13e).
+- ✅ Wizard migrasi & saldo awal (jurnal pembuka seimbang otomatis) (13f) — penghancur hambatan pindah ERP.
+- ✅ Keamanan enterprise: 2FA wajib, pembatasan IP (CIDR), ekspor audit CSV (13g).
+- ✅ API publik (Bearer key) + webhook (HMAC) + halaman dokumentasi `/api-docs` (13h).
 
-**Pengembangan lanjutan:**
+**Pengembangan lanjutan (tersisa):**
 
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
-| **Payment gateway Midtrans/Xendit** — checkout QRIS/VA/e-wallet, webhook aktivasi otomatis (**kunci monetisasi — menunggu Server Key dari pemilik**) | T | T | – |
+| **Payment gateway Midtrans** — checkout QRIS/VA/e-wallet aktif (**menunggu Server Key dari pemilik**; kode siap sejak 11b/13b) | T | T | – |
 | **Dunning otomatis** — rangkaian pengingat gagal bayar/berakhir (H-7/H-1/H+3) + masa tenggang sebelum read-only | T | S | – |
 | Upgrade/downgrade paket mandiri dengan prorata | S | S | – |
+| **Kustomisasi dokumen** (13i, opsional) — format nomor dokumen kustom + custom field per modul | S | S | – |
+| Tulis penuh via API publik (faktur/pembayaran, dengan kurasi posting jurnal) | S | S | – |
 | Kupon/referral untuk akuisisi awal | R | S | – |
 
 ---
