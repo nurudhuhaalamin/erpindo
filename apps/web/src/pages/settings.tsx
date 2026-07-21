@@ -5,7 +5,7 @@
 import { PERMISSIONS, PLAN_LABELS, PLAN_LIMITS, type ApiAuditLog, type ApiCustomRole, type PermissionKey } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { api, formatDate, formatIDR } from "../api/client";
+import { api, ApiRequestError, formatDate, formatIDR } from "../api/client";
 import { Alert, Badge, Button, Card, CardBody, CardHeader, ConfirmDialog, Input, Label, Select, Skeleton, Spinner, Tabs, useToast } from "../components/ui";
 import { useWorkspace, isSimpleMode, setSimpleMode } from "./app";
 
@@ -69,6 +69,7 @@ export function SettingsPage() {
       {tab === "data" ? (
         <div className="space-y-6">
           {isOwner ? <ExportBackupCard tenantId={tenant.tenantId} /> : null}
+          {isOwner ? <TenantSecurityCard tenantId={tenant.tenantId} /> : null}
           {isOwner ? <AuditLogCard tenantId={tenant.tenantId} /> : null}
           {!isOwner ? <p className="text-sm text-slate-500">Hanya pemilik yang dapat mengelola cadangan & audit.</p> : null}
         </div>
@@ -241,6 +242,8 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "tenant.role_created": "Peran kustom dibuat",
   "tenant.role_updated": "Peran kustom diperbarui",
   "tenant.role_deleted": "Peran kustom dihapus",
+  "tenant.security_updated": "Kebijakan keamanan diubah",
+  "tenant.audit_exported": "Audit log diekspor",
   // Akuntansi dimensi + rekonsiliasi v2
   "dimension.cost_center.created": "Cost center dibuat",
   "dimension.cost_center.archived": "Cost center diarsipkan",
@@ -381,6 +384,124 @@ export function friendlyAuditDetail(raw: string | null): string {
     if (parts.length >= 3) break;
   }
   return parts.join(" · ");
+}
+
+// ---------------------------------------------------------------------------
+// Keamanan enterprise (Fase 13g): 2FA wajib + pembatasan IP + ekspor audit CSV.
+// Hanya paket Enterprise (server menolak 403 plan-upgrade-required di bawahnya —
+// UI menampilkan kartu upsell alih-alih error).
+// ---------------------------------------------------------------------------
+function TenantSecurityCard({ tenantId }: { tenantId: string }) {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: ["tenant-security", tenantId],
+    queryFn: () => api.getSecurity(tenantId),
+    retry: false,
+  });
+  const [require2fa, setRequire2fa] = useState(false);
+  const [ipsText, setIpsText] = useState("");
+  const [loaded, setLoaded] = useState(false);
+
+  // Sinkronkan state form saat data pertama tiba.
+  if (query.data && !loaded) {
+    setRequire2fa(query.data.require2fa);
+    setIpsText(query.data.allowedIps.join("\n"));
+    setLoaded(true);
+  }
+
+  const save = useMutation({
+    mutationFn: () => {
+      const allowedIps = ipsText
+        .split(/[\n,]/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      return api.updateSecurity(tenantId, { require2fa, allowedIps });
+    },
+    onSuccess: () => {
+      toast("success", "Kebijakan keamanan disimpan.");
+      queryClient.invalidateQueries({ queryKey: ["tenant-security", tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  // Paket di bawah Enterprise → server balas 403 plan-upgrade-required.
+  const err = query.error as ApiRequestError | undefined;
+  if (err && err.status === 403) {
+    return (
+      <Card>
+        <CardHeader title="Keamanan lanjutan" description="Kontrol keamanan tingkat perusahaan." />
+        <CardBody>
+          <Alert tone="info">
+            <div className="font-medium">Tersedia di paket Enterprise</div>
+            <p className="mt-1 text-sm">
+              Wajibkan verifikasi 2 langkah (2FA) untuk semua anggota, batasi akses ke rentang IP kantor, dan
+              ekspor audit log ke CSV. Tingkatkan ke Enterprise untuk mengaktifkannya.
+            </p>
+          </Alert>
+        </CardBody>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title="Keamanan lanjutan"
+        description="Wajibkan 2FA, batasi akses per IP, dan ekspor audit log — kontrol keamanan tingkat perusahaan."
+      />
+      <CardBody className="space-y-5">
+        {query.isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : (
+          <>
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 rounded border-slate-300"
+                checked={require2fa}
+                onChange={(e) => setRequire2fa(e.target.checked)}
+              />
+              <span>
+                <span className="text-sm font-medium">Wajibkan verifikasi 2 langkah (2FA)</span>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Anggota tanpa 2FA aktif diminta menyiapkannya di Profil sebelum bisa mengakses perusahaan ini.
+                </p>
+              </span>
+            </label>
+
+            <div>
+              <Label>Pembatasan IP (CIDR/IP, satu per baris)</Label>
+              <textarea
+                className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-900"
+                rows={4}
+                placeholder={"203.0.113.0/24\n198.51.100.7"}
+                value={ipsText}
+                onChange={(e) => setIpsText(e.target.value)}
+              />
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Kosongkan untuk mengizinkan semua IP. Hati-hati: hanya IP dalam daftar yang bisa mengakses.
+                {query.data?.currentIp ? ` IP Anda saat ini: ${query.data.currentIp}.` : ""}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button onClick={() => save.mutate()} disabled={save.isPending}>
+                {save.isPending ? "Menyimpan…" : "Simpan kebijakan"}
+              </Button>
+              <a
+                href={api.securityAuditCsvUrl(tenantId)}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+                download
+              >
+                Ekspor audit log (CSV)
+              </a>
+            </div>
+          </>
+        )}
+      </CardBody>
+    </Card>
+  );
 }
 
 function AuditLogCard({ tenantId }: { tenantId: string }) {

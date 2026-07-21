@@ -116,10 +116,16 @@ function totpNode(secretB32, timeMs = Date.now()) {
 /** Klien fetch mini dengan cookie jar per pengguna. */
 function makeClient() {
   let cookie = "";
-  return async function request(method, path, body) {
+  // extraHeaders (Fase 13g): mensimulasikan IP klien untuk uji pembatasan IP —
+  // clientIp membaca cf-connecting-ip/x-forwarded-for.
+  return async function request(method, path, body, extraHeaders) {
     const res = await fetch(`${BASE}${path}`, {
       method,
-      headers: { "Content-Type": "application/json", ...(cookie ? { Cookie: cookie } : {}) },
+      headers: {
+        "Content-Type": "application/json",
+        ...(cookie ? { Cookie: cookie } : {}),
+        ...(extraHeaders ?? {}),
+      },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const setCookie = res.headers.get("set-cookie");
@@ -2769,6 +2775,70 @@ try {
   await owner("POST", `/api/admin/tenants/${tenant2}/plan`, { plan: "enterprise", status: "active" });
   const entDim = await owner("GET", `/api/tenants/${tenant2}/cost-centers`);
   check("Enterprise: modul cost-centers terbuka (bukan 403 upgrade)", !(entDim.status === 403 && entDim.json?.detail === "plan-upgrade-required"), `→ ${entDim.status}`);
+
+  // --- Fase 13g: keamanan enterprise (2FA wajib + pembatasan IP + audit CSV) ---
+  // tenant2 kini Enterprise → modul advancedSecurity terbuka.
+  console.log("10s. Keamanan enterprise (2FA wajib, pembatasan IP, ekspor audit CSV)");
+  const secGet0 = await owner("GET", `/api/tenants/${tenant2}/security`);
+  check(
+    "keamanan: GET /security 200 (default: 2FA off, tanpa IP)",
+    secGet0.status === 200 && secGet0.json?.require2fa === false && Array.isArray(secGet0.json?.allowedIps) && secGet0.json.allowedIps.length === 0 && typeof secGet0.json?.currentIp === "string",
+    `→ ${secGet0.status} ${JSON.stringify(secGet0.json)}`,
+  );
+
+  // Paket di bawah Enterprise → /security 403 plan-upgrade-required.
+  await owner("POST", `/api/admin/tenants/${tenant2}/plan`, { plan: "business", status: "active" });
+  const secGated = await owner("GET", `/api/tenants/${tenant2}/security`);
+  check(
+    "keamanan: paket Business → /security 403 upgrade (butuh Enterprise)",
+    secGated.status === 403 && secGated.json?.detail === "plan-upgrade-required" && secGated.json?.requiredPlan === "enterprise",
+    `→ ${secGated.status} ${JSON.stringify(secGated.json)}`,
+  );
+  await owner("POST", `/api/admin/tenants/${tenant2}/plan`, { plan: "enterprise", status: "active" });
+
+  // Validasi CIDR pada PATCH.
+  const secBadIp = await owner("PATCH", `/api/tenants/${tenant2}/security`, { require2fa: false, allowedIps: ["999.1.1.1"] });
+  check("keamanan: PATCH tolak CIDR tak valid (400)", secBadIp.status === 400, `→ ${secBadIp.status}`);
+
+  // Aktifkan 2FA wajib → owner (budi) tanpa TOTP diblokir di endpoint tenant biasa,
+  // tetapi endpoint /security TETAP terjangkau (katup pengaman).
+  const set2fa = await owner("PATCH", `/api/tenants/${tenant2}/security`, { require2fa: true, allowedIps: [] });
+  check("keamanan: PATCH aktifkan 2FA wajib 200", set2fa.status === 200 && set2fa.json?.require2fa === true, `→ ${set2fa.status} ${JSON.stringify(set2fa.json)}`);
+  const blocked2fa = await owner("GET", `/api/tenants/${tenant2}/accounts`);
+  check(
+    "keamanan: anggota tanpa TOTP diblokir 403 2fa-required",
+    blocked2fa.status === 403 && blocked2fa.json?.detail === "2fa-required",
+    `→ ${blocked2fa.status} ${JSON.stringify(blocked2fa.json)}`,
+  );
+  const stillSecurity = await owner("GET", `/api/tenants/${tenant2}/security`);
+  check("keamanan: /security tetap terjangkau walau 2FA wajib (katup pengaman)", stillSecurity.status === 200, `→ ${stillSecurity.status}`);
+  // Matikan lagi 2FA wajib.
+  await owner("PATCH", `/api/tenants/${tenant2}/security`, { require2fa: false, allowedIps: [] });
+  const unblocked = await owner("GET", `/api/tenants/${tenant2}/accounts`);
+  check("keamanan: setelah 2FA dimatikan, akses normal kembali 200", unblocked.status === 200, `→ ${unblocked.status}`);
+
+  // Pembatasan IP: hanya 203.0.113.0/24 yang diizinkan.
+  await owner("PATCH", `/api/tenants/${tenant2}/security`, { require2fa: false, allowedIps: ["203.0.113.0/24"] });
+  const ipBlocked = await owner("GET", `/api/tenants/${tenant2}/accounts`, undefined, { "cf-connecting-ip": "198.51.100.9" });
+  check(
+    "keamanan: IP di luar daftar → 403 ip-not-allowed",
+    ipBlocked.status === 403 && ipBlocked.json?.detail === "ip-not-allowed",
+    `→ ${ipBlocked.status} ${JSON.stringify(ipBlocked.json)}`,
+  );
+  const ipAllowed = await owner("GET", `/api/tenants/${tenant2}/accounts`, undefined, { "cf-connecting-ip": "203.0.113.42" });
+  check("keamanan: IP dalam rentang CIDR → 200", ipAllowed.status === 200, `→ ${ipAllowed.status}`);
+  const secConfigFromBadIp = await owner("GET", `/api/tenants/${tenant2}/security`, undefined, { "cf-connecting-ip": "198.51.100.9" });
+  check("keamanan: /security terjangkau dari IP mana pun (katup pengaman)", secConfigFromBadIp.status === 200, `→ ${secConfigFromBadIp.status}`);
+
+  // Ekspor audit CSV (dari IP yang diizinkan) → text/csv berisi header.
+  const auditCsv = await owner("GET", `/api/tenants/${tenant2}/security/audit.csv`, undefined, { "cf-connecting-ip": "203.0.113.42" });
+  check(
+    "keamanan: ekspor audit CSV 200 + header kolom",
+    auditCsv.status === 200 && typeof auditCsv.text === "string" && auditCsv.text.includes("waktu,aksi,pengguna,email,ip,detail"),
+    `→ ${auditCsv.status}`,
+  );
+  // Bersihkan kebijakan keamanan agar uji berikutnya (grandfather/trial) tak terhalang.
+  await owner("PATCH", `/api/tenants/${tenant2}/security`, { require2fa: false, allowedIps: [] });
 
   // Grandfather: legacy_full_access membuka semua walau paket Starter.
   await owner("POST", `/api/admin/tenants/${tenant2}/plan`, { plan: "starter", status: "active", legacyFullAccess: true });
