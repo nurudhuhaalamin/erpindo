@@ -60,6 +60,8 @@ import {
 } from "lucide-react";
 import { createContext, useContext, useEffect, useRef, useState,  } from "react";
 import { api, ApiRequestError,  } from "../api/client";
+import { useLang } from "../i18n";
+import { LangSwitcher } from "../i18n/LangSwitcher";
 import {
   Alert,
   BrandWordmark,
@@ -140,6 +142,66 @@ const NAV_ITEMS: { to: string; label: string; exact: boolean; section?: string; 
   { to: "/app/admin", label: "Admin", exact: false, section: "Lainnya", icon: ShieldCheck, adminOnly: true },
   { to: "/app/pengaturan", label: "Pengaturan", exact: false, section: "Lainnya", icon: Settings },
 ];
+
+/** Label menu bahasa Inggris (Fase 13e), dikunci per rute agar label ID tetap sumber utama. */
+const NAV_LABEL_EN: Record<string, string> = {
+  "/app": "Dashboard",
+  "/app/pos": "Cashier (POS)",
+  "/app/penjualan": "Sales",
+  "/app/pesanan-penjualan": "Sales Orders",
+  "/app/pembelian": "Purchases",
+  "/app/pengadaan": "Procurement",
+  "/app/stok": "Inventory",
+  "/app/marketplace": "Marketplace",
+  "/app/manufaktur": "Manufacturing",
+  "/app/crm/leads": "Pipeline",
+  "/app/crm/penawaran": "Quotations",
+  "/app/helpdesk": "Helpdesk",
+  "/app/keuangan/catat": "Record Transaction",
+  "/app/keuangan/kas-bank": "Cash & Bank",
+  "/app/keuangan/akun": "Chart of Accounts",
+  "/app/keuangan/jurnal": "General Journal",
+  "/app/keuangan/buku-besar": "General Ledger",
+  "/app/keuangan/anggaran": "Budget",
+  "/app/keuangan/dimensi": "Dimensions & Recon",
+  "/app/keuangan/kurs": "Currencies",
+  "/app/konsolidasi": "Consolidation",
+  "/app/keuangan/neraca-saldo": "Trial Balance",
+  "/app/keuangan/laba-rugi": "Income Statement",
+  "/app/keuangan/neraca": "Balance Sheet",
+  "/app/keuangan/arus-kas": "Cash Flow",
+  "/app/keuangan/umur-tagihan": "AR/AP Aging",
+  "/app/laporan/penjualan": "Sales Report",
+  "/app/keuangan/aset": "Fixed Assets",
+  "/app/maintenance": "Maintenance",
+  "/app/keuangan/pajak": "Tax",
+  "/app/keuangan/e-faktur": "e-Faktur Export",
+  "/app/master/produk": "Products",
+  "/app/master/kontak": "Contacts",
+  "/app/master/gudang": "Warehouses",
+  "/app/hr/penggajian": "Payroll",
+  "/app/hr/absensi": "Attendance",
+  "/app/proyek": "Projects",
+  "/app/kontrak": "Recurring Contracts",
+  "/app/persetujuan": "Approvals",
+  "/app/alat": "Tools",
+  "/app/dukungan": "Support",
+  "/app/migrasi": "Migration",
+  "/app/admin": "Admin",
+  "/app/pengaturan": "Settings",
+};
+
+/** Nama seksi menu bahasa Inggris (Fase 13e). */
+const SECTION_EN: Record<string, string> = {
+  Transaksi: "Transactions",
+  CRM: "CRM",
+  Keuangan: "Finance",
+  Laporan: "Reports",
+  "Aset & Pajak": "Assets & Tax",
+  "Master Data": "Master Data",
+  HR: "HR",
+  Lainnya: "Other",
+};
 
 // Seksi lipat (Fase 9c): daftar nama seksi yang dilipat, per pengguna.
 // Tidak ada simpanan = semua terbuka (perilaku lama persis).
@@ -357,7 +419,10 @@ function NotificationBell({ tenantId }: { tenantId: string }) {
 export function AppShell() {
   const navigate = useNavigate();
   const { dark, toggle } = useDarkMode();
+  const lang = useLang();
   const [menuOpen, setMenuOpen] = useState(false);
+  // Label menu sesuai bahasa aktif (Fase 13e).
+  const navLabel = (item: (typeof NAV_ITEMS)[number]) => (lang === "en" ? (NAV_LABEL_EN[item.to] ?? item.label) : item.label);
 
   // Efisiensi navigasi (Fase 9c): pencarian menu + seksi lipat persisten.
   const [navQuery, setNavQuery] = useState("");
@@ -450,7 +515,9 @@ export function AppShell() {
 
   // Pencarian menu: saat mencari, lipat diabaikan & seksi kosong tak berjudul.
   const navFilter = navQuery.trim().toLowerCase();
-  const visibleItems = navFilter ? navItems.filter((item) => item.label.toLowerCase().includes(navFilter)) : navItems;
+  const visibleItems = navFilter
+    ? navItems.filter((item) => item.label.toLowerCase().includes(navFilter) || navLabel(item).toLowerCase().includes(navFilter))
+    : navItems;
   // Kelompokkan berurutan per seksi (butuh grup utuh untuk lipat/buka).
   const navGroups: { section?: string; items: typeof navItems }[] = [];
   for (const item of visibleItems) {
@@ -478,7 +545,7 @@ export function AppShell() {
       onClick={() => setMenuOpen(false)}
     >
       <item.icon className="size-4 shrink-0" aria-hidden />
-      {item.label}
+      {navLabel(item)}
     </Link>
   );
 
@@ -492,7 +559,7 @@ export function AppShell() {
           onKeyDown={(e) => {
             if (e.key === "Escape") setNavQuery("");
           }}
-          placeholder="Cari menu…"
+          placeholder={lang === "en" ? "Search menu…" : "Cari menu…"}
           aria-label="Cari menu"
           className="w-full rounded-lg border border-slate-200 bg-transparent py-1.5 pl-8 pr-2 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-brand-400 dark:border-slate-700 dark:text-slate-200 dark:focus:border-brand-500"
         />
@@ -509,7 +576,7 @@ export function AppShell() {
                 aria-expanded={!isCollapsed}
                 className="mb-1 mt-4 flex w-full items-center justify-between px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
               >
-                {group.section}
+                {lang === "en" ? (SECTION_EN[group.section!] ?? group.section) : group.section}
                 <ChevronDown className={`size-3.5 transition-transform ${isCollapsed ? "-rotate-90" : ""}`} aria-hidden />
               </button>
             ) : null}
@@ -518,15 +585,18 @@ export function AppShell() {
         );
       })}
       {visibleItems.length === 0 ? (
-        <p className="px-3 py-2 text-sm text-slate-400 dark:text-slate-500">Tidak ada menu cocok.</p>
+        <p className="px-3 py-2 text-sm text-slate-400 dark:text-slate-500">{lang === "en" ? "No matching menu." : "Tidak ada menu cocok."}</p>
       ) : null}
       <Link
         to="/app/panduan"
         className="mt-4 flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-100"
       >
         <CircleHelp className="size-4 shrink-0" aria-hidden />
-        Panduan
+        {lang === "en" ? "Guide" : "Panduan"}
       </Link>
+      <div className="mt-3 px-3">
+        <LangSwitcher />
+      </div>
     </nav>
   );
 

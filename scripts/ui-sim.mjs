@@ -114,7 +114,9 @@ try {
   const chromiumPath =
     process.env.CHROMIUM_PATH ?? (existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined);
   browser = await chromium.launch(chromiumPath ? { executablePath: chromiumPath } : {});
-  const ctx = await browser.newContext({ viewport: { width: 1360, height: 900 } });
+  // locale id-ID: pasar utama Indonesia — i18n (Fase 13e) default ke Indonesia
+  // (tanpa ini Chromium default en-US → aplikasi ter-render Inggris).
+  const ctx = await browser.newContext({ viewport: { width: 1360, height: 900 }, locale: "id-ID" });
   // Tur dasbor (Fase 10f) tampil otomatis sekali untuk pengguna baru — tandai
   // "sudah dilihat" agar tidak menutupi asersi sapuan rute. Tur diuji eksplisit
   // di F18 lewat tombolnya (yang bekerja terlepas dari status ini).
@@ -210,6 +212,21 @@ try {
     .first()
     .waitFor({ timeout: 15_000 });
   check("widget Ringkasan mingguan AI tampil dengan fallback/narasi (tanpa error)", true);
+
+  // Multibahasa aplikasi (Fase 13e): toggle EN → menu sidebar + dashboard Inggris.
+  resetErrors();
+  await page.locator("aside").getByRole("button", { name: "EN", exact: true }).first().click();
+  await page.waitForTimeout(300);
+  const appEn = await page.innerText("body");
+  check(
+    "F0b toggle EN: menu sidebar & dashboard berbahasa Inggris",
+    appEn.includes("Sales") && appEn.includes("Inventory") && appEn.includes("Profit This Month") && (appEn.includes("Good ") || appEn.includes("Overview of")),
+    `→ EN aplikasi tidak lengkap`,
+  );
+  await page.locator("aside").getByRole("button", { name: "ID", exact: true }).first().click();
+  await page.waitForTimeout(300);
+  check("F0b toggle kembali ke ID", (await page.innerText("body")).includes("Penjualan"));
+  check("F0b multibahasa aplikasi bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
   await page.getByRole("button", { name: "7 hari", exact: true }).click();
   await page.getByText("Penjualan 7 hari terakhir").first().waitFor({ timeout: 10_000 });
   check("filter grafik 7/30/90: klik '7 hari' → judul & grafik ikut", true);

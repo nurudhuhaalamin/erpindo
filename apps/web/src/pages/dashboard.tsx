@@ -7,6 +7,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowDownToLine, ArrowUpFromLine, Boxes, LineChart, Receipt, Check, ShoppingCart, SlidersHorizontal, Sparkles, Target, TrendingUp, Users, Wallet, type LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { api, ApiRequestError, formatDate, formatIDR } from "../api/client";
+import { useLang } from "../i18n";
 import { Alert, Button, Card, CardBody, CardHeader, Skeleton, useToast } from "../components/ui";
 import { useWorkspace } from "./app";
 import { AUDIT_ACTION_LABELS } from "./settings";
@@ -621,9 +622,15 @@ function useDashboardWidgets(tenantId: string) {
   return { isVisible, toggle };
 }
 
-/** Sapaan sesuai jam perangkat pengguna. */
-function greeting(): string {
+/** Sapaan sesuai jam perangkat pengguna (dwibahasa, Fase 13e). */
+function greeting(lang: "id" | "en"): string {
   const h = new Date().getHours();
+  if (lang === "en") {
+    if (h < 11) return "Good morning";
+    if (h < 15) return "Good afternoon";
+    if (h < 19) return "Good evening";
+    return "Good night";
+  }
   if (h < 11) return "Selamat pagi";
   if (h < 15) return "Selamat siang";
   if (h < 19) return "Selamat sore";
@@ -632,6 +639,7 @@ function greeting(): string {
 
 export function DashboardPage() {
   const { me, tenant } = useWorkspace();
+  const lang = useLang();
   const isAdmin = tenant.role !== "viewer";
   const widgets = useDashboardWidgets(tenant.tenantId);
   const [customizing, setCustomizing] = useState(false);
@@ -657,25 +665,26 @@ export function DashboardPage() {
   const profitDelta = pctDelta(dash.data?.profitThisMonth, dash.data?.profitLastMonth);
 
   // Tiap kartu KPI kini tautan ke laporan sumbernya (Fase 12d).
+  const en = lang === "en";
   const stats: { label: string; value?: number; hint?: string; delta?: number | null; icon: LucideIcon; chip: string; currency?: boolean; to: string }[] = [
     {
-      label: "Kas & Bank",
+      label: en ? "Cash & Bank" : "Kas & Bank",
       value: dash.data?.cashAndBank,
       icon: Wallet,
       chip: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300",
       to: "/app/keuangan/kas-bank",
     },
     {
-      label: "Penjualan Bulan Ini",
+      label: en ? "Sales This Month" : "Penjualan Bulan Ini",
       value: dash.data?.salesThisMonth,
-      hint: dash.data ? `${dash.data.salesCountThisMonth} faktur` : undefined,
+      hint: dash.data ? `${dash.data.salesCountThisMonth} ${en ? "invoices" : "faktur"}` : undefined,
       delta: salesDelta,
       icon: LineChart,
       chip: "bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-300",
       to: "/app/laporan/penjualan",
     },
     {
-      label: "Laba Bulan Ini",
+      label: en ? "Profit This Month" : "Laba Bulan Ini",
       value: dash.data?.profitThisMonth,
       delta: profitDelta,
       icon: TrendingUp,
@@ -683,28 +692,28 @@ export function DashboardPage() {
       to: "/app/keuangan/laba-rugi",
     },
     {
-      label: "Piutang Belum Lunas",
+      label: en ? "Receivables Outstanding" : "Piutang Belum Lunas",
       value: dash.data?.receivableOutstanding,
       icon: ArrowDownToLine,
       chip: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
       to: "/app/keuangan/umur-tagihan",
     },
     {
-      label: "Hutang Belum Lunas",
+      label: en ? "Payables Outstanding" : "Hutang Belum Lunas",
       value: dash.data?.payableOutstanding,
       icon: ArrowUpFromLine,
       chip: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
       to: "/app/keuangan/umur-tagihan",
     },
     {
-      label: "Nilai Persediaan",
+      label: en ? "Inventory Value" : "Nilai Persediaan",
       value: dash.data?.inventoryValue,
       icon: Boxes,
       chip: "bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300",
       to: "/app/stok",
     },
     {
-      label: "Lead Terbuka",
+      label: en ? "Open Leads" : "Lead Terbuka",
       value: dash.data?.openLeadsCount,
       currency: false,
       icon: Target,
@@ -724,19 +733,23 @@ export function DashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">{greeting()}, {me.user.name.split(" ")[0]}</h1>
+          <h1 className="text-2xl font-semibold">{greeting(lang)}, {me.user.name.split(" ")[0]}</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Ringkasan <span className="font-medium">{tenant.tenantName}</span> hari ini.
+            {en ? "Overview of " : "Ringkasan "}<span className="font-medium">{tenant.tenantName}</span>{en ? " today." : " hari ini."}
             {overdueCount > 0 ? (
               <>
                 {" "}
-                Ada <span className="font-medium text-amber-600 dark:text-amber-400">{overdueCount} faktur lewat jatuh tempo</span> yang perlu ditagih.
+                {en ? "There are " : "Ada "}
+                <span className="font-medium text-amber-600 dark:text-amber-400">
+                  {overdueCount} {en ? "overdue invoices" : "faktur lewat jatuh tempo"}
+                </span>
+                {en ? " to collect." : " yang perlu ditagih."}
               </>
             ) : null}
           </p>
         </div>
         <Button variant="secondary" onClick={() => setCustomizing((v) => !v)}>
-          <SlidersHorizontal className="size-4" aria-hidden /> Sesuaikan
+          <SlidersHorizontal className="size-4" aria-hidden /> {en ? "Customize" : "Sesuaikan"}
         </Button>
       </div>
 
