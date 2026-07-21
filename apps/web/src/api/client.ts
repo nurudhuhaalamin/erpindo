@@ -50,6 +50,7 @@ import type {
   BankImportInput,
   JournalTemplateInput,
   ApiAuditLog,
+  ApiTenantSecurity,
   ApiBudgetReport,
   ApiEmployee,
   ApiEmployeeLoan,
@@ -919,6 +920,12 @@ export const api = {
       "GET",
       `/api/tenants/${tenantId}/audit-logs${before ? `?before=${encodeURIComponent(before)}` : ""}`,
     ),
+  // Keamanan enterprise (Fase 13g)
+  getSecurity: (tenantId: string) =>
+    request<ApiTenantSecurity & { currentIp: string }>("GET", `/api/tenants/${tenantId}/security`),
+  updateSecurity: (tenantId: string, input: ApiTenantSecurity) =>
+    request<ApiTenantSecurity>("PATCH", `/api/tenants/${tenantId}/security`, input),
+  securityAuditCsvUrl: (tenantId: string) => `/api/tenants/${tenantId}/security/audit.csv`,
   transferStock: (
     tenantId: string,
     input: { productId: string; fromWarehouseId: string; toWarehouseId: string; qty: number },

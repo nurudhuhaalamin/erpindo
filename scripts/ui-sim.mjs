@@ -585,6 +585,20 @@ try {
     `→ ${/Rp\s?999\.000/.test(perusahaanBody)}`,
   );
 
+  // Fase 13g: tab Data & Keamanan menampilkan kartu Keamanan lanjutan
+  // (tenant utama berpaket trial = akses penuh → form tampil, bukan upsell).
+  await page.getByRole("tab", { name: "Data & Keamanan" }).click();
+  await page.waitForTimeout(500);
+  const keamananBody = await page.innerText("body");
+  check(
+    "F19 Keamanan lanjutan: kartu 2FA wajib + pembatasan IP + ekspor audit CSV tampil",
+    keamananBody.includes("Keamanan lanjutan") &&
+      keamananBody.includes("Wajibkan verifikasi 2 langkah") &&
+      keamananBody.includes("Pembatasan IP") &&
+      keamananBody.includes("Ekspor audit log (CSV)"),
+    `→ ${keamananBody.includes("Keamanan lanjutan")}`,
+  );
+
   await gotoRoute("/app/hr/penggajian", 900);
   check("F19 Penggajian bertab: default tab Karyawan (form #emp-name)", (await page.locator("#emp-name").count()) === 1);
   await page.getByRole("tab", { name: "Kasbon" }).click();

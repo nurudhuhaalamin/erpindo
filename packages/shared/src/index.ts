@@ -15,4 +15,5 @@ export * from "./salesStaged";
 export * from "./audit";
 export * from "./platform";
 export * from "./migration";
+export * from "./security";
 export * from "./text";

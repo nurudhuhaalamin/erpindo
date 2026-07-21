@@ -1,4 +1,5 @@
 import {
+  ipAllowed,
   MODULE_LABELS,
   minPlanForModule,
   PLAN_LABELS,
@@ -84,16 +85,62 @@ export function requireTenantRole(minRole: Role): MiddlewareHandler<AppEnv> {
 
     const user = c.get("user");
     const row = await c.env.DB.prepare(
-      `SELECT t.id, t.name, t.slug, t.db_ref, t.status, t.plan, t.legacy_full_access, t.schema_version, m.role
-       FROM memberships m JOIN tenants t ON t.id = m.tenant_id
+      `SELECT t.id, t.name, t.slug, t.db_ref, t.status, t.plan, t.legacy_full_access,
+              t.require_2fa, t.allowed_ips, t.schema_version, m.role, u.totp_enabled
+       FROM memberships m
+       JOIN tenants t ON t.id = m.tenant_id
+       JOIN users u ON u.id = m.user_id
        WHERE m.user_id = ? AND m.tenant_id = ?`,
     )
       .bind(user.id, tenantId)
-      .first<{ id: string; name: string; slug: string; db_ref: string; status: string; plan: Plan; legacy_full_access: number; schema_version: number; role: Role }>();
+      .first<{
+        id: string;
+        name: string;
+        slug: string;
+        db_ref: string;
+        status: string;
+        plan: Plan;
+        legacy_full_access: number;
+        require_2fa: number;
+        allowed_ips: string | null;
+        schema_version: number;
+        role: Role;
+        totp_enabled: number;
+      }>();
 
     if (!row) return c.json({ error: "Anda bukan anggota perusahaan ini." }, 403);
     if (row.status === "suspended") {
       return c.json({ error: "Langganan perusahaan ini sedang ditangguhkan." }, 402);
+    }
+
+    // Keamanan enterprise (Fase 13g). Endpoint pengaturan keamanan sendiri
+    // (…/security) SELALU dikecualikan dari pembatasan IP DAN dari kewajiban 2FA
+    // — katup pengaman agar Owner yang salah mengetik CIDR atau mengaktifkan 2FA
+    // tanpa TOTP tetap bisa membukanya kembali. Ekspor audit (…/security/audit.csv)
+    // BUKAN katup ini (tidak berakhir "/security") sehingga tetap ditegakkan.
+    const isSecurityConfig = c.req.path.endsWith("/security");
+    if (!isSecurityConfig && row.allowed_ips) {
+      let list: string[] = [];
+      try {
+        list = JSON.parse(row.allowed_ips) as string[];
+      } catch {
+        list = [];
+      }
+      const ip = c.req.header("cf-connecting-ip") ?? c.req.header("x-forwarded-for") ?? "unknown";
+      if (!ipAllowed(ip, list)) {
+        return c.json(
+          { error: "Akses dari alamat IP ini diblokir oleh kebijakan keamanan perusahaan.", detail: "ip-not-allowed" },
+          403,
+        );
+      }
+    }
+    // 2FA wajib: anggota tanpa TOTP aktif harus menyiapkannya lebih dulu
+    // (endpoint /api/auth/totp/* berada di luar cakupan tenant, tetap terjangkau).
+    if (!isSecurityConfig && row.require_2fa === 1 && row.totp_enabled !== 1) {
+      return c.json(
+        { error: "Perusahaan ini mewajibkan verifikasi 2 langkah (2FA). Aktifkan 2FA di Profil untuk melanjutkan.", detail: "2fa-required" },
+        403,
+      );
     }
 
     // Auto-migrasi malas: bila database tenant ini tertinggal skema (mis. baru
@@ -219,6 +266,7 @@ const MODULE_ROUTE_PREFIXES: Record<string, ModuleKey> = {
   // skala (Enterprise)
   "cost-centers": "dimensions",
   "bank-match-rules": "dimensions",
+  security: "advancedSecurity",
 };
 
 /**

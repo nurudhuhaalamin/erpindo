@@ -248,6 +248,17 @@ export const CONTROL_PLANE_MIGRATIONS: Migration[] = [
       `CREATE INDEX idx_demo_requests_created ON demo_requests (created_at)`,
     ],
   },
+  {
+    // Fase 13g: keamanan enterprise per perusahaan. `require_2fa` memaksa semua
+    // anggota mengaktifkan TOTP; `allowed_ips` = daftar CIDR/IP (JSON) yang boleh
+    // mengakses tenant (kosong/NULL = tanpa pembatasan). Keduanya hanya bisa
+    // dinyalakan pada paket Enterprise (ditegakkan di endpoint & middleware).
+    id: "0013_tenant_security",
+    statements: [
+      `ALTER TABLE tenants ADD COLUMN require_2fa INTEGER NOT NULL DEFAULT 0`,
+      `ALTER TABLE tenants ADD COLUMN allowed_ips TEXT`,
+    ],
+  },
 ];
 
 /**
