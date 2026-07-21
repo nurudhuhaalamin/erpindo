@@ -79,6 +79,19 @@ export async function sha512Hex(input: string): Promise<string> {
   return toHex(digest);
 }
 
+/** HMAC-SHA256 hex — menandatangani payload webhook keluar (Fase 13h). */
+export async function hmacSha256Hex(secret: string, message: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
+  return toHex(sig);
+}
+
 // ---------------------------------------------------------------------------
 // Enkripsi simetris AES-GCM (Fase 8b) — untuk rahasia yang harus bisa dibaca
 // kembali (mis. refresh token Google Drive). Kunci diturunkan dari secret

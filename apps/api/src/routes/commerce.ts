@@ -25,6 +25,7 @@ import {
   SYS_ACCOUNTS,
 } from "../lib/accounting";
 import { audit } from "../lib/audit";
+import { emitWebhook } from "../lib/webhooks";
 import {
   approvalThreshold,
   checkPeriodOpen,
@@ -79,6 +80,8 @@ export const commerceRoutes = new Hono<AppEnv>()
       detail: { docNo: result.docNo, total: result.total },
       ip: clientIp(c),
     });
+    // Webhook keluar (Fase 13h): notifikasi faktur baru ke integrator.
+    await emitWebhook(c.env, tenant.id, "invoice.created", { id: result.invoiceId, invoiceNo: result.docNo, total: result.total });
     return c.json({ ok: true, id: result.invoiceId, docNo: result.docNo, total: result.total }, 201);
   })
 
@@ -416,6 +419,10 @@ export const commerceRoutes = new Hono<AppEnv>()
       detail: { paymentNo, refType: input.refType, docNo: doc.doc_no, amount: counterCleared, forexGain },
       ip: clientIp(c),
     });
+    // Webhook keluar (Fase 13h): hanya untuk penerimaan dari pelanggan.
+    if (direction === "receive") {
+      await emitWebhook(c.env, tenant.id, "payment.received", { paymentNo, refType: input.refType, docNo: doc.doc_no, amount: counterCleared });
+    }
     return c.json(
       { ok: true, paymentNo, paidAmount: newPaid, settled: newPaid + doc.returned_amount >= doc.total, forexGain },
       201,
@@ -678,6 +685,20 @@ export const commerceRoutes = new Hono<AppEnv>()
       detail: { sku: product.sku, from: currentQty, to: input.physicalQty, value, note: input.note },
       ip: clientIp(c),
     });
+    // Webhook keluar (Fase 13h): stok menipis bila total qty produk ≤ min_stock.
+    if (delta < 0) {
+      const low = await db
+        .prepare(
+          `SELECT p.min_stock, COALESCE(SUM(s.qty), 0) AS total
+           FROM products p LEFT JOIN stock_levels s ON s.product_id = p.id
+           WHERE p.id = ? GROUP BY p.id`,
+        )
+        .bind(input.productId)
+        .first<{ min_stock: number; total: number }>();
+      if (low && low.min_stock > 0 && low.total <= low.min_stock) {
+        await emitWebhook(c.env, tenant.id, "stock.low", { productId: input.productId, sku: product.sku, name: product.name, qty: low.total, minStock: low.min_stock });
+      }
+    }
     return c.json({ ok: true, delta, value, entryNo }, 201);
   })
 

@@ -267,6 +267,8 @@ const MODULE_ROUTE_PREFIXES: Record<string, ModuleKey> = {
   "cost-centers": "dimensions",
   "bank-match-rules": "dimensions",
   security: "advancedSecurity",
+  "api-keys": "apiAccess",
+  webhooks: "apiAccess",
 };
 
 /**
