@@ -1,4 +1,5 @@
 import type { SqlExecutor } from "@erpindo/db";
+import { docNumberScopePrefix, renderDocNumber, type ApiDocNumbering, type DocType } from "@erpindo/shared";
 
 /**
  * Helper akuntansi & stok yang dipakai lintas modul (jurnal manual, penjualan,
@@ -25,8 +26,46 @@ export async function accountIdByCode(db: SqlExecutor, code: string): Promise<st
   return row.id;
 }
 
-/** Nomor dokumen berurutan per tenant: PREFIX-00001, PREFIX-00002, ... */
-export async function nextDocNo(db: SqlExecutor, table: string, prefix: string): Promise<string> {
+/** Baca pola penomoran kustom tenant (settings 'doc_numbering') utk satu jenis dokumen. */
+async function tenantDocPattern(db: SqlExecutor, docType: DocType): Promise<string | null> {
+  const { results } = await db
+    .prepare(`SELECT value FROM settings WHERE key = 'doc_numbering'`)
+    .all<{ value: string }>();
+  const raw = results[0]?.value;
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as ApiDocNumbering;
+    return parsed[docType] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Nomor dokumen berurutan per tenant. Default: `PREFIX-00001`. Bila `opts.docType`
+ * diberikan DAN tenant menyetel pola kustom (Fase 13i), pola itu dipakai — urutan
+ * di-scope pada bagian pola sebelum {SEQ} (mis. `INV-{YYYY}{MM}-{SEQ:4}` reset
+ * tiap bulan) dengan menghitung nomor berawalan sama di kolom `opts.column`.
+ */
+export async function nextDocNo(
+  db: SqlExecutor,
+  table: string,
+  prefix: string,
+  opts?: { docType?: DocType; column?: string; date?: string },
+): Promise<string> {
+  if (opts?.docType && opts.column) {
+    const pattern = await tenantDocPattern(db, opts.docType);
+    if (pattern) {
+      const date = opts.date ?? new Date().toISOString().slice(0, 10);
+      // Escape wildcard agar '%'/'_' pada scope dicari sebagai literal.
+      const scope = docNumberScopePrefix(pattern, date).replace(/[\\%_]/g, (ch) => `\\${ch}`);
+      const { results } = await db
+        .prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE ${opts.column} LIKE ? ESCAPE '\\'`)
+        .bind(`${scope}%`)
+        .all<{ n: number }>();
+      return renderDocNumber(pattern, date, (results[0]?.n ?? 0) + 1);
+    }
+  }
   const { results } = await db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).all<{ n: number }>();
   return `${prefix}-${String((results[0]?.n ?? 0) + 1).padStart(5, "0")}`;
 }

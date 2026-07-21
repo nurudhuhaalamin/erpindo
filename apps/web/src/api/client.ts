@@ -51,6 +51,7 @@ import type {
   JournalTemplateInput,
   ApiApiKey,
   ApiAuditLog,
+  ApiDocNumbering,
   ApiTenantSecurity,
   ApiWebhook,
   ApiBudgetReport,
@@ -928,6 +929,11 @@ export const api = {
   updateSecurity: (tenantId: string, input: ApiTenantSecurity) =>
     request<ApiTenantSecurity>("PATCH", `/api/tenants/${tenantId}/security`, input),
   securityAuditCsvUrl: (tenantId: string) => `/api/tenants/${tenantId}/security/audit.csv`,
+  // Penomoran dokumen kustom (Fase 13i)
+  docNumbering: (tenantId: string) =>
+    request<{ numbering: ApiDocNumbering }>("GET", `/api/tenants/${tenantId}/doc-numbering`),
+  updateDocNumbering: (tenantId: string, input: ApiDocNumbering) =>
+    request<{ numbering: ApiDocNumbering }>("PATCH", `/api/tenants/${tenantId}/doc-numbering`, input),
   // API publik & webhook (Fase 13h)
   apiKeys: (tenantId: string) => request<{ keys: ApiApiKey[] }>("GET", `/api/tenants/${tenantId}/api-keys`),
   createApiKey: (tenantId: string, input: { name: string; scope: "read" | "write" }) =>

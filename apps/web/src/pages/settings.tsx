@@ -3,15 +3,20 @@
 // app.tsx me-re-export SettingsPage sehingga import lama tetap jalan).
 // ---------------------------------------------------------------------------
 import {
+  DOC_TYPES,
+  isValidDocPattern,
   PERMISSIONS,
   PLAN_LABELS,
   PLAN_LIMITS,
+  renderDocNumber,
   WEBHOOK_EVENTS,
   WEBHOOK_EVENT_LABELS,
   type ApiAuditLog,
   type ApiCustomRole,
   type ApiApiKey,
+  type ApiDocNumbering,
   type ApiWebhook,
+  type DocType,
   type PermissionKey,
   type WebhookEvent,
 } from "@erpindo/shared";
@@ -65,6 +70,7 @@ export function SettingsPage() {
         <div className="space-y-6">
           <SubscriptionCard />
           <CompanySettingsCard tenantId={tenant.tenantId} readOnly={!isAdmin} />
+          {isOwner ? <DocNumberingCard tenantId={tenant.tenantId} /> : null}
           {isOwner ? <NewCompanyCard /> : null}
         </div>
       ) : null}
@@ -257,6 +263,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "tenant.role_deleted": "Peran kustom dihapus",
   "tenant.security_updated": "Kebijakan keamanan diubah",
   "tenant.audit_exported": "Audit log diekspor",
+  "tenant.doc_numbering_updated": "Format nomor dokumen diubah",
   "api.key_created": "API key dibuat",
   "api.key_revoked": "API key dicabut",
   "api.webhook_created": "Webhook ditambahkan",
@@ -514,6 +521,90 @@ function TenantSecurityCard({ tenantId }: { tenantId: string }) {
                 Ekspor audit log (CSV)
               </a>
             </div>
+          </>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Penomoran dokumen kustom (Fase 13i) — pola nomor faktur/pembelian/pembayaran.
+// Kosong = penomoran bawaan (INV-00001). Pratinjau langsung memakai tanggal ini.
+// ---------------------------------------------------------------------------
+function DocNumberingCard({ tenantId }: { tenantId: string }) {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const query = useQuery({ queryKey: ["doc-numbering", tenantId], queryFn: () => api.docNumbering(tenantId) });
+  const [patterns, setPatterns] = useState<ApiDocNumbering>({});
+  const [loaded, setLoaded] = useState(false);
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (query.data && !loaded) {
+    setPatterns(query.data.numbering ?? {});
+    setLoaded(true);
+  }
+
+  const save = useMutation({
+    mutationFn: () => api.updateDocNumbering(tenantId, patterns),
+    onSuccess: (res) => {
+      toast("success", "Format nomor dokumen disimpan.");
+      setPatterns(res.numbering ?? {});
+      queryClient.invalidateQueries({ queryKey: ["doc-numbering", tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
+  // Pola tak valid (terisi tapi tanpa {SEQ}) menonaktifkan tombol simpan.
+  const invalid = DOC_TYPES.some((d) => {
+    const v = patterns[d.key];
+    return v && v.trim().length > 0 && !isValidDocPattern(v.trim());
+  });
+
+  return (
+    <Card>
+      <CardHeader
+        title="Penomoran dokumen"
+        description="Sesuaikan format nomor faktur, pembelian, dan pembayaran. Kosongkan untuk format bawaan."
+      />
+      <CardBody className="space-y-4">
+        {query.isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : (
+          <>
+            {DOC_TYPES.map((d: (typeof DOC_TYPES)[number]) => {
+              const key = d.key as DocType;
+              const value = patterns[key] ?? "";
+              const effective = value.trim() || d.example;
+              const valid = isValidDocPattern(effective);
+              return (
+                <div key={key}>
+                  <Label>{d.label}</Label>
+                  <Input
+                    value={value}
+                    onChange={(e) => setPatterns((p) => ({ ...p, [key]: e.target.value }))}
+                    placeholder={`Bawaan · contoh: ${d.example}`}
+                  />
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {valid ? (
+                      <>
+                        Pratinjau: <code>{renderDocNumber(effective, today, 1)}</code>
+                        {value.trim() ? "" : " (format bawaan)"}
+                      </>
+                    ) : (
+                      <span className="text-rose-600 dark:text-rose-400">Pola harus memuat token {"{SEQ}"}.</span>
+                    )}
+                  </p>
+                </div>
+              );
+            })}
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Token: <code>{"{YYYY}"}</code> tahun · <code>{"{MM}"}</code> bulan · <code>{"{SEQ:4}"}</code> nomor urut
+              (4 digit). Bila memuat <code>{"{YYYY}"}</code>/<code>{"{MM}"}</code>, urutan otomatis reset tiap periode.
+            </p>
+            <Button onClick={() => save.mutate()} disabled={save.isPending || invalid}>
+              {save.isPending ? "Menyimpan…" : "Simpan format"}
+            </Button>
           </>
         )}
       </CardBody>

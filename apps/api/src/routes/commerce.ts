@@ -352,7 +352,7 @@ export const commerceRoutes = new Hono<AppEnv>()
     const direction = input.refType === "invoice" ? "receive" : "pay";
     const counterId = await accountIdByCode(db, direction === "receive" ? SYS_ACCOUNTS.PIUTANG : SYS_ACCOUNTS.HUTANG);
 
-    const paymentNo = await nextDocNo(db, "payments", "PAY");
+    const paymentNo = await nextDocNo(db, "payments", "PAY", { docType: "payment", column: "payment_no", date: input.paymentDate });
     const memo =
       direction === "receive" ? `Penerimaan ${doc.doc_no} (${paymentNo})` : `Pembayaran ${doc.doc_no} (${paymentNo})`;
 

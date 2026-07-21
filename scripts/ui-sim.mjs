@@ -584,6 +584,12 @@ try {
     perusahaanBody.includes("Starter") && perusahaanBody.includes("Business") && perusahaanBody.includes("Enterprise") && /Rp\s?999\.000/.test(perusahaanBody),
     `→ ${/Rp\s?999\.000/.test(perusahaanBody)}`,
   );
+  // Fase 13i: kartu Penomoran dokumen dengan pratinjau langsung.
+  check(
+    "F19 Penomoran dokumen: kartu + pratinjau nomor tampil",
+    perusahaanBody.includes("Penomoran dokumen") && perusahaanBody.includes("Pratinjau"),
+    `→ ${perusahaanBody.includes("Penomoran dokumen")}`,
+  );
 
   // Fase 13g: tab Data & Keamanan menampilkan kartu Keamanan lanjutan
   // (tenant utama berpaket trial = akses penuh → form tampil, bukan upsell).

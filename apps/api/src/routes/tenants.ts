@@ -7,8 +7,10 @@ import {
   PLAN_LABELS,
   PLAN_LIMITS,
   updateMemberRoleSchema,
+  docNumberingSchema,
   updateTenantSettingsSchema,
   type ApiAuditLog,
+  type ApiDocNumbering,
   type ApiCustomRole,
   type ApiMember,
   type ApiMyPermissions,
@@ -341,6 +343,52 @@ export const tenantRoutes = new Hono<AppEnv>()
       ip: clientIp(c),
     });
     return c.json({ ok: true });
+  })
+
+  // -------------------------------------------------------------------------
+  // Penomoran dokumen kustom (Fase 13i) — pola per jenis dokumen. Owner only.
+  // Tersimpan di settings tenant sebagai JSON; kosong = penomoran bawaan.
+  // -------------------------------------------------------------------------
+  .get("/:tenantId/doc-numbering", requireAuth, requireTenantRole("viewer"), async (c) => {
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+    const { results } = await db.prepare(`SELECT value FROM settings WHERE key = 'doc_numbering'`).all<{ value: string }>();
+    let numbering: ApiDocNumbering = {};
+    try {
+      numbering = results[0]?.value ? (JSON.parse(results[0].value) as ApiDocNumbering) : {};
+    } catch {
+      numbering = {};
+    }
+    return c.json({ numbering });
+  })
+
+  .patch("/:tenantId/doc-numbering", requireAuth, requireTenantRole("owner"), async (c) => {
+    const parsed = docNumberingSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) {
+      return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
+    }
+    const tenant = c.get("tenant");
+    const db = getTenantDb(c.env, tenant.dbRef);
+    // Buang pola kosong agar jenis dokumen itu kembali ke penomoran bawaan.
+    const clean: ApiDocNumbering = {};
+    for (const key of ["invoice", "purchase", "payment"] as const) {
+      const v = parsed.data[key];
+      if (v && v.trim()) clean[key] = v.trim();
+    }
+    await db
+      .prepare(
+        `INSERT INTO settings (key, value, updated_at) VALUES ('doc_numbering', ?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+      )
+      .bind(JSON.stringify(clean), now())
+      .run();
+    await audit(c.env, {
+      action: "tenant.doc_numbering_updated",
+      userId: c.get("user").id,
+      tenantId: tenant.id,
+      detail: { types: Object.keys(clean) },
+      ip: clientIp(c),
+    });
+    return c.json({ numbering: clean });
   })
 
   // -------------------------------------------------------------------------

@@ -270,7 +270,7 @@ export async function executePurchase(
   ]);
 
   const purchaseId = crypto.randomUUID();
-  const docNo = await nextDocNo(db, "purchases", "PB");
+  const docNo = await nextDocNo(db, "purchases", "PB", { docType: "purchase", column: "purchase_no", date: input.invoiceDate });
   const journal = await postJournal(db, {
     entryDate: input.invoiceDate,
     memo: `Faktur pembelian ${docNo}`,
@@ -413,7 +413,7 @@ export async function executeInvoice(
     accountIdByCode(db, SYS_ACCOUNTS.PERSEDIAAN),
   ]);
 
-  const docNo = await nextDocNo(db, "invoices", "INV");
+  const docNo = await nextDocNo(db, "invoices", "INV", { docType: "invoice", column: "invoice_no", date: input.invoiceDate });
   const journal = await postJournal(db, {
     entryDate: input.invoiceDate,
     memo: `Faktur penjualan ${docNo}`,
