@@ -251,7 +251,7 @@ function Showcase() {
           <img
             key={item.image}
             src={item.image}
-            alt={item.title}
+            alt={`Tampilan ${item.title} di ERPindo — ${item.benefits[0] ?? ""}`}
             width={1100}
             height={688}
             loading="lazy"
@@ -410,11 +410,18 @@ function PerUserCalculator() {
           <div className="text-xs text-slate-400">per bulan</div>
         </div>
         <div className="rounded-xl border border-brand-500 bg-brand-50/60 p-3 text-center dark:bg-brand-950/40">
-          <div className="text-xs text-brand-700 dark:text-brand-300">Dengan ERPindo</div>
-          <div className="mt-1 text-2xl font-bold text-brand-700 dark:text-brand-300">Tetap</div>
-          <div className="text-xs text-slate-400">satu harga, berapa pun jumlah tim</div>
+          <div className="text-xs text-brand-700 dark:text-brand-300">Dengan ERPindo (Business)</div>
+          <div className="mt-1 text-2xl font-bold text-brand-700 dark:text-brand-300">{formatRupiah(PLAN_LIMITS.business.pricePerMonth)}</div>
+          <div className="text-xs text-slate-500 dark:text-slate-400">satu harga, berapa pun jumlah tim</div>
         </div>
       </div>
+      <p className="mt-4 text-center text-sm">
+        <span className="text-slate-600 dark:text-slate-300">Hemat sekitar </span>
+        <span className="font-bold text-emerald-600 dark:text-emerald-400">
+          {formatRupiah(Math.max(0, perUser - PLAN_LIMITS.business.pricePerMonth))}
+        </span>
+        <span className="text-slate-600 dark:text-slate-300"> per bulan untuk {users} pengguna.</span>
+      </p>
     </div>
   );
 }
@@ -660,7 +667,7 @@ function CtaBand() {
       <div className="mx-auto max-w-4xl rounded-3xl bg-gradient-to-br from-brand-600 to-brand-800 px-6 py-12 text-center text-white">
         <h2 className="text-3xl font-bold tracking-tight">Siap merapikan bisnis Anda?</h2>
         <p className="mx-auto mt-3 max-w-xl text-brand-50">
-          Coba semua fitur gratis {TRIAL_DAYS} hari. Tanpa kartu kredit, tanpa ribet.
+          Coba semua fitur gratis {TRIAL_DAYS} hari. Tanpa kartu kredit · batal kapan saja · data Anda bisa diekspor kapan pun.
         </p>
         <div className="mt-6">
           <Link to="/daftar">
@@ -700,13 +707,63 @@ function Footer() {
   );
 }
 
+/**
+ * Kompatibilitas & kepatuhan (Fase 14e) — bukti sosial faktual (bukan testimoni
+ * karangan): alat & standar yang benar-benar didukung produk.
+ */
+function IntegrationBadges() {
+  const lang = useLang();
+  const items = [
+    L(lang, "Pembayaran Midtrans (QRIS/VA/e-wallet)", "Midtrans payments (QRIS/VA/e-wallet)"),
+    L(lang, "e-Faktur & Coretax DJP", "e-Faktur & Coretax (Indonesian tax)"),
+    L(lang, "PPh 21 (TER) & BPJS", "Payroll tax (PPh 21 TER) & BPJS"),
+    L(lang, "Backup Google Drive", "Google Drive backup"),
+    L(lang, "Tagih via WhatsApp", "Billing via WhatsApp"),
+    L(lang, "Impor Shopee · Tokopedia · TikTok Shop", "Import Shopee · Tokopedia · TikTok Shop"),
+  ];
+  return (
+    <section className="px-4 py-10 sm:px-6">
+      <p className="text-center text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+        {L(lang, "Kompatibel dengan alat & standar yang Anda pakai", "Works with the tools & standards you already use")}
+      </p>
+      <div className="mx-auto mt-4 flex max-w-4xl flex-wrap items-center justify-center gap-2.5">
+        {items.map((it) => (
+          <span
+            key={it}
+            className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+          >
+            {it}
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** CTA lengket di bawah layar mobile (Fase 14e) — konversi di perangkat kecil. */
+function StickyMobileCta() {
+  const lang = useLang();
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t border-slate-200 bg-white/95 p-3 backdrop-blur sm:hidden dark:border-slate-700 dark:bg-slate-900/95">
+      <Link to="/daftar" className="flex-1">
+        <Button className="w-full">{L(lang, `Coba Gratis ${TRIAL_DAYS} Hari`, `Try Free ${TRIAL_DAYS} Days`)}</Button>
+      </Link>
+      <a href="#demo" className="shrink-0">
+        <Button variant="secondary">{L(lang, "Hubungi", "Contact")}</Button>
+      </a>
+    </div>
+  );
+}
+
 export function LandingPage() {
   return (
     <div className="flex min-h-full flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <Header />
-      <main className="flex-1">
+      {/* pb ekstra di mobile agar CTA lengket tak menutup konten akhir */}
+      <main className="flex-1 pb-20 sm:pb-0">
         <Hero />
         <TrustBar />
+        <IntegrationBadges />
         <Showcase />
         <FeaturesGrid />
         <Comparison />
@@ -717,6 +774,7 @@ export function LandingPage() {
         <CtaBand />
       </main>
       <Footer />
+      <StickyMobileCta />
     </div>
   );
 }
