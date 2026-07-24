@@ -43,6 +43,8 @@ const PUBLIC_ALLOWLIST = new Set([
   'demo.ts POST "/"',
   // Dokumentasi API publik SSR (Fase 13h) — halaman pemasaran statis.
   'apiDocs.ts GET "/api-docs"',
+  // SEO landing SSR (Fase 14d) — menyisipkan JSON-LD ke shell SPA publik.
+  'landingSeo.ts GET "/"',
 ]);
 
 /** Endpoint ber-requireAuth yang memang tanpa role gate: ber-scope user
