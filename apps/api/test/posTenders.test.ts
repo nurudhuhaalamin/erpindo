@@ -83,4 +83,20 @@ describe("computePosTenders — non-tunai & split", () => {
       error: "Kembalian melebihi uang tunai yang diterima.",
     });
   });
+
+  it("kembalian disebar antar >1 tender tunai (perbaikan 14o) — tak terpotong berulang", () => {
+    // total 100rb; dua tender tunai 60rb + 60rb = 120rb → kembalian 20rb.
+    // Pembukuan tunai harus 100rb (bukan 80rb bila kembalian dipotong tiap baris).
+    const r = computePosTenders(100_000, [
+      { method: "tunai", amount: 60_000 },
+      { method: "tunai", amount: 60_000 },
+    ]);
+    if ("error" in r) throw new Error("tak diharapkan error");
+    expect(r.change).toBe(20_000);
+    expect(r.cashApplied).toBe(100_000); // = total belanja
+    expect(r.applied).toEqual([
+      { method: "tunai", tendered: 60_000, amount: 40_000 }, // 60rb − 20rb kembalian
+      { method: "tunai", tendered: 60_000, amount: 60_000 }, // sisa utuh
+    ]);
+  });
 });

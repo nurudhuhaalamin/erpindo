@@ -61,11 +61,16 @@ export function computePosTenders(
   // Kembalian hanya dari tunai — pastikan tunai yang diserahkan cukup menutupnya.
   const cashTendered = tenders.filter((p) => p.method === "tunai").reduce((s, p) => s + p.amount, 0);
   if (change > cashTendered) return { error: "Kembalian melebihi uang tunai yang diterima." };
-  const applied = tenders.map((p) => ({
-    method: p.method,
-    tendered: p.amount,
-    amount: p.method === "tunai" ? p.amount - change : p.amount,
-  }));
+  // Nilai masuk pembukuan per metode: non-tunai persis; kembalian dikurangkan
+  // dari TOTAL tunai (disebar antar tender tunai) sekali — sehingga bila ada
+  // >1 tender tunai, kembalian tidak terpotong berulang.
+  let changeLeft = change;
+  const applied = tenders.map((p) => {
+    if (p.method !== "tunai") return { method: p.method, tendered: p.amount, amount: p.amount };
+    const deduct = Math.min(changeLeft, p.amount);
+    changeLeft -= deduct;
+    return { method: p.method, tendered: p.amount, amount: p.amount - deduct };
+  });
   const cashApplied = applied.filter((p) => p.method === "tunai").reduce((s, p) => s + p.amount, 0);
   const nonCashApplied = applied.filter((p) => p.method !== "tunai").reduce((s, p) => s + p.amount, 0);
   return { change, cashApplied, nonCashApplied, applied };
