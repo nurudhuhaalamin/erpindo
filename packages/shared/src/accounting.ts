@@ -344,6 +344,12 @@ export type ApiNotification = {
   detail: string;
   /** Rute SPA yang dituju saat notifikasi diklik. */
   href: string;
+  /**
+   * Pesan pengingat siap-kirim WhatsApp (mis. faktur jatuh tempo) — bila ada,
+   * UI menampilkan tombol "Tagih (WA)" yang membuka wa.me dengan teks ini.
+   * Pengguna memilih kontak tujuan di WhatsApp (tanpa menyimpan nomor).
+   */
+  waText?: string;
 };
 
 export const warehouseSchema = z.object({

@@ -3526,6 +3526,21 @@ try {
     "notifikasi faktur lewat jatuh tempo muncul",
     duNotif.json?.notifications?.some((n) => n.type === "overdue_invoice" && n.title.includes(duOverdue.json.docNo)),
   );
+  // Fase 15b — pengingat WhatsApp siap-kirim menyertai notifikasi jatuh tempo.
+  const duOverdueNotif = duNotif.json?.notifications?.find(
+    (n) => n.type === "overdue_invoice" && n.title.includes(duOverdue.json.docNo),
+  );
+  check(
+    "notifikasi jatuh tempo membawa waText pengingat (memuat no. faktur + nominal)",
+    typeof duOverdueNotif?.waText === "string" &&
+      duOverdueNotif.waText.includes(duOverdue.json.docNo) &&
+      duOverdueNotif.waText.includes("80.000"),
+    `→ ${JSON.stringify(duOverdueNotif?.waText)}`,
+  );
+  check(
+    "notifikasi non-jatuh-tempo (low_stock) tanpa waText",
+    duNotif.json?.notifications?.filter((n) => n.type === "low_stock").every((n) => n.waText === undefined),
+  );
   check("count = jumlah notifikasi (konsisten)", duNotif.json?.count === duNotif.json?.notifications?.length);
   const duNotifViewer = await viewer("GET", `/api/tenants/${tenantId}/notifications`);
   check("viewer boleh membaca notifikasi (200)", duNotifViewer.status === 200);

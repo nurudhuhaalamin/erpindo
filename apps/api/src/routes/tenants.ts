@@ -458,11 +458,13 @@ export const tenantRoutes = new Hono<AppEnv>()
       });
     }
     for (const d of overdue.results) {
+      const sisa = d.outstanding.toLocaleString("id-ID");
       notifications.push({
         type: "overdue_invoice",
         title: `Faktur ${d.invoice_no} lewat jatuh tempo`,
-        detail: `${d.contact_name} — sisa Rp ${d.outstanding.toLocaleString("id-ID")} (jatuh tempo ${d.due_date}).`,
+        detail: `${d.contact_name} — sisa Rp ${sisa} (jatuh tempo ${d.due_date}).`,
         href: "/app/penjualan",
+        waText: `Halo ${d.contact_name}, kami ingin mengingatkan bahwa faktur ${d.invoice_no} sebesar Rp ${sisa} telah jatuh tempo pada ${d.due_date}. Mohon konfirmasi pembayarannya ya. Terima kasih 🙏`,
       });
     }
     const openTickets = tickets.results[0]?.n ?? 0;

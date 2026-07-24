@@ -4,7 +4,7 @@
 // ---------------------------------------------------------------------------
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ArrowDownToLine, ArrowUpFromLine, Boxes, LineChart, Receipt, Check, ShoppingCart, SlidersHorizontal, Sparkles, Target, TrendingUp, Users, Wallet, type LucideIcon } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Boxes, LineChart, MessageCircle, Receipt, Check, ShoppingCart, SlidersHorizontal, Sparkles, Target, TrendingUp, Users, Wallet, type LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { api, ApiRequestError, formatDate, formatIDR } from "../api/client";
 import { useLang } from "../i18n";
@@ -223,13 +223,25 @@ function DueInvoicesWidget({ tenantId }: { tenantId: string }) {
         ) : (
           <ul className="space-y-2.5">
             {overdue.map((n, i) => (
-              <li key={i}>
-                <Link to="/app/penjualan" className="group block text-sm">
+              <li key={i} className="flex items-start justify-between gap-2">
+                <Link to="/app/penjualan" className="group block min-w-0 flex-1 text-sm">
                   <span className="block font-medium text-slate-800 group-hover:text-brand-700 dark:text-slate-100 dark:group-hover:text-brand-300">
                     {n.title.replace("Faktur ", "").replace(" lewat jatuh tempo", "")}
                   </span>
                   <span className="block text-xs text-slate-500 dark:text-slate-400">{n.detail}</span>
                 </Link>
+                {n.waText && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      window.open(`https://wa.me/?text=${encodeURIComponent(n.waText!)}`, "_blank", "noopener")
+                    }
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-emerald-300 px-2 py-1 text-xs font-medium text-emerald-700 transition hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-900/30"
+                    title="Kirim pengingat via WhatsApp"
+                  >
+                    <MessageCircle className="size-3.5" aria-hidden /> Tagih (WA)
+                  </button>
+                )}
               </li>
             ))}
           </ul>
