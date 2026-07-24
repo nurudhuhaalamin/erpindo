@@ -4547,6 +4547,21 @@ try {
   const robotsTxt = await robots.text();
   check("robots.txt 200 memblokir /app + menyertakan sitemap", robots.status === 200 && robotsTxt.includes("Disallow: /app") && robotsTxt.includes("Sitemap:"));
 
+  // --- Fase 14d: SEO landing (JSON-LD + noscript disisipkan ke shell SPA) -----
+  const landing = await fetch(`${BASE}/`);
+  const landingHtml = await landing.text();
+  check(
+    "SEO landing: / 200 + shell SPA tetap utuh (div#root)",
+    landing.status === 200 && /<div id="root">/.test(landingHtml),
+    `→ ${landing.status}`,
+  );
+  check(
+    "SEO landing: JSON-LD SoftwareApplication + Offer harga (499000) + FAQPage",
+    landingHtml.includes('"@type":"SoftwareApplication"') && landingHtml.includes("499000") && landingHtml.includes('"@type":"FAQPage"') && landingHtml.includes('"@type":"Organization"'),
+    `→ ${landingHtml.includes('"@type":"FAQPage"')}`,
+  );
+  check("SEO landing: canonical + noscript konten untuk crawler tanpa JS", landingHtml.includes('rel="canonical"') && landingHtml.includes("<noscript>"), `→ ${landingHtml.includes("<noscript>")}`);
+
   // --- Logout -----------------------------------------------------------------
   console.log("15. Logout");
   const out = await owner("POST", "/api/auth/logout");

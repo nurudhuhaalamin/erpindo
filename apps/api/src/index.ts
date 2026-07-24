@@ -14,6 +14,7 @@ import { migrationRoutes } from "./routes/migration";
 import { securityRoutes } from "./routes/security";
 import { publicApiAdminRoutes, publicApiV1Routes } from "./routes/publicApi";
 import { apiDocsRoutes } from "./routes/apiDocs";
+import { landingSeoRoutes } from "./routes/landingSeo";
 import { runWebhookDeliveries } from "./lib/webhooks";
 import { authRoutes } from "./routes/auth";
 import { billingRoutes, billingWebhookRoutes } from "./routes/billing";
@@ -114,6 +115,7 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", publicApiAdminRoutes)
   .route("/api/v1", publicApiV1Routes)
   .route("/", apiDocsRoutes)
+  .route("/", landingSeoRoutes)
   .route("/api/tenants", commerceRoutes)
   .route("/api/tenants", reportRoutes)
   .route("/api/tenants", returnRoutes)
