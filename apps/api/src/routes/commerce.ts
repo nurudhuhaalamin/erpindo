@@ -29,6 +29,7 @@ import { emitWebhook } from "../lib/webhooks";
 import {
   approvalThreshold,
   checkPeriodOpen,
+  computeForexSettlement,
   executeInvoice,
   executePurchase,
   INVOICE_CFG,
@@ -315,25 +316,31 @@ export const commerceRoutes = new Hono<AppEnv>()
     // Faktur valas: bayar dalam valas + kurs saat bayar → selisih kurs dijurnal.
     // Faktur IDR: pakai `amount` (IDR) seperti biasa (kurs 1, tanpa selisih).
     const isForeign = doc.currency !== "IDR";
-    let counterCleared: number; // IDR yang mengurangi piutang/hutang (pada kurs faktur)
-    let cashIdr: number; // IDR kas yang benar-benar berpindah (pada kurs bayar)
     let foreignAmt: number;
     let payRate: number;
+    let docRate: number;
     if (isForeign) {
       if (!input.foreignAmount || !input.exchangeRate) {
         return c.json({ error: `Faktur dalam ${doc.currency} — isi jumlah valas & kurs saat pembayaran.` }, 400);
       }
       foreignAmt = input.foreignAmount;
       payRate = input.exchangeRate;
-      counterCleared = Math.round(foreignAmt * doc.exchange_rate);
-      cashIdr = Math.round(foreignAmt * payRate);
+      docRate = doc.exchange_rate;
     } else {
       if (!input.amount) return c.json({ error: "Nominal pembayaran wajib diisi." }, 400);
       foreignAmt = input.amount;
       payRate = 1;
-      counterCleared = input.amount;
-      cashIdr = input.amount;
+      docRate = 1;
     }
+    const direction = input.refType === "invoice" ? "receive" : "pay";
+    // counterCleared: IDR yang mengurangi piutang/hutang (kurs faktur);
+    // cashIdr: IDR kas yang berpindah (kurs bayar); forexGain: selisih kurs.
+    const { counterCleared, cashIdr, forexGain } = computeForexSettlement({
+      direction,
+      foreignAmount: foreignAmt,
+      paymentRate: payRate,
+      docRate,
+    });
 
     const remaining = doc.total - doc.paid_amount - doc.returned_amount;
     if (counterCleared > remaining) {
@@ -349,7 +356,6 @@ export const commerceRoutes = new Hono<AppEnv>()
       return c.json({ error: "Akun pembayaran harus akun kas/bank (tipe aset)." }, 400);
     }
 
-    const direction = input.refType === "invoice" ? "receive" : "pay";
     const counterId = await accountIdByCode(db, direction === "receive" ? SYS_ACCOUNTS.PIUTANG : SYS_ACCOUNTS.HUTANG);
 
     const paymentNo = await nextDocNo(db, "payments", "PAY", { docType: "payment", column: "payment_no", date: input.paymentDate });
@@ -357,7 +363,6 @@ export const commerceRoutes = new Hono<AppEnv>()
       direction === "receive" ? `Penerimaan ${doc.doc_no} (${paymentNo})` : `Pembayaran ${doc.doc_no} (${paymentNo})`;
 
     // Selisih kurs favorable (laba): terima IDR > piutang, atau bayar IDR < hutang.
-    const forexGain = direction === "receive" ? cashIdr - counterCleared : counterCleared - cashIdr;
     const forexLine =
       forexGain === 0
         ? []
