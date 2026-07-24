@@ -4,7 +4,7 @@ import { Check, Eye, Menu, Moon, ShieldCheck, Sparkles, Sun, X } from "lucide-re
 import { useState } from "react";
 import { api } from "../../api/client";
 import { BrandWordmark, Button, useDarkMode } from "../../components/ui";
-import { useLang, type Lang } from "../../i18n";
+import { pick, useLang, type Lang } from "../../i18n";
 import { LangSwitcher } from "../../i18n/LangSwitcher";
 import {
   CATEGORY_COMPARISON,
@@ -115,6 +115,7 @@ function Header() {
  * agar sesi & /me dimuat segar.
  */
 function DemoButton({ size = "lg" }: { size?: "md" | "lg" }) {
+  const lang = useLang();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   return (
@@ -130,12 +131,12 @@ function DemoButton({ size = "lg" }: { size?: "md" | "lg" }) {
             .demoLogin()
             .then(() => window.location.assign("/app"))
             .catch((err: Error) => {
-              setError(err.message || "Demo sedang tidak tersedia. Coba daftar gratis saja.");
+              setError(err.message || L(lang, "Demo sedang tidak tersedia. Coba daftar gratis saja.", "Demo is unavailable right now. Try signing up free instead."));
               setBusy(false);
             });
         }}
       >
-        <Eye className="size-4" aria-hidden /> {busy ? "Menyiapkan demo…" : "Lihat Demo"}
+        <Eye className="size-4" aria-hidden /> {busy ? L(lang, "Menyiapkan demo…", "Preparing demo…") : L(lang, "Lihat Demo", "View Demo")}
       </Button>
       {error ? <span className="mt-1 text-xs text-red-500">{error}</span> : null}
     </span>
@@ -208,13 +209,14 @@ function Hero() {
 }
 
 function TrustBar() {
+  const lang = useLang();
   return (
     <section className="mt-14 border-y border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <div className="mx-auto grid max-w-5xl grid-cols-2 gap-6 px-4 py-10 sm:px-6 lg:grid-cols-4">
         {TRUST_POINTS.map((s) => (
-          <div key={s.label} className="text-center">
-            <div className="text-xl font-bold text-brand-600 dark:text-brand-400">{s.value}</div>
-            <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{s.label}</div>
+          <div key={s.label.id} className="text-center">
+            <div className="text-xl font-bold text-brand-600 dark:text-brand-400">{pick(s.value, lang)}</div>
+            <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{pick(s.label, lang)}</div>
           </div>
         ))}
       </div>
@@ -223,13 +225,14 @@ function TrustBar() {
 }
 
 function Showcase() {
+  const lang = useLang();
   const [active, setActive] = useState("pos");
   const item = SHOWCASE.find((s) => s.id === active) ?? SHOWCASE[0]!;
   return (
     <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-      <h2 className="text-center text-3xl font-bold tracking-tight">Lihat cara kerjanya</h2>
+      <h2 className="text-center text-3xl font-bold tracking-tight">{L(lang, "Lihat cara kerjanya", "See how it works")}</h2>
       <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600 dark:text-slate-300">
-        Lima alur yang paling sering dipakai UMKM — semuanya otomatis masuk pembukuan.
+        {L(lang, "Lima alur yang paling sering dipakai UMKM — semuanya otomatis masuk pembukuan.", "Five flows SMEs use most — all automatically flowing into the books.")}
       </p>
       <div className="mt-8 flex flex-wrap justify-center gap-2">
         {SHOWCASE.map((s) => (
@@ -242,7 +245,7 @@ function Showcase() {
                 : "bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700 dark:hover:bg-slate-800"
             }`}
           >
-            <s.icon className="size-4" aria-hidden /> {s.label}
+            <s.icon className="size-4" aria-hidden /> {pick(s.label, lang)}
           </button>
         ))}
       </div>
@@ -251,7 +254,7 @@ function Showcase() {
           <img
             key={item.image}
             src={item.image}
-            alt={`Tampilan ${item.title} di ERPindo — ${item.benefits[0] ?? ""}`}
+            alt={`${L(lang, "Tampilan", "View of")} ${pick(item.title, lang)} — ${pick(item.benefits[0]!, lang)}`}
             width={1100}
             height={688}
             loading="lazy"
@@ -260,19 +263,19 @@ function Showcase() {
           />
         </div>
         <div>
-          <h3 className="text-xl font-semibold">{item.title}</h3>
+          <h3 className="text-xl font-semibold">{pick(item.title, lang)}</h3>
           <ul className="mt-4 space-y-3">
             {item.benefits.map((b) => (
-              <li key={b} className="flex items-start gap-2.5 text-sm text-slate-600 dark:text-slate-300">
+              <li key={b.id} className="flex items-start gap-2.5 text-sm text-slate-600 dark:text-slate-300">
                 <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-accent-100 text-accent-700 dark:bg-accent-500/20 dark:text-accent-300">
                   <Check className="size-3.5" aria-hidden />
                 </span>
-                {b}
+                {pick(b, lang)}
               </li>
             ))}
           </ul>
           <Link to="/daftar" className="mt-6 inline-block">
-            <Button variant="secondary">Coba alur ini gratis →</Button>
+            <Button variant="secondary">{L(lang, "Coba alur ini gratis →", "Try this flow free →")}</Button>
           </Link>
         </div>
       </div>
@@ -281,24 +284,25 @@ function Showcase() {
 }
 
 function FeaturesGrid() {
+  const lang = useLang();
   return (
     <section id="fitur" className="scroll-mt-16 border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <h2 className="text-center text-3xl font-bold tracking-tight">Satu sistem untuk seluruh operasional</h2>
+        <h2 className="text-center text-3xl font-bold tracking-tight">{L(lang, "Satu sistem untuk seluruh operasional", "One system for all your operations")}</h2>
         <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600 dark:text-slate-300">
-          Semua modul saling terhubung dan otomatis masuk pembukuan — tidak perlu banyak aplikasi.
+          {L(lang, "Semua modul saling terhubung dan otomatis masuk pembukuan — tidak perlu banyak aplikasi.", "Every module is connected and automatically flows into the books — no juggling many apps.")}
         </p>
         <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURE_GROUPS.map((f) => (
             <div
-              key={f.title}
+              key={f.title.id}
               className="rounded-2xl border border-slate-200 bg-slate-50 p-5 transition-shadow hover:shadow-md dark:border-slate-800 dark:bg-slate-950"
             >
               <span className="flex size-10 items-center justify-center rounded-xl bg-brand-100 text-brand-700 dark:bg-brand-900/60 dark:text-brand-300">
                 <f.icon className="size-5" aria-hidden />
               </span>
-              <h3 className="mt-3 font-semibold">{f.title}</h3>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{f.desc}</p>
+              <h3 className="mt-3 font-semibold">{pick(f.title, lang)}</h3>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{pick(f.desc, lang)}</p>
             </div>
           ))}
         </div>
@@ -308,33 +312,34 @@ function FeaturesGrid() {
 }
 
 function Comparison() {
+  const lang = useLang();
   return (
     <section className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-      <h2 className="text-center text-3xl font-bold tracking-tight">Masih pakai buku &amp; Excel?</h2>
+      <h2 className="text-center text-3xl font-bold tracking-tight">{L(lang, "Masih pakai buku & Excel?", "Still using ledgers & Excel?")}</h2>
       <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600 dark:text-slate-300">
-        Waktu Anda lebih berharga daripada menyalin angka. Bandingkan sendiri.
+        {L(lang, "Waktu Anda lebih berharga daripada menyalin angka. Bandingkan sendiri.", "Your time is worth more than copying numbers. See for yourself.")}
       </p>
       <div className="mt-10 overflow-x-auto">
         <table className="w-full min-w-[640px] border-separate border-spacing-0 overflow-hidden rounded-2xl border border-slate-200 text-sm dark:border-slate-800">
           <thead>
             <tr className="bg-slate-100 text-left dark:bg-slate-900">
-              <th className="px-4 py-3 font-semibold">Pekerjaan</th>
-              <th className="px-4 py-3 font-semibold text-slate-500 dark:text-slate-400">Manual / Excel</th>
-              <th className="bg-brand-600 px-4 py-3 font-semibold text-white">Dengan erpindo</th>
+              <th className="px-4 py-3 font-semibold">{L(lang, "Pekerjaan", "Task")}</th>
+              <th className="px-4 py-3 font-semibold text-slate-500 dark:text-slate-400">{L(lang, "Manual / Excel", "Manual / Excel")}</th>
+              <th className="bg-brand-600 px-4 py-3 font-semibold text-white">{L(lang, "Dengan erpindo", "With erpindo")}</th>
             </tr>
           </thead>
           <tbody>
             {COMPARISON.map((row, i) => (
-              <tr key={row.topic} className={i % 2 === 0 ? "bg-white dark:bg-slate-950" : "bg-slate-50 dark:bg-slate-900/60"}>
-                <td className="px-4 py-3 font-medium">{row.topic}</td>
+              <tr key={row.topic.id} className={i % 2 === 0 ? "bg-white dark:bg-slate-950" : "bg-slate-50 dark:bg-slate-900/60"}>
+                <td className="px-4 py-3 font-medium">{pick(row.topic, lang)}</td>
                 <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
                   <span className="flex items-start gap-2">
-                    <X className="mt-0.5 size-4 shrink-0 text-red-400" aria-hidden /> {row.manual}
+                    <X className="mt-0.5 size-4 shrink-0 text-red-400" aria-hidden /> {pick(row.manual, lang)}
                   </span>
                 </td>
                 <td className="bg-brand-50/60 px-4 py-3 text-slate-700 dark:bg-brand-950/40 dark:text-slate-200">
                   <span className="flex items-start gap-2">
-                    <Check className="mt-0.5 size-4 shrink-0 text-emerald-500" aria-hidden /> {row.erpindo}
+                    <Check className="mt-0.5 size-4 shrink-0 text-emerald-500" aria-hidden /> {pick(row.erpindo, lang)}
                   </span>
                 </td>
               </tr>
@@ -386,50 +391,52 @@ const TIER_INFO: TierInfo[] = [
 
 /** Kalkulator perbandingan implisit: biaya sistem per-pengguna vs ERPindo tetap. */
 function PerUserCalculator() {
+  const lang = useLang();
   const [users, setUsers] = useState(20);
   const perUser = perUserMonthlyCost(users);
   return (
     <div className="mx-auto mt-12 max-w-2xl rounded-2xl border border-slate-200 bg-slate-50 p-5 sm:p-6 dark:border-slate-800 dark:bg-slate-900/60">
-      <h3 className="text-center font-semibold">Bandingkan dengan sistem yang menagih per pengguna</h3>
+      <h3 className="text-center font-semibold">{L(lang, "Bandingkan dengan sistem yang menagih per pengguna", "Compare with systems that charge per user")}</h3>
       <label className="mt-4 block text-sm text-slate-600 dark:text-slate-300">
-        Jumlah pengguna di tim Anda: <span className="font-semibold text-slate-900 dark:text-white">{users}</span>
+        {L(lang, "Jumlah pengguna di tim Anda:", "Number of users on your team:")} <span className="font-semibold text-slate-900 dark:text-white">{users}</span>
         <input
           type="range"
           min={1}
           max={100}
           value={users}
           onChange={(e) => setUsers(Number(e.target.value))}
-          aria-label="Jumlah pengguna"
+          aria-label={L(lang, "Jumlah pengguna", "Number of users")}
           className="mt-2 w-full accent-brand-600"
         />
       </label>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl border border-slate-200 bg-white p-3 text-center dark:border-slate-800 dark:bg-slate-950">
-          <div className="text-xs text-slate-400">Sistem per-pengguna (± {formatRupiah(ASSUMED_PER_USER_PRICE)}/user)</div>
+          <div className="text-xs text-slate-400">{L(lang, `Sistem per-pengguna (± ${formatRupiah(ASSUMED_PER_USER_PRICE)}/user)`, `Per-user system (± ${formatRupiah(ASSUMED_PER_USER_PRICE)}/user)`)}</div>
           <div className="mt-1 text-2xl font-bold text-slate-500 line-through">{formatRupiah(perUser)}</div>
-          <div className="text-xs text-slate-400">per bulan</div>
+          <div className="text-xs text-slate-400">{L(lang, "per bulan", "per month")}</div>
         </div>
         <div className="rounded-xl border border-brand-500 bg-brand-50/60 p-3 text-center dark:bg-brand-950/40">
-          <div className="text-xs text-brand-700 dark:text-brand-300">Dengan ERPindo (Business)</div>
+          <div className="text-xs text-brand-700 dark:text-brand-300">{L(lang, "Dengan ERPindo (Business)", "With ERPindo (Business)")}</div>
           <div className="mt-1 text-2xl font-bold text-brand-700 dark:text-brand-300">{formatRupiah(PLAN_LIMITS.business.pricePerMonth)}</div>
-          <div className="text-xs text-slate-500 dark:text-slate-400">satu harga, berapa pun jumlah tim</div>
+          <div className="text-xs text-slate-500 dark:text-slate-400">{L(lang, "satu harga, berapa pun jumlah tim", "one price, whatever your team size")}</div>
         </div>
       </div>
       <p className="mt-4 text-center text-sm">
-        <span className="text-slate-600 dark:text-slate-300">Hemat sekitar </span>
+        <span className="text-slate-600 dark:text-slate-300">{L(lang, "Hemat sekitar ", "Save about ")}</span>
         <span className="font-bold text-emerald-600 dark:text-emerald-400">
           {formatRupiah(Math.max(0, perUser - PLAN_LIMITS.business.pricePerMonth))}
         </span>
-        <span className="text-slate-600 dark:text-slate-300"> per bulan untuk {users} pengguna.</span>
+        <span className="text-slate-600 dark:text-slate-300">{L(lang, ` per bulan untuk ${users} pengguna.`, ` per month for ${users} users.`)}</span>
       </p>
     </div>
   );
 }
 
 function CategoryComparison() {
+  const lang = useLang();
   return (
     <div className="mt-14">
-      <h3 className="text-center text-xl font-semibold">Di mana posisi ERPindo?</h3>
+      <h3 className="text-center text-xl font-semibold">{L(lang, "Di mana posisi ERPindo?", "Where does ERPindo fit?")}</h3>
       <div className="mt-6 overflow-x-auto">
         <table className="w-full min-w-[720px] border-separate border-spacing-0 overflow-hidden rounded-2xl border border-slate-200 text-sm dark:border-slate-800">
           <thead>
@@ -437,24 +444,24 @@ function CategoryComparison() {
               <th className="px-3 py-3 font-semibold"> </th>
               {CATEGORY_COMPARISON_HEADERS.map((h) => (
                 <th
-                  key={h}
-                  className={`px-3 py-3 font-semibold ${h === "ERPindo" ? "bg-brand-600 text-white" : "text-slate-500 dark:text-slate-400"}`}
+                  key={h.id}
+                  className={`px-3 py-3 font-semibold ${h.id === "ERPindo" ? "bg-brand-600 text-white" : "text-slate-500 dark:text-slate-400"}`}
                 >
-                  {h}
+                  {pick(h, lang)}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {CATEGORY_COMPARISON.map((row, i) => (
-              <tr key={row.label} className={i % 2 === 0 ? "bg-white dark:bg-slate-950" : "bg-slate-50 dark:bg-slate-900/60"}>
-                <td className="px-3 py-2.5 font-medium">{row.label}</td>
+              <tr key={row.label.id} className={i % 2 === 0 ? "bg-white dark:bg-slate-950" : "bg-slate-50 dark:bg-slate-900/60"}>
+                <td className="px-3 py-2.5 font-medium">{pick(row.label, lang)}</td>
                 {row.rows.map((cell, j) => (
                   <td
                     key={j}
                     className={`px-3 py-2.5 ${j === row.rows.length - 1 ? "bg-brand-50/60 font-medium text-slate-800 dark:bg-brand-950/40 dark:text-slate-100" : "text-slate-500 dark:text-slate-400"}`}
                   >
-                    {cell}
+                    {pick(cell, lang)}
                   </td>
                 ))}
               </tr>
@@ -462,7 +469,7 @@ function CategoryComparison() {
           </tbody>
         </table>
       </div>
-      <p className="mt-3 text-center text-xs text-slate-400">Perbandingan per kategori solusi — bukan merek tertentu.</p>
+      <p className="mt-3 text-center text-xs text-slate-400">{L(lang, "Perbandingan per kategori solusi — bukan merek tertentu.", "Compared by solution category — not specific brands.")}</p>
     </div>
   );
 }
@@ -519,7 +526,8 @@ function Pricing() {
         </div>
 
         <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
-          Semua paket termasuk: {SINGLE_PLAN_MODULES.slice(0, 6).join(" · ")}, dan banyak lagi. Harga belum termasuk PPN.
+          {L(lang, "Semua paket termasuk:", "Every plan includes:")} {SINGLE_PLAN_MODULES.slice(0, 6).map((m) => pick(m, lang)).join(" · ")}
+          {L(lang, ", dan banyak lagi. Harga belum termasuk PPN.", ", and much more. Prices exclude VAT.")}
         </p>
 
         <PerUserCalculator />
@@ -528,20 +536,26 @@ function Pricing() {
         {/* Untuk grup & holding + layanan implementasi */}
         <div className="mt-14 grid gap-5 rounded-2xl border border-slate-200 bg-slate-50 p-6 sm:grid-cols-2 sm:p-8 dark:border-slate-800 dark:bg-slate-900/60">
           <div>
-            <h3 className="text-xl font-semibold">Untuk grup &amp; holding</h3>
+            <h3 className="text-xl font-semibold">{L(lang, "Untuk grup & holding", "For groups & holdings")}</h3>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-              Kelola beberapa badan usaha dalam satu akun dengan laporan konsolidasi lintas perusahaan, dimensi per cabang,
-              dan dukungan prioritas. Paket Enterprise sudah mencakup {PLAN_LIMITS.enterprise.maxEntities} entitas.
+              {L(
+                lang,
+                `Kelola beberapa badan usaha dalam satu akun dengan laporan konsolidasi lintas perusahaan, dimensi per cabang, dan dukungan prioritas. Paket Enterprise sudah mencakup ${PLAN_LIMITS.enterprise.maxEntities} entitas.`,
+                `Manage several entities from one account with cross-company consolidated reports, per-branch dimensions, and priority support. The Enterprise plan already covers ${PLAN_LIMITS.enterprise.maxEntities} entities.`,
+              )}
             </p>
           </div>
           <div>
-            <h3 className="text-xl font-semibold">Layanan pendampingan</h3>
+            <h3 className="text-xl font-semibold">{L(lang, "Layanan pendampingan", "Implementation support")}</h3>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-              Butuh migrasi data dari sistem lama, penyusunan bagan akun, atau pelatihan tim? Tim kami siap mendampingi
-              implementasi Anda — hubungi kami untuk penawaran.
+              {L(
+                lang,
+                "Butuh migrasi data dari sistem lama, penyusunan bagan akun, atau pelatihan tim? Tim kami siap mendampingi implementasi Anda — hubungi kami untuk penawaran.",
+                "Need data migration from an old system, chart-of-accounts setup, or team training? Our team is ready to guide your implementation — contact us for a quote.",
+              )}
             </p>
             <a href="#demo" className="mt-3 inline-block text-sm font-semibold text-brand-600 hover:underline dark:text-brand-400">
-              Jadwalkan demo &amp; konsultasi →
+              {L(lang, "Jadwalkan demo & konsultasi →", "Schedule a demo & consultation →")}
             </a>
           </div>
         </div>
@@ -616,21 +630,22 @@ function DemoRequest() {
 }
 
 function Security() {
+  const lang = useLang();
   return (
     <section className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-      <h2 className="text-center text-3xl font-bold tracking-tight">Data bisnis Anda, aman di tangan Anda</h2>
+      <h2 className="text-center text-3xl font-bold tracking-tight">{L(lang, "Data bisnis Anda, aman di tangan Anda", "Your business data, safe in your hands")}</h2>
       <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600 dark:text-slate-300">
-        Kami merancang ERPindo agar Anda tidak pernah terkunci — bukan sekadar aman, tapi juga bebas.
+        {L(lang, "Kami merancang ERPindo agar Anda tidak pernah terkunci — bukan sekadar aman, tapi juga bebas.", "We built ERPindo so you're never locked in — not just secure, but free.")}
       </p>
       <div className="mt-10 grid gap-5 sm:grid-cols-2">
         {SECURITY_POINTS.map((s) => (
-          <div key={s.title} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <div key={s.title.id} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
               <ShieldCheck className="size-5" aria-hidden />
             </span>
             <div>
-              <h3 className="font-semibold">{s.title}</h3>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{s.desc}</p>
+              <h3 className="font-semibold">{pick(s.title, lang)}</h3>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{pick(s.desc, lang)}</p>
             </div>
           </div>
         ))}
@@ -640,20 +655,21 @@ function Security() {
 }
 
 function Faq() {
+  const lang = useLang();
   return (
     <section id="faq" className="mx-auto max-w-3xl scroll-mt-16 px-4 py-16 sm:px-6">
-      <h2 className="text-center text-3xl font-bold tracking-tight">Pertanyaan umum</h2>
+      <h2 className="text-center text-3xl font-bold tracking-tight">{L(lang, "Pertanyaan umum", "Frequently asked questions")}</h2>
       <div className="mt-8 space-y-3">
         {FAQ.map((item) => (
           <details
-            key={item.q}
+            key={item.q.id}
             className="group rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900"
           >
             <summary className="flex cursor-pointer list-none items-center justify-between font-medium">
-              {item.q}
+              {pick(item.q, lang)}
               <span className="ml-4 text-slate-400 transition-transform group-open:rotate-45">+</span>
             </summary>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{item.a}</p>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{pick(item.a, lang)}</p>
           </details>
         ))}
       </div>
@@ -662,17 +678,22 @@ function Faq() {
 }
 
 function CtaBand() {
+  const lang = useLang();
   return (
     <section className="px-4 pb-16 sm:px-6">
       <div className="mx-auto max-w-4xl rounded-3xl bg-gradient-to-br from-brand-600 to-brand-800 px-6 py-12 text-center text-white">
-        <h2 className="text-3xl font-bold tracking-tight">Siap merapikan bisnis Anda?</h2>
+        <h2 className="text-3xl font-bold tracking-tight">{L(lang, "Siap merapikan bisnis Anda?", "Ready to tidy up your business?")}</h2>
         <p className="mx-auto mt-3 max-w-xl text-brand-50">
-          Coba semua fitur gratis {TRIAL_DAYS} hari. Tanpa kartu kredit · batal kapan saja · data Anda bisa diekspor kapan pun.
+          {L(
+            lang,
+            `Coba semua fitur gratis ${TRIAL_DAYS} hari. Tanpa kartu kredit · batal kapan saja · data Anda bisa diekspor kapan pun.`,
+            `Try all features free for ${TRIAL_DAYS} days. No credit card · cancel anytime · export your data whenever you want.`,
+          )}
         </p>
         <div className="mt-6">
           <Link to="/daftar">
             <Button variant="secondary" size="lg">
-              Mulai Sekarang
+              {L(lang, "Mulai Sekarang", "Get Started")}
             </Button>
           </Link>
         </div>
@@ -682,6 +703,7 @@ function CtaBand() {
 }
 
 function Footer() {
+  const lang = useLang();
   return (
     <footer className="border-t border-slate-200 dark:border-slate-800">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-8 text-sm text-slate-500 sm:flex-row sm:px-6 dark:text-slate-400">
@@ -689,17 +711,17 @@ function Footer() {
           <div className="flex items-center gap-2">
             <BrandWordmark className="h-8" />
           </div>
-          <p className="mt-1 text-xs">Integrate. Automate. Grow. — ERP untuk UMKM Indonesia.</p>
+          <p className="mt-1 text-xs">{L(lang, "Integrate. Automate. Grow. — ERP untuk UMKM Indonesia.", "Integrate. Automate. Grow. — ERP for Indonesian SMEs.")}</p>
         </div>
         <div className="flex items-center gap-4">
-          <a href="#fitur" className="hover:text-slate-900 dark:hover:text-white">Fitur</a>
-          <a href="#harga" className="hover:text-slate-900 dark:hover:text-white">Harga</a>
-          <a href="/panduan" className="hover:text-slate-900 dark:hover:text-white">Panduan</a>
+          <a href="#fitur" className="hover:text-slate-900 dark:hover:text-white">{L(lang, "Fitur", "Features")}</a>
+          <a href="#harga" className="hover:text-slate-900 dark:hover:text-white">{L(lang, "Harga", "Pricing")}</a>
+          <a href="/panduan" className="hover:text-slate-900 dark:hover:text-white">{L(lang, "Panduan", "Guide")}</a>
           {/* Blog dilayani server-side (SEO) — navigasi keras, bukan rute SPA. */}
           <a href="/blog" className="hover:text-slate-900 dark:hover:text-white">Blog</a>
           <a href="#faq" className="hover:text-slate-900 dark:hover:text-white">FAQ</a>
-          <Link to="/masuk" className="hover:text-slate-900 dark:hover:text-white">Masuk</Link>
-          <Link to="/daftar" className="hover:text-slate-900 dark:hover:text-white">Daftar</Link>
+          <Link to="/masuk" className="hover:text-slate-900 dark:hover:text-white">{L(lang, "Masuk", "Sign in")}</Link>
+          <Link to="/daftar" className="hover:text-slate-900 dark:hover:text-white">{L(lang, "Daftar", "Sign up")}</Link>
         </div>
       </div>
       <div className="pb-6 text-center text-xs text-slate-400">© {new Date().getFullYear()} erpindo</div>
