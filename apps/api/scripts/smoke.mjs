@@ -893,6 +893,27 @@ try {
   const tbAfterReturns = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah retur", tbAfterReturns.json?.balanced === true);
 
+  // --- Fase 14c: retur dengan refund kas (faktur sudah dibayar lunas) ---------
+  // Faktur 1 pcs @150k + PPN 11% = 166.500; stok 3→2. Bayar lunas → sisa 0.
+  const invRef = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id,
+    invoiceDate: "2026-08-06",
+    taxRate: 11,
+    warehouseId: whUtama.id,
+    lines: [{ productId: prodBarang.json.id, qty: 1, unitPrice: 150_000 }],
+  });
+  check("refund: faktur baru 166.500", invRef.status === 201 && invRef.json?.total === 166_500, `→ ${JSON.stringify(invRef.json)}`);
+  const payRef = await owner("POST", `/api/tenants/${tenantId}/payments`, { refType: "invoice", refId: invRef.json.id, accountId: kasAcc.id, amount: 166_500, paymentDate: "2026-08-06" });
+  check("refund: faktur dibayar lunas", payRef.status === 201 && payRef.json?.settled === true, `→ ${JSON.stringify(payRef.json)}`);
+  // Retur seluruh barang → nilai melebihi sisa tagihan (0). Tanpa akun refund → 400.
+  const retNoAcct = await owner("POST", `/api/tenants/${tenantId}/returns`, { refType: "invoice", refId: invRef.json.id, warehouseId: whUtama.id, returnDate: "2026-08-06", lines: [{ productId: prodBarang.json.id, qty: 1 }] });
+  check("refund: retur melebihi sisa tanpa akun → 400 refund-account-required", retNoAcct.status === 400 && retNoAcct.json?.detail === "refund-account-required", `→ ${retNoAcct.status} ${JSON.stringify(retNoAcct.json)}`);
+  // Dengan akun kas → 201, seluruh nilai jadi refund tunai.
+  const retRefund = await owner("POST", `/api/tenants/${tenantId}/returns`, { refType: "invoice", refId: invRef.json.id, warehouseId: whUtama.id, returnDate: "2026-08-06", refundAccountId: kasAcc.id, lines: [{ productId: prodBarang.json.id, qty: 1 }] });
+  check("refund: retur dengan akun kas → 201 + refund 166.500", retRefund.status === 201 && retRefund.json?.refund === 166_500, `→ ${JSON.stringify(retRefund.json)}`);
+  const tbAfterRefund = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("refund: neraca saldo tetap seimbang setelah refund kas", tbAfterRefund.json?.balanced === true);
+
   const returnByViewer = await viewer("POST", `/api/tenants/${tenantId}/returns`, {
     refType: "invoice",
     refId: inv2.json.id,
