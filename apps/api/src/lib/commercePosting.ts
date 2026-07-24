@@ -197,6 +197,26 @@ export async function resolveCurrency(
   return { currency: code, rate: exchangeRate };
 }
 
+/**
+ * Hitung angka pelunasan (valas maupun IDR): `counterCleared` = IDR yang
+ * menutup piutang/hutang pada **kurs faktur**; `cashIdr` = IDR kas yang benar-
+ * benar berpindah pada **kurs bayar**; `forexGain` = selisih kurs. Untuk faktur
+ * IDR, `docRate` & `paymentRate` = 1 sehingga selisih selalu 0. Selisih
+ * favorable (laba, >0) bila menerima IDR lebih besar dari piutang, atau membayar
+ * IDR lebih kecil dari hutang; unfavorable (rugi, <0) sebaliknya.
+ */
+export function computeForexSettlement(params: {
+  direction: "receive" | "pay";
+  foreignAmount: number;
+  paymentRate: number;
+  docRate: number;
+}): { counterCleared: number; cashIdr: number; forexGain: number } {
+  const counterCleared = Math.round(params.foreignAmount * params.docRate);
+  const cashIdr = Math.round(params.foreignAmount * params.paymentRate);
+  const forexGain = params.direction === "receive" ? cashIdr - counterCleared : counterCleared - cashIdr;
+  return { counterCleared, cashIdr, forexGain };
+}
+
 /** Tolak dokumen bertanggal pada periode yang sudah ditutup buku. */
 export async function checkPeriodOpen(db: SqlExecutor, date: string): Promise<string | null> {
   const lockedBefore = await getLockedBefore(db);

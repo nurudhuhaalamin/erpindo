@@ -105,6 +105,37 @@ export async function runDepreciation(
   return { count: items.length, total };
 }
 
+type DisposalLine = { accountId: string; description: string; debit: number; credit: number };
+
+/**
+ * Susun jurnal pelepasan aset (murni, tanpa DB — bisa diuji langsung):
+ * nilai buku = perolehan − akumulasi; laba/rugi = hasil − nilai buku. Jurnal
+ * membalik akumulasi & aset, mencatat kas hasil (bila ada), lalu laba (kredit
+ * Pendapatan Lain) atau rugi (debit Beban Lain). Baris bernilai nol disaring
+ * sehingga jurnal selalu seimbang.
+ */
+export function buildDisposalJournal(params: {
+  assetName: string;
+  acquisitionCost: number;
+  accumulatedDepreciation: number;
+  proceeds: number;
+  accounts: { asetTetap: string; akum: string; pendLain: string; bebanLain: string; cash: string };
+}): { bookValue: number; gain: number; lines: DisposalLine[] } {
+  const { assetName, acquisitionCost, accumulatedDepreciation, proceeds, accounts } = params;
+  const bookValue = acquisitionCost - accumulatedDepreciation;
+  const gain = proceeds - bookValue; // >0 laba, <0 rugi
+  const lines = [
+    { accountId: accounts.akum, description: `Pelepasan ${assetName}`, debit: accumulatedDepreciation, credit: 0 },
+    ...(proceeds > 0
+      ? [{ accountId: accounts.cash, description: `Hasil pelepasan ${assetName}`, debit: proceeds, credit: 0 }]
+      : []),
+    ...(gain < 0 ? [{ accountId: accounts.bebanLain, description: `Rugi pelepasan ${assetName}`, debit: -gain, credit: 0 }] : []),
+    { accountId: accounts.asetTetap, description: `Pelepasan ${assetName}`, debit: 0, credit: acquisitionCost },
+    ...(gain > 0 ? [{ accountId: accounts.pendLain, description: `Laba pelepasan ${assetName}`, debit: 0, credit: gain }] : []),
+  ].filter((l) => l.debit > 0 || l.credit > 0);
+  return { bookValue, gain, lines };
+}
+
 async function listAssets(db: SqlExecutor): Promise<ApiFixedAsset[]> {
   const { results } = await db
     .prepare(
@@ -260,24 +291,19 @@ export const assetRoutes = new Hono<AppEnv>()
       return c.json({ error: `Periode sampai ${lockError} sudah ditutup.` }, 400);
     }
 
-    const bookValue = asset.acquisition_cost - asset.accumulated_depreciation;
-    const gain = input.proceeds - bookValue; // >0 laba, <0 rugi
     const [asetTetap, akum, pendLain, bebanLain] = await Promise.all([
       accountIdByCode(db, ASET_TETAP),
       accountIdByCode(db, AKUM_PENYUSUTAN),
       accountIdByCode(db, PENDAPATAN_LAIN),
       accountIdByCode(db, BEBAN_LAIN),
     ]);
-
-    const lines = [
-      { accountId: akum, description: `Pelepasan ${asset.name}`, debit: asset.accumulated_depreciation, credit: 0 },
-      ...(input.proceeds > 0
-        ? [{ accountId: input.cashAccountId, description: `Hasil pelepasan ${asset.name}`, debit: input.proceeds, credit: 0 }]
-        : []),
-      ...(gain < 0 ? [{ accountId: bebanLain, description: `Rugi pelepasan ${asset.name}`, debit: -gain, credit: 0 }] : []),
-      { accountId: asetTetap, description: `Pelepasan ${asset.name}`, debit: 0, credit: asset.acquisition_cost },
-      ...(gain > 0 ? [{ accountId: pendLain, description: `Laba pelepasan ${asset.name}`, debit: 0, credit: gain }] : []),
-    ].filter((l) => l.debit > 0 || l.credit > 0);
+    const { bookValue, gain, lines } = buildDisposalJournal({
+      assetName: asset.name,
+      acquisitionCost: asset.acquisition_cost,
+      accumulatedDepreciation: asset.accumulated_depreciation,
+      proceeds: input.proceeds,
+      accounts: { asetTetap, akum, pendLain, bebanLain, cash: input.cashAccountId },
+    });
 
     const journal = await postJournal(db, {
       entryDate: input.disposalDate,

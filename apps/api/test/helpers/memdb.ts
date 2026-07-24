@@ -85,6 +85,49 @@ export async function seedProduct(
   return id;
 }
 
+/** Seed satu aset tetap; kembalikan id. */
+export async function seedAsset(
+  db: SqlExecutor,
+  opts: {
+    cost: number;
+    lifeMonths: number;
+    residual?: number;
+    accumulated?: number;
+    name?: string;
+    acquisitionDate?: string;
+    status?: "active" | "disposed";
+  },
+): Promise<string> {
+  const id = crypto.randomUUID();
+  await db
+    .prepare(
+      `INSERT INTO fixed_assets
+         (id, name, acquisition_date, acquisition_cost, useful_life_months, residual_value, accumulated_depreciation, status, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'u1')`,
+    )
+    .bind(
+      id,
+      opts.name ?? "Aset Uji",
+      opts.acquisitionDate ?? "2026-01-01",
+      opts.cost,
+      opts.lifeMonths,
+      opts.residual ?? 0,
+      opts.accumulated ?? 0,
+      opts.status ?? "active",
+    )
+    .run();
+  return id;
+}
+
+/** Akumulasi penyusutan tercatat pada satu aset. */
+export async function assetAccumulated(db: SqlExecutor, assetId: string): Promise<number> {
+  const row = await db
+    .prepare(`SELECT accumulated_depreciation AS acc FROM fixed_assets WHERE id = ?`)
+    .bind(assetId)
+    .first<{ acc: number }>();
+  return row?.acc ?? 0;
+}
+
 /** Jumlah debit & kredit sebuah jurnal (untuk asersi keseimbangan). */
 export async function journalTotals(db: SqlExecutor, entryId: string): Promise<{ debit: number; credit: number }> {
   const row = await db
