@@ -662,6 +662,12 @@ try {
     enText.includes("all in one app") && enText.includes("Most popular") && enText.includes("/month"),
     `→ EN tidak lengkap`,
   );
+  // Fase 14f: seluruh seksi landing (Showcase/Comparison/Security/FAQ) kini dwibahasa.
+  check(
+    "F15 landing 100% dwibahasa: seksi Showcase/Comparison/FAQ ikut ke Inggris",
+    enText.includes("See how it works") && enText.includes("Still using") && enText.includes("Frequently asked questions"),
+    `→ seksi landing belum sepenuhnya EN`,
+  );
   await page.getByRole("button", { name: "ID", exact: true }).first().click();
   await page.waitForTimeout(300);
   check("F15 toggle kembali ke ID", (await page.innerText("body")).includes("beres dalam satu aplikasi"));
