@@ -29,6 +29,48 @@ import { requireAuth, requireTenantRole } from "../middleware/auth";
 import { clientIp } from "./auth";
 import { docLineAggregates, returnedQtyPerProduct } from "./returns";
 
+export type PosTender = { method: PosPaymentMethod; amount: number };
+export type PosApplied = { method: PosPaymentMethod; tendered: number; amount: number };
+
+/** Hitung subtotal (diskon per baris, dibulatkan), PPN, dan total penjualan POS. */
+export function computePosTotals(
+  lines: { qty: number; unitPrice: number; discountPct?: number }[],
+  taxRate: number,
+): { subtotal: number; taxAmount: number; total: number } {
+  const subtotal = lines.reduce(
+    (s, l) => s + Math.round(l.qty * l.unitPrice * (1 - (l.discountPct ?? 0) / 100)),
+    0,
+  );
+  const taxAmount = Math.round((subtotal * taxRate) / 100);
+  return { subtotal, taxAmount, total: subtotal + taxAmount };
+}
+
+/**
+ * Resolusi pembayaran POS (murni): validasi cukup-bayar, hitung kembalian (hanya
+ * dari tunai), dan nilai yang masuk pembukuan per metode (non-tunai persis;
+ * tunai = diserahkan − kembalian). Kembalikan `{ error }` bila kurang bayar atau
+ * kembalian melebihi tunai yang diterima.
+ */
+export function computePosTenders(
+  total: number,
+  tenders: PosTender[],
+): { error: string } | { change: number; cashApplied: number; nonCashApplied: number; applied: PosApplied[] } {
+  const tenderedTotal = tenders.reduce((s, p) => s + p.amount, 0);
+  if (tenderedTotal < total) return { error: "Total pembayaran kurang dari total belanja." };
+  const change = tenderedTotal - total;
+  // Kembalian hanya dari tunai — pastikan tunai yang diserahkan cukup menutupnya.
+  const cashTendered = tenders.filter((p) => p.method === "tunai").reduce((s, p) => s + p.amount, 0);
+  if (change > cashTendered) return { error: "Kembalian melebihi uang tunai yang diterima." };
+  const applied = tenders.map((p) => ({
+    method: p.method,
+    tendered: p.amount,
+    amount: p.method === "tunai" ? p.amount - change : p.amount,
+  }));
+  const cashApplied = applied.filter((p) => p.method === "tunai").reduce((s, p) => s + p.amount, 0);
+  const nonCashApplied = applied.filter((p) => p.method !== "tunai").reduce((s, p) => s + p.amount, 0);
+  return { change, cashApplied, nonCashApplied, applied };
+}
+
 /**
  * POS / Kasir di atas mesin faktur yang sama:
  * penjualan POS = faktur tunai (pelanggan "Pelanggan Umum") yang langsung lunas.
@@ -264,33 +306,17 @@ export const posRoutes = new Hono<AppEnv>()
     const shift = shifts[0];
     if (!shift) return c.json({ error: "Shift tidak ditemukan atau sudah ditutup." }, 400);
 
-    const subtotal = input.lines.reduce(
-      (s, l) => s + Math.round(l.qty * l.unitPrice * (1 - (l.discountPct ?? 0) / 100)),
-      0,
-    );
-    const taxAmount = Math.round((subtotal * input.taxRate) / 100);
-    const total = subtotal + taxAmount;
+    const { subtotal, taxAmount, total } = computePosTotals(input.lines, input.taxRate);
     if (total === 0) return c.json({ error: "Total tidak boleh nol." }, 400);
 
     // Pembayaran: pakai `payments` bila ada, jika tidak fallback ke tunai tunggal (legacy).
-    const tenders: { method: PosPaymentMethod; amount: number }[] =
+    const tenders: PosTender[] =
       input.payments && input.payments.length > 0
         ? input.payments
         : [{ method: "tunai", amount: input.cashReceived ?? 0 }];
-    const tenderedTotal = tenders.reduce((s, p) => s + p.amount, 0);
-    if (tenderedTotal < total) return c.json({ error: "Total pembayaran kurang dari total belanja." }, 400);
-    const change = tenderedTotal - total;
-    // Kembalian hanya dari tunai — pastikan tunai yang diserahkan cukup menutup kembalian.
-    const cashTendered = tenders.filter((p) => p.method === "tunai").reduce((s, p) => s + p.amount, 0);
-    if (change > cashTendered) return c.json({ error: "Kembalian melebihi uang tunai yang diterima." }, 400);
-    // Nilai masuk pembukuan per metode: non-tunai = persis; tunai = tunai diserahkan − kembalian.
-    const applied = tenders.map((p) => ({
-      method: p.method,
-      tendered: p.amount,
-      amount: p.method === "tunai" ? p.amount - change : p.amount,
-    }));
-    const cashApplied = applied.filter((p) => p.method === "tunai").reduce((s, p) => s + p.amount, 0);
-    const nonCashApplied = applied.filter((p) => p.method !== "tunai").reduce((s, p) => s + p.amount, 0);
+    const tender = computePosTenders(total, tenders);
+    if ("error" in tender) return c.json({ error: tender.error }, 400);
+    const { change, cashApplied, nonCashApplied, applied } = tender;
 
     const invoiceId = crypto.randomUUID();
     let totalCogs = 0;
