@@ -47,6 +47,37 @@ const BEBAN_GAJI = "5-2000";
 const HUTANG_GAJI = "2-1200";
 const PIUTANG_KARYAWAN = "1-1210";
 
+type PayrollLine = { accountId: string; description: string; debit: number; credit: number };
+
+/**
+ * Susun baris jurnal penggajian (murni, tanpa DB — bisa diuji langsung):
+ * Debit Beban Gaji (bruto) · Kredit Kas (netto) · Kredit Hutang Gaji (potongan
+ * PPh21 & BPJS, bila ada) · Kredit Piutang Karyawan (cicilan kasbon, bila ada).
+ * Karena bruto = netto + potongan + cicilan, jurnal selalu seimbang; baris
+ * bernilai nol tidak disertakan.
+ */
+export function buildPayrollJournalLines(params: {
+  period: string;
+  cashAccountId: string;
+  totalGross: number;
+  totalDeductions: number;
+  totalNet: number;
+  totalLoanDeduction: number;
+  accounts: { bebanGaji: string; hutangGaji: string; piutangKaryawan: string | null };
+}): PayrollLine[] {
+  const { period, cashAccountId, totalGross, totalDeductions, totalNet, totalLoanDeduction, accounts } = params;
+  return [
+    { accountId: accounts.bebanGaji, description: `Beban gaji ${period}`, debit: totalGross, credit: 0 },
+    { accountId: cashAccountId, description: `Gaji netto ${period}`, debit: 0, credit: totalNet },
+    ...(totalDeductions > 0
+      ? [{ accountId: accounts.hutangGaji, description: `Potongan PPh21 & BPJS ${period}`, debit: 0, credit: totalDeductions }]
+      : []),
+    ...(accounts.piutangKaryawan && totalLoanDeduction > 0
+      ? [{ accountId: accounts.piutangKaryawan, description: `Cicilan kasbon ${period}`, debit: 0, credit: totalLoanDeduction }]
+      : []),
+  ];
+}
+
 /**
  * Pastikan akun dengan kode tertentu ada (tenant lama tidak punya akun kasbon
  * di template COA-nya) — buat sekali bila belum ada, lalu kembalikan id-nya.
@@ -417,16 +448,15 @@ export const payrollRoutes = new Hono<AppEnv>()
       entryDate: input.paymentDate,
       memo: `Penggajian ${input.period} (${runNo})`,
       createdBy: c.get("user").id,
-      lines: [
-        { accountId: bebanGaji, description: `Beban gaji ${input.period}`, debit: totalGross, credit: 0 },
-        { accountId: input.cashAccountId, description: `Gaji netto ${input.period}`, debit: 0, credit: totalNet },
-        ...(totalDeductions > 0
-          ? [{ accountId: hutangGaji, description: `Potongan PPh21 & BPJS ${input.period}`, debit: 0, credit: totalDeductions }]
-          : []),
-        ...(piutangKaryawan && totalLoanDeduction > 0
-          ? [{ accountId: piutangKaryawan, description: `Cicilan kasbon ${input.period}`, debit: 0, credit: totalLoanDeduction }]
-          : []),
-      ],
+      lines: buildPayrollJournalLines({
+        period: input.period,
+        cashAccountId: input.cashAccountId,
+        totalGross,
+        totalDeductions,
+        totalNet,
+        totalLoanDeduction,
+        accounts: { bebanGaji, hutangGaji, piutangKaryawan },
+      }),
     });
 
     await db
