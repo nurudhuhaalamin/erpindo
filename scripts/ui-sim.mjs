@@ -646,6 +646,13 @@ try {
     "F15 landing memuat kalkulator per-pengguna + perbandingan kategori",
     landingText.includes("per pengguna") && landingText.includes("ERPindo"),
   );
+  // Fase 14e: bukti sosial (badge kompatibilitas, proper noun lintas-bahasa) +
+  // output "Hemat" di kalkulator. Pakai penanda netral-bahasa.
+  check(
+    "F15 landing: badge kompatibilitas (Midtrans/Coretax) + hemat Rp di kalkulator",
+    landingText.includes("Midtrans") && landingText.includes("Coretax") && landingText.includes("Hemat sekitar"),
+    `→ badge/hemat tidak tampil`,
+  );
   // Multibahasa (Fase 13d): toggle EN → hero & harga berbahasa Inggris, lalu kembali ID.
   await page.getByRole("button", { name: "EN", exact: true }).first().click();
   await page.waitForTimeout(300);
