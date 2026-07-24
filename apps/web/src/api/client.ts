@@ -796,10 +796,11 @@ export const api = {
       warehouseId: string;
       returnDate: string;
       memo?: string;
+      refundAccountId?: string;
       lines: { productId: string; qty: number }[];
     },
   ) =>
-    request<{ ok: true; returnNo: string; total: number; journalNo: string }>(
+    request<{ ok: true; returnNo: string; total: number; refund: number; journalNo: string }>(
       "POST",
       `/api/tenants/${tenantId}/returns`,
       input,

@@ -508,6 +508,7 @@ function DocRow({
   const [paymentsOpen, setPaymentsOpen] = useState(false);
   const [voidPaymentId, setVoidPaymentId] = useState<string | null>(null);
   const [returnQty, setReturnQty] = useState<Record<string, string>>({});
+  const [refundAccountId, setRefundAccountId] = useState("");
   const isVoided = doc.voidedAt !== null;
   const remaining = doc.total - doc.paidAmount - doc.returnedAmount;
 
@@ -592,14 +593,17 @@ function DocRow({
         refId: doc.id,
         warehouseId: (warehousesQuery.data?.items[0] as { id: string } | undefined)?.id ?? "",
         returnDate: new Date().toISOString().slice(0, 10),
+        refundAccountId: refundAccountId || undefined,
         lines: Object.entries(returnQty)
           .filter(([, q]) => Number(q) > 0)
           .map(([productId, q]) => ({ productId, qty: Number(q) })),
       }),
     onSuccess: (res) => {
-      toast("success", `Retur ${res.returnNo} diposting (${formatIDR(res.total)}, jurnal ${res.journalNo}).`);
+      const refundNote = res.refund > 0 ? `, refund tunai ${formatIDR(res.refund)}` : "";
+      toast("success", `Retur ${res.returnNo} diposting (${formatIDR(res.total)}${refundNote}, jurnal ${res.journalNo}).`);
       setReturnOpen(false);
       setReturnQty({});
+      setRefundAccountId("");
       queryClient.invalidateQueries({ queryKey: [mode === "sale" ? "invoices" : "purchases", tenant.tenantId] });
       queryClient.invalidateQueries({ queryKey: ["stock", tenant.tenantId] });
     },
@@ -609,7 +613,7 @@ function DocRow({
   const accountsQuery = useQuery({
     queryKey: ["accounts", tenant.tenantId],
     queryFn: () => api.accounts(tenant.tenantId),
-    enabled: payOpen,
+    enabled: payOpen || returnOpen,
   });
   const cashAccounts = (accountsQuery.data?.accounts ?? []).filter(
     (a) => !a.isArchived && a.type === "asset" && (a.code.startsWith("1-10") || a.code.startsWith("1-11")),
@@ -801,6 +805,19 @@ function DocRow({
               />
             </div>
           ))}
+          <div>
+            <Label htmlFor="refund-acct" className="text-xs">
+              Akun refund tunai (bila nilai retur melebihi sisa tagihan)
+            </Label>
+            <Select id="refund-acct" className="h-9" value={refundAccountId} onChange={(e) => setRefundAccountId(e.target.value)}>
+              <option value="">— tanpa refund tunai —</option>
+              {cashAccounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.code} · {a.name}
+                </option>
+              ))}
+            </Select>
+          </div>
           <div className="flex justify-end">
             <Button
               onClick={() => doReturn.mutate()}

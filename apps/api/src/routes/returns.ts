@@ -114,13 +114,27 @@ export const returnRoutes = new Hono<AppEnv>().post(
     const taxAmount = Math.round((subtotal * doc.tax_rate) / 100);
     const total = subtotal + taxAmount;
     const remaining = doc.total - doc.paid_amount - doc.returned_amount;
-    if (total > remaining) {
-      return c.json(
-        {
-          error: `Nilai retur (Rp ${total.toLocaleString("id-ID")}) melebihi sisa tagihan (Rp ${remaining.toLocaleString("id-ID")}). Retur dengan refund kas belum didukung.`,
-        },
-        400,
-      );
+    // Retur mengurangi sisa tagihan lebih dulu; kelebihannya (mis. faktur sudah
+    // dibayar) dikembalikan tunai lewat akun kas/bank (Fase 14c).
+    const appliedToDoc = Math.max(0, Math.min(total, remaining));
+    const refund = total - appliedToDoc;
+    let refundAccountId: string | null = null;
+    if (refund > 0) {
+      if (!input.refundAccountId) {
+        return c.json(
+          {
+            error: `Nilai retur (Rp ${total.toLocaleString("id-ID")}) melebihi sisa tagihan (Rp ${Math.max(0, remaining).toLocaleString("id-ID")}) — pilih akun kas/bank untuk refund Rp ${refund.toLocaleString("id-ID")}.`,
+            detail: "refund-account-required",
+          },
+          400,
+        );
+      }
+      const { results: accts } = await db
+        .prepare(`SELECT id FROM accounts WHERE id = ? AND type = 'asset' AND is_archived = 0`)
+        .bind(input.refundAccountId)
+        .all<{ id: string }>();
+      if (!accts[0]) return c.json({ error: "Akun refund harus akun aset (kas/bank) yang aktif." }, 400);
+      refundAccountId = input.refundAccountId;
     }
 
     const returnId = crypto.randomUUID();
@@ -176,7 +190,9 @@ export const returnRoutes = new Hono<AppEnv>().post(
       ]);
       lines.push({ accountId: pendapatan, description: memo, debit: subtotal, credit: 0 });
       if (taxAmount > 0) lines.push({ accountId: ppnKeluaran, description: memo, debit: taxAmount, credit: 0 });
-      lines.push({ accountId: piutang, description: memo, debit: 0, credit: total });
+      // Kurangi piutang sebatas sisa tagihan; kelebihan = kas keluar (refund).
+      if (appliedToDoc > 0) lines.push({ accountId: piutang, description: memo, debit: 0, credit: appliedToDoc });
+      if (refund > 0 && refundAccountId) lines.push({ accountId: refundAccountId, description: `Refund ${memo}`, debit: 0, credit: refund });
       if (inventoryValue > 0) {
         lines.push({ accountId: persediaan, description: memo, debit: inventoryValue, credit: 0 });
         lines.push({ accountId: hpp, description: memo, debit: 0, credit: inventoryValue });
@@ -188,7 +204,9 @@ export const returnRoutes = new Hono<AppEnv>().post(
         accountIdByCode(db, SYS_ACCOUNTS.PPN_MASUKAN),
         accountIdByCode(db, "5-4000"),
       ]);
-      lines.push({ accountId: hutang, description: memo, debit: total, credit: 0 });
+      // Kurangi hutang sebatas sisa tagihan; kelebihan = kas masuk (refund dari pemasok).
+      if (appliedToDoc > 0) lines.push({ accountId: hutang, description: memo, debit: appliedToDoc, credit: 0 });
+      if (refund > 0 && refundAccountId) lines.push({ accountId: refundAccountId, description: `Refund ${memo}`, debit: refund, credit: 0 });
       if (inventoryValue > 0) lines.push({ accountId: persediaan, description: memo, debit: 0, credit: inventoryValue });
       if (taxAmount > 0) lines.push({ accountId: ppnMasukan, description: memo, debit: 0, credit: taxAmount });
       // Selisih harga dokumen vs biaya rata-rata → beban/pendapatan operasional lain.
@@ -244,9 +262,9 @@ export const returnRoutes = new Hono<AppEnv>().post(
       action: isSale ? "sales.return_posted" : "purchase.return_posted",
       userId: c.get("user").id,
       tenantId: tenant.id,
-      detail: { returnNo, docNo: doc.doc_no, total },
+      detail: { returnNo, docNo: doc.doc_no, total, refund },
       ip: clientIp(c),
     });
-    return c.json({ ok: true, returnNo, total, journalNo: journal.entryNo }, 201);
+    return c.json({ ok: true, returnNo, total, refund, journalNo: journal.entryNo }, 201);
   },
 );

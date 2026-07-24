@@ -165,6 +165,12 @@ export const createReturnSchema = z.object({
   warehouseId: z.string().min(1, "Gudang wajib dipilih"),
   returnDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
   memo: z.string().trim().max(200).optional(),
+  /**
+   * Akun kas/bank untuk refund tunai (Fase 14c). Wajib bila nilai retur melebihi
+   * sisa tagihan (mis. faktur sudah dibayar): kelebihan dikembalikan tunai ke
+   * pelanggan (retur jual) atau diterima dari pemasok (retur beli).
+   */
+  refundAccountId: z.string().optional(),
   lines: z
     .array(
       z.object({
