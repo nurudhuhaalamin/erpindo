@@ -321,13 +321,16 @@ try {
   // Rute diverifikasi ke main.tsx lebih dulu: /app/hr/penggajian (bukan /app/payroll).
   await gotoRoute("/app/hr/penggajian", 900);
   const hrEn = await page.innerText("body");
+  // Halaman Penggajian BERTAB (Fase 10g) — hanya tab aktif yang ter-render.
+  // Tab default = "Karyawan", jadi asersi hanya boleh menuntut isi tab itu;
+  // menuntut kartu tab "Gaji" adalah kesalahan asersi, bukan bukti bug.
   const adaEmployees = hrEn.includes("Employees") || hrEn.includes("No employees yet");
-  const adaRunPayroll = hrEn.includes("Run monthly payroll") || hrEn.includes("Payroll history");
-  const tanpaHrId = !hrEn.includes("Jalankan penggajian bulanan") && !hrEn.includes("Riwayat penggajian");
+  const adaEmpForm = hrEn.includes("Add employee") || hrEn.includes("Position");
+  const tanpaHrId = !hrEn.includes("Tambah Karyawan") && !hrEn.includes("Gaji pokok");
   check(
-    "F0k isi halaman Penggajian ikut EN: kartu karyawan + penggajian, tanpa teks Indonesia",
-    adaEmployees && adaRunPayroll && tanpaHrId,
-    `→ employees=${adaEmployees} payroll=${adaRunPayroll} tanpaID=${tanpaHrId}`,
+    "F0k isi tab Karyawan (Penggajian) ikut EN, tanpa teks Indonesia",
+    adaEmployees && adaEmpForm && tanpaHrId,
+    `→ employees=${adaEmployees} form=${adaEmpForm} tanpaID=${tanpaHrId}`,
   );
   await gotoRoute("/app/keuangan/neraca-saldo", 700);
   const tbEn = await page.innerText("body");

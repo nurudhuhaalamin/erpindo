@@ -41,3 +41,23 @@ survei sebelum pengaman 16f.
 - "Izin" diterjemahkan **"Excused"** (bukan "Permission") karena konteksnya jenis
   ketidakhadiran, bukan perizinan.
 - **Cakupan kumulatif: ±18 layar** tuntas isinya; kamus **306 entri**.
+
+## Koreksi asersi: halaman bertab hanya me-render tab aktif
+
+Cek `F0k` gagal dengan `employees=true payroll=false tanpaID=true`.
+Terjemahannya benar ("Employees" muncul); asersinya yang keliru.
+
+Halaman Penggajian **bertab** sejak Fase 10g, dan hanya tab aktif yang
+di-render (`{tab === "karyawan" ? … : null}`). Tab default adalah **Karyawan**,
+sedangkan kartu "Jalankan penggajian bulanan" / "Riwayat penggajian" ada di tab
+**Gaji** — sehingga menuntut keduanya adalah kesalahan asersi, bukan bukti bug.
+
+Cek disesuaikan agar hanya menuntut isi **tab default**: "Employees" + form
+karyawan ("Add employee"/"Position"), dengan penanda negatif dari tab yang sama
+("Tambah Karyawan", "Gaji pokok").
+
+**Pelajaran (memperluas aturan sadar-state dari 16g):** selain halaman
+ber-*state* (mis. shift POS terbuka/tertutup), halaman **bertab** juga hanya
+menampilkan sebagian isinya. Asersi i18n harus menyebut tab/keadaan mana yang
+diuji — atau uji perlu mengeklik tab lebih dulu. Keduanya kini masuk daftar
+pengaman.
