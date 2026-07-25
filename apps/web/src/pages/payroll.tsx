@@ -6,6 +6,7 @@ import {
   type LeaveType,
 } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useUi } from "../i18n/ui";
 import { CalendarDays, HandCoins, UserPlus, Users } from "lucide-react";
 import { useState } from "react";
 import { api, formatIDR } from "../api/client";
@@ -34,6 +35,7 @@ type AccountRow = { id: string; code: string; name: string; type: string };
 type PayrollTab = "karyawan" | "gaji" | "komponen" | "kasbon" | "cuti" | "departemen";
 
 export function PayrollPage() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
   const toast = useToast();
@@ -141,7 +143,7 @@ export function PayrollPage() {
       </div>
 
       <Alert tone="info">
-        <strong>Catatan pajak:</strong> tarif TER (PPh 21) & BPJS mengikuti ketentuan 2024.
+        <strong>{u("catatanPajak")}</strong> tarif TER (PPh 21) & BPJS mengikuti ketentuan 2024.
         Peraturan dapat berubah — verifikasi angka dengan konsultan/peraturan terbaru sebelum
         penggajian resmi.
       </Alert>
@@ -163,7 +165,7 @@ export function PayrollPage() {
       {tab === "karyawan" ? (
         <Card>
           <CardHeader
-            title="Karyawan"
+            title={u("karyawan")}
             description={`${activeCount} aktif dari ${employees.length} karyawan`}
           />
           <CardBody className="space-y-4">
@@ -172,7 +174,7 @@ export function PayrollPage() {
                 {empError ? <Alert tone="error">{empError}</Alert> : null}
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                   <div className="lg:col-span-1">
-                    <Label htmlFor="emp-name">Nama</Label>
+                    <Label htmlFor="emp-name">{u("nama")}</Label>
                     <Input
                       id="emp-name"
                       value={emp.name}
@@ -180,7 +182,7 @@ export function PayrollPage() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="emp-pos">Jabatan</Label>
+                    <Label htmlFor="emp-pos">{u("jabatan")}</Label>
                     <Input
                       id="emp-pos"
                       value={emp.position}
@@ -188,7 +190,7 @@ export function PayrollPage() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="emp-ptkp">Status PTKP</Label>
+                    <Label htmlFor="emp-ptkp">{u("statusPtkp")}</Label>
                     <Select
                       id="emp-ptkp"
                       value={emp.ptkpStatus}
@@ -202,7 +204,7 @@ export function PayrollPage() {
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="emp-salary">Gaji pokok</Label>
+                    <Label htmlFor="emp-salary">{u("gajiPokok")}</Label>
                     <Input
                       id="emp-salary"
                       type="number"
@@ -212,7 +214,7 @@ export function PayrollPage() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="emp-allow">Tunjangan</Label>
+                    <Label htmlFor="emp-allow">{u("tunjangan")}</Label>
                     <Input
                       id="emp-allow"
                       type="number"
@@ -222,7 +224,7 @@ export function PayrollPage() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="emp-dept">Departemen</Label>
+                    <Label htmlFor="emp-dept">{u("departemen")}</Label>
                     <Select
                       id="emp-dept"
                       value={emp.departmentId}
@@ -237,7 +239,7 @@ export function PayrollPage() {
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="emp-manager">Atasan langsung</Label>
+                    <Label htmlFor="emp-manager">{u("atasanLangsung")}</Label>
                     <Select
                       id="emp-manager"
                       value={emp.managerId}
@@ -264,7 +266,7 @@ export function PayrollPage() {
                     ) : (
                       <UserPlus className="size-4" aria-hidden />
                     )}{" "}
-                    Tambah Karyawan
+                    {u("tambahKaryawan")}
                   </Button>
                 </div>
               </>
@@ -275,22 +277,22 @@ export function PayrollPage() {
             ) : employees.length === 0 ? (
               <EmptyState
                 icon={<Users className="size-6" aria-hidden />}
-                title="Belum ada karyawan"
-                description="Tambahkan karyawan untuk mulai menjalankan penggajian."
+                title={u("belumAdaKaryawan")}
+                description={u("descBelumAdaKaryawan")}
               />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                      <th className="pb-2 pr-3 font-medium">Nama</th>
-                      <th className="pb-2 pr-3 font-medium">Jabatan</th>
-                      <th className="pb-2 pr-3 font-medium">Departemen · Atasan</th>
+                      <th className="pb-2 pr-3 font-medium">{u("nama")}</th>
+                      <th className="pb-2 pr-3 font-medium">{u("jabatan")}</th>
+                      <th className="pb-2 pr-3 font-medium">{u("departemenAtasan")}</th>
                       <th className="pb-2 pr-3 font-medium">PTKP</th>
-                      <th className="pb-2 pr-3 text-right font-medium">Gaji pokok</th>
-                      <th className="pb-2 pr-3 text-right font-medium">Tunjangan</th>
-                      <th className="pb-2 pr-3 text-right font-medium">Sisa cuti</th>
-                      <th className="pb-2 pr-3 font-medium">Status</th>
+                      <th className="pb-2 pr-3 text-right font-medium">{u("gajiPokok")}</th>
+                      <th className="pb-2 pr-3 text-right font-medium">{u("tunjangan")}</th>
+                      <th className="pb-2 pr-3 text-right font-medium">{u("sisaCuti")}</th>
+                      <th className="pb-2 pr-3 font-medium">{u("status")}</th>
                       <th className="pb-2 font-medium">1721-A1</th>
                     </tr>
                   </thead>
@@ -340,7 +342,7 @@ export function PayrollPage() {
                             rel="noreferrer"
                             className="text-xs text-brand-700 hover:underline dark:text-brand-400"
                           >
-                            Cetak
+                            {u("cetak")}
                           </a>
                         </td>
                       </tr>
@@ -357,14 +359,14 @@ export function PayrollPage() {
       {tab === "gaji" && isAdmin ? (
         <Card>
           <CardHeader
-            title="Jalankan penggajian bulanan"
-            description="Menghitung semua karyawan aktif & memposting jurnal beban gaji. Satu kali per periode."
+            title={u("jalankanPenggajianBulanan")}
+            description={u("descJalankanPenggajian")}
           />
           <CardBody className="space-y-4">
             {runError ? <Alert tone="error">{runError}</Alert> : null}
             <div className="grid gap-3 sm:grid-cols-3">
               <div>
-                <Label htmlFor="run-period">Periode (bulan)</Label>
+                <Label htmlFor="run-period">{u("periodeBulan")}</Label>
                 <Input
                   id="run-period"
                   type="month"
@@ -373,7 +375,7 @@ export function PayrollPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="run-cash">Bayar dari akun</Label>
+                <Label htmlFor="run-cash">{u("bayarDariAkun")}</Label>
                 <Select
                   id="run-cash"
                   value={cashAccountId}
@@ -387,7 +389,7 @@ export function PayrollPage() {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="run-date">Tanggal bayar</Label>
+                <Label htmlFor="run-date">{u("tanggalBayar")}</Label>
                 <Input
                   id="run-date"
                   type="date"
@@ -401,7 +403,7 @@ export function PayrollPage() {
                 onClick={() => run.mutate()}
                 disabled={run.isPending || activeCount === 0 || cashAccounts.length === 0}
               >
-                {run.isPending ? <Spinner /> : null} Jalankan Penggajian
+                {run.isPending ? <Spinner /> : null} {u("jalankanPenggajian")}
               </Button>
             </div>
           </CardBody>
@@ -415,15 +417,15 @@ export function PayrollPage() {
       {/* Gaji: riwayat penggajian */}
       {tab === "gaji" ? (
         <Card>
-          <CardHeader title="Riwayat penggajian" />
+          <CardHeader title={u("riwayatPenggajian")} />
           <CardBody>
             {runsQuery.isLoading ? (
               <Spinner />
             ) : (runsQuery.data?.runs.length ?? 0) === 0 ? (
               <EmptyState
                 icon={<Users className="size-6" aria-hidden />}
-                title="Belum ada penggajian"
-                description="Penggajian yang Anda jalankan akan muncul di sini beserta slip gaji tiap karyawan."
+                title={u("belumAdaPenggajian")}
+                description={u("descRiwayatPenggajian")}
               />
             ) : (
               <div className="space-y-3">
@@ -465,6 +467,7 @@ export function PayrollPage() {
 
 /** Departemen (Fase 8c): master hierarki departemen perusahaan. */
 function DepartmentsCard({ tenantId, isAdmin }: { tenantId: string; isAdmin: boolean }) {
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const query = useQuery({
@@ -505,32 +508,32 @@ function DepartmentsCard({ tenantId, isAdmin }: { tenantId: string; isAdmin: boo
   return (
     <Card>
       <CardHeader
-        title="Departemen"
-        description="Struktur unit kerja perusahaan — bisa bertingkat (sub-departemen di bawah induk)."
+        title={u("departemen")}
+        description={u("descDepartemen")}
       />
       <CardBody className="space-y-4">
         {isAdmin ? (
           <div className="grid gap-3 sm:grid-cols-4">
             <div>
-              <Label htmlFor="dept-code">Kode</Label>
+              <Label htmlFor="dept-code">{u("kode")}</Label>
               <Input
                 id="dept-code"
                 value={form.code}
                 onChange={(e) => setForm({ ...form, code: e.target.value })}
-                placeholder="mis. OPS"
+                placeholder={u("contohKodeDept")}
               />
             </div>
             <div>
-              <Label htmlFor="dept-name">Nama</Label>
+              <Label htmlFor="dept-name">{u("nama")}</Label>
               <Input
                 id="dept-name"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="mis. Operasional"
+                placeholder={u("contohNamaDept")}
               />
             </div>
             <div>
-              <Label htmlFor="dept-parent">Induk</Label>
+              <Label htmlFor="dept-parent">{u("induk")}</Label>
               <Select
                 id="dept-parent"
                 value={form.parentId}
@@ -549,7 +552,7 @@ function DepartmentsCard({ tenantId, isAdmin }: { tenantId: string; isAdmin: boo
                 onClick={() => create.mutate()}
                 disabled={create.isPending || !form.code.trim() || form.name.trim().length < 2}
               >
-                Tambah
+                {u("tambah")}
               </Button>
             </div>
           </div>
@@ -558,7 +561,7 @@ function DepartmentsCard({ tenantId, isAdmin }: { tenantId: string; isAdmin: boo
         {query.isLoading ? (
           <Spinner />
         ) : departments.length === 0 ? (
-          <p className="py-2 text-sm text-slate-500 dark:text-slate-400">Belum ada departemen.</p>
+          <p className="py-2 text-sm text-slate-500 dark:text-slate-400">{u("belumAdaDepartemen")}</p>
         ) : (
           <ul className="divide-y divide-slate-100 dark:divide-slate-800/60">
             {departments.map((d) => (
@@ -582,7 +585,7 @@ function DepartmentsCard({ tenantId, isAdmin }: { tenantId: string; isAdmin: boo
                       onClick={() => archive.mutate(d.id)}
                       className="text-xs text-red-600 hover:underline dark:text-red-400"
                     >
-                      Arsipkan
+                      {u("arsipkan")}
                     </button>
                   ) : null}
                 </span>
@@ -597,6 +600,7 @@ function DepartmentsCard({ tenantId, isAdmin }: { tenantId: string; isAdmin: boo
 
 /** Bagan organisasi sederhana: pohon departemen (indentasi) + karyawan & atasannya. */
 function OrgChartCard({ tenantId }: { tenantId: string }) {
+  const u = useUi();
   const query = useQuery({
     queryKey: ["org-chart", tenantId],
     queryFn: () => api.orgChart(tenantId),
@@ -634,8 +638,8 @@ function OrgChartCard({ tenantId }: { tenantId: string }) {
   return (
     <Card>
       <CardHeader
-        title="Struktur organisasi"
-        description="Peta departemen & karyawan — siapa berada di mana, di bawah siapa."
+        title={u("strukturOrganisasi")}
+        description={u("descStrukturOrganisasi")}
       />
       <CardBody>
         {query.isLoading ? (
@@ -669,6 +673,7 @@ function AdjustmentsCard({
   employees: ApiEmployee[];
   period: string;
 }) {
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
@@ -719,12 +724,12 @@ function AdjustmentsCard({
     <Card>
       <CardHeader
         title={`Bonus, lembur & potongan — periode ${period}`}
-        description="Komponen sekali jalan untuk periode di atas. Ikut menambah/mengurangi bruto sehingga PPh 21 & BPJS ikut menyesuaikan."
+        description={u("descKomponen")}
       />
       <CardBody className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <Label htmlFor="adj-emp">Karyawan</Label>
+            <Label htmlFor="adj-emp">{u("karyawan")}</Label>
             <Select
               id="adj-emp"
               value={form.employeeId}
@@ -738,27 +743,27 @@ function AdjustmentsCard({
             </Select>
           </div>
           <div>
-            <Label htmlFor="adj-name">Nama komponen</Label>
+            <Label htmlFor="adj-name">{u("namaKomponen")}</Label>
             <Input
               id="adj-name"
-              placeholder="mis. Bonus kinerja / Lembur / Potongan absen"
+              placeholder={u("contohBonus")}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
           </div>
           <div>
-            <Label htmlFor="adj-kind">Jenis</Label>
+            <Label htmlFor="adj-kind">{u("jenis")}</Label>
             <Select
               id="adj-kind"
               value={form.kind}
               onChange={(e) => setForm({ ...form, kind: e.target.value as "plus" | "minus" })}
             >
-              <option value="plus">Tambahan (bonus/lembur)</option>
-              <option value="minus">Potongan</option>
+              <option value="plus">{u("tambahanBonusLembur")}</option>
+              <option value="minus">{u("potongan")}</option>
             </Select>
           </div>
           <div>
-            <Label htmlFor="adj-amount">Nominal (Rp)</Label>
+            <Label htmlFor="adj-amount">{u("nominalRp")}</Label>
             <Input
               id="adj-amount"
               type="number"
@@ -778,7 +783,7 @@ function AdjustmentsCard({
               activeEmployees.length === 0
             }
           >
-            {create.isPending ? <Spinner /> : null} Tambah Komponen
+            {create.isPending ? <Spinner /> : null} {u("tambahKomponen")}
           </Button>
         </div>
 
@@ -787,10 +792,10 @@ function AdjustmentsCard({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                  <th className="pb-2 pr-3 font-medium">Karyawan</th>
-                  <th className="pb-2 pr-3 font-medium">Komponen</th>
-                  <th className="pb-2 pr-3 text-right font-medium">Nominal</th>
-                  <th className="pb-2 font-medium">Status</th>
+                  <th className="pb-2 pr-3 font-medium">{u("karyawan")}</th>
+                  <th className="pb-2 pr-3 font-medium">{u("komponen")}</th>
+                  <th className="pb-2 pr-3 text-right font-medium">{u("nominal")}</th>
+                  <th className="pb-2 font-medium">{u("status")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -827,7 +832,7 @@ function AdjustmentsCard({
             </table>
           </div>
         ) : (
-          <p className="text-sm text-slate-400">Belum ada komponen untuk periode ini.</p>
+          <p className="text-sm text-slate-400">{u("belumAdaKomponen")}</p>
         )}
       </CardBody>
     </Card>
@@ -846,6 +851,7 @@ function LoansCard({
   isAdmin: boolean;
   cashAccounts: AccountRow[];
 }) {
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
@@ -896,15 +902,15 @@ function LoansCard({
   return (
     <Card>
       <CardHeader
-        title="Kasbon / pinjaman karyawan"
-        description="Pencairan tercatat sebagai Piutang Karyawan (berjurnal). Cicilan dipotong otomatis dari gaji netto tiap penggajian sampai lunas."
+        title={u("kasbonPinjaman")}
+        description={u("descKasbon")}
       />
       <CardBody className="space-y-4">
         {isAdmin ? (
           <>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               <div>
-                <Label htmlFor="loan-emp">Karyawan</Label>
+                <Label htmlFor="loan-emp">{u("karyawan")}</Label>
                 <Select
                   id="loan-emp"
                   value={form.employeeId}
@@ -918,16 +924,16 @@ function LoansCard({
                 </Select>
               </div>
               <div>
-                <Label htmlFor="loan-name">Keterangan</Label>
+                <Label htmlFor="loan-name">{u("keterangan")}</Label>
                 <Input
                   id="loan-name"
-                  placeholder="mis. Kasbon renovasi rumah"
+                  placeholder={u("contohKasbon")}
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />
               </div>
               <div>
-                <Label htmlFor="loan-principal">Pokok (Rp)</Label>
+                <Label htmlFor="loan-principal">{u("pokokRp")}</Label>
                 <Input
                   id="loan-principal"
                   type="number"
@@ -937,7 +943,7 @@ function LoansCard({
                 />
               </div>
               <div>
-                <Label htmlFor="loan-monthly">Cicilan/bulan (Rp)</Label>
+                <Label htmlFor="loan-monthly">{u("cicilanBulanRp")}</Label>
                 <Input
                   id="loan-monthly"
                   type="number"
@@ -947,7 +953,7 @@ function LoansCard({
                 />
               </div>
               <div>
-                <Label htmlFor="loan-cash">Cairkan dari</Label>
+                <Label htmlFor="loan-cash">{u("cairkanDari")}</Label>
                 <Select
                   id="loan-cash"
                   value={form.cashAccountId}
@@ -975,7 +981,7 @@ function LoansCard({
                 }
               >
                 {create.isPending ? <Spinner /> : <HandCoins className="size-4" aria-hidden />}{" "}
-                Cairkan Kasbon
+                {u("cairkanKasbon")}
               </Button>
             </div>
           </>
@@ -984,18 +990,18 @@ function LoansCard({
         {loansQuery.isLoading ? (
           <Spinner />
         ) : loans.length === 0 ? (
-          <p className="text-sm text-slate-400">Belum ada kasbon.</p>
+          <p className="text-sm text-slate-400">{u("belumAdaKasbon")}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                  <th className="pb-2 pr-3 font-medium">Karyawan</th>
-                  <th className="pb-2 pr-3 font-medium">Keterangan</th>
-                  <th className="pb-2 pr-3 text-right font-medium">Pokok</th>
-                  <th className="pb-2 pr-3 text-right font-medium">Cicilan/bulan</th>
-                  <th className="pb-2 pr-3 text-right font-medium">Sisa</th>
-                  <th className="pb-2 font-medium">Status</th>
+                  <th className="pb-2 pr-3 font-medium">{u("karyawan")}</th>
+                  <th className="pb-2 pr-3 font-medium">{u("keterangan")}</th>
+                  <th className="pb-2 pr-3 text-right font-medium">{u("pokok")}</th>
+                  <th className="pb-2 pr-3 text-right font-medium">{u("cicilanBulan")}</th>
+                  <th className="pb-2 pr-3 text-right font-medium">{u("sisa")}</th>
+                  <th className="pb-2 font-medium">{u("status")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1058,6 +1064,7 @@ function LeaveCard({
   employees: ApiEmployee[];
   isAdmin: boolean;
 }) {
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
@@ -1114,15 +1121,15 @@ function LeaveCard({
   return (
     <Card>
       <CardHeader
-        title="Cuti & izin"
-        description="Catat pengajuan cuti tahunan/sakit/izin lalu setujui atau tolak. Cuti tahunan yang disetujui otomatis memotong saldo cuti (12 hari/tahun)."
+        title={u("cutiIzin")}
+        description={u("descCutiIzin")}
       />
       <CardBody className="space-y-4">
         {isAdmin ? (
           <>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               <div>
-                <Label htmlFor="leave-emp">Karyawan</Label>
+                <Label htmlFor="leave-emp">{u("karyawan")}</Label>
                 <Select
                   id="leave-emp"
                   value={form.employeeId}
@@ -1136,19 +1143,19 @@ function LeaveCard({
                 </Select>
               </div>
               <div>
-                <Label htmlFor="leave-type">Jenis</Label>
+                <Label htmlFor="leave-type">{u("jenis")}</Label>
                 <Select
                   id="leave-type"
                   value={form.type}
                   onChange={(e) => setForm({ ...form, type: e.target.value as LeaveType })}
                 >
-                  <option value="annual">Cuti tahunan</option>
-                  <option value="sick">Sakit</option>
-                  <option value="permit">Izin</option>
+                  <option value="annual">{u("cutiTahunan")}</option>
+                  <option value="sick">{u("sakit")}</option>
+                  <option value="permit">{u("izin")}</option>
                 </Select>
               </div>
               <div>
-                <Label htmlFor="leave-start">Mulai</Label>
+                <Label htmlFor="leave-start">{u("mulai")}</Label>
                 <Input
                   id="leave-start"
                   type="date"
@@ -1157,7 +1164,7 @@ function LeaveCard({
                 />
               </div>
               <div>
-                <Label htmlFor="leave-end">Selesai</Label>
+                <Label htmlFor="leave-end">{u("selesai")}</Label>
                 <Input
                   id="leave-end"
                   type="date"
@@ -1166,7 +1173,7 @@ function LeaveCard({
                 />
               </div>
               <div>
-                <Label htmlFor="leave-note">Catatan (opsional)</Label>
+                <Label htmlFor="leave-note">{u("catatanOpsional")}</Label>
                 <Input
                   id="leave-note"
                   value={form.note}
@@ -1180,7 +1187,7 @@ function LeaveCard({
                 disabled={create.isPending || activeEmployees.length === 0 || form.end < form.start}
               >
                 {create.isPending ? <Spinner /> : <CalendarDays className="size-4" aria-hidden />}{" "}
-                Ajukan
+                {u("ajukan")}
               </Button>
             </div>
           </>
@@ -1189,7 +1196,7 @@ function LeaveCard({
         {listQuery.isLoading ? (
           <Spinner />
         ) : requests.length === 0 ? (
-          <p className="text-sm text-slate-400">Belum ada pengajuan cuti/izin.</p>
+          <p className="text-sm text-slate-400">{u("belumAdaCuti")}</p>
         ) : (
           <div className="space-y-2">
             {requests.map((r) => (
@@ -1212,7 +1219,7 @@ function LeaveCard({
                       onClick={() => decide.mutate({ id: r.id, status: "approved" })}
                       disabled={decide.isPending}
                     >
-                      Setujui
+                      {u("setujui")}
                     </Button>
                     <Button
                       variant="ghost"
@@ -1220,7 +1227,7 @@ function LeaveCard({
                       onClick={() => decide.mutate({ id: r.id, status: "rejected" })}
                       disabled={decide.isPending}
                     >
-                      Tolak
+                      {u("tolak")}
                     </Button>
                   </span>
                 ) : null}
@@ -1242,6 +1249,7 @@ function RunRow({
   tenantId: string;
   canVoid?: boolean;
 }) {
+  const u = useUi();
   const [open, setOpen] = useState(false);
   const [voidOpen, setVoidOpen] = useState(false);
   const toast = useToast();
@@ -1275,7 +1283,7 @@ function RunRow({
         ) : null}
         <span className="text-xs text-slate-400">{run.payslips.length} karyawan</span>
         <span className="ml-auto text-sm">
-          Bruto <strong className="tabular-nums">{formatIDR(run.totalGross)}</strong> · Netto{" "}
+          {u("bruto")} <strong className="tabular-nums">{formatIDR(run.totalGross)}</strong> · Netto{" "}
           <strong className="tabular-nums">{formatIDR(run.totalNet)}</strong>
         </span>
         {canVoid && !isVoided ? (
@@ -1284,7 +1292,7 @@ function RunRow({
             className="h-8 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
             onClick={() => setVoidOpen(true)}
           >
-            Batalkan
+            {u("batalkan")}
           </Button>
         ) : null}
         <Button variant="ghost" className="h-8" onClick={() => setOpen((o) => !o)}>
@@ -1299,10 +1307,10 @@ function RunRow({
           <>
             Jurnal beban gaji akan dibalik, saldo kasbon karyawan dipulihkan, dan komponen ad-hoc
             dilepas agar bisa dipakai lagi. Periode {run.period} bisa digaji ulang. Slip lama tetap
-            tersimpan dengan tanda <strong>DIBATALKAN</strong>.
+            tersimpan dengan tanda <strong>{u("dibatalkan")}</strong>.
           </>
         }
-        confirmLabel="Ya, batalkan penggajian"
+        confirmLabel={u("yaBatalkanPenggajian")}
         danger
         busy={doVoid.isPending}
         onConfirm={() => doVoid.mutate()}
@@ -1314,12 +1322,12 @@ function RunRow({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                <th className="pb-1.5 pr-3 font-medium">Karyawan</th>
-                <th className="pb-1.5 pr-3 text-right font-medium">Bruto</th>
+                <th className="pb-1.5 pr-3 font-medium">{u("karyawan")}</th>
+                <th className="pb-1.5 pr-3 text-right font-medium">{u("bruto")}</th>
                 <th className="pb-1.5 pr-3 text-right font-medium">BPJS</th>
                 <th className="pb-1.5 pr-3 text-right font-medium">PPh 21 (TER)</th>
-                <th className="pb-1.5 pr-3 text-right font-medium">Netto</th>
-                <th className="pb-1.5 text-right font-medium">Slip</th>
+                <th className="pb-1.5 pr-3 text-right font-medium">{u("netto")}</th>
+                <th className="pb-1.5 text-right font-medium">{u("slip")}</th>
               </tr>
             </thead>
             <tbody>
@@ -1354,7 +1362,7 @@ function RunRow({
                       rel="noreferrer"
                       className="text-xs text-brand-700 hover:underline dark:text-brand-400"
                     >
-                      Cetak
+                      {u("cetak")}
                     </a>
                   </td>
                 </tr>
