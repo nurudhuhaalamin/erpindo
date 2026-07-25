@@ -332,6 +332,18 @@ try {
     adaEmployees && adaEmpForm && tanpaHrId,
     `→ employees=${adaEmployees} form=${adaEmpForm} tanpaID=${tanpaHrId}`,
   );
+  // Rute diverifikasi ke main.tsx: /app/proyek. Halaman daftar (bukan detail
+  // bertab), jadi asersi menuntut isi daftar saja.
+  await gotoRoute("/app/proyek", 800);
+  const prjEn = await page.innerText("body");
+  const adaProjectList = prjEn.includes("Project list") || prjEn.includes("No projects yet");
+  const adaNewProject = prjEn.includes("New project") || prjEn.includes("Project name");
+  const tanpaPrjId = !prjEn.includes("Daftar proyek") && !prjEn.includes("Proyek baru");
+  check(
+    "F0l isi halaman Proyek ikut EN: daftar + form proyek, tanpa teks Indonesia",
+    adaProjectList && adaNewProject && tanpaPrjId,
+    `→ list=${adaProjectList} form=${adaNewProject} tanpaID=${tanpaPrjId}`,
+  );
   await gotoRoute("/app/keuangan/neraca-saldo", 700);
   const tbEn = await page.innerText("body");
   check(

@@ -8,6 +8,7 @@ import {
   type ProjectTaskPriority,
 } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useUi, type UiKey } from "../i18n/ui";
 import {
   CalendarClock,
   FileText,
@@ -47,16 +48,19 @@ const PRIORITY_TONE: Record<ProjectTaskPriority, "red" | "amber" | "neutral"> = 
   medium: "amber",
   low: "neutral",
 };
-const TASK_COLUMNS: { key: ApiProjectTask["status"]; label: string }[] = [
-  { key: "todo", label: "Belum dikerjakan" },
-  { key: "in_progress", label: "Sedang proses" },
-  { key: "done", label: "Selesai" },
+// Label kolom disimpan sebagai KUNCI kamus (bukan teks jadi) karena konstanta
+// level-modul tidak boleh memanggil hook; diterjemahkan saat render.
+const TASK_COLUMNS: { key: ApiProjectTask["status"]; labelKey: UiKey }[] = [
+  { key: "todo", labelKey: "kolomBelumDikerjakan" },
+  { key: "in_progress", labelKey: "kolomSedangProses" },
+  { key: "done", labelKey: "kolomSelesai" },
 ];
 const today = () => new Date().toISOString().slice(0, 10);
 type ContactRow = { id: string; name: string; type: string };
 type WarehouseRow = { id: string; name: string };
 
 export function ProjectsPage() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
   const toast = useToast();
@@ -105,14 +109,14 @@ export function ProjectsPage() {
       {isAdmin ? (
         <Card>
           <CardHeader
-            title="Proyek baru"
-            description="Setelah dibuat, pilih proyek ini saat membuat faktur, pembelian, atau jurnal untuk menandai biayanya."
+            title={u("proyekBaru")}
+            description={u("descProyekBaru")}
           />
           <CardBody className="space-y-4">
             {error ? <Alert tone="error">{error}</Alert> : null}
             <div className="grid gap-3 sm:grid-cols-4">
               <div>
-                <Label htmlFor="pr-code">Kode</Label>
+                <Label htmlFor="pr-code">{u("kode")}</Label>
                 <Input
                   id="pr-code"
                   placeholder="PRJ-01"
@@ -121,7 +125,7 @@ export function ProjectsPage() {
                 />
               </div>
               <div className="sm:col-span-2">
-                <Label htmlFor="pr-name">Nama proyek</Label>
+                <Label htmlFor="pr-name">{u("namaProyek")}</Label>
                 <Input
                   id="pr-name"
                   value={form.name}
@@ -129,7 +133,7 @@ export function ProjectsPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="pr-budget">Anggaran (opsional)</Label>
+                <Label htmlFor="pr-budget">{u("anggaranOpsional")}</Label>
                 <Input
                   id="pr-budget"
                   type="number"
@@ -139,7 +143,7 @@ export function ProjectsPage() {
                 />
               </div>
               <div className="sm:col-span-2">
-                <Label htmlFor="pr-contact">Pelanggan (opsional)</Label>
+                <Label htmlFor="pr-contact">{u("pelangganOpsional")}</Label>
                 <Select
                   id="pr-contact"
                   value={form.contactId}
@@ -170,15 +174,15 @@ export function ProjectsPage() {
       ) : null}
 
       <Card>
-        <CardHeader title="Daftar proyek" />
+        <CardHeader title={u("daftarProyek")} />
         <CardBody>
           {projectsQuery.isLoading ? (
             <Spinner />
           ) : projects.length === 0 ? (
             <EmptyState
               icon={<FolderKanban className="size-6" aria-hidden />}
-              title="Belum ada proyek"
-              description="Buat proyek untuk mulai melacak profitabilitas per pekerjaan/klien."
+              title={u("belumAdaProyek")}
+              description={u("descBelumAdaProyek")}
             />
           ) : (
             <div className="space-y-3">
@@ -194,6 +198,7 @@ export function ProjectsPage() {
 }
 
 function ProjectRow({ project, isAdmin }: { project: ApiProject; isAdmin: boolean }) {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -252,7 +257,7 @@ function ProjectRow({ project, isAdmin }: { project: ApiProject; isAdmin: boolea
           </span>
         ) : null}
         <span className="ml-auto text-sm">
-          Pendapatan <span className="tabular-nums">{formatIDR(project.revenue)}</span> · Biaya{" "}
+          {u("pendapatan")} <span className="tabular-nums">{formatIDR(project.revenue)}</span> · Biaya{" "}
           <span className="tabular-nums">{formatIDR(project.cost)}</span> · Laba{" "}
           <strong
             className={`tabular-nums ${project.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
@@ -271,16 +276,16 @@ function ProjectRow({ project, isAdmin }: { project: ApiProject; isAdmin: boolea
           {isAdmin ? (
             <div className="flex flex-wrap items-end gap-2">
               <div>
-                <Label htmlFor={`st-${project.id}`}>Status proyek</Label>
+                <Label htmlFor={`st-${project.id}`}>{u("statusProyek")}</Label>
                 <Select
                   id={`st-${project.id}`}
                   value={project.status}
                   onChange={(e) => setStatus.mutate(e.target.value)}
                   disabled={setStatus.isPending}
                 >
-                  <option value="active">Berjalan</option>
-                  <option value="on_hold">Ditunda</option>
-                  <option value="completed">Selesai</option>
+                  <option value="active">{u("berjalan")}</option>
+                  <option value="on_hold">{u("ditunda")}</option>
+                  <option value="completed">{u("selesai")}</option>
                 </Select>
               </div>
             </div>
@@ -292,10 +297,10 @@ function ProjectRow({ project, isAdmin }: { project: ApiProject; isAdmin: boolea
             <>
               <Tabs
                 tabs={[
-                  { key: "ikhtisar", label: "Ikhtisar" },
-                  { key: "tugas", label: "Tugas" },
-                  { key: "timesheet", label: "Timesheet" },
-                  { key: "anggaran", label: "Termin & RAB" },
+                  { key: "ikhtisar", label: u("tabIkhtisar") },
+                  { key: "tugas", label: u("tabTugas") },
+                  { key: "timesheet", label: u("tabTimesheet") },
+                  { key: "anggaran", label: u("tabTerminRab") },
                 ]}
                 active={detailTab}
                 onChange={setDetailTab}
@@ -354,22 +359,22 @@ function ProjectRow({ project, isAdmin }: { project: ApiProject; isAdmin: boolea
                   {/* Transaksi ber-tag */}
                   <div>
                     <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                      Pendapatan & biaya (dari jurnal ber-tag)
+                      {u("pendapatanBiayaTag")}
                     </div>
                     {detail.entries.length === 0 ? (
                       <p className="text-sm text-slate-500 dark:text-slate-400">
-                        Belum ada transaksi ditandai ke proyek ini.
+                        {u("belumAdaTransaksiProyek")}
                       </p>
                     ) : (
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                              <th className="pb-1 pr-3 font-medium">Jurnal</th>
-                              <th className="pb-1 pr-3 font-medium">Tanggal</th>
-                              <th className="pb-1 pr-3 font-medium">Keterangan</th>
-                              <th className="pb-1 pr-3 text-right font-medium">Pendapatan</th>
-                              <th className="pb-1 text-right font-medium">Biaya</th>
+                              <th className="pb-1 pr-3 font-medium">{u("jurnal")}</th>
+                              <th className="pb-1 pr-3 font-medium">{u("tanggal")}</th>
+                              <th className="pb-1 pr-3 font-medium">{u("keterangan")}</th>
+                              <th className="pb-1 pr-3 text-right font-medium">{u("pendapatan")}</th>
+                              <th className="pb-1 text-right font-medium">{u("biaya")}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -408,6 +413,7 @@ function ProjectRow({ project, isAdmin }: { project: ApiProject; isAdmin: boolea
 
 /** Garis waktu proyek: batang mulai→selesai dengan penanda hari ini. */
 function ProjectTimeline({ detail }: { detail: ApiProjectDetail }) {
+  const u = useUi();
   if (!detail.startDate || !detail.endDate) return null;
   const start = new Date(detail.startDate).getTime();
   const end = new Date(detail.endDate).getTime();
@@ -418,7 +424,7 @@ function ProjectTimeline({ detail }: { detail: ApiProjectDetail }) {
   return (
     <div>
       <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
-        <CalendarClock className="size-3.5" aria-hidden /> Garis waktu
+        <CalendarClock className="size-3.5" aria-hidden /> {u("garisWaktu")}
       </div>
       <div className="relative h-2 rounded-full bg-slate-200 dark:bg-slate-700">
         <div
@@ -447,6 +453,7 @@ function GanttChart({
   isAdmin: boolean;
   onChange: () => void;
 }) {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const [edit, setEdit] = useState<{
@@ -484,7 +491,7 @@ function GanttChart({
   return (
     <div>
       <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-        Gantt (jadwal & dependensi)
+        {u("ganttJadwal")}
       </div>
       {scheduled.length === 0 ? (
         <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -521,7 +528,7 @@ function GanttChart({
                         left: `${pos(t.baselineStart)}%`,
                         width: `${Math.max(pos(t.baselineEnd) - pos(t.baselineStart), 1)}%`,
                       }}
-                      title="Baseline (rencana)"
+                      title={u("baselineRencana")}
                     />
                   ) : null}
                   <div
@@ -580,7 +587,7 @@ function GanttChart({
                     }
                     disabled={save.isPending}
                   >
-                    Simpan
+                    {u("simpan")}
                   </Button>
                   <Button
                     className="h-7"
@@ -596,10 +603,10 @@ function GanttChart({
                     }
                     disabled={save.isPending}
                   >
-                    Simpan + Baseline
+                    {u("simpanBaseline")}
                   </Button>
                   <Button className="h-7" variant="ghost" onClick={() => setEdit(null)}>
-                    Batal
+                    {u("batal")}
                   </Button>
                 </>
               ) : (
@@ -641,6 +648,7 @@ function TaskBoard({
   isAdmin: boolean;
   onChange: () => void;
 }) {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const [form, setForm] = useState({
@@ -682,24 +690,24 @@ function TaskBoard({
   return (
     <div>
       <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-        Papan tugas
+        {u("papanTugas")}
       </div>
       {isAdmin ? (
         <div className="mb-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
           <div className="lg:col-span-2">
             <Input
               aria-label="Nama tugas"
-              placeholder="Tambah tugas…"
+              placeholder={u("tambahTugas")}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
           </div>
           <Select
-            aria-label="Penanggung jawab"
+            aria-label={u("penanggungJawab")}
             value={form.assigneeId}
             onChange={(e) => setForm({ ...form, assigneeId: e.target.value })}
           >
-            <option value="">Tanpa PJ</option>
+            <option value="">{u("tanpaPj")}</option>
             {employees.map((e) => (
               <option key={e.id} value={e.id}>
                 {e.name}
@@ -707,7 +715,7 @@ function TaskBoard({
             ))}
           </Select>
           <Select
-            aria-label="Prioritas"
+            aria-label={u("prioritas")}
             value={form.priority}
             onChange={(e) => setForm({ ...form, priority: e.target.value as ProjectTaskPriority })}
           >
@@ -719,7 +727,7 @@ function TaskBoard({
           </Select>
           <div className="flex gap-2">
             <Input
-              aria-label="Tenggat"
+              aria-label={u("tenggat")}
               type="date"
               value={form.dueDate}
               onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
@@ -728,7 +736,7 @@ function TaskBoard({
               onClick={() => addTask.mutate()}
               disabled={addTask.isPending || !form.name.trim()}
             >
-              Tambah
+              {u("tambah")}
             </Button>
           </div>
         </div>
@@ -762,7 +770,7 @@ function TaskBoard({
                 className={`flex-1 rounded-lg border p-2 ${dragOver === col.key ? "border-brand-400 bg-brand-50 dark:bg-brand-950/30" : "border-slate-200 dark:border-slate-700"}`}
               >
                 <div className="mb-2 flex items-center justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
-                  <span>{col.label}</span>
+                  <span>{u(col.labelKey)}</span>
                   <Badge tone={TASK_TONE[col.key]}>{items.length}</Badge>
                 </div>
                 <div className="space-y-1.5">
@@ -804,7 +812,7 @@ function TaskBoard({
                                 update.mutate({ id: t.id, assigneeId: e.target.value || null })
                               }
                             >
-                              <option value="">Tanpa PJ</option>
+                              <option value="">{u("tanpaPj")}</option>
                               {employees.map((e) => (
                                 <option key={e.id} value={e.id}>
                                   {e.name}
@@ -855,6 +863,7 @@ function TaskBoard({
 
 /** Beban kerja per penanggung jawab + daftar tugas jatuh tempo/terlambat. */
 function WorkloadPanel({ detail }: { detail: ApiProjectDetail }) {
+  const u = useUi();
   const todayStr = today();
   const dueTasks = detail.tasks
     .filter((t) => t.status !== "done" && t.dueDate)
@@ -865,7 +874,7 @@ function WorkloadPanel({ detail }: { detail: ApiProjectDetail }) {
     <div className="grid gap-4 lg:grid-cols-2">
       <div>
         <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-          Beban kerja per orang
+          {u("bebanKerja")}
         </div>
         <div className="space-y-1.5">
           {detail.workload.map((w) => (
@@ -888,10 +897,10 @@ function WorkloadPanel({ detail }: { detail: ApiProjectDetail }) {
       </div>
       <div>
         <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-          Tugas dengan tenggat
+          {u("tugasTenggat")}
         </div>
         {dueTasks.length === 0 ? (
-          <p className="text-sm text-slate-400">Tidak ada tugas terbuka dengan tenggat.</p>
+          <p className="text-sm text-slate-400">{u("belumAdaTugasTenggat")}</p>
         ) : (
           <div className="space-y-1.5">
             {dueTasks.map((t) => {
@@ -933,6 +942,7 @@ function MilestonesSection({
   hasContact: boolean;
   onChange: () => void;
 }) {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -990,13 +1000,13 @@ function MilestonesSection({
   return (
     <div>
       <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-        <Receipt className="size-3.5" aria-hidden /> Termin penagihan
+        <Receipt className="size-3.5" aria-hidden /> {u("terminPenagihan")}
       </div>
       {isAdmin ? (
         <div className="mb-2 flex flex-wrap gap-2">
           <Input
             aria-label="Nama termin"
-            placeholder="mis. Uang muka 30%"
+            placeholder={u("contohTermin")}
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             className="min-w-40 flex-1"
@@ -1014,12 +1024,12 @@ function MilestonesSection({
             onClick={() => add.mutate()}
             disabled={add.isPending || form.name.trim().length < 2 || !(Number(form.amount) > 0)}
           >
-            <Plus className="size-4" aria-hidden /> Termin
+            <Plus className="size-4" aria-hidden /> {u("termin")}
           </Button>
         </div>
       ) : null}
       {detail.milestones.length === 0 ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada termin.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{u("belumAdaTermin")}</p>
       ) : (
         <div className="space-y-1.5">
           {detail.milestones.map((m) => (
@@ -1043,7 +1053,7 @@ function MilestonesSection({
                       onClick={() => setInvoicing(invoicing === m.id ? null : m.id)}
                       disabled={!hasContact}
                     >
-                      <FileText className="size-4" aria-hidden /> Buat faktur
+                      <FileText className="size-4" aria-hidden /> {u("buatFakturKecil")}
                     </Button>
                     <Button
                       variant="ghost"
@@ -1051,20 +1061,20 @@ function MilestonesSection({
                       onClick={() => del.mutate(m.id)}
                       disabled={del.isPending}
                     >
-                      Hapus
+                      {u("hapus")}
                     </Button>
                   </span>
                 ) : null}
               </div>
               {!hasContact && isAdmin && m.status === "planned" ? (
                 <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                  Tetapkan pelanggan pada proyek untuk menagih termin.
+                  {u("tetapkanPelangganTermin")}
                 </p>
               ) : null}
               {invoicing === m.id ? (
                 <div className="mt-2 flex flex-wrap items-end gap-2 rounded-md bg-white p-2 dark:bg-slate-900">
                   <div>
-                    <Label htmlFor={`inv-date-${m.id}`}>Tanggal faktur</Label>
+                    <Label htmlFor={`inv-date-${m.id}`}>{u("tanggalFaktur")}</Label>
                     <Input
                       id={`inv-date-${m.id}`}
                       type="date"
@@ -1079,12 +1089,12 @@ function MilestonesSection({
                       value={String(taxRate)}
                       onChange={(e) => setTaxRate(Number(e.target.value) as 0 | 11)}
                     >
-                      <option value="0">Tanpa PPN</option>
+                      <option value="0">{u("tanpaPpn")}</option>
                       <option value="11">PPN 11%</option>
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor={`inv-wh-${m.id}`}>Gudang</Label>
+                    <Label htmlFor={`inv-wh-${m.id}`}>{u("gudang")}</Label>
                     <Select
                       id={`inv-wh-${m.id}`}
                       value={warehouseId}
@@ -1101,14 +1111,14 @@ function MilestonesSection({
                     onClick={() => invoice.mutate(m.id)}
                     disabled={invoice.isPending || warehouses.length === 0}
                   >
-                    {invoice.isPending ? <Spinner /> : null} Terbitkan faktur
+                    {invoice.isPending ? <Spinner /> : null} {u("terbitkanFaktur")}
                   </Button>
                 </div>
               ) : null}
             </div>
           ))}
           <p className="pt-1 text-xs text-slate-500 dark:text-slate-400">
-            Total termin <span className="font-medium tabular-nums">{formatIDR(totalTermin)}</span>{" "}
+            {u("totalTermin")} <span className="font-medium tabular-nums">{formatIDR(totalTermin)}</span>{" "}
             · sudah ditagih <span className="font-medium tabular-nums">{formatIDR(billed)}</span>
           </p>
         </div>
@@ -1129,6 +1139,7 @@ function BudgetSection({
   isAdmin: boolean;
   onChange: () => void;
 }) {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const [form, setForm] = useState({ category: "", amount: "" });
@@ -1157,13 +1168,13 @@ function BudgetSection({
   return (
     <div>
       <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-        RAB — anggaran biaya vs realisasi
+        {u("rabAnggaranVsRealisasi")}
       </div>
       {isAdmin ? (
         <div className="mb-2 flex flex-wrap gap-2">
           <Input
             aria-label="Kategori RAB"
-            placeholder="mis. Material / Tenaga kerja"
+            placeholder={u("contohKategoriRab")}
             value={form.category}
             onChange={(e) => setForm({ ...form, category: e.target.value })}
             className="min-w-40 flex-1"
@@ -1183,12 +1194,12 @@ function BudgetSection({
               add.isPending || form.category.trim().length < 2 || !(Number(form.amount) > 0)
             }
           >
-            <Plus className="size-4" aria-hidden /> Baris RAB
+            <Plus className="size-4" aria-hidden /> {u("barisRab")}
           </Button>
         </div>
       ) : null}
       {detail.budgets.length === 0 ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada RAB.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{u("belumAdaRab")}</p>
       ) : (
         <div className="space-y-1.5">
           {detail.budgets.map((b) => (
@@ -1207,11 +1218,11 @@ function BudgetSection({
           ))}
           <div className="mt-2 rounded-md bg-white p-2 dark:bg-slate-900">
             <div className="flex items-center justify-between text-sm">
-              <span className="font-medium">Total anggaran</span>
+              <span className="font-medium">{u("totalAnggaran")}</span>
               <span className="tabular-nums">{formatIDR(detail.plannedCost)}</span>
             </div>
             <div className="mt-1 flex items-center justify-between text-sm">
-              <span className="font-medium">Realisasi biaya (jurnal ber-tag)</span>
+              <span className="font-medium">{u("realisasiBiaya")}</span>
               <span className="tabular-nums">{formatIDR(detail.cost)}</span>
             </div>
             {realisasiPct !== null ? (
@@ -1249,6 +1260,7 @@ function TimesheetSection({
   isAdmin: boolean;
   onChange: () => void;
 }) {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const [form, setForm] = useState({
@@ -1292,7 +1304,7 @@ function TimesheetSection({
   return (
     <div>
       <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-        <Timer className="size-3.5" aria-hidden /> Timesheet — jam kerja
+        <Timer className="size-3.5" aria-hidden /> {u("timesheetJamKerja")}
       </div>
       {isAdmin ? (
         <div className="mb-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
@@ -1319,7 +1331,7 @@ function TimesheetSection({
             type="number"
             min={0}
             step="0.5"
-            placeholder="Jam"
+            placeholder={u("jam")}
             value={form.hours}
             onChange={(e) => setForm({ ...form, hours: e.target.value })}
           />
@@ -1327,7 +1339,7 @@ function TimesheetSection({
             aria-label="Tarif/jam"
             type="number"
             min={0}
-            placeholder="Tarif/jam"
+            placeholder={u("tarifJam")}
             value={form.rate}
             onChange={(e) => setForm({ ...form, rate: e.target.value })}
           />
@@ -1335,12 +1347,12 @@ function TimesheetSection({
             onClick={() => add.mutate()}
             disabled={add.isPending || !(Number(form.hours) > 0)}
           >
-            <Plus className="size-4" aria-hidden /> Catat jam
+            <Plus className="size-4" aria-hidden /> {u("catatJam")}
           </Button>
         </div>
       ) : null}
       {detail.timeEntries.length === 0 ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada catatan jam.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{u("belumAdaJam")}</p>
       ) : (
         <div className="space-y-1">
           {detail.timeEntries.map((t) => (
@@ -1364,11 +1376,11 @@ function TimesheetSection({
           ))}
           <div className="mt-2 rounded-md bg-white p-2 text-sm dark:bg-slate-900">
             <div className="flex items-center justify-between">
-              <span>Estimasi biaya tenaga kerja</span>
+              <span>{u("estimasiBiayaTk")}</span>
               <span className="font-medium tabular-nums">{formatIDR(detail.laborCost)}</span>
             </div>
             <div className="mt-1 flex items-center justify-between">
-              <span>Laba setelah tenaga kerja</span>
+              <span>{u("labaSetelahTk")}</span>
               <strong
                 className={`tabular-nums ${profitAfterLabor >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
               >
