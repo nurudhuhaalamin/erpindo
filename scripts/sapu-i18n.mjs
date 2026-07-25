@@ -103,18 +103,22 @@ for (const file of process.argv.slice(2)) {
     zonaSah.push({ a: m.index, b: akhir < 0 ? src.length : akhir });
   }
 
-  const jenisDari = (idx) => {
-    if (zonaSah.some((z) => idx >= z.a && idx <= z.b)) return "SAH";
-    const z = zona.find((z) => idx >= z.a && idx <= z.b);
+  // Pakai TUMPANG-TINDIH rentang, bukan sekadar posisi awal: potongan teks JSX
+  // sering dimulai tepat SEBELUM `downloadCsv(` sehingga awalnya di luar zona
+  // padahal isinya jelas milik panggilan itu.
+  const jenisDari = (a, b = a) => {
+    const tumpang = (z) => a <= z.b && b >= z.a;
+    if (zonaSah.some(tumpang)) return "SAH";
+    const z = zona.find(tumpang);
     return z ? z.jenis : "LAYAR";
   };
 
   for (const m of src.matchAll(/(?:^|[^\w])"((?:[^"\\]|\\.)*)"/gm))
-    if (isID(m[1])) add(jenisDari(m.index), m[1], m.index);
+    if (isID(m[1])) add(jenisDari(m.index, m.index + m[0].length), m[1], m.index);
   for (const m of src.matchAll(/`((?:[^`\\]|\\.)*)`/gs))
-    if (isID(m[1])) add(jenisDari(m.index), m[1], m.index);
+    if (isID(m[1])) add(jenisDari(m.index, m.index + m[0].length), m[1], m.index);
   for (const m of src.matchAll(/[>}]([^<>{}]+)[<{]/gs))
-    if (isID(m[1])) add(jenisDari(m.index), m[1], m.index);
+    if (isID(m[1])) add(jenisDari(m.index, m.index + m[0].length), m[1], m.index);
 
   const rows = [...hits.values()].sort((a, b) => a.baris - b.baris);
   const layar = rows.filter((r) => r.jenis === "LAYAR");

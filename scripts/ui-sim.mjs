@@ -396,6 +396,29 @@ try {
     adaAssetKpi && adaAssetList && tanpaAsetId,
     `→ kpi=${adaAssetKpi} daftar=${adaAssetList} tanpaID=${tanpaAsetId}`,
   );
+  // Fase 16n — pelunasan utang 16e. Rute diverifikasi ke main.tsx:
+  // /app/keuangan/arus-kas dan /app/keuangan/neraca. Baris ringkasan arus kas
+  // selalu tampil begitu data termuat (tak bergantung ada/tidaknya mutasi).
+  await gotoRoute("/app/keuangan/arus-kas", 900);
+  const akEn = await page.innerText("body");
+  const adaArusKas =
+    akEn.includes("Opening cash balance") && akEn.includes("Closing cash balance");
+  const tanpaArusKasId =
+    !akEn.includes("Saldo kas awal periode") && !akEn.includes("Perubahan kas bersih");
+  check(
+    "F0q sisa teks Arus Kas ikut EN: baris saldo awal & akhir, tanpa teks Indonesia",
+    adaArusKas && tanpaArusKasId,
+    `→ baris=${adaArusKas} tanpaID=${tanpaArusKasId}`,
+  );
+  await gotoRoute("/app/keuangan/neraca", 900);
+  const nrEn = await page.innerText("body");
+  const adaNeracaEn = nrEn.includes("balanced ✓") || nrEn.includes("NOT balanced");
+  const tanpaNeracaId = !nrEn.includes("seimbang ✓");
+  check(
+    "F0r lencana keseimbangan Neraca ikut EN, tanpa teks Indonesia",
+    adaNeracaEn && tanpaNeracaId,
+    `→ lencana=${adaNeracaEn} tanpaID=${tanpaNeracaId}`,
+  );
   await gotoRoute("/app/keuangan/neraca-saldo", 700);
   const tbEn = await page.innerText("body");
   check(

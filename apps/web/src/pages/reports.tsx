@@ -213,18 +213,19 @@ export function IncomeStatementPage() {
                     : "bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200"
                 }`}
               >
-                <span>{query.data.netProfit >= 0 ? "Laba Bersih" : "Rugi Bersih"}</span>
+                <span>{query.data.netProfit >= 0 ? u("labaBersih") : u("rugiBersih")}</span>
                 <span className="tabular-nums">{formatIDR(Math.abs(query.data.netProfit))}</span>
               </div>
               {compare && prevQuery.data ? (
                 <div className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800">
                   <div className="mb-2 font-medium">
-                    Periode sebelumnya ({formatDate(prev.from)} – {formatDate(prev.to)})
+                    {u("periodeSebelumnya")} ({formatDate(prev.from)} –{" "}
+                    {formatDate(prev.to)})
                   </div>
                   {[
-                    ["Pendapatan", query.data.totalIncome, prevQuery.data.totalIncome],
-                    ["Beban", query.data.totalExpense, prevQuery.data.totalExpense],
-                    ["Laba bersih", query.data.netProfit, prevQuery.data.netProfit],
+                    [u("pendapatan"), query.data.totalIncome, prevQuery.data.totalIncome],
+                    [u("beban"), query.data.totalExpense, prevQuery.data.totalExpense],
+                    [u("labaBersihKecil"), query.data.netProfit, prevQuery.data.netProfit],
                   ].map(([label, now, was]) => (
                     <div
                       key={label as string}
@@ -328,7 +329,7 @@ export function CashFlowPage() {
             <Spinner />
           ) : query.data ? (
             <>
-              {row("Saldo kas awal periode", query.data.openingBalance, true)}
+              {row(u("saldoKasAwal"), query.data.openingBalance, true)}
               <div>
                 <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
                   {u("kasMasuk")}
@@ -338,7 +339,7 @@ export function CashFlowPage() {
                 ) : (
                   query.data.inflows.map((r, i) => <div key={i}>{row(r.label, r.amount)}</div>)
                 )}
-                {row("Total kas masuk", query.data.totalIn, true)}
+                {row(u("totalKasMasuk"), query.data.totalIn, true)}
               </div>
               <div>
                 <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-red-600 dark:text-red-400">
@@ -349,11 +350,11 @@ export function CashFlowPage() {
                 ) : (
                   query.data.outflows.map((r, i) => <div key={i}>{row(r.label, r.amount)}</div>)
                 )}
-                {row("Total kas keluar", query.data.totalOut, true)}
+                {row(u("totalKasKeluar"), query.data.totalOut, true)}
               </div>
               <div className="rounded-lg bg-slate-100 px-4 py-3 dark:bg-slate-800">
-                {row("Perubahan kas bersih", query.data.netChange, true)}
-                {row("Saldo kas akhir periode", query.data.closingBalance, true)}
+                {row(u("perubahanKasBersih"), query.data.netChange, true)}
+                {row(u("saldoKasAkhir"), query.data.closingBalance, true)}
               </div>
             </>
           ) : null}
@@ -418,7 +419,9 @@ export function AgingPage() {
             <Spinner />
           ) : (query.data?.rows.length ?? 0) === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Tidak ada {kind === "receivable" ? "piutang" : "hutang"} yang belum lunas. 🎉
+              {kind === "receivable"
+                ? u("tidakAdaPiutangBelumLunas")
+                : u("tidakAdaHutangBelumLunas")}
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -541,10 +544,7 @@ export function EfakturPage() {
         ) : null}
       </div>
       <p className="text-sm text-slate-500 dark:text-slate-400">
-        Sejak 2025 Coretax DJP menerima impor faktur keluaran dalam format <strong>XML</strong> —
-        unduh XML Coretax lalu impor di menu e-Faktur Coretax. Faktur non-mewah memakai kode
-        transaksi 04 dengan DPP nilai lain (11/12); NPWP perusahaan diambil dari Pengaturan. CSV
-        tetap tersedia sebagai rekap. Pembeli tanpa NPWP diekspor sebagai{" "}
+        {u("descCoretax")} <strong>XML</strong> {u("descCoretax2")}{" "}
         <span className="font-mono">0000000000000000</span>.
       </p>
 
@@ -602,7 +602,8 @@ export function EfakturPage() {
                   ))}
                   <tr className="font-semibold">
                     <td className="py-2 pr-4" colSpan={4}>
-                      Total ({query.data!.rows.length} faktur)
+                      {u("total")} ({query.data!.rows.length}{" "}
+                      {u("faktur").toLowerCase()})
                     </td>
                     <td className="py-2 pr-4 text-right tabular-nums">
                       {formatIDR(query.data!.totalDpp)}
@@ -647,7 +648,7 @@ export function BalanceSheetPage() {
           <h1 className="text-2xl font-semibold">{hNeraca.title}</h1>
           {query.data ? (
             query.data.balanced ? (
-              <Badge tone="brand">seimbang ✓</Badge>
+              <Badge tone="brand">{u("seimbang")}</Badge>
             ) : (
               <Badge tone="amber">{u("tidakSeimbang")}</Badge>
             )
