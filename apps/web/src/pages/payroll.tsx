@@ -150,12 +150,12 @@ export function PayrollPage() {
 
       <Tabs
         tabs={[
-          { key: "karyawan", label: "Karyawan" },
-          { key: "gaji", label: "Gaji" },
-          { key: "komponen", label: "Komponen" },
-          { key: "kasbon", label: "Kasbon" },
-          { key: "cuti", label: "Cuti" },
-          { key: "departemen", label: "Departemen" },
+          { key: "karyawan", label: u("karyawan") },
+          { key: "gaji", label: u("tabGaji") },
+          { key: "komponen", label: u("komponen") },
+          { key: "kasbon", label: u("tabKasbon") },
+          { key: "cuti", label: u("tabCuti") },
+          { key: "departemen", label: u("departemen") },
         ]}
         active={tab}
         onChange={setTab}
