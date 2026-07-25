@@ -2,7 +2,16 @@ import type { ApiBudgetRow } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api, downloadCsv, formatIDR } from "../api/client";
-import { Card, CardBody, CardHeader, Input, Label, Spinner, useToast } from "../components/ui";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  Input,
+  Label,
+  PageHeading,
+  Spinner,
+  useToast,
+} from "../components/ui";
 import { useWorkspace } from "./app";
 import { ExportButton } from "./reports";
 
@@ -11,7 +20,15 @@ function thisMonth(): string {
 }
 
 /** Baris anggaran dengan input tersimpan saat blur (hanya untuk admin). */
-function BudgetRow({ row, period, editable }: { row: ApiBudgetRow; period: string; editable: boolean }) {
+function BudgetRow({
+  row,
+  period,
+  editable,
+}: {
+  row: ApiBudgetRow;
+  period: string;
+  editable: boolean;
+}) {
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -21,7 +38,8 @@ function BudgetRow({ row, period, editable }: { row: ApiBudgetRow; period: strin
   useEffect(() => setValue(String(row.budget || "")), [row.budget, row.accountId, period]);
 
   const save = useMutation({
-    mutationFn: (amount: number) => api.setBudget(tenant.tenantId, { accountId: row.accountId, period, amount }),
+    mutationFn: (amount: number) =>
+      api.setBudget(tenant.tenantId, { accountId: row.accountId, period, amount }),
     onSuccess: () => {
       toast("success", `Anggaran ${row.name} disimpan.`);
       queryClient.invalidateQueries({ queryKey: ["budgets", tenant.tenantId, period] });
@@ -84,7 +102,9 @@ function BudgetTable({
   const favorable = totVar >= 0;
   return (
     <div>
-      <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{title}</h3>
+      <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        {title}
+      </h3>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -104,7 +124,9 @@ function BudgetTable({
                 </td>
               </tr>
             ) : (
-              rows.map((r) => <BudgetRow key={r.accountId} row={r} period={period} editable={editable} />)
+              rows.map((r) => (
+                <BudgetRow key={r.accountId} row={r} period={period} editable={editable} />
+              ))
             )}
             <tr className="border-t border-slate-200 font-semibold dark:border-slate-800">
               <td className="py-1.5 pr-3" colSpan={2}>
@@ -114,7 +136,9 @@ function BudgetTable({
               <td className="py-1.5 pr-3 text-right tabular-nums">{formatIDR(totActual)}</td>
               <td
                 className={`py-1.5 text-right tabular-nums ${
-                  favorable ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                  favorable
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-red-600 dark:text-red-400"
                 }`}
               >
                 {favorable ? "+" : ""}
@@ -148,8 +172,7 @@ export function BudgetPage() {
     <div className="max-w-4xl space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold">Anggaran</h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Tetapkan target pendapatan & beban per akun tiap bulan, lalu bandingkan dengan realisasi dari jurnal.</p>
+          <PageHeading k="anggaran" />
         </div>
         {query.data ? (
           <ExportButton
@@ -159,11 +182,15 @@ export function BudgetPage() {
                 ["Kode", "Akun", "Jenis", "Anggaran", "Realisasi", "Selisih"],
                 query.data!.rows.map(
                   (r) =>
-                    [r.code, r.name, r.type === "income" ? "Pendapatan" : "Beban", r.budget, r.actual, r.variance] as (
-                      | string
-                      | number
-                    )[],
-                ),
+                    [
+                      r.code,
+                      r.name,
+                      r.type === "income" ? "Pendapatan" : "Beban",
+                      r.budget,
+                      r.actual,
+                      r.variance,
+                    ] as (string | number)[]
+                )
               )
             }
           />
@@ -179,7 +206,12 @@ export function BudgetPage() {
           <div className="flex flex-wrap items-end gap-3">
             <div>
               <Label htmlFor="budget-period">Periode (bulan)</Label>
-              <Input id="budget-period" type="month" value={period} onChange={(e) => setPeriod(e.target.value)} />
+              <Input
+                id="budget-period"
+                type="month"
+                value={period}
+                onChange={(e) => setPeriod(e.target.value)}
+              />
             </div>
             {!editable ? (
               <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -201,7 +233,9 @@ export function BudgetPage() {
                   <div className="text-slate-500 dark:text-slate-400 sm:text-right">
                     Anggaran: <span className="tabular-nums">{formatIDR(budgetProfit)}</span>
                   </div>
-                  <div className="font-semibold tabular-nums sm:text-right">Realisasi: {formatIDR(actualProfit)}</div>
+                  <div className="font-semibold tabular-nums sm:text-right">
+                    Realisasi: {formatIDR(actualProfit)}
+                  </div>
                 </div>
               </div>
             </>

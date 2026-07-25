@@ -1,4 +1,5 @@
 import type { ApiConsolidatedRow, ApiConsolidationCompany } from "@erpindo/shared";
+import { useHeading } from "../i18n/pageHeadings";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { api, downloadCsv, formatIDR } from "../api/client";
@@ -37,7 +38,9 @@ function ConsolidatedTable({
 
   return (
     <div>
-      <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{title}</h3>
+      <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        {title}
+      </h3>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[560px] text-sm">
           <thead>
@@ -72,7 +75,9 @@ function ConsolidatedTable({
                       </td>
                     );
                   })}
-                  <td className={`${td} text-right font-medium tabular-nums`}>{formatIDR(r.total)}</td>
+                  <td className={`${td} text-right font-medium tabular-nums`}>
+                    {formatIDR(r.total)}
+                  </td>
                 </tr>
               ))
             )}
@@ -93,6 +98,7 @@ function ConsolidatedTable({
 }
 
 export function ConsolidationPage() {
+  const h = useHeading("konsolidasi");
   const [mode, setMode] = useState<Mode>("income");
   const [from, setFrom] = useState(monthStart);
   const [to, setTo] = useState(today);
@@ -106,7 +112,7 @@ export function ConsolidationPage() {
 
   const allIds = useMemo(
     () => (companiesQuery.data?.companies ?? []).map((c) => c.tenantId),
-    [companiesQuery.data],
+    [companiesQuery.data]
   );
   const activeIds = selected ?? allIds;
 
@@ -134,7 +140,7 @@ export function ConsolidationPage() {
     <div className="max-w-5xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold">Konsolidasi</h1>
+          <h1 className="text-2xl font-semibold">{h.title}</h1>
           {mode === "balance" && balanceQuery.data ? (
             balanceQuery.data.balanced ? (
               <Badge tone="brand">seimbang ✓</Badge>
@@ -155,7 +161,9 @@ export function ConsolidationPage() {
             </button>
             <button
               className={`px-3 py-1.5 text-sm ${
-                mode === "balance" ? "bg-brand-600 text-white" : "text-slate-600 dark:text-slate-300"
+                mode === "balance"
+                  ? "bg-brand-600 text-white"
+                  : "text-slate-600 dark:text-slate-300"
               }`}
               onClick={() => setMode("balance")}
             >
@@ -170,12 +178,26 @@ export function ConsolidationPage() {
                   ["Kode", "Akun", "Kelompok", ...companies.map((c) => c.name), "Total"],
                   [
                     ...incomeQuery.data!.income.map(
-                      (r) => [r.code, r.name, "Pendapatan", ...companies.map((c) => r.amounts[c.tenantId] ?? 0), r.total] as (string | number)[],
+                      (r) =>
+                        [
+                          r.code,
+                          r.name,
+                          "Pendapatan",
+                          ...companies.map((c) => r.amounts[c.tenantId] ?? 0),
+                          r.total,
+                        ] as (string | number)[]
                     ),
                     ...incomeQuery.data!.expense.map(
-                      (r) => [r.code, r.name, "Beban", ...companies.map((c) => r.amounts[c.tenantId] ?? 0), r.total] as (string | number)[],
+                      (r) =>
+                        [
+                          r.code,
+                          r.name,
+                          "Beban",
+                          ...companies.map((c) => r.amounts[c.tenantId] ?? 0),
+                          r.total,
+                        ] as (string | number)[]
                     ),
-                  ],
+                  ]
                 )
               }
             />
@@ -187,15 +209,36 @@ export function ConsolidationPage() {
                   ["Kode", "Akun", "Kelompok", ...companies.map((c) => c.name), "Total"],
                   [
                     ...balanceQuery.data!.assets.map(
-                      (r) => [r.code, r.name, "Aset", ...companies.map((c) => r.amounts[c.tenantId] ?? 0), r.total] as (string | number)[],
+                      (r) =>
+                        [
+                          r.code,
+                          r.name,
+                          "Aset",
+                          ...companies.map((c) => r.amounts[c.tenantId] ?? 0),
+                          r.total,
+                        ] as (string | number)[]
                     ),
                     ...balanceQuery.data!.liabilities.map(
-                      (r) => [r.code, r.name, "Kewajiban", ...companies.map((c) => r.amounts[c.tenantId] ?? 0), r.total] as (string | number)[],
+                      (r) =>
+                        [
+                          r.code,
+                          r.name,
+                          "Kewajiban",
+                          ...companies.map((c) => r.amounts[c.tenantId] ?? 0),
+                          r.total,
+                        ] as (string | number)[]
                     ),
                     ...balanceQuery.data!.equity.map(
-                      (r) => [r.code, r.name, "Ekuitas", ...companies.map((c) => r.amounts[c.tenantId] ?? 0), r.total] as (string | number)[],
+                      (r) =>
+                        [
+                          r.code,
+                          r.name,
+                          "Ekuitas",
+                          ...companies.map((c) => r.amounts[c.tenantId] ?? 0),
+                          r.total,
+                        ] as (string | number)[]
                     ),
-                  ],
+                  ]
                 )
               }
             />
@@ -204,8 +247,8 @@ export function ConsolidationPage() {
       </div>
 
       <p className="text-sm text-slate-500 dark:text-slate-400">
-        Laporan gabungan seluruh perusahaan yang Anda miliki — nilai per akun dijumlahkan lintas perusahaan, dengan
-        rincian per perusahaan di setiap kolom.
+        Laporan gabungan seluruh perusahaan yang Anda miliki — nilai per akun dijumlahkan lintas
+        perusahaan, dengan rincian per perusahaan di setiap kolom.
       </p>
 
       <Card>
@@ -219,17 +262,32 @@ export function ConsolidationPage() {
                   <>
                     <div>
                       <Label htmlFor="cons-from">Dari</Label>
-                      <Input id="cons-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+                      <Input
+                        id="cons-from"
+                        type="date"
+                        value={from}
+                        onChange={(e) => setFrom(e.target.value)}
+                      />
                     </div>
                     <div>
                       <Label htmlFor="cons-to">Sampai</Label>
-                      <Input id="cons-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+                      <Input
+                        id="cons-to"
+                        type="date"
+                        value={to}
+                        onChange={(e) => setTo(e.target.value)}
+                      />
                     </div>
                   </>
                 ) : (
                   <div>
                     <Label htmlFor="cons-asof">Per tanggal</Label>
-                    <Input id="cons-asof" type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} />
+                    <Input
+                      id="cons-asof"
+                      type="date"
+                      value={asOf}
+                      onChange={(e) => setAsOf(e.target.value)}
+                    />
                   </div>
                 )}
               </div>
@@ -257,8 +315,8 @@ export function ConsolidationPage() {
                 </div>
                 {soloCompany ? (
                   <p className="mt-2 text-xs text-slate-400">
-                    Anda baru memiliki satu perusahaan. Tambahkan perusahaan lain di Pengaturan untuk melihat laporan
-                    gabungan.
+                    Anda baru memiliki satu perusahaan. Tambahkan perusahaan lain di Pengaturan
+                    untuk melihat laporan gabungan.
                   </p>
                 ) : null}
               </div>
@@ -294,8 +352,14 @@ export function ConsolidationPage() {
                     : "bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200"
                 }`}
               >
-                <span>{incomeQuery.data.netProfit >= 0 ? "Laba Bersih Konsolidasi" : "Rugi Bersih Konsolidasi"}</span>
-                <span className="tabular-nums">{formatIDR(Math.abs(incomeQuery.data.netProfit))}</span>
+                <span>
+                  {incomeQuery.data.netProfit >= 0
+                    ? "Laba Bersih Konsolidasi"
+                    : "Rugi Bersih Konsolidasi"}
+                </span>
+                <span className="tabular-nums">
+                  {formatIDR(Math.abs(incomeQuery.data.netProfit))}
+                </span>
               </div>
             </CardBody>
           </Card>

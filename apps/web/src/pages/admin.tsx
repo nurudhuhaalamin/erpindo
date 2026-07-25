@@ -21,6 +21,7 @@ import {
   ConfirmDialog,
   Input,
   Label,
+  PageHeading,
   Select,
   Spinner,
   useToast,
@@ -58,10 +59,7 @@ export function AdminPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Admin Platform</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Pantau pendaftar &amp; langganan, tanggapi masukan pengguna, dan kelola artikel blog.
-        </p>
+        <PageHeading k="adminPlatform" />
       </div>
 
       <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Bagian admin">
@@ -119,12 +117,17 @@ function OverviewTab() {
       </div>
 
       <Card>
-        <CardHeader title="Pendaftaran per bulan" description="Perusahaan baru 12 bulan terakhir." />
+        <CardHeader
+          title="Pendaftaran per bulan"
+          description="Perusahaan baru 12 bulan terakhir."
+        />
         <CardBody>
           <div className="flex h-32 items-end gap-2">
             {d.growth.map((g) => (
               <div key={g.month} className="flex flex-1 flex-col items-center gap-1">
-                <span className="text-xs tabular-nums text-slate-500 dark:text-slate-400">{g.n}</span>
+                <span className="text-xs tabular-nums text-slate-500 dark:text-slate-400">
+                  {g.n}
+                </span>
                 <div
                   className="w-full rounded-t bg-brand-500"
                   style={{ height: `${Math.max((g.n / maxGrowth) * 100, 4)}%` }}
@@ -137,7 +140,10 @@ function OverviewTab() {
       </Card>
 
       <Card>
-        <CardHeader title="Pendaftar terbaru" description="20 perusahaan terakhir beserta email pemiliknya." />
+        <CardHeader
+          title="Pendaftar terbaru"
+          description="20 perusahaan terakhir beserta email pemiliknya."
+        />
         <CardBody>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -152,14 +158,19 @@ function OverviewTab() {
               </thead>
               <tbody>
                 {d.recentSignups.map((t) => (
-                  <tr key={t.id} className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
+                  <tr
+                    key={t.id}
+                    className="border-b border-slate-100 last:border-0 dark:border-slate-800/60"
+                  >
                     <td className="py-2 pr-4 font-medium">{t.name}</td>
                     <td className="py-2 pr-4">{t.ownerEmail ?? "—"}</td>
                     <td className="py-2 pr-4">
                       <Badge tone={STATUS_TONE[t.status] ?? "neutral"}>{t.status}</Badge>
                     </td>
                     <td className="py-2 pr-4">{PLAN_LABELS[t.plan as Plan] ?? t.plan}</td>
-                    <td className="py-2 text-slate-500 dark:text-slate-400">{formatDate(t.createdAt.slice(0, 10))}</td>
+                    <td className="py-2 text-slate-500 dark:text-slate-400">
+                      {formatDate(t.createdAt.slice(0, 10))}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -182,7 +193,10 @@ function TenantsTab() {
   });
   return (
     <Card>
-      <CardHeader title="Semua perusahaan" description={`${query.data?.total ?? 0} perusahaan terdaftar.`} />
+      <CardHeader
+        title="Semua perusahaan"
+        description={`${query.data?.total ?? 0} perusahaan terdaftar.`}
+      />
       <CardBody className="space-y-3">
         <div className="flex flex-wrap gap-2">
           <Input
@@ -192,7 +206,12 @@ function TenantsTab() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <Select aria-label="Filter status" className="w-44" value={status} onChange={(e) => setStatus(e.target.value)}>
+          <Select
+            aria-label="Filter status"
+            className="w-44"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          >
             <option value="">Semua status</option>
             <option value="trial">Trial</option>
             <option value="active">Aktif</option>
@@ -218,7 +237,10 @@ function TenantsTab() {
               </thead>
               <tbody>
                 {(query.data?.tenants ?? []).map((t) => (
-                  <tr key={t.id} className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
+                  <tr
+                    key={t.id}
+                    className="border-b border-slate-100 last:border-0 dark:border-slate-800/60"
+                  >
                     <td className="py-2 pr-4">
                       <div className="font-medium">{t.name}</div>
                       <div className="text-xs text-slate-400">{t.slug}</div>
@@ -232,7 +254,9 @@ function TenantsTab() {
                     <td className="py-2 pr-4 text-slate-500 dark:text-slate-400">
                       {t.trialEndsAt ? formatDate(t.trialEndsAt.slice(0, 10)) : "—"}
                     </td>
-                    <td className="py-2 text-slate-500 dark:text-slate-400">{formatDate(t.createdAt.slice(0, 10))}</td>
+                    <td className="py-2 text-slate-500 dark:text-slate-400">
+                      {formatDate(t.createdAt.slice(0, 10))}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -260,7 +284,7 @@ function InfraTab() {
         r.failed ? "error" : "success",
         r.migrated > 0
           ? `${r.migrated} perusahaan dimutakhirkan${r.failed ? `, ${r.failed} gagal` : ""}.`
-          : "Semua perusahaan sudah di versi skema terkini.",
+          : "Semua perusahaan sudah di versi skema terkini."
       );
       void qc.invalidateQueries({ queryKey: ["admin-infra"] });
     },
@@ -271,7 +295,10 @@ function InfraTab() {
   const behind = d?.tenantsBehind ?? 0;
   const stats = d
     ? [
-        { label: "Mode database tenant", value: d.dbMode === "cloudflare" ? "Cloudflare (D1 dinamis)" : "Lokal (pool binding)" },
+        {
+          label: "Mode database tenant",
+          value: d.dbMode === "cloudflare" ? "Cloudflare (D1 dinamis)" : "Lokal (pool binding)",
+        },
         { label: "Versi skema terkini", value: `v${d.schemaVersion}` },
         { label: "Total perusahaan", value: String(d.totalTenants) },
         { label: "Tertinggal migrasi", value: String(behind) },
@@ -294,7 +321,10 @@ function InfraTab() {
             <>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {stats.map((s) => (
-                  <div key={s.label} className="rounded-xl bg-slate-50 p-3 ring-1 ring-inset ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
+                  <div
+                    key={s.label}
+                    className="rounded-xl bg-slate-50 p-3 ring-1 ring-inset ring-slate-200 dark:bg-slate-900 dark:ring-slate-800"
+                  >
                     <div className="text-xs text-slate-500 dark:text-slate-400">{s.label}</div>
                     <div className="mt-1 text-lg font-bold tabular-nums">{s.value}</div>
                   </div>
@@ -303,7 +333,8 @@ function InfraTab() {
 
               {behind > 0 ? (
                 <Alert tone="info">
-                  {behind} perusahaan belum di versi skema terkini. Klik “Migrasi sekarang” untuk menerapkan migrasi.
+                  {behind} perusahaan belum di versi skema terkini. Klik “Migrasi sekarang” untuk
+                  menerapkan migrasi.
                 </Alert>
               ) : (
                 <Alert tone="success">Semua perusahaan berada di versi skema terkini.</Alert>
@@ -323,9 +354,17 @@ function InfraTab() {
                   <h3 className="mb-2 text-sm font-semibold">Sebaran versi skema</h3>
                   <div className="space-y-1">
                     {d.versionDistribution.map((v) => (
-                      <div key={v.v} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-1.5 text-sm dark:bg-slate-900">
-                        <span>v{v.v}{v.v === d.schemaVersion ? " (terkini)" : ""}</span>
-                        <span className="tabular-nums text-slate-500 dark:text-slate-400">{v.n} perusahaan</span>
+                      <div
+                        key={v.v}
+                        className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-1.5 text-sm dark:bg-slate-900"
+                      >
+                        <span>
+                          v{v.v}
+                          {v.v === d.schemaVersion ? " (terkini)" : ""}
+                        </span>
+                        <span className="tabular-nums text-slate-500 dark:text-slate-400">
+                          {v.n} perusahaan
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -334,9 +373,16 @@ function InfraTab() {
                   <h3 className="mb-2 text-sm font-semibold">Jenis penyimpanan</h3>
                   <div className="space-y-1">
                     {Object.entries(d.refKinds).map(([kind, n]) => (
-                      <div key={kind} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-1.5 text-sm dark:bg-slate-900">
-                        <span>{kind === "cloudflare" ? "D1 dinamis (uuid)" : "Pool binding lokal"}</span>
-                        <span className="tabular-nums text-slate-500 dark:text-slate-400">{n} perusahaan</span>
+                      <div
+                        key={kind}
+                        className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-1.5 text-sm dark:bg-slate-900"
+                      >
+                        <span>
+                          {kind === "cloudflare" ? "D1 dinamis (uuid)" : "Pool binding lokal"}
+                        </span>
+                        <span className="tabular-nums text-slate-500 dark:text-slate-400">
+                          {n} perusahaan
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -356,12 +402,17 @@ function InfraTab() {
                       </thead>
                       <tbody>
                         {d.behind.map((t) => (
-                          <tr key={t.id} className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
+                          <tr
+                            key={t.id}
+                            className="border-b border-slate-100 last:border-0 dark:border-slate-800/60"
+                          >
                             <td className="py-2 pr-4">
                               <div className="font-medium">{t.name}</div>
                               <div className="text-xs text-slate-400">{t.slug}</div>
                             </td>
-                            <td className="py-2 tabular-nums">v{t.schemaVersion} → v{d.schemaVersion}</td>
+                            <td className="py-2 tabular-nums">
+                              v{t.schemaVersion} → v{d.schemaVersion}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -398,9 +449,17 @@ function FeedbackTab() {
   const [noteDraft, setNoteDraft] = useState<Record<string, string>>({});
   return (
     <Card>
-      <CardHeader title="Masukan pengguna" description="Saran fitur, laporan bug, dan pertanyaan dari seluruh pengguna." />
+      <CardHeader
+        title="Masukan pengguna"
+        description="Saran fitur, laporan bug, dan pertanyaan dari seluruh pengguna."
+      />
       <CardBody className="space-y-3">
-        <Select aria-label="Filter status masukan" className="w-44" value={status} onChange={(e) => setStatus(e.target.value)}>
+        <Select
+          aria-label="Filter status masukan"
+          className="w-44"
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+        >
           <option value="">Semua status</option>
           {FEEDBACK_STATUSES.map((s) => (
             <option key={s} value={s}>
@@ -414,13 +473,20 @@ function FeedbackTab() {
           <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada masukan.</p>
         ) : (
           (query.data?.feedback ?? []).map((f) => (
-            <div key={f.id} className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800">
+            <div
+              key={f.id}
+              className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800"
+            >
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone="brand">{FEEDBACK_CATEGORY_LABELS[f.category]}</Badge>
                 <span className="font-medium">{f.userName}</span>
                 <span className="text-xs text-slate-400">{f.userEmail}</span>
-                {f.tenantName ? <span className="text-xs text-slate-400">· {f.tenantName}</span> : null}
-                <span className="text-xs text-slate-400">· {formatDate(f.createdAt.slice(0, 10))}</span>
+                {f.tenantName ? (
+                  <span className="text-xs text-slate-400">· {f.tenantName}</span>
+                ) : null}
+                <span className="text-xs text-slate-400">
+                  · {formatDate(f.createdAt.slice(0, 10))}
+                </span>
                 <span className="ml-auto">
                   <Select
                     aria-label={`Status masukan ${f.id}`}
@@ -436,12 +502,20 @@ function FeedbackTab() {
                   </Select>
                 </span>
               </div>
-              <p className="mt-2 whitespace-pre-wrap text-slate-700 dark:text-slate-200">{f.message}</p>
-              {f.pagePath ? <p className="mt-1 text-xs text-slate-400">Halaman: {f.pagePath}</p> : null}
+              <p className="mt-2 whitespace-pre-wrap text-slate-700 dark:text-slate-200">
+                {f.message}
+              </p>
+              {f.pagePath ? (
+                <p className="mt-1 text-xs text-slate-400">Halaman: {f.pagePath}</p>
+              ) : null}
               <div className="mt-2 flex gap-2">
                 <Input
                   aria-label={`Balasan untuk ${f.id}`}
-                  placeholder={f.adminNote ? `Balasan: ${f.adminNote}` : "Tulis balasan singkat (tampil ke pengguna)…"}
+                  placeholder={
+                    f.adminNote
+                      ? `Balasan: ${f.adminNote}`
+                      : "Tulis balasan singkat (tampil ke pengguna)…"
+                  }
                   className="h-9 flex-1"
                   value={noteDraft[f.id] ?? ""}
                   onChange={(e) => setNoteDraft((d) => ({ ...d, [f.id]: e.target.value }))}
@@ -490,7 +564,10 @@ function BlogTab() {
       return editing ? api.adminUpdateBlogPost(editing.id, input) : api.adminCreateBlogPost(input);
     },
     onSuccess: () => {
-      toast("success", editing ? "Artikel diperbarui." : "Draf artikel dibuat — terbitkan bila sudah siap.");
+      toast(
+        "success",
+        editing ? "Artikel diperbarui." : "Draf artikel dibuat — terbitkan bila sudah siap."
+      );
       setEditing(null);
       setForm(EMPTY_POST);
       refresh();
@@ -527,7 +604,11 @@ function BlogTab() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="blog-title">Judul</Label>
-              <Input id="blog-title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+              <Input
+                id="blog-title"
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+              />
             </div>
             <div>
               <Label htmlFor="blog-slug">Slug (URL)</Label>
@@ -541,7 +622,11 @@ function BlogTab() {
           </div>
           <div>
             <Label htmlFor="blog-excerpt">Ringkasan (untuk daftar & meta description)</Label>
-            <Input id="blog-excerpt" value={form.excerpt} onChange={(e) => setForm({ ...form, excerpt: e.target.value })} />
+            <Input
+              id="blog-excerpt"
+              value={form.excerpt}
+              onChange={(e) => setForm({ ...form, excerpt: e.target.value })}
+            />
           </div>
           <div>
             <div className="mb-1.5 flex items-center justify-between">
@@ -560,7 +645,9 @@ function BlogTab() {
               <div
                 className="prose-blog min-h-40 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-900"
                 // renderMarkdown escape-first — aman XSS by construction.
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(form.bodyMd || "*Belum ada isi.*") }}
+                dangerouslySetInnerHTML={{
+                  __html: renderMarkdown(form.bodyMd || "*Belum ada isi.*"),
+                }}
               />
             ) : (
               <textarea
@@ -584,7 +671,12 @@ function BlogTab() {
                 Batal
               </Button>
             ) : null}
-            <Button onClick={() => save.mutate()} disabled={save.isPending || !form.title.trim() || !form.slug.trim() || form.bodyMd.length < 10}>
+            <Button
+              onClick={() => save.mutate()}
+              disabled={
+                save.isPending || !form.title.trim() || !form.slug.trim() || form.bodyMd.length < 10
+              }
+            >
               {save.isPending ? <Spinner /> : null} {editing ? "Simpan Perubahan" : "Simpan Draf"}
             </Button>
           </div>
@@ -592,7 +684,10 @@ function BlogTab() {
       </Card>
 
       <Card>
-        <CardHeader title="Semua artikel" description="Draf tidak tampil di /blog sampai diterbitkan." />
+        <CardHeader
+          title="Semua artikel"
+          description="Draf tidak tampil di /blog sampai diterbitkan."
+        />
         <CardBody>
           {query.isLoading ? (
             <Spinner />
@@ -601,10 +696,17 @@ function BlogTab() {
           ) : (
             <div className="space-y-2">
               {(query.data?.posts ?? []).map((p) => (
-                <div key={p.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800">
+                <div
+                  key={p.id}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800"
+                >
                   <span className="font-medium">{p.title}</span>
                   <span className="font-mono text-xs text-slate-400">/blog/{p.slug}</span>
-                  {p.publishedAt ? <Badge tone="green">TAYANG</Badge> : <Badge tone="amber">DRAF</Badge>}
+                  {p.publishedAt ? (
+                    <Badge tone="green">TAYANG</Badge>
+                  ) : (
+                    <Badge tone="amber">DRAF</Badge>
+                  )}
                   <span className="ml-auto flex gap-2">
                     {p.publishedAt ? (
                       <a

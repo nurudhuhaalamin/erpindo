@@ -22,6 +22,7 @@ import {
   EmptyState,
   Input,
   Label,
+  PageHeading,
   Select,
   Spinner,
   useToast,
@@ -54,7 +55,14 @@ export function LeadsPage() {
     queryFn: () => api.leads(tenant.tenantId),
   });
 
-  const [form, setForm] = useState({ name: "", contactPerson: "", phone: "", email: "", source: "", estValue: "" });
+  const [form, setForm] = useState({
+    name: "",
+    contactPerson: "",
+    phone: "",
+    email: "",
+    source: "",
+    estValue: "",
+  });
   const [error, setError] = useState<string | null>(null);
 
   const create = useMutation({
@@ -86,10 +94,7 @@ export function LeadsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Pipeline</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Catat calon pelanggan, gerakkan lewat tahap funnel, lalu konversi jadi pelanggan.
-        </p>
+        <PageHeading k="crmPipeline" />
       </div>
 
       {/* Papan kanban funnel — seret kartu antar kolom untuk memindah tahap. */}
@@ -114,13 +119,20 @@ export function LeadsPage() {
 
       {isAdmin ? (
         <Card>
-          <CardHeader title="Lead baru" description="Perusahaan/orang yang berpotensi jadi pelanggan." />
+          <CardHeader
+            title="Lead baru"
+            description="Perusahaan/orang yang berpotensi jadi pelanggan."
+          />
           <CardBody className="space-y-4">
             {error ? <Alert tone="error">{error}</Alert> : null}
             <div className="grid gap-3 sm:grid-cols-3">
               <div>
                 <Label htmlFor="lead-name">Nama perusahaan/prospek</Label>
-                <Input id="lead-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                <Input
+                  id="lead-name"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                />
               </div>
               <div>
                 <Label htmlFor="lead-cp">Narahubung</Label>
@@ -132,7 +144,11 @@ export function LeadsPage() {
               </div>
               <div>
                 <Label htmlFor="lead-phone">Telepon</Label>
-                <Input id="lead-phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                <Input
+                  id="lead-phone"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                />
               </div>
               <div>
                 <Label htmlFor="lead-email">Email</Label>
@@ -164,8 +180,12 @@ export function LeadsPage() {
               </div>
             </div>
             <div className="flex justify-end">
-              <Button onClick={() => create.mutate()} disabled={create.isPending || form.name.trim().length < 2}>
-                {create.isPending ? <Spinner /> : <UserPlus className="size-4" aria-hidden />} Tambah Lead
+              <Button
+                onClick={() => create.mutate()}
+                disabled={create.isPending || form.name.trim().length < 2}
+              >
+                {create.isPending ? <Spinner /> : <UserPlus className="size-4" aria-hidden />}{" "}
+                Tambah Lead
               </Button>
             </div>
           </CardBody>
@@ -210,7 +230,8 @@ function KanbanBoard({ leads, isAdmin }: { leads: ApiLead[]; isAdmin: boolean })
   const [dragOver, setDragOver] = useState<LeadStage | null>(null);
 
   const move = useMutation({
-    mutationFn: (vars: { id: string; stage: LeadStage }) => api.updateLead(tenant.tenantId, vars.id, { stage: vars.stage }),
+    mutationFn: (vars: { id: string; stage: LeadStage }) =>
+      api.updateLead(tenant.tenantId, vars.id, { stage: vars.stage }),
     onSuccess: () => {
       toast("success", "Tahap diperbarui.");
       queryClient.invalidateQueries({ queryKey: ["leads", tenant.tenantId] });
@@ -266,7 +287,9 @@ function KanbanBoard({ leads, isAdmin }: { leads: ApiLead[]; isAdmin: boolean })
                   >
                     <div className="font-medium leading-snug">{lead.name}</div>
                     <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-slate-500 dark:text-slate-400">
-                      {lead.estValue > 0 ? <span className="tabular-nums">{formatIDR(lead.estValue)}</span> : null}
+                      {lead.estValue > 0 ? (
+                        <span className="tabular-nums">{formatIDR(lead.estValue)}</span>
+                      ) : null}
                       {lead.source ? <span>· {lead.source}</span> : null}
                     </div>
                   </div>
@@ -287,7 +310,10 @@ function KanbanBoard({ leads, isAdmin }: { leads: ApiLead[]; isAdmin: boolean })
 
 /** Laporan konversi per sumber lead (dari mana pelanggan terbaik datang). */
 function SourceReportCard({ tenantId }: { tenantId: string }) {
-  const query = useQuery({ queryKey: ["crm-report", tenantId], queryFn: () => api.crmReport(tenantId) });
+  const query = useQuery({
+    queryKey: ["crm-report", tenantId],
+    queryFn: () => api.crmReport(tenantId),
+  });
   const rows = query.data?.rows ?? [];
   if (query.isLoading || rows.length === 0) return null;
 
@@ -316,7 +342,9 @@ function SourceReportCard({ tenantId }: { tenantId: string }) {
                   <td className="py-2 pr-3 text-right tabular-nums">{r.total}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{r.won}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{r.lost}</td>
-                  <td className="py-2 text-right font-medium tabular-nums">{r.conversionPct.toLocaleString("id-ID")}%</td>
+                  <td className="py-2 text-right font-medium tabular-nums">
+                    {r.conversionPct.toLocaleString("id-ID")}%
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -392,7 +420,9 @@ function LeadRow({ lead, isAdmin }: { lead: ApiLead; isAdmin: boolean }) {
         <Badge tone={STAGE_TONE[lead.stage]}>{LEAD_STAGE_LABELS[lead.stage]}</Badge>
         {lead.convertedContactId ? <Badge tone="green">jadi pelanggan</Badge> : null}
         {lead.estValue > 0 ? (
-          <span className="text-sm text-slate-500 tabular-nums dark:text-slate-400">{formatIDR(lead.estValue)}</span>
+          <span className="text-sm text-slate-500 tabular-nums dark:text-slate-400">
+            {formatIDR(lead.estValue)}
+          </span>
         ) : null}
         <span className="text-xs text-slate-400">
           {lead.contactPerson ?? ""} {lead.phone ? `· ${lead.phone}` : ""}
@@ -426,8 +456,13 @@ function LeadRow({ lead, isAdmin }: { lead: ApiLead; isAdmin: boolean }) {
                 </Select>
               </div>
               {!lead.convertedContactId ? (
-                <Button variant="secondary" onClick={() => convert.mutate()} disabled={convert.isPending}>
-                  {convert.isPending ? <Spinner /> : <ArrowRight className="size-4" aria-hidden />} Konversi ke Pelanggan
+                <Button
+                  variant="secondary"
+                  onClick={() => convert.mutate()}
+                  disabled={convert.isPending}
+                >
+                  {convert.isPending ? <Spinner /> : <ArrowRight className="size-4" aria-hidden />}{" "}
+                  Konversi ke Pelanggan
                 </Button>
               ) : null}
             </div>
@@ -435,7 +470,9 @@ function LeadRow({ lead, isAdmin }: { lead: ApiLead; isAdmin: boolean }) {
 
           {/* Log aktivitas */}
           <div>
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Aktivitas follow-up</div>
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Aktivitas follow-up
+            </div>
             {isAdmin ? (
               <div className="mb-3 flex flex-wrap items-end gap-2">
                 <div className="w-32">
@@ -468,7 +505,10 @@ function LeadRow({ lead, isAdmin }: { lead: ApiLead; isAdmin: boolean }) {
                     onChange={(e) => setAct({ ...act, dueAt: e.target.value })}
                   />
                 </div>
-                <Button onClick={() => addActivity.mutate()} disabled={addActivity.isPending || !act.note.trim()}>
+                <Button
+                  onClick={() => addActivity.mutate()}
+                  disabled={addActivity.isPending || !act.note.trim()}
+                >
                   {addActivity.isPending ? <Spinner /> : null} Catat
                 </Button>
               </div>
@@ -551,7 +591,7 @@ export function QuotationsPage() {
 
   const products = (productsQuery.data?.items ?? []) as ProductRow[];
   const contacts = ((contactsQuery.data?.items ?? []) as ContactRow[]).filter((k) =>
-    ["customer", "both"].includes(k.type),
+    ["customer", "both"].includes(k.type)
   );
 
   const create = useMutation({
@@ -563,7 +603,11 @@ export function QuotationsPage() {
         taxRate,
         lines: lines
           .filter((l) => l.productId)
-          .map((l) => ({ productId: l.productId, qty: Number(l.qty) || 0, unitPrice: Number(l.unitPrice) || 0 })),
+          .map((l) => ({
+            productId: l.productId,
+            qty: Number(l.qty) || 0,
+            unitPrice: Number(l.unitPrice) || 0,
+          })),
       }),
     onSuccess: (res) => {
       toast("success", `Penawaran ${res.quoteNo} dibuat (${formatIDR(res.total)}).`);
@@ -589,21 +633,25 @@ export function QuotationsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Penawaran</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Buat penawaran harga untuk pelanggan. Saat diterima, konversi sekali klik menjadi faktur penjualan.
-        </p>
+        <PageHeading k="crmPenawaran" />
       </div>
 
       {isAdmin ? (
         <Card>
-          <CardHeader title="Penawaran baru" description="Belum memengaruhi stok/jurnal — baru mengikat saat dikonversi ke faktur." />
+          <CardHeader
+            title="Penawaran baru"
+            description="Belum memengaruhi stok/jurnal — baru mengikat saat dikonversi ke faktur."
+          />
           <CardBody className="space-y-4">
             {error ? <Alert tone="error">{error}</Alert> : null}
             <div className="grid gap-3 sm:grid-cols-4">
               <div>
                 <Label htmlFor="q-contact">Pelanggan</Label>
-                <Select id="q-contact" value={contactId} onChange={(e) => setContactId(e.target.value)}>
+                <Select
+                  id="q-contact"
+                  value={contactId}
+                  onChange={(e) => setContactId(e.target.value)}
+                >
                   <option value="">— pilih —</option>
                   {contacts.map((k) => (
                     <option key={k.id} value={k.id}>
@@ -614,15 +662,29 @@ export function QuotationsPage() {
               </div>
               <div>
                 <Label htmlFor="q-date">Tanggal</Label>
-                <Input id="q-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                <Input
+                  id="q-date"
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
               </div>
               <div>
                 <Label htmlFor="q-valid">Berlaku sampai</Label>
-                <Input id="q-valid" type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
+                <Input
+                  id="q-valid"
+                  type="date"
+                  value={validUntil}
+                  onChange={(e) => setValidUntil(e.target.value)}
+                />
               </div>
               <div>
                 <Label htmlFor="q-tax">PPN</Label>
-                <Select id="q-tax" value={String(taxRate)} onChange={(e) => setTaxRate(Number(e.target.value) as 0 | 11 | 12)}>
+                <Select
+                  id="q-tax"
+                  value={String(taxRate)}
+                  onChange={(e) => setTaxRate(Number(e.target.value) as 0 | 11 | 12)}
+                >
                   <option value="0">Tanpa PPN</option>
                   <option value="11">PPN 11%</option>
                   <option value="12">PPN 12%</option>
@@ -632,8 +694,15 @@ export function QuotationsPage() {
 
             <div className="space-y-2">
               {lines.map((line, i) => (
-                <div key={i} className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_6rem_10rem_10rem_2.5rem] sm:items-center">
-                  <Select aria-label={`Produk baris ${i + 1}`} value={line.productId} onChange={(e) => pickProduct(i, e.target.value)}>
+                <div
+                  key={i}
+                  className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_6rem_10rem_10rem_2.5rem] sm:items-center"
+                >
+                  <Select
+                    aria-label={`Produk baris ${i + 1}`}
+                    value={line.productId}
+                    onChange={(e) => pickProduct(i, e.target.value)}
+                  >
                     <option value="">— pilih produk —</option>
                     {products.map((p) => (
                       <option key={p.id} value={p.id}>
@@ -663,7 +732,9 @@ export function QuotationsPage() {
                     type="button"
                     variant="ghost"
                     aria-label={`Hapus baris ${i + 1}`}
-                    onClick={() => setLines((ls) => (ls.length > 1 ? ls.filter((_, idx) => idx !== i) : ls))}
+                    onClick={() =>
+                      setLines((ls) => (ls.length > 1 ? ls.filter((_, idx) => idx !== i) : ls))
+                    }
                   >
                     ✕
                   </Button>
@@ -672,19 +743,27 @@ export function QuotationsPage() {
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <Button type="button" variant="secondary" onClick={() => setLines((ls) => [...ls, emptyLine()])}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setLines((ls) => [...ls, emptyLine()])}
+              >
                 + Tambah barang
               </Button>
               <div className="text-sm">
                 Subtotal <strong className="tabular-nums">{formatIDR(subtotal)}</strong>
                 {taxRate > 0 ? (
                   <>
-                    {" "}· PPN <strong className="tabular-nums">{formatIDR(taxAmount)}</strong>
+                    {" "}
+                    · PPN <strong className="tabular-nums">{formatIDR(taxAmount)}</strong>
                   </>
                 ) : null}{" "}
                 · Total <strong className="tabular-nums">{formatIDR(subtotal + taxAmount)}</strong>
               </div>
-              <Button onClick={() => create.mutate()} disabled={create.isPending || !contactId || subtotal === 0}>
+              <Button
+                onClick={() => create.mutate()}
+                disabled={create.isPending || !contactId || subtotal === 0}
+              >
                 {create.isPending ? <Spinner /> : null} Buat Penawaran
               </Button>
             </div>
@@ -768,7 +847,9 @@ function QuoteRow({ quote, isAdmin }: { quote: ApiQuotation; isAdmin: boolean })
         <span className="font-medium">{quote.contactName}</span>
         <span className="text-sm text-slate-400">{quote.quoteDate}</span>
         <Badge tone={QUOTE_TONE[quote.status]}>{QUOTE_LABEL[quote.status]}</Badge>
-        {quote.validUntil && quote.validUntil < today() && (quote.status === "draft" || quote.status === "sent") ? (
+        {quote.validUntil &&
+        quote.validUntil < today() &&
+        (quote.status === "draft" || quote.status === "sent") ? (
           <Badge tone="red">kedaluwarsa</Badge>
         ) : quote.validUntil ? (
           <span className="text-xs text-slate-400">berlaku s.d. {quote.validUntil}</span>
@@ -786,12 +867,17 @@ function QuoteRow({ quote, isAdmin }: { quote: ApiQuotation; isAdmin: boolean })
 
       <div className="mt-2 space-y-1">
         {quote.lines.map((l) => (
-          <div key={l.id} className="flex items-baseline justify-between gap-2 text-sm text-slate-600 dark:text-slate-300">
+          <div
+            key={l.id}
+            className="flex items-baseline justify-between gap-2 text-sm text-slate-600 dark:text-slate-300"
+          >
             <span className="min-w-0 flex-1 truncate">{l.productName}</span>
             <span className="shrink-0 text-xs tabular-nums text-slate-400">
               {l.qty} × {formatIDR(l.unitPrice)}
             </span>
-            <span className="w-24 shrink-0 text-right font-medium tabular-nums">{formatIDR(l.amount)}</span>
+            <span className="w-24 shrink-0 text-right font-medium tabular-nums">
+              {formatIDR(l.amount)}
+            </span>
           </div>
         ))}
       </div>
@@ -799,17 +885,32 @@ function QuoteRow({ quote, isAdmin }: { quote: ApiQuotation; isAdmin: boolean })
       {isAdmin && quote.status !== "converted" ? (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {quote.status === "draft" ? (
-            <Button variant="secondary" className="h-8" onClick={() => setStatus.mutate("sent")} disabled={setStatus.isPending}>
+            <Button
+              variant="secondary"
+              className="h-8"
+              onClick={() => setStatus.mutate("sent")}
+              disabled={setStatus.isPending}
+            >
               <Send className="size-4" aria-hidden /> Tandai Terkirim
             </Button>
           ) : null}
           {quote.status !== "accepted" && quote.status !== "rejected" ? (
-            <Button variant="secondary" className="h-8" onClick={() => setStatus.mutate("accepted")} disabled={setStatus.isPending}>
+            <Button
+              variant="secondary"
+              className="h-8"
+              onClick={() => setStatus.mutate("accepted")}
+              disabled={setStatus.isPending}
+            >
               <Check className="size-4" aria-hidden /> Diterima
             </Button>
           ) : null}
           {quote.status !== "rejected" ? (
-            <Button variant="ghost" className="h-8" onClick={() => setStatus.mutate("rejected")} disabled={setStatus.isPending}>
+            <Button
+              variant="ghost"
+              className="h-8"
+              onClick={() => setStatus.mutate("rejected")}
+              disabled={setStatus.isPending}
+            >
               <X className="size-4" aria-hidden /> Ditolak
             </Button>
           ) : null}
@@ -831,7 +932,11 @@ function QuoteRow({ quote, isAdmin }: { quote: ApiQuotation; isAdmin: boolean })
         <div className="mt-3 flex flex-wrap items-end gap-3 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/40">
           <div>
             <Label htmlFor={`cv-wh-${quote.id}`}>Gudang (stok keluar)</Label>
-            <Select id={`cv-wh-${quote.id}`} value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
+            <Select
+              id={`cv-wh-${quote.id}`}
+              value={warehouseId}
+              onChange={(e) => setWarehouseId(e.target.value)}
+            >
               {warehouses.map((w) => (
                 <option key={w.id} value={w.id}>
                   {w.name}
@@ -841,9 +946,17 @@ function QuoteRow({ quote, isAdmin }: { quote: ApiQuotation; isAdmin: boolean })
           </div>
           <div>
             <Label htmlFor={`cv-date-${quote.id}`}>Tanggal faktur</Label>
-            <Input id={`cv-date-${quote.id}`} type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} />
+            <Input
+              id={`cv-date-${quote.id}`}
+              type="date"
+              value={invoiceDate}
+              onChange={(e) => setInvoiceDate(e.target.value)}
+            />
           </div>
-          <Button onClick={() => convert.mutate()} disabled={convert.isPending || warehouses.length === 0}>
+          <Button
+            onClick={() => convert.mutate()}
+            disabled={convert.isPending || warehouses.length === 0}
+          >
             {convert.isPending ? <Spinner /> : null} Buat Faktur
           </Button>
         </div>

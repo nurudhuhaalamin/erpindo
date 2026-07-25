@@ -18,6 +18,7 @@ import {
   EmptyState,
   Input,
   Label,
+  PageHeading,
   SearchSelect,
   Select,
   Spinner,
@@ -41,8 +42,14 @@ export function ContractsPage() {
   const toast = useToast();
   const queryClient = useQueryClient();
 
-  const contractsQuery = useQuery({ queryKey: ["contracts", tenant.tenantId], queryFn: () => api.contracts(tenant.tenantId) });
-  const warehousesQuery = useQuery({ queryKey: ["warehouses", tenant.tenantId], queryFn: () => api.listItems<WarehouseRow>(tenant.tenantId, "warehouses") });
+  const contractsQuery = useQuery({
+    queryKey: ["contracts", tenant.tenantId],
+    queryFn: () => api.contracts(tenant.tenantId),
+  });
+  const warehousesQuery = useQuery({
+    queryKey: ["warehouses", tenant.tenantId],
+    queryFn: () => api.listItems<WarehouseRow>(tenant.tenantId, "warehouses"),
+  });
 
   const warehouses = (warehousesQuery.data?.items ?? []) as WarehouseRow[];
 
@@ -50,14 +57,29 @@ export function ContractsPage() {
   async function fetchProductOptions(q: string) {
     const res = await api.listItems<ProductRow>(tenant.tenantId, "products", { q, limit: 20 });
     for (const p of res.items) productCache.current.set(p.id, p);
-    return res.items.map((p) => ({ value: p.id, label: `${p.sku} · ${p.name}`, hint: formatIDR(p.sell_price || 0) }));
+    return res.items.map((p) => ({
+      value: p.id,
+      label: `${p.sku} · ${p.name}`,
+      hint: formatIDR(p.sell_price || 0),
+    }));
   }
   async function fetchCustomerOptions(q: string) {
     const res = await api.listItems<ContactRow>(tenant.tenantId, "contacts", { q, limit: 20 });
-    return res.items.filter((k) => ["customer", "both"].includes(k.type)).map((k) => ({ value: k.id, label: k.name }));
+    return res.items
+      .filter((k) => ["customer", "both"].includes(k.type))
+      .map((k) => ({ value: k.id, label: k.name }));
   }
 
-  const [form, setForm] = useState({ code: "", name: "", contactId: "", contactLabel: "", frequency: "monthly" as ContractFrequency, taxRate: 11 as 0 | 11 | 12, startDate: today(), endDate: "" });
+  const [form, setForm] = useState({
+    code: "",
+    name: "",
+    contactId: "",
+    contactLabel: "",
+    frequency: "monthly" as ContractFrequency,
+    taxRate: 11 as 0 | 11 | 12,
+    startDate: today(),
+    endDate: "",
+  });
   const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,11 +94,26 @@ export function ContractsPage() {
         warehouseId: warehouses[0]?.id || "",
         startDate: form.startDate,
         endDate: form.endDate || undefined,
-        lines: lines.filter((l) => l.productId).map((l) => ({ productId: l.productId, qty: Number(l.qty) || 0, unitPrice: Number(l.unitPrice) || 0 })),
+        lines: lines
+          .filter((l) => l.productId)
+          .map((l) => ({
+            productId: l.productId,
+            qty: Number(l.qty) || 0,
+            unitPrice: Number(l.unitPrice) || 0,
+          })),
       }),
     onSuccess: () => {
       toast("success", "Kontrak dibuat.");
-      setForm({ code: "", name: "", contactId: "", contactLabel: "", frequency: "monthly", taxRate: 11, startDate: today(), endDate: "" });
+      setForm({
+        code: "",
+        name: "",
+        contactId: "",
+        contactLabel: "",
+        frequency: "monthly",
+        taxRate: 11,
+        startDate: today(),
+        endDate: "",
+      });
       setLines([emptyLine()]);
       setError(null);
       queryClient.invalidateQueries({ queryKey: ["contracts", tenant.tenantId] });
@@ -87,7 +124,12 @@ export function ContractsPage() {
   const runBilling = useMutation({
     mutationFn: () => api.runBilling(tenant.tenantId),
     onSuccess: (res) => {
-      toast("success", res.issued > 0 ? `${res.issued} faktur diterbitkan (${formatIDR(res.total)}).` : "Tidak ada kontrak yang jatuh tempo hari ini.");
+      toast(
+        "success",
+        res.issued > 0
+          ? `${res.issued} faktur diterbitkan (${formatIDR(res.total)}).`
+          : "Tidak ada kontrak yang jatuh tempo hari ini."
+      );
       queryClient.invalidateQueries({ queryKey: ["contracts", tenant.tenantId] });
       queryClient.invalidateQueries({ queryKey: ["invoices", tenant.tenantId] });
     },
@@ -99,7 +141,11 @@ export function ContractsPage() {
   }
   function pickProduct(i: number, opt: { value: string; label: string }) {
     const p = productCache.current.get(opt.value);
-    setLine(i, { productId: opt.value, productLabel: opt.label, unitPrice: p ? String(p.sell_price || "") : "" });
+    setLine(i, {
+      productId: opt.value,
+      productLabel: opt.label,
+      unitPrice: p ? String(p.sell_price || "") : "",
+    });
   }
 
   const contracts = contractsQuery.data?.contracts ?? [];
@@ -108,31 +154,47 @@ export function ContractsPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Kontrak Berulang</h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Buat kontrak langganan — sistem menerbitkan faktur otomatis tiap periode. Bisa juga dipicu manual.
-          </p>
+          <PageHeading k="kontrakBerulang" />
         </div>
         {isAdmin ? (
-          <Button variant="secondary" className="h-9 shrink-0" onClick={() => runBilling.mutate()} disabled={runBilling.isPending}>
-            {runBilling.isPending ? <Spinner /> : <RefreshCw className="size-4" aria-hidden />} Terbitkan Jatuh Tempo
+          <Button
+            variant="secondary"
+            className="h-9 shrink-0"
+            onClick={() => runBilling.mutate()}
+            disabled={runBilling.isPending}
+          >
+            {runBilling.isPending ? <Spinner /> : <RefreshCw className="size-4" aria-hidden />}{" "}
+            Terbitkan Jatuh Tempo
           </Button>
         ) : null}
       </div>
 
       {isAdmin ? (
         <Card>
-          <CardHeader title="Kontrak baru" description="Faktur diterbitkan otomatis pada tanggal tagih; gunakan produk 'jasa' agar tak butuh stok." />
+          <CardHeader
+            title="Kontrak baru"
+            description="Faktur diterbitkan otomatis pada tanggal tagih; gunakan produk 'jasa' agar tak butuh stok."
+          />
           <CardBody className="space-y-4">
             {error ? <Alert tone="error">{error}</Alert> : null}
             <div className="grid gap-3 sm:grid-cols-4">
               <div>
                 <Label htmlFor="ct-code">Kode</Label>
-                <Input id="ct-code" placeholder="LGN-01" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+                <Input
+                  id="ct-code"
+                  placeholder="LGN-01"
+                  value={form.code}
+                  onChange={(e) => setForm({ ...form, code: e.target.value })}
+                />
               </div>
               <div className="sm:col-span-2">
                 <Label htmlFor="ct-name">Nama kontrak</Label>
-                <Input id="ct-name" placeholder="Langganan Maintenance Bulanan" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                <Input
+                  id="ct-name"
+                  placeholder="Langganan Maintenance Bulanan"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                />
               </div>
               <div>
                 <Label htmlFor="ct-contact">Pelanggan</Label>
@@ -142,12 +204,20 @@ export function ContractsPage() {
                   valueLabel={form.contactLabel}
                   placeholder="Cari pelanggan…"
                   fetchOptions={fetchCustomerOptions}
-                  onSelect={(opt) => setForm({ ...form, contactId: opt.value, contactLabel: opt.label })}
+                  onSelect={(opt) =>
+                    setForm({ ...form, contactId: opt.value, contactLabel: opt.label })
+                  }
                 />
               </div>
               <div>
                 <Label htmlFor="ct-freq">Frekuensi</Label>
-                <Select id="ct-freq" value={form.frequency} onChange={(e) => setForm({ ...form, frequency: e.target.value as ContractFrequency })}>
+                <Select
+                  id="ct-freq"
+                  value={form.frequency}
+                  onChange={(e) =>
+                    setForm({ ...form, frequency: e.target.value as ContractFrequency })
+                  }
+                >
                   {CONTRACT_FREQUENCIES.map((f) => (
                     <option key={f} value={f}>
                       {CONTRACT_FREQUENCY_LABELS[f]}
@@ -157,15 +227,31 @@ export function ContractsPage() {
               </div>
               <div>
                 <Label htmlFor="ct-start">Mulai tagih</Label>
-                <Input id="ct-start" type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
+                <Input
+                  id="ct-start"
+                  type="date"
+                  value={form.startDate}
+                  onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                />
               </div>
               <div>
                 <Label htmlFor="ct-end">Berakhir (opsional)</Label>
-                <Input id="ct-end" type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
+                <Input
+                  id="ct-end"
+                  type="date"
+                  value={form.endDate}
+                  onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                />
               </div>
               <div>
                 <Label htmlFor="ct-tax">PPN</Label>
-                <Select id="ct-tax" value={String(form.taxRate)} onChange={(e) => setForm({ ...form, taxRate: Number(e.target.value) as 0 | 11 | 12 })}>
+                <Select
+                  id="ct-tax"
+                  value={String(form.taxRate)}
+                  onChange={(e) =>
+                    setForm({ ...form, taxRate: Number(e.target.value) as 0 | 11 | 12 })
+                  }
+                >
                   <option value="0">Tanpa PPN</option>
                   <option value="11">PPN 11%</option>
                   <option value="12">PPN 12%</option>
@@ -175,7 +261,10 @@ export function ContractsPage() {
 
             <div className="space-y-2">
               {lines.map((line, i) => (
-                <div key={i} className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_6rem_10rem_10rem_2.5rem] sm:items-center">
+                <div
+                  key={i}
+                  className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_6rem_10rem_10rem_2.5rem] sm:items-center"
+                >
                   <SearchSelect
                     value={line.productId}
                     valueLabel={line.productLabel}
@@ -183,10 +272,32 @@ export function ContractsPage() {
                     fetchOptions={fetchProductOptions}
                     onSelect={(opt) => pickProduct(i, opt)}
                   />
-                  <Input aria-label={`Qty baris ${i + 1}`} type="number" min={1} value={line.qty} onChange={(e) => setLine(i, { qty: e.target.value })} />
-                  <Input aria-label={`Harga baris ${i + 1}`} type="number" min={0} placeholder="Harga satuan" value={line.unitPrice} onChange={(e) => setLine(i, { unitPrice: e.target.value })} />
-                  <div className="text-right text-sm tabular-nums">{formatIDR((Number(line.qty) || 0) * (Number(line.unitPrice) || 0))}</div>
-                  <Button type="button" variant="ghost" aria-label={`Hapus baris ${i + 1}`} onClick={() => setLines((ls) => (ls.length > 1 ? ls.filter((_, idx) => idx !== i) : ls))}>
+                  <Input
+                    aria-label={`Qty baris ${i + 1}`}
+                    type="number"
+                    min={1}
+                    value={line.qty}
+                    onChange={(e) => setLine(i, { qty: e.target.value })}
+                  />
+                  <Input
+                    aria-label={`Harga baris ${i + 1}`}
+                    type="number"
+                    min={0}
+                    placeholder="Harga satuan"
+                    value={line.unitPrice}
+                    onChange={(e) => setLine(i, { unitPrice: e.target.value })}
+                  />
+                  <div className="text-right text-sm tabular-nums">
+                    {formatIDR((Number(line.qty) || 0) * (Number(line.unitPrice) || 0))}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    aria-label={`Hapus baris ${i + 1}`}
+                    onClick={() =>
+                      setLines((ls) => (ls.length > 1 ? ls.filter((_, idx) => idx !== i) : ls))
+                    }
+                  >
                     ✕
                   </Button>
                 </div>
@@ -194,11 +305,24 @@ export function ContractsPage() {
             </div>
 
             <div className="flex items-center justify-between">
-              <Button type="button" variant="secondary" onClick={() => setLines((ls) => [...ls, emptyLine()])}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setLines((ls) => [...ls, emptyLine()])}
+              >
                 + Tambah baris
               </Button>
-              <Button onClick={() => create.mutate()} disabled={create.isPending || !form.contactId || form.code.trim().length < 1 || warehouses.length === 0}>
-                {create.isPending ? <Spinner /> : <Plus className="size-4" aria-hidden />} Buat Kontrak
+              <Button
+                onClick={() => create.mutate()}
+                disabled={
+                  create.isPending ||
+                  !form.contactId ||
+                  form.code.trim().length < 1 ||
+                  warehouses.length === 0
+                }
+              >
+                {create.isPending ? <Spinner /> : <Plus className="size-4" aria-hidden />} Buat
+                Kontrak
               </Button>
             </div>
           </CardBody>
@@ -211,7 +335,11 @@ export function ContractsPage() {
           {contractsQuery.isLoading ? (
             <Spinner />
           ) : contracts.length === 0 ? (
-            <EmptyState icon={<CalendarClock className="size-6" aria-hidden />} title="Belum ada kontrak" description="Buat kontrak langganan agar faktur terbit otomatis tiap periode." />
+            <EmptyState
+              icon={<CalendarClock className="size-6" aria-hidden />}
+              title="Belum ada kontrak"
+              description="Buat kontrak langganan agar faktur terbit otomatis tiap periode."
+            />
           ) : (
             <div className="space-y-3">
               {contracts.map((ct) => (
@@ -247,12 +375,14 @@ function ContractRow({ contract, isAdmin }: { contract: ApiContract; isAdmin: bo
         <Badge tone={STATUS_TONE[contract.status]}>{STATUS_LABEL[contract.status]}</Badge>
         <span className="text-xs text-slate-400">{contract.contactName}</span>
         <span className="ml-auto text-sm">
-          {CONTRACT_FREQUENCY_LABELS[contract.frequency]} · <strong className="tabular-nums">{formatIDR(contract.total)}</strong>/periode
+          {CONTRACT_FREQUENCY_LABELS[contract.frequency]} ·{" "}
+          <strong className="tabular-nums">{formatIDR(contract.total)}</strong>/periode
         </span>
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
         <span>
-          {contract.status === "ended" ? "Berakhir" : "Tagih berikutnya"}: {contract.nextInvoiceDate}
+          {contract.status === "ended" ? "Berakhir" : "Tagih berikutnya"}:{" "}
+          {contract.nextInvoiceDate}
         </span>
         <span>· {contract.invoiceCount} faktur terbit</span>
         {contract.endDate ? <span>· sampai {contract.endDate}</span> : null}

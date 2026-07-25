@@ -1,4 +1,5 @@
 import type { ApiBom, ApiProductionOrder, ApiRoutingStep } from "@erpindo/shared";
+import { useHeading } from "../i18n/pageHeadings";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Factory, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -25,15 +26,24 @@ type WarehouseRow = { id: string; name: string };
 type CompLine = { componentId: string; componentLabel: string; qty: string };
 
 const QC_TONE = { none: "neutral", pending: "amber", passed: "green", quarantined: "red" } as const;
-const QC_LABEL = { none: "—", pending: "menunggu QC", passed: "lulus QC", quarantined: "karantina" } as const;
+const QC_LABEL = {
+  none: "—",
+  pending: "menunggu QC",
+  passed: "lulus QC",
+  quarantined: "karantina",
+} as const;
 
 export function ManufacturingPage() {
+  const h = useHeading("manufaktur");
   const { tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
   const toast = useToast();
   const queryClient = useQueryClient();
 
-  const bomsQuery = useQuery({ queryKey: ["boms", tenant.tenantId], queryFn: () => api.boms(tenant.tenantId) });
+  const bomsQuery = useQuery({
+    queryKey: ["boms", tenant.tenantId],
+    queryFn: () => api.boms(tenant.tenantId),
+  });
   const ordersQuery = useQuery({
     queryKey: ["production-orders", tenant.tenantId],
     queryFn: () => api.productionOrders(tenant.tenantId),
@@ -64,7 +74,9 @@ export function ManufacturingPage() {
   const [bomProduct, setBomProduct] = useState("");
   const [bomProductLabel, setBomProductLabel] = useState("");
   const [outputQty, setOutputQty] = useState("1");
-  const [comps, setComps] = useState<CompLine[]>([{ componentId: "", componentLabel: "", qty: "1" }]);
+  const [comps, setComps] = useState<CompLine[]>([
+    { componentId: "", componentLabel: "", qty: "1" },
+  ]);
   const [bomError, setBomError] = useState<string | null>(null);
 
   const saveBom = useMutation({
@@ -123,9 +135,15 @@ export function ManufacturingPage() {
 
   const qc = useMutation({
     mutationFn: ({ id, result }: { id: string; result: "passed" | "quarantined" }) =>
-      api.qcInspect(tenant.tenantId, id, { result, warehouseId: result === "quarantined" ? qcWarehouse : undefined }),
+      api.qcInspect(tenant.tenantId, id, {
+        result,
+        warehouseId: result === "quarantined" ? qcWarehouse : undefined,
+      }),
     onSuccess: (res) => {
-      toast("success", res.result === "passed" ? "Hasil produksi diluluskan QC." : "Hasil produksi dikarantina.");
+      toast(
+        "success",
+        res.result === "passed" ? "Hasil produksi diluluskan QC." : "Hasil produksi dikarantina."
+      );
       invalidate();
     },
     onError: (err) => toast("error", (err as Error).message),
@@ -135,18 +153,18 @@ export function ManufacturingPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-2">
         <Factory className="size-6 text-brand-600" aria-hidden />
-        <h1 className="text-2xl font-semibold">Manufaktur &amp; QC</h1>
+        <h1 className="text-2xl font-semibold">{h.title}</h1>
       </div>
-      <p className="text-sm text-slate-500 dark:text-slate-400">
-        Susun resep produk (BoM), lalu jalankan perintah produksi: bahan dikonsumsi dari stok dan produk jadi masuk stok
-        dengan biaya gabungan. Inspeksi QC menentukan hasil siap jual atau dikarantina.
-      </p>
+      <p className="text-sm text-slate-500 dark:text-slate-400">{h.desc}</p>
 
       {isAdmin ? (
         <div className="grid gap-6 lg:grid-cols-2">
           {/* BoM */}
           <Card>
-            <CardHeader title="Resep produk (BoM)" description="Komponen & jumlah untuk menghasilkan produk jadi." />
+            <CardHeader
+              title="Resep produk (BoM)"
+              description="Komponen & jumlah untuk menghasilkan produk jadi."
+            />
             <CardBody className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -187,7 +205,11 @@ export function ManufacturingPage() {
                         fetchOptions={(q) => fetchGoodsOptions(q, bomProduct)}
                         onSelect={(opt) =>
                           setComps((cs) =>
-                            cs.map((c, j) => (j === i ? { ...c, componentId: opt.value, componentLabel: opt.label } : c)),
+                            cs.map((c, j) =>
+                              j === i
+                                ? { ...c, componentId: opt.value, componentLabel: opt.label }
+                                : c
+                            )
                           )
                         }
                       />
@@ -197,7 +219,11 @@ export function ManufacturingPage() {
                       min={1}
                       className="w-24"
                       value={line.qty}
-                      onChange={(e) => setComps((cs) => cs.map((c, j) => (j === i ? { ...c, qty: e.target.value } : c)))}
+                      onChange={(e) =>
+                        setComps((cs) =>
+                          cs.map((c, j) => (j === i ? { ...c, qty: e.target.value } : c))
+                        )
+                      }
                     />
                     {comps.length > 1 ? (
                       <button
@@ -213,7 +239,9 @@ export function ManufacturingPage() {
                 <Button
                   variant="secondary"
                   className="h-8"
-                  onClick={() => setComps((cs) => [...cs, { componentId: "", componentLabel: "", qty: "1" }])}
+                  onClick={() =>
+                    setComps((cs) => [...cs, { componentId: "", componentLabel: "", qty: "1" }])
+                  }
                 >
                   <Plus className="size-4" aria-hidden /> Tambah komponen
                 </Button>
@@ -231,11 +259,18 @@ export function ManufacturingPage() {
 
           {/* Perintah produksi */}
           <Card>
-            <CardHeader title="Perintah produksi" description="Jalankan produksi berdasarkan resep." />
+            <CardHeader
+              title="Perintah produksi"
+              description="Jalankan produksi berdasarkan resep."
+            />
             <CardBody className="space-y-4">
               <div>
                 <Label htmlFor="ord-product">Produk (harus punya resep)</Label>
-                <Select id="ord-product" value={ordProduct} onChange={(e) => setOrdProduct(e.target.value)}>
+                <Select
+                  id="ord-product"
+                  value={ordProduct}
+                  onChange={(e) => setOrdProduct(e.target.value)}
+                >
                   <option value="">— pilih —</option>
                   {boms.map((b) => (
                     <option key={b.productId} value={b.productId}>
@@ -247,7 +282,11 @@ export function ManufacturingPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="ord-wh">Gudang</Label>
-                  <Select id="ord-wh" value={ordWarehouse} onChange={(e) => setOrdWarehouse(e.target.value)}>
+                  <Select
+                    id="ord-wh"
+                    value={ordWarehouse}
+                    onChange={(e) => setOrdWarehouse(e.target.value)}
+                  >
                     <option value="">{warehouses[0]?.name ?? "— gudang —"}</option>
                     {warehouses.map((w) => (
                       <option key={w.id} value={w.id}>
@@ -258,11 +297,20 @@ export function ManufacturingPage() {
                 </div>
                 <div>
                   <Label htmlFor="ord-qty">Jumlah</Label>
-                  <Input id="ord-qty" type="number" min={1} value={ordQty} onChange={(e) => setOrdQty(e.target.value)} />
+                  <Input
+                    id="ord-qty"
+                    type="number"
+                    min={1}
+                    value={ordQty}
+                    onChange={(e) => setOrdQty(e.target.value)}
+                  />
                 </div>
               </div>
               {ordError ? <Alert tone="error">{ordError}</Alert> : null}
-              <Button onClick={() => createOrder.mutate()} disabled={createOrder.isPending || !ordProduct}>
+              <Button
+                onClick={() => createOrder.mutate()}
+                disabled={createOrder.isPending || !ordProduct}
+              >
                 {createOrder.isPending ? <Spinner /> : null} Buat Perintah
               </Button>
             </CardBody>
@@ -285,10 +333,15 @@ export function ManufacturingPage() {
           ) : (
             <div className="space-y-3">
               {boms.map((b: ApiBom) => (
-                <div key={b.id} className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+                <div
+                  key={b.id}
+                  className="rounded-lg border border-slate-200 p-3 dark:border-slate-800"
+                >
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{b.productName}</span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">hasil {b.outputQty} / resep</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                      hasil {b.outputQty} / resep
+                    </span>
                   </div>
                   <ul className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                     {b.lines.map((l) => (
@@ -312,7 +365,12 @@ export function ManufacturingPage() {
             <div className="flex flex-wrap items-end gap-2">
               <div>
                 <Label htmlFor="qc-wh">Gudang karantina (untuk QC gagal)</Label>
-                <Select id="qc-wh" className="w-56" value={qcWarehouse} onChange={(e) => setQcWarehouse(e.target.value)}>
+                <Select
+                  id="qc-wh"
+                  className="w-56"
+                  value={qcWarehouse}
+                  onChange={(e) => setQcWarehouse(e.target.value)}
+                >
                   <option value="">— pilih gudang —</option>
                   {warehouses.map((w) => (
                     <option key={w.id} value={w.id}>
@@ -348,7 +406,10 @@ export function ManufacturingPage() {
                 </thead>
                 <tbody>
                   {(ordersQuery.data?.orders ?? []).map((o: ApiProductionOrder) => (
-                    <tr key={o.id} className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
+                    <tr
+                      key={o.id}
+                      className="border-b border-slate-100 last:border-0 dark:border-slate-800/60"
+                    >
                       <td className="py-2.5 pr-4 font-mono text-xs">{o.orderNo}</td>
                       <td className="py-2.5 pr-4">
                         {o.productName}
@@ -366,7 +427,9 @@ export function ManufacturingPage() {
                       <td className="py-2.5 pr-4">
                         <Badge tone={QC_TONE[o.qcStatus]}>{QC_LABEL[o.qcStatus]}</Badge>
                         {o.qcWarehouseName ? (
-                          <span className="block text-xs text-slate-400">→ {o.qcWarehouseName}</span>
+                          <span className="block text-xs text-slate-400">
+                            → {o.qcWarehouseName}
+                          </span>
                         ) : null}
                       </td>
                       {isAdmin ? (
@@ -430,37 +493,96 @@ function WorkCentersCard() {
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
-  const query = useQuery({ queryKey: ["work-centers", tenant.tenantId], queryFn: () => api.workCenters(tenant.tenantId) });
+  const query = useQuery({
+    queryKey: ["work-centers", tenant.tenantId],
+    queryFn: () => api.workCenters(tenant.tenantId),
+  });
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [rate, setRate] = useState("");
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["work-centers", tenant.tenantId] });
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["work-centers", tenant.tenantId] });
   const create = useMutation({
-    mutationFn: () => api.createWorkCenter(tenant.tenantId, { code: code.trim(), name: name.trim(), hourlyRate: Number(rate) || 0 }),
-    onSuccess: () => { setCode(""); setName(""); setRate(""); invalidate(); toast("success", "Work center ditambahkan."); },
+    mutationFn: () =>
+      api.createWorkCenter(tenant.tenantId, {
+        code: code.trim(),
+        name: name.trim(),
+        hourlyRate: Number(rate) || 0,
+      }),
+    onSuccess: () => {
+      setCode("");
+      setName("");
+      setRate("");
+      invalidate();
+      toast("success", "Work center ditambahkan.");
+    },
     onError: (e: Error) => toast("error", e.message),
   });
   const items = query.data?.items ?? [];
   return (
     <Card>
-      <CardHeader title="Work center (pusat kerja)" description="Stasiun/tahap produksi dengan tarif per jam, dipakai untuk routing." />
+      <CardHeader
+        title="Work center (pusat kerja)"
+        description="Stasiun/tahap produksi dengan tarif per jam, dipakai untuk routing."
+      />
       <CardBody className="space-y-4">
-        <form className="grid gap-3 sm:grid-cols-[8rem_1fr_9rem_auto] sm:items-end" onSubmit={(e) => { e.preventDefault(); if (code.trim() && name.trim()) create.mutate(); }}>
-          <div><Label htmlFor="wc-code">Kode</Label><Input id="wc-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="WC-CUT" /></div>
-          <div><Label htmlFor="wc-name">Nama</Label><Input id="wc-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Pemotongan" /></div>
-          <div><Label htmlFor="wc-rate">Tarif/jam (Rp)</Label><Input id="wc-rate" type="number" min={0} value={rate} onChange={(e) => setRate(e.target.value)} placeholder="50000" /></div>
-          <Button type="submit" disabled={create.isPending || !code.trim() || !name.trim()}>{create.isPending ? <Spinner /> : null} Tambah</Button>
+        <form
+          className="grid gap-3 sm:grid-cols-[8rem_1fr_9rem_auto] sm:items-end"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (code.trim() && name.trim()) create.mutate();
+          }}
+        >
+          <div>
+            <Label htmlFor="wc-code">Kode</Label>
+            <Input
+              id="wc-code"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="WC-CUT"
+            />
+          </div>
+          <div>
+            <Label htmlFor="wc-name">Nama</Label>
+            <Input
+              id="wc-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Pemotongan"
+            />
+          </div>
+          <div>
+            <Label htmlFor="wc-rate">Tarif/jam (Rp)</Label>
+            <Input
+              id="wc-rate"
+              type="number"
+              min={0}
+              value={rate}
+              onChange={(e) => setRate(e.target.value)}
+              placeholder="50000"
+            />
+          </div>
+          <Button type="submit" disabled={create.isPending || !code.trim() || !name.trim()}>
+            {create.isPending ? <Spinner /> : null} Tambah
+          </Button>
         </form>
         {items.length > 0 ? (
           <ul className="grid gap-2 sm:grid-cols-2">
             {items.map((w) => (
-              <li key={w.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
-                <span><span className="font-mono text-xs text-slate-400">{w.code}</span> {w.name}</span>
+              <li
+                key={w.id}
+                className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-800"
+              >
+                <span>
+                  <span className="font-mono text-xs text-slate-400">{w.code}</span> {w.name}
+                </span>
                 <span className="tabular-nums text-slate-500">{formatIDR(w.hourlyRate)}/jam</span>
               </li>
             ))}
           </ul>
-        ) : <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada work center.</p>}
+        ) : (
+          <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada work center.</p>
+        )}
       </CardBody>
     </Card>
   );
@@ -472,21 +594,43 @@ function RoutingCard({ orders, isAdmin }: { orders: ApiProductionOrder[]; isAdmi
   const toast = useToast();
   const queryClient = useQueryClient();
   const [prodId, setProdId] = useState("");
-  const wcQuery = useQuery({ queryKey: ["work-centers", tenant.tenantId], queryFn: () => api.workCenters(tenant.tenantId) });
-  const routingQuery = useQuery({ queryKey: ["routing", tenant.tenantId, prodId], queryFn: () => api.productionRouting(tenant.tenantId, prodId), enabled: Boolean(prodId) });
+  const wcQuery = useQuery({
+    queryKey: ["work-centers", tenant.tenantId],
+    queryFn: () => api.workCenters(tenant.tenantId),
+  });
+  const routingQuery = useQuery({
+    queryKey: ["routing", tenant.tenantId, prodId],
+    queryFn: () => api.productionRouting(tenant.tenantId, prodId),
+    enabled: Boolean(prodId),
+  });
   const [wcId, setWcId] = useState("");
   const [stepName, setStepName] = useState("");
   const [stdCost, setStdCost] = useState("");
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["routing", tenant.tenantId, prodId] });
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["routing", tenant.tenantId, prodId] });
 
   const addStep = useMutation({
-    mutationFn: () => api.addRoutingStep(tenant.tenantId, prodId, { workCenterId: wcId, name: stepName.trim(), standardCost: Number(stdCost) || 0 }),
-    onSuccess: () => { setStepName(""); setStdCost(""); invalidate(); toast("success", "Tahap routing ditambahkan."); },
+    mutationFn: () =>
+      api.addRoutingStep(tenant.tenantId, prodId, {
+        workCenterId: wcId,
+        name: stepName.trim(),
+        standardCost: Number(stdCost) || 0,
+      }),
+    onSuccess: () => {
+      setStepName("");
+      setStdCost("");
+      invalidate();
+      toast("success", "Tahap routing ditambahkan.");
+    },
     onError: (e: Error) => toast("error", e.message),
   });
   const complete = useMutation({
-    mutationFn: (v: { stepId: string; actual: number }) => api.completeRoutingStep(tenant.tenantId, prodId, v.stepId, { actualCost: v.actual }),
-    onSuccess: () => { invalidate(); toast("success", "Biaya aktual dicatat."); },
+    mutationFn: (v: { stepId: string; actual: number }) =>
+      api.completeRoutingStep(tenant.tenantId, prodId, v.stepId, { actualCost: v.actual }),
+    onSuccess: () => {
+      invalidate();
+      toast("success", "Biaya aktual dicatat.");
+    },
     onError: (e: Error) => toast("error", e.message),
   });
 
@@ -494,33 +638,77 @@ function RoutingCard({ orders, isAdmin }: { orders: ApiProductionOrder[]; isAdmi
   const wcs = wcQuery.data?.items ?? [];
   return (
     <Card>
-      <CardHeader title="Routing produksi (biaya standar vs aktual)" description="Tahapan proses per perintah produksi di tiap work center — bandingkan biaya standar dengan aktual (WIP)." />
+      <CardHeader
+        title="Routing produksi (biaya standar vs aktual)"
+        description="Tahapan proses per perintah produksi di tiap work center — bandingkan biaya standar dengan aktual (WIP)."
+      />
       <CardBody className="space-y-4">
         <div>
           <Label htmlFor="rt-prod">Perintah produksi</Label>
-          <Select id="rt-prod" className="max-w-md" value={prodId} onChange={(e) => setProdId(e.target.value)}>
+          <Select
+            id="rt-prod"
+            className="max-w-md"
+            value={prodId}
+            onChange={(e) => setProdId(e.target.value)}
+          >
             <option value="">— pilih perintah produksi —</option>
-            {orders.map((o) => (<option key={o.id} value={o.id}>{o.orderNo} · {o.productName} ({o.qty})</option>))}
+            {orders.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.orderNo} · {o.productName} ({o.qty})
+              </option>
+            ))}
           </Select>
         </div>
         {prodId ? (
           <>
             {isAdmin ? (
-              <form className="grid gap-2 sm:grid-cols-[1fr_1fr_9rem_auto] sm:items-end" onSubmit={(e) => { e.preventDefault(); if (wcId && stepName.trim()) addStep.mutate(); }}>
+              <form
+                className="grid gap-2 sm:grid-cols-[1fr_1fr_9rem_auto] sm:items-end"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (wcId && stepName.trim()) addStep.mutate();
+                }}
+              >
                 <div>
                   <Label htmlFor="rt-wc">Work center</Label>
                   <Select id="rt-wc" value={wcId} onChange={(e) => setWcId(e.target.value)}>
                     <option value="">— pilih —</option>
-                    {wcs.map((w) => (<option key={w.id} value={w.id}>{w.code} · {w.name}</option>))}
+                    {wcs.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.code} · {w.name}
+                      </option>
+                    ))}
                   </Select>
                 </div>
-                <div><Label htmlFor="rt-name">Nama tahap</Label><Input id="rt-name" value={stepName} onChange={(e) => setStepName(e.target.value)} placeholder="Potong bahan" /></div>
-                <div><Label htmlFor="rt-std">Biaya standar</Label><Input id="rt-std" type="number" min={0} value={stdCost} onChange={(e) => setStdCost(e.target.value)} placeholder="100000" /></div>
-                <Button type="submit" disabled={addStep.isPending || !wcId || !stepName.trim()}>Tambah tahap</Button>
+                <div>
+                  <Label htmlFor="rt-name">Nama tahap</Label>
+                  <Input
+                    id="rt-name"
+                    value={stepName}
+                    onChange={(e) => setStepName(e.target.value)}
+                    placeholder="Potong bahan"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="rt-std">Biaya standar</Label>
+                  <Input
+                    id="rt-std"
+                    type="number"
+                    min={0}
+                    value={stdCost}
+                    onChange={(e) => setStdCost(e.target.value)}
+                    placeholder="100000"
+                  />
+                </div>
+                <Button type="submit" disabled={addStep.isPending || !wcId || !stepName.trim()}>
+                  Tambah tahap
+                </Button>
               </form>
             ) : null}
             {steps.length === 0 ? (
-              <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada tahapan routing.</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Belum ada tahapan routing.
+              </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[640px] text-sm">
@@ -537,14 +725,30 @@ function RoutingCard({ orders, isAdmin }: { orders: ApiProductionOrder[]; isAdmi
                   </thead>
                   <tbody>
                     {steps.map((s) => (
-                      <RoutingRow key={s.id} step={s} isAdmin={isAdmin} onComplete={(actual) => complete.mutate({ stepId: s.id, actual })} busy={complete.isPending} />
+                      <RoutingRow
+                        key={s.id}
+                        step={s}
+                        isAdmin={isAdmin}
+                        onComplete={(actual) => complete.mutate({ stepId: s.id, actual })}
+                        busy={complete.isPending}
+                      />
                     ))}
                     <tr className="font-semibold">
-                      <td className="py-2 pr-4" colSpan={3}>Total (varian = aktual − standar)</td>
-                      <td className="py-2 pr-4 text-right tabular-nums">{formatIDR(routingQuery.data?.totalStandard ?? 0)}</td>
-                      <td className="py-2 pr-4 text-right tabular-nums">{formatIDR(routingQuery.data?.totalActual ?? 0)}</td>
-                      <td className={`py-2 pr-4 tabular-nums ${(routingQuery.data?.variance ?? 0) > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`} colSpan={isAdmin ? 2 : 1}>
-                        {(routingQuery.data?.variance ?? 0) >= 0 ? "+" : ""}{formatIDR(routingQuery.data?.variance ?? 0)}
+                      <td className="py-2 pr-4" colSpan={3}>
+                        Total (varian = aktual − standar)
+                      </td>
+                      <td className="py-2 pr-4 text-right tabular-nums">
+                        {formatIDR(routingQuery.data?.totalStandard ?? 0)}
+                      </td>
+                      <td className="py-2 pr-4 text-right tabular-nums">
+                        {formatIDR(routingQuery.data?.totalActual ?? 0)}
+                      </td>
+                      <td
+                        className={`py-2 pr-4 tabular-nums ${(routingQuery.data?.variance ?? 0) > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}
+                        colSpan={isAdmin ? 2 : 1}
+                      >
+                        {(routingQuery.data?.variance ?? 0) >= 0 ? "+" : ""}
+                        {formatIDR(routingQuery.data?.variance ?? 0)}
                       </td>
                     </tr>
                   </tbody>
@@ -558,7 +762,17 @@ function RoutingCard({ orders, isAdmin }: { orders: ApiProductionOrder[]; isAdmi
   );
 }
 
-function RoutingRow({ step, isAdmin, onComplete, busy }: { step: ApiRoutingStep; isAdmin: boolean; onComplete: (actual: number) => void; busy: boolean }) {
+function RoutingRow({
+  step,
+  isAdmin,
+  onComplete,
+  busy,
+}: {
+  step: ApiRoutingStep;
+  isAdmin: boolean;
+  onComplete: (actual: number) => void;
+  busy: boolean;
+}) {
   const [actual, setActual] = useState("");
   return (
     <tr className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
@@ -566,14 +780,35 @@ function RoutingRow({ step, isAdmin, onComplete, busy }: { step: ApiRoutingStep;
       <td className="py-2 pr-4">{step.name}</td>
       <td className="py-2 pr-4 text-slate-500">{step.workCenterName}</td>
       <td className="py-2 pr-4 text-right tabular-nums">{formatIDR(step.standardCost)}</td>
-      <td className="py-2 pr-4 text-right tabular-nums">{step.actualCost !== null && step.actualCost !== undefined ? formatIDR(step.actualCost) : "—"}</td>
-      <td className="py-2 pr-4"><Badge tone={step.status === "done" ? "green" : "amber"}>{step.status === "done" ? "selesai" : "WIP"}</Badge></td>
+      <td className="py-2 pr-4 text-right tabular-nums">
+        {step.actualCost !== null && step.actualCost !== undefined
+          ? formatIDR(step.actualCost)
+          : "—"}
+      </td>
+      <td className="py-2 pr-4">
+        <Badge tone={step.status === "done" ? "green" : "amber"}>
+          {step.status === "done" ? "selesai" : "WIP"}
+        </Badge>
+      </td>
       {isAdmin ? (
         <td className="py-2">
           {step.status === "pending" ? (
             <span className="flex items-center gap-1">
-              <Input type="number" min={0} value={actual} onChange={(e) => setActual(e.target.value)} placeholder="aktual" className="h-8 w-24" />
-              <Button className="h-8" onClick={() => onComplete(Number(actual) || 0)} disabled={busy || !actual}>Selesai</Button>
+              <Input
+                type="number"
+                min={0}
+                value={actual}
+                onChange={(e) => setActual(e.target.value)}
+                placeholder="aktual"
+                className="h-8 w-24"
+              />
+              <Button
+                className="h-8"
+                onClick={() => onComplete(Number(actual) || 0)}
+                disabled={busy || !actual}
+              >
+                Selesai
+              </Button>
             </span>
           ) : null}
         </td>
