@@ -183,6 +183,34 @@ const UI: Record<string, Dual> = {
     id: "Akun template standar Indonesia sudah tersedia otomatis.",
     en: "The Indonesian standard chart of accounts is provided automatically.",
   },
+  descJurnalManual: {
+    id: "Total debit harus sama dengan total kredit. Jurnal terposting tidak dapat diubah — koreksi lewat jurnal pembalik.",
+    en: "Total debits must equal total credits. Posted entries cannot be changed — correct them with a reversing entry.",
+  },
+  descTemplateJurnal: {
+    id: "Jurnal rutin siap pakai — terbitkan sekali klik, atau otomatis tiap bulan bila berjadwal.",
+    en: "Ready-made recurring entries — issue in one click, or automatically each month when scheduled.",
+  },
+  descMulaiCepat: {
+    id: "Belum punya produk? Pilih jenis usaha untuk mengisi contoh produk & kontak — semua bisa diubah/hapus kapan saja.",
+    en: "No products yet? Pick a business type to load sample products & contacts — all editable or removable at any time.",
+  },
+  descPembayaranPos: {
+    id: "Pembayaran POS menyatu dengan struknya — gunakan Retur/Refund di Kasir.",
+    en: "POS payments are tied to their receipt — use Return/Refund in the Cashier.",
+  },
+  descOpname: {
+    id: "Samakan stok sistem dengan hasil hitung fisik — selisih nilainya otomatis dijurnal ke Beban Operasional Lain.",
+    en: "Match system stock to your physical count — the value difference is journaled automatically to Other Operating Expense.",
+  },
+  descUsulanBeli: {
+    id: "Produk dengan total stok di bawah/di ambang minimum. Buat permintaan pembelian sekali klik.",
+    en: "Products at or below their minimum stock. Create a purchase request in one click.",
+  },
+  descBelumAdaStok: {
+    id: "Catat faktur pembelian untuk mengisi stok — level per gudang akan tampil di sini.",
+    en: "Record a purchase invoice to fill stock — levels per warehouse will appear here.",
+  },
 };
 
 export type UiKey = keyof typeof UI;

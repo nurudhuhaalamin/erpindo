@@ -422,7 +422,7 @@ export function JournalPage() {
         <Card>
           <CardHeader
             title={u("jurnalManualBaru")}
-            description="Total debit harus sama dengan total kredit. Jurnal terposting tidak dapat diubah — koreksi lewat jurnal pembalik."
+            description={u("descJurnalManual")}
           />
           <CardBody className="space-y-4">
             {error ? <Alert tone="error">{error}</Alert> : null}
@@ -1038,7 +1038,7 @@ function TemplatesCard({
     <Card>
       <CardHeader
         title={u("templateJurnal")}
-        description="Jurnal rutin siap pakai — terbitkan sekali klik, atau otomatis tiap bulan bila berjadwal."
+        description={u("descTemplateJurnal")}
       />
       <CardBody className="space-y-3">
         {templates.map((t) => (

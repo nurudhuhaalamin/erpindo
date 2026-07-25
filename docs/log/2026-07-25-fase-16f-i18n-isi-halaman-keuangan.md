@@ -37,3 +37,35 @@ halaman: biaya per halaman menurun, dan konsistensi terjaga otomatis.
   "Piutang Karyawan", "Setoran modal awal", "mis. Sewa ruko bulanan") — itu
   contoh nilai, bukan label antarmuka.
 - **Cakupan kumulatif: ±14 layar** tuntas isinya.
+
+## Koreksi jujur: klaim "tuntas" fase sebelumnya terlalu percaya diri
+
+Cek `F0h` gagal dengan `posted=true newEntry=true tanpaID=false` — kali ini
+**bukan** asersi yang salah (seperti 16c/16e), melainkan **string yang benar-benar
+terlewat**: `description="Total debit harus sama dengan total kredit. Jurnal
+terposting tidak dapat diubah…"`.
+
+**Akar masalahnya ada di alat survei saya, bukan di halamannya.** Regex yang
+saya pakai untuk mendaftar string membatasi panjang atribut ke **≤60 karakter**,
+sehingga setiap kalimat panjang (justru yang paling terlihat pengguna) **tidak
+pernah muncul di daftar** — dan saya menyatakan halaman "tuntas" berdasarkan
+daftar yang bolong itu.
+
+Setelah batas dihapus, sapuan ulang atas **seluruh halaman yang sudah dikerjakan**
+menemukan **5 kalimat panjang tertinggal** di fase-fase sebelumnya:
+
+| Berkas | Fase | Teks tertinggal |
+|---|---|---|
+| `masterdata.tsx` | 16b | "Belum punya produk? Pilih jenis usaha…" |
+| `commerce.tsx` | 16c | "Pembayaran POS menyatu dengan struknya…" |
+| `stok.tsx` | 16d | "Samakan stok sistem dengan hasil hitung fisik…" |
+| `stok.tsx` | 16d | "Produk dengan total stok di bawah/di ambang minimum…" |
+| `stok.tsx` | 16d | "Catat faktur pembelian untuk mengisi stok…" |
+
+Semuanya diperbaiki di fase ini (7 entri kamus tambahan), dan sapuan tanpa batas
+panjang kini menjadi langkah wajib sebelum menyatakan sebuah halaman selesai.
+
+**Pelajaran:** alat verifikasi yang diam-diam menyaring sebagian data lebih
+berbahaya daripada tidak punya alat sama sekali — karena menghasilkan rasa
+selesai yang keliru. Klaim "tuntas" di log 16b–16d sebaiknya dibaca sebagai
+"tuntas untuk label & tombol", dan baru benar-benar tuntas setelah koreksi ini.
