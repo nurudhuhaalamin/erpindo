@@ -6,6 +6,7 @@ import {
   type ApiJournalTemplate,
 } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useUi } from "../i18n/ui";
 import { Search } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, downloadXlsx, formatDate, formatIDR } from "../api/client";
@@ -40,6 +41,7 @@ const td = "border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60";
 // ---------------------------------------------------------------------------
 
 export function AccountsPage() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
   const toast = useToast();
@@ -102,8 +104,8 @@ export function AccountsPage() {
       {isAdmin ? (
         <Card>
           <CardHeader
-            title="Tambah akun"
-            description="Akun template standar Indonesia sudah tersedia otomatis."
+            title={u("tambahAkun")}
+            description={u("akunTemplateOtomatis")}
           />
           <CardBody>
             <form
@@ -112,17 +114,17 @@ export function AccountsPage() {
               noValidate
             >
               <div className="sm:w-36">
-                <Label htmlFor="acc-code">Kode</Label>
+                <Label htmlFor="acc-code">{u("kode")}</Label>
                 <Input id="acc-code" name="code" placeholder="1-1600" required />
                 <FieldError messages={issues.code} />
               </div>
               <div className="flex-1">
-                <Label htmlFor="acc-name">Nama akun</Label>
+                <Label htmlFor="acc-name">{u("namaAkun")}</Label>
                 <Input id="acc-name" name="name" placeholder="Piutang Karyawan" required />
                 <FieldError messages={issues.name} />
               </div>
               <div className="sm:w-44">
-                <Label htmlFor="acc-type">Tipe</Label>
+                <Label htmlFor="acc-type">{u("tipe")}</Label>
                 <Select id="acc-type" name="type" defaultValue="asset">
                   {ACCOUNT_TYPES.map((t) => (
                     <option key={t} value={t}>
@@ -148,9 +150,9 @@ export function AccountsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-800">
-                    <th className={th}>Kode</th>
-                    <th className={th}>Nama</th>
-                    <th className={th}>Tipe</th>
+                    <th className={th}>{u("kode")}</th>
+                    <th className={th}>{u("nama")}</th>
+                    <th className={th}>{u("tipe")}</th>
                     <th className={th}></th>
                   </tr>
                 </thead>
@@ -186,7 +188,7 @@ export function AccountsPage() {
                                 className="h-8"
                                 onClick={() => setRenamingId(null)}
                               >
-                                Batal
+                                {u("batal")}
                               </Button>
                             </div>
                           ) : (
@@ -208,7 +210,7 @@ export function AccountsPage() {
                                   setRenameValue(a.name);
                                 }}
                               >
-                                Ubah nama
+                                {u("ubahNama")}
                               </Button>
                             ) : null}
                           </span>
@@ -245,6 +247,7 @@ const emptyLine = (): DraftLine => ({
 });
 
 export function JournalPage() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
   const toast = useToast();
@@ -418,14 +421,14 @@ export function JournalPage() {
       {isAdmin ? (
         <Card>
           <CardHeader
-            title="Jurnal manual baru"
+            title={u("jurnalManualBaru")}
             description="Total debit harus sama dengan total kredit. Jurnal terposting tidak dapat diubah — koreksi lewat jurnal pembalik."
           />
           <CardBody className="space-y-4">
             {error ? <Alert tone="error">{error}</Alert> : null}
             <div className="flex flex-col gap-3 sm:flex-row">
               <div className="sm:w-44">
-                <Label htmlFor="jr-date">Tanggal</Label>
+                <Label htmlFor="jr-date">{u("tanggal")}</Label>
                 <Input
                   id="jr-date"
                   type="date"
@@ -434,7 +437,7 @@ export function JournalPage() {
                 />
               </div>
               <div className="flex-1">
-                <Label htmlFor="jr-memo">Keterangan</Label>
+                <Label htmlFor="jr-memo">{u("keterangan")}</Label>
                 <Input
                   id="jr-memo"
                   value={memo}
@@ -444,7 +447,7 @@ export function JournalPage() {
               </div>
               {activeProjects.length > 0 ? (
                 <div className="sm:w-52">
-                  <Label htmlFor="jr-project">Proyek (opsional)</Label>
+                  <Label htmlFor="jr-project">{u("proyekOpsional")}</Label>
                   <Select
                     id="jr-project"
                     value={projectId}
@@ -481,7 +484,7 @@ export function JournalPage() {
                   </Select>
                   <Input
                     aria-label={`Deskripsi baris ${i + 1}`}
-                    placeholder="Deskripsi (opsional)"
+                    placeholder={u("deskripsiOpsional")}
                     value={line.description}
                     onChange={(e) => setLine(i, { description: e.target.value })}
                   />
@@ -503,7 +506,7 @@ export function JournalPage() {
                     aria-label={`Debit baris ${i + 1}`}
                     type="number"
                     min={0}
-                    placeholder="Debit"
+                    placeholder={u("debit")}
                     value={line.debit}
                     onChange={(e) =>
                       setLine(i, {
@@ -516,7 +519,7 @@ export function JournalPage() {
                     aria-label={`Kredit baris ${i + 1}`}
                     type="number"
                     min={0}
-                    placeholder="Kredit"
+                    placeholder={u("kredit")}
                     value={line.credit}
                     onChange={(e) =>
                       setLine(i, {
@@ -548,7 +551,7 @@ export function JournalPage() {
                 + Tambah baris
               </Button>
               <div className="text-sm">
-                Debit <strong className="tabular-nums">{formatIDR(totalDebit)}</strong> · Kredit{" "}
+                {u("debit")} <strong className="tabular-nums">{formatIDR(totalDebit)}</strong> · Kredit{" "}
                 <strong className="tabular-nums">{formatIDR(totalCredit)}</strong>{" "}
                 {balanced ? (
                   <Badge tone="brand">seimbang</Badge>
@@ -563,7 +566,7 @@ export function JournalPage() {
                   disabled={!balanced}
                   onClick={() => setTemplateOpen((o) => !o)}
                 >
-                  Simpan sebagai template
+                  {u("simpanSebagaiTemplate")}
                 </Button>
                 <Button onClick={submit} disabled={!balanced || create.isPending}>
                   {create.isPending ? <Spinner /> : null} Posting Jurnal
@@ -574,7 +577,7 @@ export function JournalPage() {
             {templateOpen && balanced ? (
               <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/40">
                 <div className="min-w-48 flex-1">
-                  <Label htmlFor="tpl-name">Nama template</Label>
+                  <Label htmlFor="tpl-name">{u("namaTemplate")}</Label>
                   <Input
                     id="tpl-name"
                     placeholder="mis. Sewa ruko bulanan"
@@ -589,11 +592,11 @@ export function JournalPage() {
                     onChange={(e) => setTemplateMonthly(e.target.checked)}
                     className="size-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
                   />
-                  Terbit otomatis tiap bulan
+                  {u("terbitOtomatisBulanan")}
                 </label>
                 {templateMonthly ? (
                   <div>
-                    <Label htmlFor="tpl-first">Terbit pertama</Label>
+                    <Label htmlFor="tpl-first">{u("terbitPertama")}</Label>
                     <Input
                       id="tpl-first"
                       type="date"
@@ -607,7 +610,7 @@ export function JournalPage() {
                   disabled={templateName.trim().length < 2 || saveTemplate.isPending}
                   onClick={() => saveTemplate.mutate()}
                 >
-                  Simpan
+                  {u("simpan")}
                 </Button>
               </div>
             ) : null}
@@ -636,7 +639,7 @@ export function JournalPage() {
       ) : null}
 
       <Card>
-        <CardHeader title="Jurnal terposting" />
+        <CardHeader title={u("jurnalTerposting")} />
         <CardBody className="space-y-3">
           <div className="relative sm:max-w-xs">
             <Search
@@ -644,9 +647,9 @@ export function JournalPage() {
               aria-hidden
             />
             <Input
-              aria-label="Cari jurnal"
+              aria-label={u("cariJurnal")}
               className="pl-9"
-              placeholder="Cari no. jurnal / keterangan…"
+              placeholder={u("cariNoJurnal")}
               value={entrySearch}
               onChange={(e) => {
                 setEntrySearch(e.target.value);
@@ -689,7 +692,7 @@ export function JournalPage() {
                         className="ml-auto text-xs font-medium text-red-600 underline-offset-2 hover:underline dark:text-red-400"
                         onClick={() => setReverseTarget({ id: e.id, entryNo: e.entryNo })}
                       >
-                        Balik
+                        {u("balik")}
                       </button>
                     ) : null}
                   </div>
@@ -723,7 +726,7 @@ export function JournalPage() {
                     className="h-8"
                     onClick={() => setEntryLimit((l) => Math.min(l + 100, 500))}
                   >
-                    Muat lebih banyak
+                    {u("muatLebihBanyak")}
                   </Button>
                 </div>
               ) : null}
@@ -787,6 +790,7 @@ type LedgerEntryRow = {
 };
 
 export function LedgerPage() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const [accountId, setAccountId] = useState("");
   // Halaman lebih lama yang sudah dimuat via kursor (Fase 9a) — di-reset saat
@@ -833,7 +837,7 @@ export function LedgerPage() {
       <Card>
         <CardBody className="space-y-4">
           <div className="sm:w-96">
-            <Label htmlFor="lg-acc">Pilih akun</Label>
+            <Label htmlFor="lg-acc">{u("pilihAkun")}</Label>
             <Select id="lg-acc" value={accountId} onChange={(e) => pickAccount(e.target.value)}>
               <option value="">— pilih akun —</option>
               {(accountsQuery.data?.accounts ?? []).map((a) => (
@@ -861,12 +865,12 @@ export function LedgerPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 dark:border-slate-800">
-                      <th className={th}>No. Jurnal</th>
-                      <th className={th}>Tanggal</th>
-                      <th className={th}>Keterangan</th>
-                      <th className={`${th} text-right`}>Debit</th>
-                      <th className={`${th} text-right`}>Kredit</th>
-                      <th className={`${th} text-right`}>Saldo</th>
+                      <th className={th}>{u("noJurnal")}</th>
+                      <th className={th}>{u("tanggal")}</th>
+                      <th className={th}>{u("keterangan")}</th>
+                      <th className={`${th} text-right`}>{u("debit")}</th>
+                      <th className={`${th} text-right`}>{u("kredit")}</th>
+                      <th className={`${th} text-right`}>{u("saldo")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -906,6 +910,7 @@ export function LedgerPage() {
 // ---------------------------------------------------------------------------
 
 export function TrialBalancePage() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const query = useQuery({
     queryKey: ["trial-balance", tenant.tenantId],
@@ -920,7 +925,7 @@ export function TrialBalancePage() {
           query.data.balanced ? (
             <Badge tone="brand">seimbang ✓</Badge>
           ) : (
-            <Badge tone="amber">TIDAK seimbang</Badge>
+            <Badge tone="amber">{u("tidakSeimbang")}</Badge>
           )
         ) : null}
         {(query.data?.rows.length ?? 0) > 0 ? (
@@ -942,7 +947,7 @@ export function TrialBalancePage() {
               ])
             }
           >
-            Ekspor Excel
+            {u("eksporExcel")}
           </Button>
         ) : null}
       </div>
@@ -951,16 +956,16 @@ export function TrialBalancePage() {
           {query.isLoading ? (
             <Spinner />
           ) : (query.data?.rows.length ?? 0) === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada transaksi.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{u("belumAdaTransaksi")}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-800">
-                    <th className={th}>Kode</th>
-                    <th className={th}>Akun</th>
-                    <th className={`${th} text-right`}>Debit</th>
-                    <th className={`${th} text-right`}>Kredit</th>
+                    <th className={th}>{u("kode")}</th>
+                    <th className={th}>{u("akun")}</th>
+                    <th className={`${th} text-right`}>{u("debit")}</th>
+                    <th className={`${th} text-right`}>{u("kredit")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -978,7 +983,7 @@ export function TrialBalancePage() {
                   ))}
                   <tr className="font-semibold">
                     <td className="py-2.5 pr-4" colSpan={2}>
-                      Total
+                      {u("total")}
                     </td>
                     <td className="py-2.5 pr-4 text-right tabular-nums">
                       {formatIDR(query.data!.totalDebit)}
@@ -1005,6 +1010,7 @@ function TemplatesCard({
   tenantId: string;
   onLoad: (t: ApiJournalTemplate) => void;
 }) {
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const query = useQuery({
@@ -1031,7 +1037,7 @@ function TemplatesCard({
   return (
     <Card>
       <CardHeader
-        title="Template jurnal"
+        title={u("templateJurnal")}
         description="Jurnal rutin siap pakai — terbitkan sekali klik, atau otomatis tiap bulan bila berjadwal."
       />
       <CardBody className="space-y-3">
@@ -1055,17 +1061,17 @@ function TemplatesCard({
                   onClick={() => postNow.mutate(t.id)}
                   disabled={postNow.isPending}
                 >
-                  Terbitkan sekarang
+                  {u("terbitkanSekarang")}
                 </Button>
                 <Button variant="ghost" className="h-8" onClick={() => onLoad(t)}>
-                  Muat ke form
+                  {u("muatKeForm")}
                 </Button>
                 <Button
                   variant="ghost"
                   className="h-8 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
                   onClick={() => remove.mutate(t.id)}
                 >
-                  Hapus
+                  {u("hapus")}
                 </Button>
               </div>
             </div>
