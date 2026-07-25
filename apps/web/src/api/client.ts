@@ -414,6 +414,11 @@ export const api = {
     request<ApiIncomeStatement>("GET", `/api/tenants/${tenantId}/reports/income-statement?from=${from}&to=${to}`),
   balanceSheet: (tenantId: string, asOf: string) =>
     request<ApiBalanceSheet>("GET", `/api/tenants/${tenantId}/reports/balance-sheet?asOf=${asOf}`),
+  anomalies: (tenantId: string) =>
+    request<{
+      month: string;
+      anomalies: { code: string; name: string; current: number; baseline: number; ratio: number; delta: number }[];
+    }>("GET", `/api/tenants/${tenantId}/reports/anomalies`),
   dashboard: (tenantId: string) => request<ApiDashboard>("GET", `/api/tenants/${tenantId}/dashboard`),
   salesDaily: (tenantId: string, days = 30) =>
     request<{ from: string; days: number; rows: { date: string; total: number; count: number }[] }>(

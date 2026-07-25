@@ -637,6 +637,7 @@ try {
   const badDate = await owner("GET", `/api/tenants/${tenantId}/reports/balance-sheet?asOf=31-07-2026`);
   check("format tanggal salah DITOLAK 400", badDate.status === 400);
 
+
   const dash = await owner("GET", `/api/tenants/${tenantId}/dashboard`);
   check(
     "dashboard: piutang 0, hutang 1.110.000, persediaan 700.000",
@@ -3801,6 +3802,52 @@ try {
   check("nonaktifkan 2FA dengan kode benar 200", disable2fa.status === 200);
   // Pakai sesi baru (owner lama sudah logout) untuk sisa pengujian.
   owner = ownerAgain;
+
+  // --- Deteksi anomali beban (Fase 15c) ---------------------------------------
+  // Ditaruh sebelum siklus langganan (tenant masih bisa menulis) dan setelah
+  // asersi dashboard bernilai tetap, karena jurnal ini menggeser saldo kas.
+  // Bulan uji sengaja jauh dari data lain (2027) supaya terisolasi.
+  console.log("13z. Deteksi anomali beban (Fase 15c)");
+  const accsAnom = await owner("GET", `/api/tenants/${tenantId}/accounts`);
+  const sewaAcc = accsAnom.json?.accounts?.find((a) => a.code === "5-3000");
+  const opsAcc = accsAnom.json?.accounts?.find((a) => a.code === "5-4000");
+  const kasAnom = accsAnom.json?.accounts?.find((a) => a.code === "1-1000");
+  const postBeban = (date, accId, amount) =>
+    owner("POST", `/api/tenants/${tenantId}/journal-entries`, {
+      entryDate: date, memo: `Beban uji anomali ${date}`,
+      lines: [
+        { accountId: accId, debit: amount, credit: 0 },
+        { accountId: kasAnom.id, debit: 0, credit: amount },
+      ],
+    });
+  // Sewa: baseline 1jt/bulan (Feb–Apr 2027), lalu MELONJAK 10jt di Mei 2027.
+  for (const m of ["2027-02-10", "2027-03-10", "2027-04-10"]) await postBeban(m, sewaAcc.id, 1_000_000);
+  const anomSpike = await postBeban("2027-05-10", sewaAcc.id, 10_000_000);
+  // Operasional: stabil 1jt → 1,2jt (naik wajar, tak boleh ditandai).
+  for (const m of ["2027-02-11", "2027-03-11", "2027-04-11"]) await postBeban(m, opsAcc.id, 1_000_000);
+  await postBeban("2027-05-11", opsAcc.id, 1_200_000);
+  check("jurnal beban uji anomali diposting", anomSpike.status === 201, `→ ${anomSpike.status} ${JSON.stringify(anomSpike.json)}`);
+
+  const anom = await owner("GET", `/api/tenants/${tenantId}/reports/anomalies?month=2027-05-01`);
+  const sewaAnom = anom.json?.anomalies?.find((a) => a.code === "5-3000");
+  check(
+    "anomali: Beban Sewa 10jt vs baseline 1jt ditandai (10× biasanya)",
+    anom.status === 200 && sewaAnom?.current === 10_000_000 && sewaAnom?.baseline === 1_000_000 && Math.round(sewaAnom?.ratio) === 10,
+    `→ ${JSON.stringify(anom.json?.anomalies)}`,
+  );
+  check(
+    "anomali: kenaikan wajar (1jt→1,2jt) TIDAK ditandai",
+    !anom.json?.anomalies?.some((a) => a.code === "5-4000"),
+  );
+  // Bulan berjalan TIDAK menyerap entri bulan sesudahnya (batas atas eksklusif).
+  const anomQuiet = await owner("GET", `/api/tenants/${tenantId}/reports/anomalies?month=2027-03-01`);
+  check(
+    "bulan tenang (Mar): lonjakan Mei tidak ikut terhitung — tanpa anomali",
+    anomQuiet.status === 200 && !anomQuiet.json?.anomalies?.some((a) => a.code === "5-3000"),
+    `→ ${JSON.stringify(anomQuiet.json?.anomalies)}`,
+  );
+  const anomViewer = await viewer("GET", `/api/tenants/${tenantId}/reports/anomalies?month=2027-05-01`);
+  check("viewer boleh membaca anomali (200)", anomViewer.status === 200);
 
   // --- Siklus langganan: trial kedaluwarsa → past_due → baca-saja (Fase 2b-1) ------
   // --- Dashboard kustom, tren bulanan, ekspor Excel & laporan terjadwal (Fase 7h) ---

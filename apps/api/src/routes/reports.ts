@@ -11,7 +11,7 @@ import {
 } from "@erpindo/shared";
 import { Hono } from "hono";
 import type { AppEnv } from "../env";
-import { computeBalanceSheet, computeIncomeStatement, monthStart, profitLoss } from "../lib/reports";
+import { computeBalanceSheet, computeIncomeStatement, detectSpendAnomalies, monthStart, profitLoss } from "../lib/reports";
 import { getTenantDb } from "../lib/tenantDb";
 import { requireAuth, requireTenantRole } from "../middleware/auth";
 import { rateLimitUser } from "../middleware/rateLimit";
@@ -70,6 +70,46 @@ export const reportRoutes = new Hono<AppEnv>()
     if (!DATE_RE.test(asOf)) return c.json({ error: "Parameter asOf wajib berformat YYYY-MM-DD." }, 400);
     const db = getTenantDb(c.env, c.get("tenant").dbRef);
     return c.json(await computeBalanceSheet(db, asOf));
+  })
+
+  // -------------------------------------------------------------------------
+  // Deteksi anomali beban (Fase 15c) — akun beban yang bulan ini melonjak jauh
+  // di atas kebiasaan (rata-rata bulan sebelumnya). Deterministik dari jurnal.
+  // -------------------------------------------------------------------------
+  .get("/:tenantId/reports/anomalies", requireAuth, requireTenantRole("viewer"), heavyLimit(), async (c) => {
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+    // `month` opsional (YYYY-MM-01) untuk memilih bulan yang dianalisis; default
+    // bulan berjalan. Baseline = 3 bulan sebelum bulan tersebut.
+    const monthParam = c.req.query("month");
+    const curMonth = monthParam && /^\d{4}-\d{2}-01$/.test(monthParam) ? monthParam : monthStart(0);
+    const [cy, cm] = curMonth.split("-").map(Number);
+    const ymd = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
+    const base3 = ymd(new Date(Date.UTC(cy!, cm! - 1 - 3, 1)));
+    // Batas atas eksklusif: bulan yang dianalisis TIDAK boleh menyerap entri
+    // bulan-bulan sesudahnya (mis. transaksi bertanggal maju).
+    const nextMonth = ymd(new Date(Date.UTC(cy!, cm!, 1)));
+    const { results } = await db
+      .prepare(
+        `SELECT a.code AS code, a.name AS name,
+                COALESCE(SUM(CASE WHEN e.entry_date >= ? THEN l.debit - l.credit ELSE 0 END), 0) AS current,
+                COALESCE(SUM(CASE WHEN e.entry_date < ? THEN l.debit - l.credit ELSE 0 END), 0) AS base_sum,
+                COUNT(DISTINCT CASE WHEN e.entry_date < ? THEN substr(e.entry_date, 1, 7) END) AS base_months
+         FROM accounts a
+         JOIN journal_lines l ON l.account_id = a.id
+         JOIN journal_entries e ON e.id = l.entry_id AND e.status = 'posted'
+         WHERE a.type = 'expense' AND e.entry_date >= ? AND e.entry_date < ?
+         GROUP BY a.id`,
+      )
+      .bind(curMonth, curMonth, curMonth, base3, nextMonth)
+      .all<{ code: string; name: string; current: number; base_sum: number; base_months: number }>();
+
+    const rows = results.map((r) => ({
+      code: r.code,
+      name: r.name,
+      current: r.current,
+      baseline: r.base_months > 0 ? Math.round(r.base_sum / r.base_months) : 0,
+    }));
+    return c.json({ month: curMonth, anomalies: detectSpendAnomalies(rows) });
   })
 
   // -------------------------------------------------------------------------
