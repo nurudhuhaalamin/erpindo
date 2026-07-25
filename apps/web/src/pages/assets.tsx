@@ -19,6 +19,7 @@ import {
   Spinner,
   useToast,
 } from "../components/ui";
+import { useUi } from "../i18n/ui";
 import { useWorkspace } from "./app";
 
 const thisMonth = () => new Date().toISOString().slice(0, 7);
@@ -28,6 +29,7 @@ type AccountRow = { id: string; code: string; name: string; type: string };
 export function AssetsPage() {
   const { tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
 
@@ -110,19 +112,19 @@ export function AssetsPage() {
       <div className="grid gap-3 sm:grid-cols-3">
         <Card>
           <CardBody className="py-3">
-            <div className="text-xs text-slate-500 dark:text-slate-400">Aset aktif</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">{u("asetAktif")}</div>
             <div className="mt-1 text-xl font-semibold tabular-nums">{active.length}</div>
           </CardBody>
         </Card>
         <Card>
           <CardBody className="py-3">
-            <div className="text-xs text-slate-500 dark:text-slate-400">Nilai buku total</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">{u("nilaiBukuTotal")}</div>
             <div className="mt-1 text-xl font-semibold tabular-nums">{formatIDR(totalBook)}</div>
           </CardBody>
         </Card>
         <Card>
           <CardBody className="py-3">
-            <div className="text-xs text-slate-500 dark:text-slate-400">Penyusutan/bulan</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">{u("penyusutanPerBulan")}</div>
             <div className="mt-1 text-xl font-semibold tabular-nums">
               {formatIDR(
                 active.reduce(
@@ -138,14 +140,14 @@ export function AssetsPage() {
       {isAdmin ? (
         <Card>
           <CardHeader
-            title="Daftarkan aset baru"
-            description="Jurnal perolehan (Debit Aset Tetap / Kredit kas-bank) dibuat otomatis."
+            title={u("daftarkanAsetBaru")}
+            description={u("descDaftarkanAset")}
           />
           <CardBody className="space-y-4">
             {error ? <Alert tone="error">{error}</Alert> : null}
             <div className="grid gap-3 sm:grid-cols-3">
               <div>
-                <Label htmlFor="as-name">Nama aset</Label>
+                <Label htmlFor="as-name">{u("namaAset")}</Label>
                 <Input
                   id="as-name"
                   value={form.name}
@@ -153,16 +155,16 @@ export function AssetsPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="as-cat">Kategori</Label>
+                <Label htmlFor="as-cat">{u("kategori")}</Label>
                 <Input
                   id="as-cat"
-                  placeholder="mis. Kendaraan, Peralatan"
+                  placeholder={u("contohKategoriAset")}
                   value={form.category}
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
                 />
               </div>
               <div>
-                <Label htmlFor="as-date">Tanggal perolehan</Label>
+                <Label htmlFor="as-date">{u("tanggalPerolehan")}</Label>
                 <Input
                   id="as-date"
                   type="date"
@@ -171,7 +173,7 @@ export function AssetsPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="as-cost">Nilai perolehan</Label>
+                <Label htmlFor="as-cost">{u("nilaiPerolehan")}</Label>
                 <Input
                   id="as-cost"
                   type="number"
@@ -181,7 +183,7 @@ export function AssetsPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="as-life">Masa manfaat (bulan)</Label>
+                <Label htmlFor="as-life">{u("masaManfaatBulan")}</Label>
                 <Input
                   id="as-life"
                   type="number"
@@ -191,7 +193,7 @@ export function AssetsPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="as-res">Nilai residu</Label>
+                <Label htmlFor="as-res">{u("nilaiResidu")}</Label>
                 <Input
                   id="as-res"
                   type="number"
@@ -201,7 +203,7 @@ export function AssetsPage() {
                 />
               </div>
               <div className="sm:col-span-2">
-                <Label htmlFor="as-cash">Dibayar dari akun</Label>
+                <Label htmlFor="as-cash">{u("dibayarDariAkun")}</Label>
                 <Select
                   id="as-cash"
                   value={cashAccountId}
@@ -226,7 +228,7 @@ export function AssetsPage() {
                 }
               >
                 {create.isPending ? <Spinner /> : <PackagePlus className="size-4" aria-hidden />}{" "}
-                Daftarkan Aset
+                {u("daftarkanAset")}
               </Button>
             </div>
           </CardBody>
@@ -236,12 +238,12 @@ export function AssetsPage() {
       {isAdmin ? (
         <Card>
           <CardHeader
-            title="Jalankan penyusutan bulanan"
-            description="Otomatis tiap awal bulan; bisa juga dipicu manual. Aman diulang (tak dobel per periode)."
+            title={u("jalankanPenyusutanBulanan")}
+            description={u("descPenyusutanBulanan")}
           />
           <CardBody className="flex flex-wrap items-end gap-3">
             <div>
-              <Label htmlFor="dep-period">Periode</Label>
+              <Label htmlFor="dep-period">{u("periode")}</Label>
               <Input
                 id="dep-period"
                 type="month"
@@ -250,7 +252,7 @@ export function AssetsPage() {
               />
             </div>
             <div>
-              <Label htmlFor="dep-date">Tanggal jurnal</Label>
+              <Label htmlFor="dep-date">{u("tanggalJurnal")}</Label>
               <Input
                 id="dep-date"
                 type="date"
@@ -263,22 +265,22 @@ export function AssetsPage() {
               onClick={() => depreciate.mutate()}
               disabled={depreciate.isPending || active.length === 0}
             >
-              {depreciate.isPending ? <Spinner /> : null} Jalankan Penyusutan
+              {depreciate.isPending ? <Spinner /> : null} {u("jalankanPenyusutan")}
             </Button>
           </CardBody>
         </Card>
       ) : null}
 
       <Card>
-        <CardHeader title="Daftar aset" />
+        <CardHeader title={u("daftarAset")} />
         <CardBody>
           {assetsQuery.isLoading ? (
             <Spinner />
           ) : assets.length === 0 ? (
             <EmptyState
               icon={<Landmark className="size-6" aria-hidden />}
-              title="Belum ada aset"
-              description="Daftarkan aset tetap (kendaraan, peralatan, dll.) untuk mulai menyusutkan otomatis."
+              title={u("belumAdaAset")}
+              description={u("descBelumAdaAset")}
             />
           ) : (
             <div className="space-y-3">
@@ -303,6 +305,7 @@ function AssetRow({
   cashAccounts: AccountRow[];
 }) {
   const { tenant } = useWorkspace();
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -344,33 +347,34 @@ function AssetRow({
         <span className="font-medium">{asset.name}</span>
         {asset.category ? <span className="text-xs text-slate-400">{asset.category}</span> : null}
         {asset.status === "disposed" ? (
-          <Badge tone="neutral">dilepas</Badge>
+          <Badge tone="neutral">{u("statusDilepas")}</Badge>
         ) : (
-          <Badge tone="green">aktif</Badge>
+          <Badge tone="green">{u("statusAktif")}</Badge>
         )}
         <span className="ml-auto text-sm text-slate-500 dark:text-slate-400">
-          Perolehan <span className="tabular-nums">{formatIDR(asset.acquisitionCost)}</span> · Nilai
-          buku{" "}
+          {u("perolehan")} <span className="tabular-nums">{formatIDR(asset.acquisitionCost)}</span> ·{" "}
+          {u("nilaiBuku")}{" "}
           <strong className="tabular-nums text-slate-800 dark:text-slate-100">
             {formatIDR(asset.bookValue)}
           </strong>
         </span>
         {isAdmin && asset.status === "active" ? (
           <Button variant="ghost" className="h-8" onClick={() => setOpen((o) => !o)}>
-            {open ? "Batal" : "Lepas"}
+            {open ? u("batal") : u("lepas")}
           </Button>
         ) : null}
       </div>
       <div className="mt-1 text-xs text-slate-400">
-        Sejak {asset.acquisitionDate} · masa {asset.usefulLifeMonths} bln · penyusutan{" "}
-        {formatIDR(asset.monthlyDepreciation)}/bln · tersusut {pct}%
-        {asset.disposedDate ? ` · dilepas ${asset.disposedDate}` : ""}
+        {u("sejak")} {asset.acquisitionDate} · {u("masa")} {asset.usefulLifeMonths}{" "}
+        {u("blnSingkat")} · {u("penyusutan")} {formatIDR(asset.monthlyDepreciation)}
+        {u("perBlnSingkat")} · {u("tersusut")} {pct}%
+        {asset.disposedDate ? ` · ${u("statusDilepas")} ${asset.disposedDate}` : ""}
       </div>
 
       {open && asset.status === "active" ? (
         <div className="mt-3 flex flex-wrap items-end gap-3 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/40">
           <div>
-            <Label htmlFor={`d-date-${asset.id}`}>Tanggal pelepasan</Label>
+            <Label htmlFor={`d-date-${asset.id}`}>{u("tanggalPelepasan")}</Label>
             <Input
               id={`d-date-${asset.id}`}
               type="date"
@@ -379,7 +383,7 @@ function AssetRow({
             />
           </div>
           <div>
-            <Label htmlFor={`d-proc-${asset.id}`}>Hasil penjualan (0 bila dibuang)</Label>
+            <Label htmlFor={`d-proc-${asset.id}`}>{u("hasilPenjualanAset")}</Label>
             <Input
               id={`d-proc-${asset.id}`}
               type="number"
@@ -389,7 +393,7 @@ function AssetRow({
             />
           </div>
           <div>
-            <Label htmlFor={`d-cash-${asset.id}`}>Diterima di akun</Label>
+            <Label htmlFor={`d-cash-${asset.id}`}>{u("diterimaDiAkun")}</Label>
             <Select
               id={`d-cash-${asset.id}`}
               value={cashAccountId}
@@ -407,13 +411,13 @@ function AssetRow({
             onClick={() => setConfirmOpen(true)}
             disabled={dispose.isPending}
           >
-            Lepas Aset
+            {u("lepasAset")}
           </Button>
           <ConfirmDialog
             open={confirmOpen}
-            title={`Lepas aset ${asset.name}?`}
-            description={`Nilai buku ${formatIDR(asset.bookValue)} akan dihapus dari neraca dan laba/rugi pelepasan dijurnal otomatis. Aksi ini tidak bisa diurungkan.`}
-            confirmLabel="Ya, lepas aset"
+            title={`${u("lepasAsetTanya")} ${asset.name}?`}
+            description={`${u("nilaiBuku")} ${formatIDR(asset.bookValue)} ${u("descLepasAset")}`}
+            confirmLabel={u("yaLepasAset")}
             danger
             busy={dispose.isPending}
             onConfirm={() => dispose.mutate()}
