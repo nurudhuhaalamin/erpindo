@@ -4,7 +4,7 @@
 // ---------------------------------------------------------------------------
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ArrowDownToLine, ArrowUpFromLine, Boxes, LineChart, Receipt, Check, ShoppingCart, SlidersHorizontal, Sparkles, Target, TrendingUp, Users, Wallet, type LucideIcon } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Boxes, LineChart, MessageCircle, Receipt, Check, ShoppingCart, SlidersHorizontal, Sparkles, Target, TrendingUp, Users, Wallet, type LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { api, ApiRequestError, formatDate, formatIDR } from "../api/client";
 import { useLang } from "../i18n";
@@ -223,13 +223,64 @@ function DueInvoicesWidget({ tenantId }: { tenantId: string }) {
         ) : (
           <ul className="space-y-2.5">
             {overdue.map((n, i) => (
-              <li key={i}>
-                <Link to="/app/penjualan" className="group block text-sm">
+              <li key={i} className="flex items-start justify-between gap-2">
+                <Link to="/app/penjualan" className="group block min-w-0 flex-1 text-sm">
                   <span className="block font-medium text-slate-800 group-hover:text-brand-700 dark:text-slate-100 dark:group-hover:text-brand-300">
                     {n.title.replace("Faktur ", "").replace(" lewat jatuh tempo", "")}
                   </span>
                   <span className="block text-xs text-slate-500 dark:text-slate-400">{n.detail}</span>
                 </Link>
+                {n.waText && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      window.open(`https://wa.me/?text=${encodeURIComponent(n.waText!)}`, "_blank", "noopener")
+                    }
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-emerald-300 px-2 py-1 text-xs font-medium text-emerald-700 transition hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-900/30"
+                    title="Kirim pengingat via WhatsApp"
+                  >
+                    <MessageCircle className="size-3.5" aria-hidden /> Tagih (WA)
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+/** Widget deteksi anomali beban (Fase 15c) — akun beban yang melonjak bulan ini. */
+function AnomaliesWidget({ tenantId }: { tenantId: string }) {
+  const query = useQuery({
+    queryKey: ["anomalies", tenantId],
+    queryFn: () => api.anomalies(tenantId),
+  });
+  const items = query.data?.anomalies ?? [];
+  return (
+    <Card>
+      <CardHeader title="Beban perlu diperiksa" description="Beban bulan ini yang melonjak jauh dari kebiasaan." />
+      <CardBody>
+        {query.isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : items.length === 0 ? (
+          <p className="py-4 text-center text-sm text-slate-500 dark:text-slate-400">
+            Tidak ada beban yang mencurigakan. 👍
+          </p>
+        ) : (
+          <ul className="space-y-2.5">
+            {items.slice(0, 5).map((a) => (
+              <li key={a.code} className="text-sm">
+                <span className="block font-medium text-slate-800 dark:text-slate-100">
+                  {a.name}{" "}
+                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                    {a.ratio.toFixed(1)}× biasanya
+                  </span>
+                </span>
+                <span className="block text-xs text-slate-500 dark:text-slate-400">
+                  Bulan ini {formatIDR(a.current)} vs biasanya {formatIDR(a.baseline)} (+{formatIDR(a.delta)})
+                </span>
               </li>
             ))}
           </ul>
@@ -593,6 +644,7 @@ const DASHBOARD_WIDGETS = [
   { key: "trenHarian", label: "Grafik penjualan 30 hari" },
   { key: "trenBulanan", label: "Grafik tren bulanan" },
   { key: "jatuhTempo", label: "Faktur jatuh tempo" },
+  { key: "anomali", label: "Beban perlu diperiksa" },
   { key: "aktivitas", label: "Aktivitas / mulai dari sini" },
   { key: "laporanTerjadwal", label: "Laporan terjadwal" },
 ] as const;
@@ -849,6 +901,7 @@ export function DashboardPage() {
       {widgets.isVisible("laporanTerjadwal") ? (
         <ScheduledReportsWidget tenantId={tenant.tenantId} canRun={isAdmin} />
       ) : null}
+      {widgets.isVisible("anomali") ? <AnomaliesWidget tenantId={tenant.tenantId} /> : null}
 
       {widgets.isVisible("jatuhTempo") || widgets.isVisible("aktivitas") ? (
       <div className="grid gap-6 lg:grid-cols-2">

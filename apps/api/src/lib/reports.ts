@@ -148,3 +148,42 @@ export function monthStart(offsetMonths = 0): string {
   const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offsetMonths, 1));
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
 }
+
+/** Beban satu akun: nilai bulan berjalan vs baseline (rata-rata bulan sebelumnya). */
+export type AccountSpend = { code: string; name: string; current: number; baseline: number };
+
+/** Anomali beban terdeteksi (bulan berjalan melonjak dibanding kebiasaan). */
+export type SpendAnomaly = {
+  code: string;
+  name: string;
+  current: number;
+  baseline: number;
+  ratio: number;
+  delta: number;
+};
+
+/**
+ * Deteksi anomali beban **deterministik** (bukan tebakan AI — cocok untuk angka
+ * keuangan): tandai akun beban yang bulan ini ≥ `minRatio`× baseline (rata-rata
+ * bulan-bulan sebelumnya) DAN selisihnya ≥ `minDelta` (meredam noise nominal
+ * kecil). Baseline ≤ 0 dilewati (belum ada kebiasaan pembanding). Diurutkan dari
+ * selisih terbesar.
+ */
+export function detectSpendAnomalies(
+  rows: AccountSpend[],
+  opts: { minRatio?: number; minDelta?: number } = {},
+): SpendAnomaly[] {
+  const minRatio = opts.minRatio ?? 2;
+  const minDelta = opts.minDelta ?? 500_000;
+  return rows
+    .filter((r) => r.baseline > 0 && r.current >= r.baseline * minRatio && r.current - r.baseline >= minDelta)
+    .map((r) => ({
+      code: r.code,
+      name: r.name,
+      current: r.current,
+      baseline: r.baseline,
+      ratio: r.current / r.baseline,
+      delta: r.current - r.baseline,
+    }))
+    .sort((a, b) => b.delta - a.delta);
+}

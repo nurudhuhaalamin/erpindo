@@ -3,6 +3,7 @@ import { postJournal } from "../src/lib/accounting";
 import {
   computeBalanceSheet,
   computeIncomeStatement,
+  detectSpendAnomalies,
   monthStart,
   profitLoss,
 } from "../src/lib/reports";
@@ -146,6 +147,45 @@ describe("profitLoss", () => {
     await post(db, "2026-07-06", BEBAN_SEWA, KAS, 4_000_000);
     const pl = await profitLoss(db, "2026-07-01", "2026-08-01");
     expect(pl).toEqual({ income: 12_000_000, expense: 4_000_000, profit: 8_000_000 });
+  });
+});
+
+describe("detectSpendAnomalies", () => {
+  const base = { code: "5-3000", name: "Beban Sewa" };
+
+  it("menandai beban yang melonjak ≥2× baseline & selisih ≥ Rp500rb", () => {
+    const out = detectSpendAnomalies([{ ...base, current: 5_000_000, baseline: 2_000_000 }]);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ code: "5-3000", current: 5_000_000, baseline: 2_000_000, delta: 3_000_000 });
+    expect(out[0]!.ratio).toBeCloseTo(2.5);
+  });
+
+  it("tidak menandai kenaikan di bawah rasio minimum", () => {
+    // 1,8× < 2× → aman.
+    expect(detectSpendAnomalies([{ ...base, current: 3_600_000, baseline: 2_000_000 }])).toEqual([]);
+  });
+
+  it("meredam noise nominal kecil (selisih < Rp500rb) walau rasio tinggi", () => {
+    // 5× tapi selisih hanya 400rb → tidak ditandai.
+    expect(detectSpendAnomalies([{ ...base, current: 500_000, baseline: 100_000 }])).toEqual([]);
+  });
+
+  it("melewati akun tanpa baseline (≤ 0)", () => {
+    expect(detectSpendAnomalies([{ ...base, current: 9_000_000, baseline: 0 }])).toEqual([]);
+  });
+
+  it("mengurutkan dari selisih terbesar", () => {
+    const out = detectSpendAnomalies([
+      { code: "5-3000", name: "Sewa", current: 4_000_000, baseline: 1_000_000 }, // delta 3jt
+      { code: "5-4000", name: "Operasional", current: 12_000_000, baseline: 2_000_000 }, // delta 10jt
+    ]);
+    expect(out.map((a) => a.code)).toEqual(["5-4000", "5-3000"]);
+  });
+
+  it("ambang dapat dikonfigurasi (minRatio/minDelta)", () => {
+    const rows = [{ ...base, current: 3_600_000, baseline: 2_000_000 }];
+    // Turunkan minRatio ke 1,5 → kini ditandai.
+    expect(detectSpendAnomalies(rows, { minRatio: 1.5 })).toHaveLength(1);
   });
 });
 

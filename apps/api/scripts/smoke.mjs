@@ -637,6 +637,7 @@ try {
   const badDate = await owner("GET", `/api/tenants/${tenantId}/reports/balance-sheet?asOf=31-07-2026`);
   check("format tanggal salah DITOLAK 400", badDate.status === 400);
 
+
   const dash = await owner("GET", `/api/tenants/${tenantId}/dashboard`);
   check(
     "dashboard: piutang 0, hutang 1.110.000, persediaan 700.000",
@@ -3526,6 +3527,21 @@ try {
     "notifikasi faktur lewat jatuh tempo muncul",
     duNotif.json?.notifications?.some((n) => n.type === "overdue_invoice" && n.title.includes(duOverdue.json.docNo)),
   );
+  // Fase 15b — pengingat WhatsApp siap-kirim menyertai notifikasi jatuh tempo.
+  const duOverdueNotif = duNotif.json?.notifications?.find(
+    (n) => n.type === "overdue_invoice" && n.title.includes(duOverdue.json.docNo),
+  );
+  check(
+    "notifikasi jatuh tempo membawa waText pengingat (memuat no. faktur + nominal)",
+    typeof duOverdueNotif?.waText === "string" &&
+      duOverdueNotif.waText.includes(duOverdue.json.docNo) &&
+      duOverdueNotif.waText.includes("80.000"),
+    `→ ${JSON.stringify(duOverdueNotif?.waText)}`,
+  );
+  check(
+    "notifikasi non-jatuh-tempo (low_stock) tanpa waText",
+    duNotif.json?.notifications?.filter((n) => n.type === "low_stock").every((n) => n.waText === undefined),
+  );
   check("count = jumlah notifikasi (konsisten)", duNotif.json?.count === duNotif.json?.notifications?.length);
   const duNotifViewer = await viewer("GET", `/api/tenants/${tenantId}/notifications`);
   check("viewer boleh membaca notifikasi (200)", duNotifViewer.status === 200);
@@ -3786,6 +3802,90 @@ try {
   check("nonaktifkan 2FA dengan kode benar 200", disable2fa.status === 200);
   // Pakai sesi baru (owner lama sudah logout) untuk sisa pengujian.
   owner = ownerAgain;
+
+  // --- Deteksi anomali beban (Fase 15c) ---------------------------------------
+  // Ditaruh sebelum siklus langganan (tenant masih bisa menulis) dan setelah
+  // asersi dashboard bernilai tetap, karena jurnal ini menggeser saldo kas.
+  // Bulan uji sengaja jauh dari data lain (2027) supaya terisolasi.
+  // --- Pembulatan retur penuh atas baris berdiskon (Fase 15d) -----------------
+  // qty 3 × 333 diskon 10% → amount dibulatkan SEKALI = 899 (bukan 3 × 299,7).
+  // Retur seluruh qty harus membalik PERSIS 899 — bukan 3 × round(299,67) = 900.
+  console.log("13y. Pembulatan retur penuh (Fase 15d)");
+  const roundProd = await owner("POST", `/api/tenants/${tenantId}/products`, {
+    sku: "RND-001", name: "Produk Uji Pembulatan", unit: "pcs", sellPrice: 333, buyPrice: 200,
+  });
+  const roundBuy = await owner("POST", `/api/tenants/${tenantId}/purchases`, {
+    contactId: supplier.json.id, invoiceDate: "2027-06-01", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: roundProd.json.id, qty: 10, unitPrice: 200 }],
+  });
+  check("pembelian stok uji pembulatan 201", roundBuy.status === 201);
+  const roundInv = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id, invoiceDate: "2027-06-02", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: roundProd.json.id, qty: 3, unitPrice: 333, discountPct: 10 }],
+  });
+  check(
+    "faktur berdiskon: total dibulatkan sekali = 899",
+    roundInv.status === 201 && roundInv.json?.total === 899,
+    `→ ${JSON.stringify(roundInv.json)}`,
+  );
+  const roundRet = await owner("POST", `/api/tenants/${tenantId}/returns`, {
+    refType: "invoice", refId: roundInv.json.id, returnDate: "2027-06-03", warehouseId: whUtama.id,
+    lines: [{ productId: roundProd.json.id, qty: 3 }],
+  });
+  check(
+    "retur SELURUH qty membalik persis 899 (tanpa selisih pembulatan)",
+    roundRet.status === 201 && roundRet.json?.total === 899,
+    `→ ${JSON.stringify(roundRet.json)}`,
+  );
+  const roundInvAfter = await owner("GET", `/api/tenants/${tenantId}/invoices?limit=200`);
+  const roundDoc = roundInvAfter.json?.docs?.find((d) => d.id === roundInv.json.id);
+  check(
+    "faktur setelah retur penuh: sisa tagihan 0 (tidak menyisakan Rp 1)",
+    roundDoc && roundDoc.total - roundDoc.paidAmount - roundDoc.returnedAmount === 0,
+    `→ total ${roundDoc?.total} paid ${roundDoc?.paidAmount} returned ${roundDoc?.returnedAmount}`,
+  );
+
+  console.log("13z. Deteksi anomali beban (Fase 15c)");
+  const accsAnom = await owner("GET", `/api/tenants/${tenantId}/accounts`);
+  const sewaAcc = accsAnom.json?.accounts?.find((a) => a.code === "5-3000");
+  const opsAcc = accsAnom.json?.accounts?.find((a) => a.code === "5-4000");
+  const kasAnom = accsAnom.json?.accounts?.find((a) => a.code === "1-1000");
+  const postBeban = (date, accId, amount) =>
+    owner("POST", `/api/tenants/${tenantId}/journal-entries`, {
+      entryDate: date, memo: `Beban uji anomali ${date}`,
+      lines: [
+        { accountId: accId, debit: amount, credit: 0 },
+        { accountId: kasAnom.id, debit: 0, credit: amount },
+      ],
+    });
+  // Sewa: baseline 1jt/bulan (Feb–Apr 2027), lalu MELONJAK 10jt di Mei 2027.
+  for (const m of ["2027-02-10", "2027-03-10", "2027-04-10"]) await postBeban(m, sewaAcc.id, 1_000_000);
+  const anomSpike = await postBeban("2027-05-10", sewaAcc.id, 10_000_000);
+  // Operasional: stabil 1jt → 1,2jt (naik wajar, tak boleh ditandai).
+  for (const m of ["2027-02-11", "2027-03-11", "2027-04-11"]) await postBeban(m, opsAcc.id, 1_000_000);
+  await postBeban("2027-05-11", opsAcc.id, 1_200_000);
+  check("jurnal beban uji anomali diposting", anomSpike.status === 201, `→ ${anomSpike.status} ${JSON.stringify(anomSpike.json)}`);
+
+  const anom = await owner("GET", `/api/tenants/${tenantId}/reports/anomalies?month=2027-05-01`);
+  const sewaAnom = anom.json?.anomalies?.find((a) => a.code === "5-3000");
+  check(
+    "anomali: Beban Sewa 10jt vs baseline 1jt ditandai (10× biasanya)",
+    anom.status === 200 && sewaAnom?.current === 10_000_000 && sewaAnom?.baseline === 1_000_000 && Math.round(sewaAnom?.ratio) === 10,
+    `→ ${JSON.stringify(anom.json?.anomalies)}`,
+  );
+  check(
+    "anomali: kenaikan wajar (1jt→1,2jt) TIDAK ditandai",
+    !anom.json?.anomalies?.some((a) => a.code === "5-4000"),
+  );
+  // Bulan berjalan TIDAK menyerap entri bulan sesudahnya (batas atas eksklusif).
+  const anomQuiet = await owner("GET", `/api/tenants/${tenantId}/reports/anomalies?month=2027-03-01`);
+  check(
+    "bulan tenang (Mar): lonjakan Mei tidak ikut terhitung — tanpa anomali",
+    anomQuiet.status === 200 && !anomQuiet.json?.anomalies?.some((a) => a.code === "5-3000"),
+    `→ ${JSON.stringify(anomQuiet.json?.anomalies)}`,
+  );
+  const anomViewer = await viewer("GET", `/api/tenants/${tenantId}/reports/anomalies?month=2027-05-01`);
+  check("viewer boleh membaca anomali (200)", anomViewer.status === 200);
 
   // --- Siklus langganan: trial kedaluwarsa → past_due → baca-saja (Fase 2b-1) ------
   // --- Dashboard kustom, tren bulanan, ekspor Excel & laporan terjadwal (Fase 7h) ---
