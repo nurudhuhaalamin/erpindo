@@ -795,6 +795,36 @@ const UI: Record<string, Dual> = {
     id: "Timesheet bersifat estimasi — gaji sudah dibebankan lewat penggajian, jadi tidak dijurnal ulang di sini agar tidak dobel-hitung.",
     en: "Timesheets are estimates — wages are already charged through payroll, so they are not posted again here to avoid double counting.",
   },
+  // Stok — pelunasan utang 16d (Fase 16q)
+  pembelianJudul: { id: "Pembelian", en: "Purchase" },
+  penjualanJudul: { id: "Penjualan", en: "Sale" },
+  penyesuaian: { id: "Penyesuaian", en: "Adjustment" },
+  kartuStok: { id: "Kartu stok", en: "Stock card" },
+  pilihProdukOpsi: { id: "— pilih produk —", en: "— pick a product —" },
+  pilihOpsi: { id: "— pilih —", en: "— pick one —" },
+  transferAksi: { id: "Transfer", en: "Transfer" },
+  totalNilaiTerfilter: { id: "Total nilai (terfilter)", en: "Total value (filtered)" },
+  totalNilaiPersediaan: { id: "Total nilai persediaan", en: "Total inventory value" },
+  tidakAdaProdukStokKurang: {
+    id: "Tidak ada produk dengan stok ≤",
+    en: "No products with stock ≤",
+  },
+  descTransferGudang: {
+    id: "Nilai persediaan berpindah pada biaya rata-rata — tanpa jurnal.",
+    en: "Inventory value moves at average cost — no journal entry.",
+  },
+  descLotFefo: {
+    id: "Lot aktif urut kedaluwarsa terdekat — penjualan mengambil lot paling awal kedaluwarsa lebih dulu (FEFO).",
+    en: "Active lots sorted by nearest expiry — sales take the earliest-expiring lot first (FEFO).",
+  },
+  peringatanLotKedaluwarsa: {
+    id: "lot kedaluwarsa dalam ≤ 30 hari — prioritaskan penjualannya atau tarik dari rak.",
+    en: "lots expire within ≤ 30 days — prioritise selling them or pull them from the shelf.",
+  },
+  descBiayaRataRataBergerak: {
+    id: "Nilai persediaan memakai metode biaya rata-rata bergerak (moving average).",
+    en: "Inventory is valued using the moving average cost method.",
+  },
 };
 
 export type UiKey = keyof typeof UI;
