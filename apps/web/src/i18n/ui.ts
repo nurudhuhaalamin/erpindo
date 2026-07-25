@@ -694,6 +694,33 @@ const UI: Record<string, Dual> = {
   contohNamaPelanggan: { id: "PT Pelanggan Setia", en: "PT Pelanggan Setia" },
   contohNamaGudang: { id: "Gudang Cabang Bandung", en: "Bandung Branch Warehouse" },
   barisKe: { id: "Baris", en: "Row" },
+  // Laporan — pelunasan utang 16e (Fase 16n)
+  labaBersih: { id: "Laba Bersih", en: "Net Profit" },
+  rugiBersih: { id: "Rugi Bersih", en: "Net Loss" },
+  labaBersihKecil: { id: "Laba bersih", en: "Net profit" },
+  periodeSebelumnya: { id: "Periode sebelumnya", en: "Previous period" },
+  saldoKasAwal: { id: "Saldo kas awal periode", en: "Opening cash balance" },
+  saldoKasAkhir: { id: "Saldo kas akhir periode", en: "Closing cash balance" },
+  totalKasMasuk: { id: "Total kas masuk", en: "Total cash in" },
+  totalKasKeluar: { id: "Total kas keluar", en: "Total cash out" },
+  perubahanKasBersih: { id: "Perubahan kas bersih", en: "Net change in cash" },
+  seimbang: { id: "seimbang ✓", en: "balanced ✓" },
+  tidakAdaPiutangBelumLunas: {
+    id: "Tidak ada piutang yang belum lunas. 🎉",
+    en: "No outstanding receivables. 🎉",
+  },
+  tidakAdaHutangBelumLunas: {
+    id: "Tidak ada hutang yang belum lunas. 🎉",
+    en: "No outstanding payables. 🎉",
+  },
+  descCoretax: {
+    id: "Sejak 2025 Coretax DJP menerima impor faktur keluaran dalam format",
+    en: "Since 2025 Coretax DJP accepts output-invoice imports in",
+  },
+  descCoretax2: {
+    id: "— unduh XML Coretax lalu impor di menu e-Faktur Coretax. Faktur non-mewah memakai kode transaksi 04 dengan DPP nilai lain (11/12); NPWP perusahaan diambil dari Pengaturan. CSV tetap tersedia sebagai rekap. Pembeli tanpa NPWP diekspor sebagai",
+    en: "— download the Coretax XML then import it from the Coretax e-Faktur menu. Non-luxury invoices use transaction code 04 with an alternative DPP basis (11/12); the company NPWP comes from Settings. CSV remains available as a recap. Buyers without an NPWP are exported as",
+  },
 };
 
 export type UiKey = keyof typeof UI;
