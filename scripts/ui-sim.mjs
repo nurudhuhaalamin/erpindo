@@ -238,6 +238,13 @@ try {
       !produkEn.includes("Harga Jual"),
     `→ isi halaman Produk belum Inggris`,
   );
+  await gotoRoute("/app/penjualan", 800);
+  const jualEn = await page.innerText("body");
+  check(
+    "F0e isi halaman Penjualan ikut EN: Sales list / Unit price / Customer",
+    jualEn.includes("Unit price") && jualEn.includes("Customer") && !jualEn.includes("Harga satuan"),
+    `→ isi halaman Penjualan belum Inggris`,
+  );
   await gotoRoute("/app/keuangan/neraca-saldo", 700);
   const tbEn = await page.innerText("body");
   check(
