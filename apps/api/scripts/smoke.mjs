@@ -3807,6 +3807,44 @@ try {
   // Ditaruh sebelum siklus langganan (tenant masih bisa menulis) dan setelah
   // asersi dashboard bernilai tetap, karena jurnal ini menggeser saldo kas.
   // Bulan uji sengaja jauh dari data lain (2027) supaya terisolasi.
+  // --- Pembulatan retur penuh atas baris berdiskon (Fase 15d) -----------------
+  // qty 3 × 333 diskon 10% → amount dibulatkan SEKALI = 899 (bukan 3 × 299,7).
+  // Retur seluruh qty harus membalik PERSIS 899 — bukan 3 × round(299,67) = 900.
+  console.log("13y. Pembulatan retur penuh (Fase 15d)");
+  const roundProd = await owner("POST", `/api/tenants/${tenantId}/products`, {
+    sku: "RND-001", name: "Produk Uji Pembulatan", unit: "pcs", sellPrice: 333, buyPrice: 200,
+  });
+  const roundBuy = await owner("POST", `/api/tenants/${tenantId}/purchases`, {
+    contactId: supplier.json.id, invoiceDate: "2027-06-01", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: roundProd.json.id, qty: 10, unitPrice: 200 }],
+  });
+  check("pembelian stok uji pembulatan 201", roundBuy.status === 201);
+  const roundInv = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id, invoiceDate: "2027-06-02", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: roundProd.json.id, qty: 3, unitPrice: 333, discountPct: 10 }],
+  });
+  check(
+    "faktur berdiskon: total dibulatkan sekali = 899",
+    roundInv.status === 201 && roundInv.json?.total === 899,
+    `→ ${JSON.stringify(roundInv.json)}`,
+  );
+  const roundRet = await owner("POST", `/api/tenants/${tenantId}/returns`, {
+    refType: "invoice", refId: roundInv.json.id, returnDate: "2027-06-03", warehouseId: whUtama.id,
+    lines: [{ productId: roundProd.json.id, qty: 3 }],
+  });
+  check(
+    "retur SELURUH qty membalik persis 899 (tanpa selisih pembulatan)",
+    roundRet.status === 201 && roundRet.json?.total === 899,
+    `→ ${JSON.stringify(roundRet.json)}`,
+  );
+  const roundInvAfter = await owner("GET", `/api/tenants/${tenantId}/invoices?limit=200`);
+  const roundDoc = roundInvAfter.json?.docs?.find((d) => d.id === roundInv.json.id);
+  check(
+    "faktur setelah retur penuh: sisa tagihan 0 (tidak menyisakan Rp 1)",
+    roundDoc && roundDoc.total - roundDoc.paidAmount - roundDoc.returnedAmount === 0,
+    `→ total ${roundDoc?.total} paid ${roundDoc?.paidAmount} returned ${roundDoc?.returnedAmount}`,
+  );
+
   console.log("13z. Deteksi anomali beban (Fase 15c)");
   const accsAnom = await owner("GET", `/api/tenants/${tenantId}/accounts`);
   const sewaAcc = accsAnom.json?.accounts?.find((a) => a.code === "5-3000");

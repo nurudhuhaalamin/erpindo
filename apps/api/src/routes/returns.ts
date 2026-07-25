@@ -58,6 +58,54 @@ export async function returnedQtyPerProduct(db: SqlExecutor, refType: string, re
   return new Map(results.map((r) => [r.product_id, r.qty]));
 }
 
+/**
+ * Nilai (rupiah) yang sudah diretur per produk untuk sebuah dokumen. Dipakai
+ * agar retur yang **menghabiskan** sisa qty membalik nilai PERSIS sama dengan
+ * baris aslinya — tanpa selisih pembulatan (lihat `priceReturnLine`).
+ */
+export async function returnedAmountPerProduct(
+  db: SqlExecutor,
+  refType: string,
+  refId: string,
+): Promise<Map<string, number>> {
+  const { results } = await db
+    .prepare(
+      `SELECT rl.product_id, SUM(rl.amount) AS amount
+       FROM return_lines rl JOIN returns r ON r.id = rl.return_id
+       WHERE r.ref_type = ? AND r.ref_id = ? GROUP BY rl.product_id`,
+    )
+    .bind(refType, refId)
+    .all<{ product_id: string; amount: number }>();
+  return new Map(results.map((r) => [r.product_id, r.amount]));
+}
+
+/**
+ * Nilai retur satu baris (murni, bisa diuji langsung).
+ *
+ * Nilai baris faktur sudah dibulatkan **sekali** saat dokumen dibuat (mis. qty 3
+ * × 333 diskon 10% → 899, bukan 3 × 299,7). Karena itu retur TIDAK boleh memakai
+ * `qty × round(amount/qty)` — untuk contoh di atas hasilnya 900 dan memicu
+ * permintaan "refund" Rp 1 yang semu pada faktur yang belum dibayar.
+ *
+ * Aturan: bila retur ini **menghabiskan** sisa qty produk tersebut, nilainya =
+ * sisa nilai yang belum diretur (pembalikan eksak). Bila retur sebagian, nilai
+ * dihitung proporsional dan dibulatkan.
+ */
+export function priceReturnLine(params: {
+  qty: number;
+  docQty: number;
+  docAmount: number;
+  returnedQty: number;
+  returnedAmount: number;
+}): { amount: number; unitPrice: number } {
+  const { qty, docQty, docAmount, returnedQty, returnedAmount } = params;
+  const closesOut = qty >= docQty - returnedQty;
+  const amount = closesOut
+    ? docAmount - returnedAmount
+    : Math.round((docAmount * qty) / docQty);
+  return { amount, unitPrice: qty > 0 ? Math.round(amount / qty) : 0 };
+}
+
 export const returnRoutes = new Hono<AppEnv>().post(
   "/:tenantId/returns",
   requireAuth,
@@ -95,6 +143,7 @@ export const returnRoutes = new Hono<AppEnv>().post(
     // Validasi qty per produk terhadap dokumen asal dan retur sebelumnya.
     const docLines = await docLineAggregates(db, lineTable, fk, input.refId);
     const alreadyReturned = await returnedQtyPerProduct(db, input.refType, input.refId);
+    const alreadyReturnedAmt = await returnedAmountPerProduct(db, input.refType, input.refId);
 
     let subtotal = 0;
     const pricedLines: { productId: string; qty: number; unitPrice: number; amount: number }[] = [];
@@ -105,8 +154,13 @@ export const returnRoutes = new Hono<AppEnv>().post(
       if (line.qty > available) {
         return c.json({ error: `Qty retur melebihi sisa yang bisa diretur (maks ${available}).` }, 400);
       }
-      const unitPrice = Math.round(docLine.amount / docLine.qty);
-      const amount = line.qty * unitPrice;
+      const { amount, unitPrice } = priceReturnLine({
+        qty: line.qty,
+        docQty: docLine.qty,
+        docAmount: docLine.amount,
+        returnedQty: alreadyReturned.get(line.productId) ?? 0,
+        returnedAmount: alreadyReturnedAmt.get(line.productId) ?? 0,
+      });
       subtotal += amount;
       pricedLines.push({ productId: line.productId, qty: line.qty, unitPrice, amount });
     }
