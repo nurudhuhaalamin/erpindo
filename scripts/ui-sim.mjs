@@ -252,6 +252,16 @@ try {
     adaSalesList && adaCustomer && tanpaDaftarPenjualan && phUnitPrice,
     `→ salesList=${adaSalesList} customer=${adaCustomer} tanpaID=${tanpaDaftarPenjualan} placeholder=${phUnitPrice}`,
   );
+  await gotoRoute("/app/stok", 800);
+  const stokEn = await page.innerText("body");
+  const adaStockLevels = stokEn.includes("Stock levels per warehouse");
+  const adaBalance = stokEn.includes("Balance") || stokEn.includes("Average cost");
+  const tanpaLevelId = !stokEn.includes("Level stok per gudang");
+  check(
+    "F0f isi halaman Stok ikut EN: judul kartu + kolom, tanpa teks Indonesia",
+    adaStockLevels && adaBalance && tanpaLevelId,
+    `→ stockLevels=${adaStockLevels} balance=${adaBalance} tanpaID=${tanpaLevelId}`,
+  );
   await gotoRoute("/app/keuangan/neraca-saldo", 700);
   const tbEn = await page.innerText("body");
   check(

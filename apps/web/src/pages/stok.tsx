@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useUi } from "../i18n/ui";
 import { Download, PackageOpen } from "lucide-react";
 import { useState } from "react";
 import { api, downloadCsv, formatDate, formatIDR } from "../api/client";
@@ -51,6 +52,7 @@ function StockCard({
   warehouseId: string;
   title: string;
 }) {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const query = useQuery({
     queryKey: ["stock-card", tenant.tenantId, productId, warehouseId],
@@ -61,7 +63,7 @@ function StockCard({
     <Card>
       <CardHeader
         title={`Kartu stok — ${title}`}
-        description="Riwayat mutasi dengan saldo berjalan."
+        description={u("riwayatMutasi")}
       />
       <CardBody>
         {query.isLoading ? (
@@ -71,11 +73,11 @@ function StockCard({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                  <th className="pb-2 pr-4 font-medium">Waktu</th>
-                  <th className="pb-2 pr-4 font-medium">Jenis</th>
-                  <th className="pb-2 pr-4 text-right font-medium">Masuk/Keluar</th>
-                  <th className="pb-2 pr-4 text-right font-medium">Biaya Satuan</th>
-                  <th className="pb-2 text-right font-medium">Saldo</th>
+                  <th className="pb-2 pr-4 font-medium">{u("waktu")}</th>
+                  <th className="pb-2 pr-4 font-medium">{u("jenis")}</th>
+                  <th className="pb-2 pr-4 text-right font-medium">{u("masukKeluar")}</th>
+                  <th className="pb-2 pr-4 text-right font-medium">{u("biayaSatuan")}</th>
+                  <th className="pb-2 text-right font-medium">{u("saldo")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -114,6 +116,7 @@ function StockCard({
 }
 
 function StockAdjustmentForm() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -156,13 +159,13 @@ function StockAdjustmentForm() {
   return (
     <Card>
       <CardHeader
-        title="Penyesuaian stok (opname)"
+        title={u("penyesuaianStok")}
         description="Samakan stok sistem dengan hasil hitung fisik — selisih nilainya otomatis dijurnal ke Beban Operasional Lain."
       />
       <CardBody>
         <div className="grid gap-3 sm:grid-cols-[1fr_12rem_8rem_1fr_auto] sm:items-end">
           <div>
-            <Label htmlFor="adj-product">Produk</Label>
+            <Label htmlFor="adj-product">{u("produk")}</Label>
             <Select
               id="adj-product"
               value={productId}
@@ -177,7 +180,7 @@ function StockAdjustmentForm() {
             </Select>
           </div>
           <div>
-            <Label htmlFor="adj-wh">Gudang</Label>
+            <Label htmlFor="adj-wh">{u("gudang")}</Label>
             <Select
               id="adj-wh"
               value={warehouseId}
@@ -191,7 +194,7 @@ function StockAdjustmentForm() {
             </Select>
           </div>
           <div>
-            <Label htmlFor="adj-qty">Qty fisik</Label>
+            <Label htmlFor="adj-qty">{u("qtyFisik")}</Label>
             <Input
               id="adj-qty"
               type="number"
@@ -201,10 +204,10 @@ function StockAdjustmentForm() {
             />
           </div>
           <div>
-            <Label htmlFor="adj-note">Catatan</Label>
+            <Label htmlFor="adj-note">{u("catatan")}</Label>
             <Input
               id="adj-note"
-              placeholder="opsional"
+              placeholder={u("opsional")}
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
@@ -222,6 +225,7 @@ function StockAdjustmentForm() {
 }
 
 function StockTransferForm() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -261,13 +265,13 @@ function StockTransferForm() {
   return (
     <Card>
       <CardHeader
-        title="Transfer antar gudang"
+        title={u("transferAntarGudang")}
         description="Nilai persediaan berpindah pada biaya rata-rata — tanpa jurnal."
       />
       <CardBody>
         <div className="grid gap-3 sm:grid-cols-[1fr_11rem_11rem_7rem_auto] sm:items-end">
           <div>
-            <Label htmlFor="tr-product">Produk</Label>
+            <Label htmlFor="tr-product">{u("produk")}</Label>
             <Select
               id="tr-product"
               value={productId}
@@ -282,7 +286,7 @@ function StockTransferForm() {
             </Select>
           </div>
           <div>
-            <Label htmlFor="tr-from">Dari gudang</Label>
+            <Label htmlFor="tr-from">{u("dariGudang")}</Label>
             <Select id="tr-from" value={fromWh} onChange={(e) => setFromWh(e.target.value)}>
               {warehouses.map((w) => (
                 <option key={w.id} value={w.id}>
@@ -292,7 +296,7 @@ function StockTransferForm() {
             </Select>
           </div>
           <div>
-            <Label htmlFor="tr-to">Ke gudang</Label>
+            <Label htmlFor="tr-to">{u("keGudang")}</Label>
             <Select id="tr-to" value={toWh} onChange={(e) => setToWh(e.target.value)}>
               <option value="">— pilih —</option>
               {warehouses.map((w) => (
@@ -326,6 +330,7 @@ function StockTransferForm() {
 
 /** Daftar lot aktif urut FEFO dengan badge kedaluwarsa (merah lewat, kuning ≤30 hari). */
 function LotsCard() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const query = useQuery({
     queryKey: ["stock-lots", tenant.tenantId],
@@ -337,7 +342,7 @@ function LotsCard() {
   return (
     <Card>
       <CardHeader
-        title="Lot & kedaluwarsa"
+        title={u("lotKedaluwarsa")}
         description="Lot aktif urut kedaluwarsa terdekat — penjualan mengambil lot paling awal kedaluwarsa lebih dulu (FEFO)."
       />
       <CardBody>
@@ -352,10 +357,10 @@ function LotsCard() {
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-800">
                 <th className={th}>SKU</th>
-                <th className={th}>Produk</th>
-                <th className={th}>Gudang</th>
+                <th className={th}>{u("produk")}</th>
+                <th className={th}>{u("gudang")}</th>
                 <th className={th}>Lot</th>
-                <th className={th}>Kedaluwarsa</th>
+                <th className={th}>{u("kedaluwarsa")}</th>
                 <th className={`${th} text-right`}>Qty</th>
               </tr>
             </thead>
@@ -406,6 +411,7 @@ function LotsCard() {
  * Sekali klik membuat Permintaan Pembelian (PR) yang diteruskan ke modul Pengadaan.
  */
 function ReorderCard() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -436,7 +442,7 @@ function ReorderCard() {
   return (
     <Card>
       <CardHeader
-        title="Usulan pembelian otomatis"
+        title={u("usulanPembelianOtomatis")}
         description="Produk dengan total stok di bawah/di ambang minimum. Buat permintaan pembelian sekali klik."
         action={
           <Button className="h-9" onClick={() => createPr.mutate()} disabled={createPr.isPending}>
@@ -450,10 +456,10 @@ function ReorderCard() {
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-800">
                 <th className={th}>SKU</th>
-                <th className={th}>Produk</th>
-                <th className={`${th} text-right`}>Stok</th>
-                <th className={`${th} text-right`}>Minimum</th>
-                <th className={`${th} text-right`}>Usulan beli</th>
+                <th className={th}>{u("produk")}</th>
+                <th className={`${th} text-right`}>{u("stok")}</th>
+                <th className={`${th} text-right`}>{u("minimum")}</th>
+                <th className={`${th} text-right`}>{u("usulanBeli")}</th>
               </tr>
             </thead>
             <tbody>
@@ -487,6 +493,7 @@ function ReorderCard() {
 }
 
 export function StockPage() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
   const query = useQuery({
@@ -514,7 +521,7 @@ export function StockPage() {
       <LotsCard />
       <Card>
         <CardHeader
-          title="Level stok per gudang"
+          title={u("levelStokPerGudang")}
           description="Nilai persediaan memakai metode biaya rata-rata bergerak (moving average)."
           action={
             allLevels.length > 0 ? (
@@ -537,7 +544,7 @@ export function StockPage() {
                   )
                 }
               >
-                <Download className="size-4" aria-hidden /> Ekspor CSV
+                <Download className="size-4" aria-hidden /> {u("eksporCsv")}
               </Button>
             ) : undefined
           }
@@ -551,14 +558,14 @@ export function StockPage() {
                 onChange={(e) => setLowOnly(e.target.checked)}
                 className="size-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
               />
-              Hanya tampilkan stok menipis (qty ≤
+              {u("hanyaStokMenipis")}
               <input
                 type="number"
                 min={0}
                 value={threshold}
                 onChange={(e) => setThreshold(e.target.value)}
                 className="w-16 rounded border border-slate-300 px-2 py-0.5 text-sm dark:border-slate-700 dark:bg-slate-900"
-                aria-label="Ambang stok menipis"
+                aria-label={u("ambangStokMenipis")}
               />
               )
             </label>
@@ -568,7 +575,7 @@ export function StockPage() {
           ) : allLevels.length === 0 ? (
             <EmptyState
               icon={<PackageOpen className="size-6" aria-hidden />}
-              title="Belum ada stok"
+              title={u("belumAdaStok")}
               description="Catat faktur pembelian untuk mengisi stok — level per gudang akan tampil di sini."
             />
           ) : levels.length === 0 ? (
@@ -581,11 +588,11 @@ export function StockPage() {
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-800">
                     <th className={th}>SKU</th>
-                    <th className={th}>Produk</th>
-                    <th className={th}>Gudang</th>
+                    <th className={th}>{u("produk")}</th>
+                    <th className={th}>{u("gudang")}</th>
                     <th className={`${th} text-right`}>Qty</th>
-                    <th className={`${th} text-right`}>Biaya Rata-rata</th>
-                    <th className={`${th} text-right`}>Nilai</th>
+                    <th className={`${th} text-right`}>{u("biayaRataRata")}</th>
+                    <th className={`${th} text-right`}>{u("nilai")}</th>
                     <th className={th}></th>
                   </tr>
                 </thead>
@@ -622,7 +629,7 @@ export function StockPage() {
                             })
                           }
                         >
-                          Kartu
+                          {u("kartu")}
                         </Button>
                       </td>
                     </tr>
