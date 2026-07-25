@@ -266,11 +266,16 @@ try {
   const lrEn = await page.innerText("body");
   const adaIncome = lrEn.includes("Income");
   const adaExpense = lrEn.includes("Expenses");
-  const tanpaPendapatanId = !lrEn.includes("Pendapatan");
+  // Penanda negatif HARUS teks murni UI. Kata "Pendapatan"/"Beban" muncul di
+  // NAMA AKUN bagan akun ("Pendapatan Penjualan", "Beban Gaji") — itu data
+  // pengguna yang memang tidak diterjemahkan, jadi tak bisa dipakai sebagai
+  // bukti. Label toggle perbandingan periode hanya ada di antarmuka.
+  const adaCompare = lrEn.includes("Compare with the previous period");
+  const tanpaCompareId = !lrEn.includes("Bandingkan dengan periode sebelumnya");
   check(
-    "F0g isi halaman Laba Rugi ikut EN: Income/Expenses, tanpa teks Indonesia",
-    adaIncome && adaExpense && tanpaPendapatanId,
-    `→ income=${adaIncome} expenses=${adaExpense} tanpaID=${tanpaPendapatanId}`,
+    "F0g isi halaman Laba Rugi ikut EN: Income/Expenses + label toggle periode",
+    adaIncome && adaExpense && adaCompare && tanpaCompareId,
+    `→ income=${adaIncome} expenses=${adaExpense} compare=${adaCompare} tanpaID=${tanpaCompareId}`,
   );
   await gotoRoute("/app/keuangan/neraca-saldo", 700);
   const tbEn = await page.innerText("body");

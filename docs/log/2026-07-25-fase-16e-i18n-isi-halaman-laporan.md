@@ -33,3 +33,21 @@ dikerjakan, makin besar bagian yang tinggal dipasang.
 - **Cakupan kumulatif: 5 berkas halaman / ~10 layar** tuntas isinya (Master Data
   3 layar, Penjualan, Pembelian, Stok, dan 6 layar laporan). Sisa halaman modul
   masih Bahasa Indonesia di bagian isi.
+
+## Koreksi uji: penanda negatif harus teks murni UI
+
+Cek `F0g` mula-mula gagal dengan `income=true expenses=true tanpaID=false` —
+terjemahannya benar, tetapi asersi negatif `!includes("Pendapatan")` keliru:
+kata "Pendapatan" muncul di **nama akun** bagan akun ("Pendapatan Penjualan",
+"Pendapatan Lain-lain"), yaitu **data pengguna** yang memang tidak diterjemahkan.
+
+Ini pengulangan pola yang sama seperti di 16c (kata "Pelanggan" muncul di nama
+kontak demo "PT Pelanggan Setia"). Aturannya kini eksplisit di komentar uji:
+
+> **Penanda negatif untuk asersi i18n harus teks yang murni antarmuka** — jangan
+> memakai kata yang juga bisa muncul di data pengguna (nama akun, nama kontak,
+> nama produk).
+
+Diganti ke label toggle "Bandingkan dengan periode sebelumnya" yang hanya ada di
+antarmuka. Pesan gagal berisi tiap sub-kondisi membuat diagnosis ini butuh satu
+kali baca, tanpa menebak.
