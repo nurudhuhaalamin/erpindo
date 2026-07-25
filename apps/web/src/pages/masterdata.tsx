@@ -8,6 +8,8 @@ import {
   type IndustryKey,
 } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLang } from "../i18n";
+import { useUi } from "../i18n/ui";
 import { Contact, Package, Search, Upload, Warehouse } from "lucide-react";
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { api, downloadCsv, formatIDR, parseCsv } from "../api/client";
@@ -48,6 +50,7 @@ function ImportCsvButton({
   templateExample: (string | number)[];
   mapRow: (r: Record<string, string>) => unknown;
 }) {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -104,7 +107,7 @@ function ImportCsvButton({
         variant="ghost"
         onClick={() => downloadCsv(`template-${entity}.csv`, templateHeaders, [templateExample])}
       >
-        Unduh template
+        {u("unduhTemplate")}
       </Button>
       {result && result.errors.length > 0 ? (
         <div className="w-full rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
@@ -229,14 +232,16 @@ function SearchBox({
 
 /** Footer "Menampilkan X dari Y" + tombol muat lebih banyak. */
 function LoadMore({ shown, total, onMore }: { shown: number; total: number; onMore: () => void }) {
+  const u = useUi();
+  const lang = useLang();
   if (total <= shown) return null;
   return (
     <div className="flex items-center justify-center gap-3 pt-2">
       <span className="text-xs text-slate-500 dark:text-slate-400">
-        Menampilkan {shown} dari {total}
+        {lang === "en" ? `Showing ${shown} of ${total}` : `Menampilkan ${shown} dari ${total}`}
       </span>
       <Button variant="secondary" className="h-8" onClick={onMore}>
-        Muat lebih banyak
+        {u("muatLebihBanyak")}
       </Button>
     </div>
   );
@@ -244,17 +249,18 @@ function LoadMore({ shown, total, onMore }: { shown: number; total: number; onMo
 
 /** Tombol aksi baris (Ubah + Arsipkan) yang seragam di ketiga halaman. */
 function RowActions({ onEdit, onArchive }: { onEdit: () => void; onArchive: () => void }) {
+  const u = useUi();
   return (
     <div className="flex justify-end gap-1">
       <Button variant="ghost" className="h-8" onClick={onEdit}>
-        Ubah
+        {u("ubah")}
       </Button>
       <Button
         variant="ghost"
         className="h-8 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
         onClick={onArchive}
       >
-        Arsipkan
+        {u("arsipkan")}
       </Button>
     </div>
   );
@@ -280,6 +286,7 @@ type ProductRow = {
 
 /** Registri nomor seri untuk produk yang melacak seri (Fase 7c). */
 function SerialManager({ product }: { product: ProductRow }) {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -328,7 +335,7 @@ function SerialManager({ product }: { product: ProductRow }) {
           id="serial-no"
           value={serialNo}
           onChange={(e) => setSerialNo(e.target.value)}
-          placeholder="Masukkan nomor seri unit"
+          placeholder={u("isiNomorSeri")}
           className="flex-1"
         />
         <Button type="submit" disabled={add.isPending || !serialNo.trim()}>
@@ -376,6 +383,7 @@ function SerialManager({ product }: { product: ProductRow }) {
 
 /** Mulai cepat (Fase 11f): isi contoh produk & kontak sesuai jenis usaha. */
 function IndustryTemplateCard() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const qc = useQueryClient();
@@ -392,12 +400,12 @@ function IndustryTemplateCard() {
   return (
     <Card>
       <CardHeader
-        title="Mulai cepat: contoh data usaha"
+        title={u("mulaiCepat")}
         description="Belum punya produk? Pilih jenis usaha untuk mengisi contoh produk & kontak — semua bisa diubah/hapus kapan saja."
       />
       <CardBody className="flex flex-wrap items-end gap-3">
         <div>
-          <Label>Jenis usaha</Label>
+          <Label>{u("jenisUsaha")}</Label>
           <Select
             value={industry}
             onChange={(e) => setIndustry(e.target.value as IndustryKey)}
@@ -419,6 +427,7 @@ function IndustryTemplateCard() {
 }
 
 export function ProductsPage() {
+  const u = useUi();
   const {
     isAdmin,
     query,
@@ -520,7 +529,7 @@ export function ProductsPage() {
                 <FieldError messages={issues.sku} />
               </div>
               <div>
-                <Label htmlFor="p-name">Nama</Label>
+                <Label htmlFor="p-name">{u("nama")}</Label>
                 <Input
                   id="p-name"
                   name="name"
@@ -531,7 +540,7 @@ export function ProductsPage() {
                 <FieldError messages={issues.name} />
               </div>
               <div>
-                <Label htmlFor="p-unit">Satuan</Label>
+                <Label htmlFor="p-unit">{u("satuan")}</Label>
                 <Input
                   id="p-unit"
                   name="unit"
@@ -540,7 +549,7 @@ export function ProductsPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="p-sell">Harga jual (Rp)</Label>
+                <Label htmlFor="p-sell">{u("hargaJualRp")}</Label>
                 <Input
                   id="p-sell"
                   name="sellPrice"
@@ -551,7 +560,7 @@ export function ProductsPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="p-buy">Harga beli (Rp)</Label>
+                <Label htmlFor="p-buy">{u("hargaBeliRp")}</Label>
                 <Input
                   id="p-buy"
                   name="buyPrice"
@@ -562,13 +571,13 @@ export function ProductsPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="p-minstock">Stok minimum</Label>
+                <Label htmlFor="p-minstock">{u("stokMinimum")}</Label>
                 <Input
                   id="p-minstock"
                   name="minStock"
                   type="number"
                   min={0}
-                  placeholder="0 = tanpa peringatan"
+                  placeholder={u("nolTanpaPeringatan")}
                   defaultValue={editing?.min_stock || ""}
                 />
               </div>
@@ -578,7 +587,7 @@ export function ProductsPage() {
                 </Button>
                 {editing ? (
                   <Button type="button" variant="secondary" onClick={() => setEditing(null)}>
-                    Batal
+                    {u("batal")}
                   </Button>
                 ) : null}
               </div>
@@ -603,17 +612,17 @@ export function ProductsPage() {
                 langganan
               </label>
               <div className="sm:col-span-3">
-                <Label htmlFor="p-barcode">Barcode / kode batang</Label>
+                <Label htmlFor="p-barcode">{u("barcodeLabel")}</Label>
                 <Input
                   id="p-barcode"
                   name="barcode"
-                  placeholder="opsional — untuk pindai di kasir"
+                  placeholder={u("opsionalPindaiKasir")}
                   defaultValue={editing?.barcode ?? ""}
                 />
                 <FieldError messages={issues.barcode} />
               </div>
               <div className="sm:col-span-2">
-                <Label htmlFor="p-uom2">Satuan besar (opsional)</Label>
+                <Label htmlFor="p-uom2">{u("satuanBesar")}</Label>
                 <Input
                   id="p-uom2"
                   name="uomSecondary"
@@ -653,7 +662,7 @@ export function ProductsPage() {
       <Card>
         <CardBody className="space-y-3">
           <SearchBox
-            label="Cari SKU / nama produk…"
+            label={u("cariProduk")}
             value={search}
             onChange={(v) => {
               setSearch(v);
@@ -678,12 +687,12 @@ export function ProductsPage() {
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-800">
                     <th className={th}>SKU</th>
-                    <th className={th}>Nama</th>
-                    <th className={th}>Satuan</th>
-                    <th className={`${th} text-right`}>Harga Jual</th>
-                    <th className={`${th} text-right`}>Harga Beli</th>
-                    <th className={`${th} hidden sm:table-cell`}>Barcode</th>
-                    <th className={th}>Label</th>
+                    <th className={th}>{u("nama")}</th>
+                    <th className={th}>{u("satuan")}</th>
+                    <th className={`${th} text-right`}>{u("hargaJual")}</th>
+                    <th className={`${th} text-right`}>{u("hargaBeli")}</th>
+                    <th className={`${th} hidden sm:table-cell`}>{u("barcodeLabel")}</th>
+                    <th className={th}>{u("label")}</th>
                     {isAdmin ? <th className={th}></th> : null}
                   </tr>
                 </thead>
@@ -707,7 +716,7 @@ export function ProductsPage() {
                       </td>
                       <td className={`${td} space-x-1`}>
                         {p.track_expiry ? <Badge tone="amber">FEFO</Badge> : null}
-                        {p.track_serial ? <Badge tone="brand">Seri</Badge> : null}
+                        {p.track_serial ? <Badge tone="brand">{u("seri")}</Badge> : null}
                         {!p.track_expiry && !p.track_serial ? "—" : null}
                       </td>
                       {isAdmin ? (
@@ -734,13 +743,13 @@ export function ProductsPage() {
 
       <ConfirmDialog
         open={toArchive !== null}
-        title="Arsipkan produk ini?"
+        title={u("arsipkanProduk")}
         description={
           toArchive
             ? `${toArchive.sku} — ${toArchive.name} akan disembunyikan dari daftar & form transaksi. Riwayat transaksi tetap utuh.`
             : undefined
         }
-        confirmLabel="Arsipkan"
+        confirmLabel={u("arsipkan")}
         danger
         busy={archive.isPending}
         onConfirm={() => toArchive && archive.mutate(toArchive.id)}
@@ -769,6 +778,7 @@ const CONTACT_TYPE_LABELS: Record<ContactType, string> = {
 };
 
 export function ContactsPage() {
+  const u = useUi();
   const {
     isAdmin,
     query,
@@ -852,15 +862,15 @@ export function ContactsPage() {
               noValidate
             >
               <div>
-                <Label htmlFor="k-type">Jenis</Label>
+                <Label htmlFor="k-type">{u("jenis")}</Label>
                 <Select id="k-type" name="type" defaultValue={editing?.type ?? "customer"}>
-                  <option value="customer">Pelanggan</option>
-                  <option value="supplier">Pemasok</option>
-                  <option value="both">Keduanya</option>
+                  <option value="customer">{u("pelanggan")}</option>
+                  <option value="supplier">{u("pemasok")}</option>
+                  <option value="both">{u("keduanya")}</option>
                 </Select>
               </div>
               <div>
-                <Label htmlFor="k-name">Nama</Label>
+                <Label htmlFor="k-name">{u("nama")}</Label>
                 <Input
                   id="k-name"
                   name="name"
@@ -871,7 +881,7 @@ export function ContactsPage() {
                 <FieldError messages={issues.name} />
               </div>
               <div>
-                <Label htmlFor="k-email">Email</Label>
+                <Label htmlFor="k-email">{u("email")}</Label>
                 <Input
                   id="k-email"
                   name="email"
@@ -882,7 +892,7 @@ export function ContactsPage() {
                 <FieldError messages={issues.email} />
               </div>
               <div>
-                <Label htmlFor="k-phone">Telepon</Label>
+                <Label htmlFor="k-phone">{u("telepon")}</Label>
                 <Input
                   id="k-phone"
                   name="phone"
@@ -896,14 +906,14 @@ export function ContactsPage() {
                 </Button>
                 {editing ? (
                   <Button type="button" variant="secondary" onClick={() => setEditing(null)}>
-                    Batal
+                    {u("batal")}
                   </Button>
                 ) : null}
               </div>
               {editing ? (
                 <>
                   <div className="sm:col-span-2">
-                    <Label htmlFor="k-address">Alamat</Label>
+                    <Label htmlFor="k-address">{u("alamat")}</Label>
                     <Input
                       id="k-address"
                       name="address"
@@ -930,7 +940,7 @@ export function ContactsPage() {
       <Card>
         <CardBody className="space-y-3">
           <SearchBox
-            label="Cari nama / email / telepon…"
+            label={u("cariKontak")}
             value={search}
             onChange={(v) => {
               setSearch(v);
@@ -954,10 +964,10 @@ export function ContactsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-800">
-                    <th className={th}>Nama</th>
-                    <th className={th}>Jenis</th>
-                    <th className={th}>Email</th>
-                    <th className={th}>Telepon</th>
+                    <th className={th}>{u("nama")}</th>
+                    <th className={th}>{u("jenis")}</th>
+                    <th className={th}>{u("email")}</th>
+                    <th className={th}>{u("telepon")}</th>
                     {isAdmin ? <th className={th}></th> : null}
                   </tr>
                 </thead>
@@ -994,13 +1004,13 @@ export function ContactsPage() {
 
       <ConfirmDialog
         open={toArchive !== null}
-        title="Arsipkan kontak ini?"
+        title={u("arsipkanKontak")}
         description={
           toArchive
             ? `${toArchive.name} akan disembunyikan dari daftar & form transaksi. Riwayat transaksi tetap utuh.`
             : undefined
         }
-        confirmLabel="Arsipkan"
+        confirmLabel={u("arsipkan")}
         danger
         busy={archive.isPending}
         onConfirm={() => toArchive && archive.mutate(toArchive.id)}
@@ -1015,6 +1025,7 @@ export function ContactsPage() {
 type WarehouseRow = { id: string; code: string; name: string; address: string | null };
 
 export function WarehousesPage() {
+  const u = useUi();
   const {
     isAdmin,
     query,
@@ -1072,7 +1083,7 @@ export function WarehousesPage() {
               noValidate
             >
               <div>
-                <Label htmlFor="w-code">Kode</Label>
+                <Label htmlFor="w-code">{u("kode")}</Label>
                 <Input
                   id="w-code"
                   name="code"
@@ -1083,7 +1094,7 @@ export function WarehousesPage() {
                 <FieldError messages={issues.code} />
               </div>
               <div>
-                <Label htmlFor="w-name">Nama</Label>
+                <Label htmlFor="w-name">{u("nama")}</Label>
                 <Input
                   id="w-name"
                   name="name"
@@ -1094,7 +1105,7 @@ export function WarehousesPage() {
                 <FieldError messages={issues.name} />
               </div>
               <div>
-                <Label htmlFor="w-address">Alamat</Label>
+                <Label htmlFor="w-address">{u("alamat")}</Label>
                 <Input
                   id="w-address"
                   name="address"
@@ -1108,7 +1119,7 @@ export function WarehousesPage() {
                 </Button>
                 {editing ? (
                   <Button type="button" variant="secondary" onClick={() => setEditing(null)}>
-                    Batal
+                    {u("batal")}
                   </Button>
                 ) : null}
               </div>
@@ -1120,7 +1131,7 @@ export function WarehousesPage() {
       <Card>
         <CardBody className="space-y-3">
           <SearchBox
-            label="Cari kode / nama gudang…"
+            label={u("cariGudang")}
             value={search}
             onChange={(v) => {
               setSearch(v);
@@ -1142,9 +1153,9 @@ export function WarehousesPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-800">
-                    <th className={th}>Kode</th>
-                    <th className={th}>Nama</th>
-                    <th className={th}>Alamat</th>
+                    <th className={th}>{u("kode")}</th>
+                    <th className={th}>{u("nama")}</th>
+                    <th className={th}>{u("alamat")}</th>
                     {isAdmin ? <th className={th}></th> : null}
                   </tr>
                 </thead>
@@ -1178,13 +1189,13 @@ export function WarehousesPage() {
 
       <ConfirmDialog
         open={toArchive !== null}
-        title="Arsipkan gudang ini?"
+        title={u("arsipkanGudang")}
         description={
           toArchive
             ? `${toArchive.code} — ${toArchive.name} akan disembunyikan dari daftar & form transaksi. Riwayat mutasi stok tetap utuh.`
             : undefined
         }
-        confirmLabel="Arsipkan"
+        confirmLabel={u("arsipkan")}
         danger
         busy={archive.isPending}
         onConfirm={() => toArchive && archive.mutate(toArchive.id)}

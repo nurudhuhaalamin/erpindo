@@ -1,0 +1,86 @@
+import { useLang, type Dual } from "./index";
+
+/**
+ * Kamus istilah UI yang dipakai berulang di banyak halaman modul (Fase 16b):
+ * label kolom tabel, label form, dan tombol aksi. Dibuat terpusat karena kata
+ * yang sama muncul belasan kali di berkas berbeda — menerjemahkannya satu per
+ * satu di tiap halaman akan cepat menjadi tidak konsisten.
+ *
+ * Dipakai lewat `const u = useUi(); u("nama")`.
+ *
+ * Istilah domain Indonesia yang merupakan nama resmi (PPN, NPWP, SKU, FEFO,
+ * PPh 21, BPJS) sengaja TIDAK diterjemahkan — sama seperti keputusan i18n
+ * landing (Fase 14f) dan judul halaman (Fase 16a).
+ */
+const UI: Record<string, Dual> = {
+  // Kolom & label umum
+  nama: { id: "Nama", en: "Name" },
+  kode: { id: "Kode", en: "Code" },
+  tanggal: { id: "Tanggal", en: "Date" },
+  status: { id: "Status", en: "Status" },
+  jenis: { id: "Jenis", en: "Type" },
+  jumlah: { id: "Jumlah", en: "Amount" },
+  total: { id: "Total", en: "Total" },
+  subtotal: { id: "Subtotal", en: "Subtotal" },
+  keterangan: { id: "Keterangan", en: "Notes" },
+  alamat: { id: "Alamat", en: "Address" },
+  telepon: { id: "Telepon", en: "Phone" },
+  email: { id: "Email", en: "Email" },
+  satuan: { id: "Satuan", en: "Unit" },
+  dari: { id: "Dari", en: "From" },
+  sampai: { id: "Sampai", en: "To" },
+  opsional: { id: "opsional", en: "optional" },
+
+  // Aksi
+  simpan: { id: "Simpan", en: "Save" },
+  batal: { id: "Batal", en: "Cancel" },
+  hapus: { id: "Hapus", en: "Delete" },
+  ubah: { id: "Ubah", en: "Edit" },
+  tambah: { id: "Tambah", en: "Add" },
+  cari: { id: "Cari", en: "Search" },
+  arsipkan: { id: "Arsipkan", en: "Archive" },
+  cetak: { id: "Cetak", en: "Print" },
+  eksporCsv: { id: "Ekspor CSV", en: "Export CSV" },
+  unduhTemplate: { id: "Unduh template", en: "Download template" },
+  muatLebihBanyak: { id: "Muat lebih banyak", en: "Load more" },
+  setujui: { id: "Setujui", en: "Approve" },
+  tolak: { id: "Tolak", en: "Reject" },
+  batalkan: { id: "Batalkan", en: "Void" },
+
+  // Master data
+  produk: { id: "Produk", en: "Product" },
+  gudang: { id: "Gudang", en: "Warehouse" },
+  pelanggan: { id: "Pelanggan", en: "Customer" },
+  pemasok: { id: "Pemasok", en: "Supplier" },
+  keduanya: { id: "Keduanya", en: "Both" },
+  hargaJual: { id: "Harga Jual", en: "Selling price" },
+  hargaBeli: { id: "Harga Beli", en: "Buying price" },
+  hargaJualRp: { id: "Harga jual (Rp)", en: "Selling price (Rp)" },
+  hargaBeliRp: { id: "Harga beli (Rp)", en: "Buying price (Rp)" },
+  stokMinimum: { id: "Stok minimum", en: "Minimum stock" },
+  satuanBesar: { id: "Satuan besar (opsional)", en: "Bulk unit (optional)" },
+  barcodeLabel: { id: "Barcode / kode batang", en: "Barcode" },
+  seri: { id: "Seri", en: "Serial" },
+
+  // Pencarian & konfirmasi
+  cariProduk: { id: "Cari SKU / nama produk…", en: "Search SKU / product name…" },
+  cariGudang: { id: "Cari kode / nama gudang…", en: "Search warehouse code / name…" },
+  cariKontak: { id: "Cari nama / email / telepon…", en: "Search name / email / phone…" },
+  arsipkanProduk: { id: "Arsipkan produk ini?", en: "Archive this product?" },
+  arsipkanKontak: { id: "Arsipkan kontak ini?", en: "Archive this contact?" },
+  arsipkanGudang: { id: "Arsipkan gudang ini?", en: "Archive this warehouse?" },
+  label: { id: "Label", en: "Label" },
+  jenisUsaha: { id: "Jenis usaha", en: "Business type" },
+  mulaiCepat: { id: "Mulai cepat: contoh data usaha", en: "Quick start: sample business data" },
+  isiNomorSeri: { id: "Masukkan nomor seri unit", en: "Enter the unit serial number" },
+  nolTanpaPeringatan: { id: "0 = tanpa peringatan", en: "0 = no alert" },
+  opsionalPindaiKasir: { id: "opsional — untuk pindai di kasir", en: "optional — for scanning at the till" },
+};
+
+export type UiKey = keyof typeof UI;
+
+/** Penerjemah istilah UI bersama: `const u = useUi(); u("simpan")`. */
+export function useUi(): (key: UiKey) => string {
+  const lang = useLang();
+  return (key: UiKey) => UI[key]?.[lang] ?? String(key);
+}
