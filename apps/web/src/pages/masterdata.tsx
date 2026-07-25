@@ -9,7 +9,7 @@ import {
 } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLang } from "../i18n";
-import { useUi } from "../i18n/ui";
+import { useUi, type UiKey } from "../i18n/ui";
 import { Contact, Package, Search, Upload, Warehouse } from "lucide-react";
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { api, downloadCsv, formatIDR, parseCsv } from "../api/client";
@@ -113,10 +113,14 @@ function ImportCsvButton({
         <div className="w-full rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
           {result.errors.slice(0, 8).map((er) => (
             <div key={er.row}>
-              Baris {er.row}: {er.message}
+              {u("barisKe")} {er.row}: {er.message}
             </div>
           ))}
-          {result.errors.length > 8 ? <div>… dan {result.errors.length - 8} lainnya</div> : null}
+          {result.errors.length > 8 ? (
+            <div>
+              … {result.errors.length - 8} {u("danLainnya")}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -319,9 +323,11 @@ function SerialManager({ product }: { product: ProductRow }) {
   return (
     <div className="mt-4 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Nomor seri — {product.name}</h3>
+        <h3 className="text-sm font-semibold">
+          {u("nomorSeri")} — {product.name}
+        </h3>
         <span className="text-xs text-slate-400">
-          {available} tersedia / {serials.length} total
+          {available} {u("tersedia")} / {serials.length} {u("total").toLowerCase()}
         </span>
       </div>
       <form
@@ -348,7 +354,7 @@ function SerialManager({ product }: { product: ProductRow }) {
         </div>
       ) : serials.length === 0 ? (
         <p className="mt-3 text-sm text-slate-400">
-          Belum ada nomor seri. Tambahkan unit satu per satu di atas.
+          {u("belumAdaNomorSeri")}
         </p>
       ) : (
         <ul className="mt-3 space-y-1.5">
@@ -486,12 +492,8 @@ export function ProductsPage() {
       {isAdmin ? (
         <Card>
           <CardHeader
-            title={editing ? `Ubah produk — ${editing.sku}` : "Tambah produk"}
-            description={
-              editing
-                ? "Perubahan hanya memengaruhi data master; transaksi lama tetap memakai nilai saat diposting."
-                : "Tambah satu per satu, atau impor sekaligus dari file CSV/Excel."
-            }
+            title={editing ? `${u("ubahProduk")} — ${editing.sku}` : u("tambahProduk")}
+            description={editing ? u("descUbahProduk") : u("descTambahProduk")}
           />
           <CardBody className="space-y-4">
             {editing ? null : (
@@ -583,7 +585,7 @@ export function ProductsPage() {
               </div>
               <div className="flex gap-2">
                 <Button type="submit" disabled={busy}>
-                  {busy ? <Spinner /> : null} {editing ? "Simpan" : "Tambah"}
+                  {busy ? <Spinner /> : null} {editing ? u("simpan") : u("tambah")}
                 </Button>
                 {editing ? (
                   <Button type="button" variant="secondary" onClick={() => setEditing(null)}>
@@ -598,8 +600,7 @@ export function ProductsPage() {
                   className="h-4 w-4 rounded border-slate-300"
                   defaultChecked={editing ? editing.track_expiry === 1 : false}
                 />
-                Lacak lot &amp; tanggal kedaluwarsa (F&amp;B/farmasi) — wajib isi tgl exp saat
-                pembelian, keluar otomatis FEFO
+                {u("lacakLotKedaluwarsa")}
               </label>
               <label className="flex items-center gap-2 text-sm text-slate-600 sm:col-span-3 dark:text-slate-300">
                 <input
@@ -608,8 +609,7 @@ export function ProductsPage() {
                   className="h-4 w-4 rounded border-slate-300"
                   defaultChecked={editing ? editing.is_service === 1 : false}
                 />
-                Jasa (tanpa stok) — faktur tidak menggerakkan stok/HPP; cocok untuk layanan, sewa,
-                langganan
+                {u("jasaTanpaStok")}
               </label>
               <div className="sm:col-span-3">
                 <Label htmlFor="p-barcode">{u("barcodeLabel")}</Label>
@@ -626,18 +626,18 @@ export function ProductsPage() {
                 <Input
                   id="p-uom2"
                   name="uomSecondary"
-                  placeholder="mis. dus"
+                  placeholder={u("contohSatuanBesar")}
                   defaultValue={editing?.uom_secondary ?? ""}
                 />
               </div>
               <div className="sm:col-span-2">
-                <Label htmlFor="p-uomf">1 satuan besar = … satuan dasar</Label>
+                <Label htmlFor="p-uomf">{u("satuanBesarSamaDengan")}</Label>
                 <Input
                   id="p-uomf"
                   name="uomFactor"
                   type="number"
                   min={1}
-                  placeholder="mis. 24"
+                  placeholder={u("contohFaktorSatuan")}
                   defaultValue={
                     editing?.uom_factor && editing.uom_factor > 1 ? editing.uom_factor : ""
                   }
@@ -651,7 +651,7 @@ export function ProductsPage() {
                   className="h-4 w-4 rounded border-slate-300"
                   defaultChecked={editing ? editing.track_serial === 1 : false}
                 />
-                Lacak nomor seri — untuk barang bernilai tinggi/garansi (elektronik, mesin)
+                {u("lacakNomorSeri")}
               </label>
             </form>
             {editing && editing.track_serial === 1 ? <SerialManager product={editing} /> : null}
@@ -674,12 +674,8 @@ export function ProductsPage() {
           ) : (query.data?.items.length ?? 0) === 0 ? (
             <EmptyState
               icon={<Package className="size-6" aria-hidden />}
-              title={q ? "Tidak ada produk yang cocok" : "Belum ada produk"}
-              description={
-                q
-                  ? "Coba kata kunci lain."
-                  : "Tambahkan produk pertama Anda lewat form di atas, atau impor sekaligus dari CSV."
-              }
+              title={q ? u("tidakAdaProdukCocok") : u("belumAdaProduk")}
+              description={q ? u("cobaKataKunciLain") : u("descBelumAdaProduk")}
             />
           ) : (
             <div className="overflow-x-auto">
@@ -746,7 +742,7 @@ export function ProductsPage() {
         title={u("arsipkanProduk")}
         description={
           toArchive
-            ? `${toArchive.sku} — ${toArchive.name} akan disembunyikan dari daftar & form transaksi. Riwayat transaksi tetap utuh.`
+            ? `${toArchive.sku} — ${toArchive.name} ${u("descArsipkan")}`
             : undefined
         }
         confirmLabel={u("arsipkan")}
@@ -771,10 +767,12 @@ type ContactRow = {
   npwp: string | null;
 };
 
-const CONTACT_TYPE_LABELS: Record<ContactType, string> = {
-  customer: "Pelanggan",
-  supplier: "Pemasok",
-  both: "Pelanggan & Pemasok",
+// Konstanta tingkat modul tidak boleh memanggil hook, jadi yang disimpan
+// adalah KUNCI kamus — diterjemahkan saat render (pola sama dengan Fase 16j).
+const CONTACT_TYPE_LABELS: Record<ContactType, UiKey> = {
+  customer: "pelanggan",
+  supplier: "pemasok",
+  both: "pelangganPemasok",
 };
 
 export function ContactsPage() {
@@ -821,12 +819,8 @@ export function ContactsPage() {
       {isAdmin ? (
         <Card>
           <CardHeader
-            title={editing ? `Ubah kontak — ${editing.name}` : "Tambah kontak"}
-            description={
-              editing
-                ? "Perubahan berlaku untuk transaksi berikutnya."
-                : "Pelanggan dan pemasok Anda — bisa impor sekaligus dari CSV."
-            }
+            title={editing ? `${u("ubahKontak")} — ${editing.name}` : u("tambahKontak")}
+            description={editing ? u("descUbahKontak") : u("descTambahKontak")}
           />
           <CardBody className="space-y-4">
             {editing ? null : (
@@ -874,7 +868,7 @@ export function ContactsPage() {
                 <Input
                   id="k-name"
                   name="name"
-                  placeholder="PT Pelanggan Setia"
+                  placeholder={u("contohNamaPelanggan")}
                   defaultValue={editing?.name}
                   required
                 />
@@ -902,7 +896,7 @@ export function ContactsPage() {
               </div>
               <div className="flex gap-2">
                 <Button type="submit" disabled={busy}>
-                  {busy ? <Spinner /> : null} {editing ? "Simpan" : "Tambah"}
+                  {busy ? <Spinner /> : null} {editing ? u("simpan") : u("tambah")}
                 </Button>
                 {editing ? (
                   <Button type="button" variant="secondary" onClick={() => setEditing(null)}>
@@ -952,12 +946,8 @@ export function ContactsPage() {
           ) : (query.data?.items.length ?? 0) === 0 ? (
             <EmptyState
               icon={<Contact className="size-6" aria-hidden />}
-              title={q ? "Tidak ada kontak yang cocok" : "Belum ada kontak"}
-              description={
-                q
-                  ? "Coba kata kunci lain."
-                  : "Tambahkan pelanggan atau pemasok pertama Anda lewat form di atas."
-              }
+              title={q ? u("tidakAdaKontakCocok") : u("belumAdaKontak")}
+              description={q ? u("cobaKataKunciLain") : u("descBelumAdaKontak")}
             />
           ) : (
             <div className="overflow-x-auto">
@@ -976,7 +966,7 @@ export function ContactsPage() {
                     <tr key={k.id}>
                       <td className={td}>{k.name}</td>
                       <td className={td}>
-                        <Badge>{CONTACT_TYPE_LABELS[k.type]}</Badge>
+                        <Badge>{u(CONTACT_TYPE_LABELS[k.type])}</Badge>
                       </td>
                       <td className={td}>{k.email ?? "—"}</td>
                       <td className={td}>{k.phone ?? "—"}</td>
@@ -1007,7 +997,7 @@ export function ContactsPage() {
         title={u("arsipkanKontak")}
         description={
           toArchive
-            ? `${toArchive.name} akan disembunyikan dari daftar & form transaksi. Riwayat transaksi tetap utuh.`
+            ? `${toArchive.name} ${u("descArsipkan")}`
             : undefined
         }
         confirmLabel={u("arsipkan")}
@@ -1068,12 +1058,8 @@ export function WarehousesPage() {
       {isAdmin ? (
         <Card>
           <CardHeader
-            title={editing ? `Ubah gudang — ${editing.code}` : "Tambah gudang"}
-            description={
-              editing
-                ? "Stok & riwayat mutasi tetap terikat pada gudang ini."
-                : "Gudang Utama sudah dibuat otomatis."
-            }
+            title={editing ? `${u("ubahGudang")} — ${editing.code}` : u("tambahGudang")}
+            description={editing ? u("descUbahGudang") : u("descTambahGudang")}
           />
           <CardBody>
             <form
@@ -1098,7 +1084,7 @@ export function WarehousesPage() {
                 <Input
                   id="w-name"
                   name="name"
-                  placeholder="Gudang Cabang Bandung"
+                  placeholder={u("contohNamaGudang")}
                   defaultValue={editing?.name}
                   required
                 />
@@ -1115,7 +1101,7 @@ export function WarehousesPage() {
               </div>
               <div className="flex gap-2">
                 <Button type="submit" disabled={busy}>
-                  {busy ? <Spinner /> : null} {editing ? "Simpan" : "Tambah"}
+                  {busy ? <Spinner /> : null} {editing ? u("simpan") : u("tambah")}
                 </Button>
                 {editing ? (
                   <Button type="button" variant="secondary" onClick={() => setEditing(null)}>
@@ -1143,10 +1129,8 @@ export function WarehousesPage() {
           ) : (query.data?.items.length ?? 0) === 0 ? (
             <EmptyState
               icon={<Warehouse className="size-6" aria-hidden />}
-              title={q ? "Tidak ada gudang yang cocok" : "Belum ada gudang"}
-              description={
-                q ? "Coba kata kunci lain." : "Gudang Utama dibuat otomatis saat registrasi."
-              }
+              title={q ? u("tidakAdaGudangCocok") : u("belumAdaGudang")}
+              description={q ? u("cobaKataKunciLain") : u("descBelumAdaGudang")}
             />
           ) : (
             <div className="overflow-x-auto">
@@ -1192,7 +1176,7 @@ export function WarehousesPage() {
         title={u("arsipkanGudang")}
         description={
           toArchive
-            ? `${toArchive.code} — ${toArchive.name} akan disembunyikan dari daftar & form transaksi. Riwayat mutasi stok tetap utuh.`
+            ? `${toArchive.code} — ${toArchive.name} ${u("descArsipkanGudang")}`
             : undefined
         }
         confirmLabel={u("arsipkan")}
