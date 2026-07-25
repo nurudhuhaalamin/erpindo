@@ -1,4 +1,6 @@
 import type { ApiCommerceDoc } from "@erpindo/shared";
+import { useLang, pick } from "../i18n";
+import { useUi } from "../i18n/ui";
 import { useHeading } from "../i18n/pageHeadings";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, MessageCircle, Printer, Search } from "lucide-react";
@@ -26,23 +28,28 @@ type Mode = "sale" | "purchase";
 
 const MODE_CFG = {
   sale: {
-    title: "Penjualan",
-    docLabel: "Faktur penjualan",
-    contactLabel: "Pelanggan",
+    title: { id: "Penjualan", en: "Sales" },
+    docLabel: { id: "Faktur penjualan", en: "Sales invoice" },
+    contactLabel: { id: "Pelanggan", en: "Customer" },
     contactTypes: ["customer", "both"],
     priceField: "sell_price" as const,
     queryKey: "invoices" as const,
-    stockHint: "Stok berkurang otomatis; jurnal piutang, pendapatan, PPN & HPP dibuat otomatis.",
+    stockHint: {
+      id: "Stok berkurang otomatis; jurnal piutang, pendapatan, PPN & HPP dibuat otomatis.",
+      en: "Stock is deducted automatically; receivable, revenue, PPN & COGS entries are created for you.",
+    },
   },
   purchase: {
-    title: "Pembelian",
-    docLabel: "Faktur pembelian",
-    contactLabel: "Pemasok",
+    title: { id: "Pembelian", en: "Purchases" },
+    docLabel: { id: "Faktur pembelian", en: "Purchase invoice" },
+    contactLabel: { id: "Pemasok", en: "Supplier" },
     contactTypes: ["supplier", "both"],
     priceField: "buy_price" as const,
     queryKey: "purchases" as const,
-    stockHint:
-      "Stok bertambah otomatis (biaya rata-rata); jurnal persediaan, PPN & hutang dibuat otomatis.",
+    stockHint: {
+      id: "Stok bertambah otomatis (biaya rata-rata); jurnal persediaan, PPN & hutang dibuat otomatis.",
+      en: "Stock is added automatically (average cost); inventory, PPN & payable entries are created for you.",
+    },
   },
 };
 
@@ -96,6 +103,8 @@ export function useDebounced<T>(value: T, ms = 300): T {
 }
 
 export function CommercePage({ mode }: { mode: Mode }) {
+  const u = useUi();
+  const lang = useLang();
   const h = useHeading(mode === "sale" ? "penjualan" : "pembelian");
   const cfg = MODE_CFG[mode];
   const { tenant } = useWorkspace();
@@ -260,17 +269,17 @@ export function CommercePage({ mode }: { mode: Mode }) {
 
       {isAdmin ? (
         <Card>
-          <CardHeader title={`${cfg.docLabel} baru`} description={cfg.stockHint} />
+          <CardHeader title={`${pick(cfg.docLabel, lang)} ${lang === "en" ? "— new" : "baru"}`} description={pick(cfg.stockHint, lang)} />
           <CardBody className="space-y-4">
             {error ? <Alert tone="error">{error}</Alert> : null}
             <div className="grid gap-3 sm:grid-cols-4">
               <div>
-                <Label htmlFor="doc-contact">{cfg.contactLabel}</Label>
+                <Label htmlFor="doc-contact">{pick(cfg.contactLabel, lang)}</Label>
                 <SearchSelect
                   id="doc-contact"
                   value={contactId}
                   valueLabel={contactLabel}
-                  placeholder={`Cari ${cfg.contactLabel.toLowerCase()}…`}
+                  placeholder={`${u("cari")} ${pick(cfg.contactLabel, lang).toLowerCase()}…`}
                   fetchOptions={fetchContactOptions}
                   onSelect={(opt) => {
                     setContactId(opt.value);
@@ -279,7 +288,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
                 />
               </div>
               <div>
-                <Label htmlFor="doc-wh">Gudang</Label>
+                <Label htmlFor="doc-wh">{u("gudang")}</Label>
                 <Select
                   id="doc-wh"
                   value={warehouseId}
@@ -293,7 +302,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="doc-date">Tanggal</Label>
+                <Label htmlFor="doc-date">{u("tanggal")}</Label>
                 <Input
                   id="doc-date"
                   type="date"
@@ -308,14 +317,14 @@ export function CommercePage({ mode }: { mode: Mode }) {
                   value={String(taxRate)}
                   onChange={(e) => setTaxRate(Number(e.target.value) as 0 | 11 | 12)}
                 >
-                  <option value="0">Tanpa PPN</option>
+                  <option value="0">{u("tanpaPpn")}</option>
                   <option value="11">PPN 11%</option>
                   <option value="12">PPN 12%</option>
                 </Select>
               </div>
               {activeProjects.length > 0 ? (
                 <div>
-                  <Label htmlFor="doc-project">Proyek (opsional)</Label>
+                  <Label htmlFor="doc-project">{u("proyekOpsional")}</Label>
                   <Select
                     id="doc-project"
                     value={projectId}
@@ -332,7 +341,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
               ) : null}
               {currencies.length > 1 ? (
                 <div>
-                  <Label htmlFor="doc-currency">Mata uang</Label>
+                  <Label htmlFor="doc-currency">{u("mataUang")}</Label>
                   <Select
                     id="doc-currency"
                     value={currency}
@@ -372,7 +381,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
                       <SearchSelect
                         value={line.productId}
                         valueLabel={line.productLabel}
-                        placeholder="Cari produk (SKU/nama)…"
+                        placeholder={u("cariProdukSkuNama")}
                         fetchOptions={fetchProductOptions}
                         onSelect={(opt) => pickProduct(i, opt)}
                       />
@@ -387,7 +396,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
                         aria-label={`Harga baris ${i + 1}`}
                         type="number"
                         min={0}
-                        placeholder="Harga satuan"
+                        placeholder={u("hargaSatuan")}
                         value={line.unitPrice}
                         onChange={(e) => setLine(i, { unitPrice: e.target.value })}
                       />
@@ -396,7 +405,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
                         type="number"
                         min={0}
                         max={100}
-                        placeholder="Disc %"
+                        placeholder={u("disc")}
                         value={line.discountPct}
                         onChange={(e) => setLine(i, { discountPct: e.target.value })}
                       />
@@ -418,7 +427,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
                       <div className="grid grid-cols-2 gap-2 rounded-lg bg-amber-50 p-2 sm:grid-cols-[10rem_11rem_1fr] sm:items-center dark:bg-amber-950/40">
                         <Input
                           aria-label={`Nomor lot baris ${i + 1}`}
-                          placeholder="No. lot (opsional)"
+                          placeholder={u("noLotOpsional")}
                           value={line.lotNo}
                           onChange={(e) => setLine(i, { lotNo: e.target.value })}
                         />
@@ -463,7 +472,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
                   </>
                 ) : (
                   <>
-                    Subtotal <strong className="tabular-nums">{formatIDR(subtotal)}</strong>
+                    {u("subtotal")} <strong className="tabular-nums">{formatIDR(subtotal)}</strong>
                     {taxRate > 0 ? (
                       <>
                         {" "}
@@ -484,7 +493,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
       ) : null}
 
       <Card>
-        <CardHeader title={`Daftar ${cfg.title.toLowerCase()}`} />
+        <CardHeader title={lang === "en" ? `${pick(cfg.title, lang)} list` : `Daftar ${pick(cfg.title, lang).toLowerCase()}`} />
         <CardBody className="space-y-3">
           <div className="relative sm:max-w-xs">
             <Search
@@ -492,9 +501,9 @@ export function CommercePage({ mode }: { mode: Mode }) {
               aria-hidden
             />
             <Input
-              aria-label={`Cari ${cfg.docLabel.toLowerCase()}`}
+              aria-label={`${u("cari")} ${pick(cfg.docLabel, lang).toLowerCase()}`}
               className="pl-9"
-              placeholder="Cari no. dokumen / nama kontak…"
+              placeholder={u("cariDokumen")}
               value={docSearch}
               onChange={(e) => {
                 setDocSearch(e.target.value);
@@ -508,7 +517,9 @@ export function CommercePage({ mode }: { mode: Mode }) {
             <EmptyState
               icon={<FileText className="size-6" aria-hidden />}
               title={
-                docQ ? "Tidak ada dokumen yang cocok" : `Belum ada ${cfg.docLabel.toLowerCase()}`
+                docQ
+                  ? lang === "en" ? "No matching documents" : "Tidak ada dokumen yang cocok"
+                  : lang === "en" ? `No ${pick(cfg.docLabel, lang).toLowerCase()} yet` : `Belum ada ${pick(cfg.docLabel, lang).toLowerCase()}`
               }
               description={
                 docQ
@@ -539,7 +550,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
                     className="h-8"
                     onClick={() => setDocLimit((l) => Math.min(l + 100, 500))}
                   >
-                    Muat lebih banyak
+                    {u("muatLebihBanyak")}
                   </Button>
                 </div>
               ) : null}
@@ -566,6 +577,7 @@ function DocRow({
   const toast = useToast();
   const queryClient = useQueryClient();
   const [payOpen, setPayOpen] = useState(false);
+  const u = useUi();
   const [returnOpen, setReturnOpen] = useState(false);
   const [voidOpen, setVoidOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -755,7 +767,7 @@ function DocRow({
           <span className="text-slate-500 dark:text-slate-400">{formatDate(doc.date)}</span>
           <span>{doc.contactName}</span>
           {isVoided ? (
-            <Badge tone="red">DIBATALKAN</Badge>
+            <Badge tone="red">{u("dibatalkan")}</Badge>
           ) : doc.status === "paid" ? (
             <Badge tone="green">lunas</Badge>
           ) : (
@@ -789,7 +801,7 @@ function DocRow({
               rel="noreferrer"
               className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-300 px-3 text-sm hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
             >
-              <Printer className="size-4" aria-hidden /> Cetak
+              <Printer className="size-4" aria-hidden /> {u("cetak")}
             </a>
           ) : null}
           {mode === "sale" && isAdmin && !isVoided && remaining > 0 ? (
@@ -802,26 +814,26 @@ function DocRow({
           ) : null}
           {isAdmin && !isVoided && remaining > 0 ? (
             <Button variant="secondary" className="h-8" onClick={() => setReturnOpen((o) => !o)}>
-              Retur
+              {u("retur")}
             </Button>
           ) : null}
           {isAdmin && !isVoided && doc.paidAmount === 0 && doc.returnedAmount === 0 ? (
             <>
               <Button variant="secondary" className="h-8" onClick={() => setEditOpen(true)}>
-                Ubah
+                {u("ubah")}
               </Button>
               <Button
                 variant="secondary"
                 className="h-8 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
                 onClick={() => setVoidOpen(true)}
               >
-                Batalkan
+                {u("batalkan")}
               </Button>
             </>
           ) : null}
           {doc.paidAmount > 0 ? (
             <Button variant="secondary" className="h-8" onClick={() => setPaymentsOpen((o) => !o)}>
-              Pembayaran
+              {u("pembayaran")}
             </Button>
           ) : null}
           {isAdmin && !isVoided && doc.status !== "paid" ? (
@@ -834,12 +846,12 @@ function DocRow({
 
       {paymentsOpen ? (
         <div className="mt-3 space-y-2 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
-          <div className="text-sm font-medium">Pembayaran dokumen ini</div>
+          <div className="text-sm font-medium">{u("pembayaranDokumen")}</div>
           {paymentsQuery.isLoading ? (
             <Spinner />
           ) : (paymentsQuery.data?.payments ?? []).length === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Belum ada pembayaran tercatat.
+              {u("belumAdaPembayaran")}
             </p>
           ) : (
             (paymentsQuery.data?.payments ?? []).map((p) => (
@@ -864,7 +876,7 @@ function DocRow({
                     className="text-xs font-medium text-red-600 underline-offset-2 hover:underline dark:text-red-400"
                     onClick={() => setVoidPaymentId(p.id)}
                   >
-                    Hapus
+                    {u("hapus")}
                   </button>
                 ) : null}
               </div>
@@ -893,13 +905,13 @@ function DocRow({
         ) : null}
         {doc.paidAmount > 0 && doc.status !== "paid" ? (
           <div className="flex justify-between text-slate-500 dark:text-slate-400">
-            <span>Sudah dibayar</span>
+            <span>{u("sudahDibayar")}</span>
             <span className="tabular-nums">{formatIDR(doc.paidAmount)}</span>
           </div>
         ) : null}
         {doc.returnedAmount > 0 ? (
           <div className="flex justify-between text-slate-500 dark:text-slate-400">
-            <span>Sudah diretur</span>
+            <span>{u("sudahDiretur")}</span>
             <span className="tabular-nums">− {formatIDR(doc.returnedAmount)}</span>
           </div>
         ) : null}
@@ -907,7 +919,7 @@ function DocRow({
 
       {returnOpen ? (
         <div className="mt-3 space-y-2 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
-          <div className="text-sm font-medium">Retur barang — isi qty yang dikembalikan:</div>
+          <div className="text-sm font-medium">{u("returIsiQty")}</div>
           {doc.lines.map((l) => (
             <div key={l.id} className="flex items-center gap-3 text-sm">
               <span className="flex-1">
@@ -958,7 +970,7 @@ function DocRow({
         <div className="mt-3 space-y-2 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
           <div className="grid gap-2 sm:grid-cols-[1fr_10rem_10rem_auto] sm:items-end">
             <div>
-              <Label htmlFor={`pay-acc-${doc.id}`}>Masuk/keluar dari akun</Label>
+              <Label htmlFor={`pay-acc-${doc.id}`}>{u("masukKeluarAkun")}</Label>
               <Select
                 id={`pay-acc-${doc.id}`}
                 value={payAccount}
@@ -985,7 +997,7 @@ function DocRow({
               />
             </div>
             <div>
-              <Label htmlFor={`pay-date-${doc.id}`}>Tanggal</Label>
+              <Label htmlFor={`pay-date-${doc.id}`}>{u("tanggal")}</Label>
               <Input
                 id={`pay-date-${doc.id}`}
                 type="date"
@@ -1024,11 +1036,11 @@ function DocRow({
         description={
           <>
             Jurnal pembalik akan diposting dan stok dikembalikan seperti sebelum dokumen ini dibuat.
-            Dokumen tetap tercatat dengan tanda <strong>DIBATALKAN</strong> — aksi ini tidak bisa
+            Dokumen tetap tercatat dengan tanda <strong>{u("dibatalkan")}</strong> — aksi ini tidak bisa
             diurungkan.
           </>
         }
-        confirmLabel="Ya, batalkan dokumen"
+        confirmLabel={u("yaBatalkanDokumen")}
         danger
         busy={doVoid.isPending}
         onConfirm={() => doVoid.mutate()}
@@ -1046,7 +1058,7 @@ function DocRow({
             utuh.
           </>
         }
-        confirmLabel="Batalkan & muat ke form"
+        confirmLabel={u("batalkanMuatForm")}
         busy={doVoid.isPending}
         onConfirm={() => doVoid.mutate()}
         onCancel={() => setEditOpen(false)}
@@ -1054,15 +1066,15 @@ function DocRow({
 
       <ConfirmDialog
         open={voidPaymentId !== null}
-        title="Hapus pembayaran ini?"
+        title={u("hapusPembayaranIni")}
         description={
           <>
             Jurnal pembayaran akan dibalik dan sisa tagihan dokumen kembali seperti sebelum
             pembayaran dicatat. Baris pembayaran tetap tercatat dengan tanda{" "}
-            <strong>DIHAPUS</strong>.
+            <strong>{u("dihapus")}</strong>.
           </>
         }
-        confirmLabel="Ya, hapus pembayaran"
+        confirmLabel={u("yaHapusPembayaran")}
         danger
         busy={doVoidPayment.isPending}
         onConfirm={() => voidPaymentId && doVoidPayment.mutate(voidPaymentId)}

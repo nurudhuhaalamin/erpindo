@@ -238,6 +238,20 @@ try {
       !produkEn.includes("Harga Jual"),
     `→ isi halaman Produk belum Inggris`,
   );
+  await gotoRoute("/app/penjualan", 800);
+  const jualEn = await page.innerText("body");
+  // Judul kartu daftar & label kontak = teks terlihat; harga satuan hanya ada
+  // sebagai PLACEHOLDER (atribut) sehingga tak terbaca innerText — dicek lewat
+  // selektor tersendiri.
+  const adaSalesList = jualEn.includes("Sales list");
+  const adaCustomer = jualEn.includes("Customer");
+  const tanpaDaftarPenjualan = !jualEn.includes("Daftar penjualan");
+  const phUnitPrice = (await page.locator('input[placeholder="Unit price"]').count()) > 0;
+  check(
+    "F0e isi halaman Penjualan ikut EN: 'Sales list' + label Customer + placeholder Unit price",
+    adaSalesList && adaCustomer && tanpaDaftarPenjualan && phUnitPrice,
+    `→ salesList=${adaSalesList} customer=${adaCustomer} tanpaID=${tanpaDaftarPenjualan} placeholder=${phUnitPrice}`,
+  );
   await gotoRoute("/app/keuangan/neraca-saldo", 700);
   const tbEn = await page.innerText("body");
   check(
