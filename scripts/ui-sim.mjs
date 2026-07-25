@@ -232,6 +232,12 @@ try {
     produkEn.includes("Products") && produkEn.includes("catalogue of goods") && !produkEn.includes("Katalog barang"),
     `→ judul/pengantar halaman modul belum Inggris`,
   );
+  check(
+    "F0d isi halaman Produk ikut EN: label kolom & tombol (Name/Selling price/Edit)",
+    produkEn.includes("Name") && produkEn.includes("Selling price") && produkEn.includes("Edit") &&
+      !produkEn.includes("Harga Jual"),
+    `→ isi halaman Produk belum Inggris`,
+  );
   await gotoRoute("/app/keuangan/neraca-saldo", 700);
   const tbEn = await page.innerText("body");
   check(
