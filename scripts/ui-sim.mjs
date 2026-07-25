@@ -238,6 +238,28 @@ try {
       !produkEn.includes("Harga Jual"),
     `→ isi halaman Produk belum Inggris`,
   );
+  // Fase 16m — pelunasan utang 16b. Rute diverifikasi ke main.tsx:
+  // /app/master/produk dan /app/master/kontak. Judul kartu form + label
+  // kotak centang selalu tampil untuk admin, jadi asersinya tak bergantung data.
+  const adaAddProduct =
+    produkEn.includes("Add product") && produkEn.includes("Track serial numbers");
+  const tanpaProdukSisaId =
+    !produkEn.includes("Tambah produk") && !produkEn.includes("Lacak nomor seri");
+  check(
+    "F0o sisa teks halaman Produk ikut EN: judul form + label lacak seri, tanpa teks Indonesia",
+    adaAddProduct && tanpaProdukSisaId,
+    `→ form=${adaAddProduct} tanpaID=${tanpaProdukSisaId}`,
+  );
+  await gotoRoute("/app/master/kontak", 800);
+  const kontakEn = await page.innerText("body");
+  const adaAddContact = kontakEn.includes("Add contact");
+  const tanpaKontakId =
+    !kontakEn.includes("Tambah kontak") && !kontakEn.includes("bisa impor sekaligus dari CSV");
+  check(
+    "F0p sisa teks halaman Kontak ikut EN: judul form tambah kontak, tanpa teks Indonesia",
+    adaAddContact && tanpaKontakId,
+    `→ form=${adaAddContact} tanpaID=${tanpaKontakId}`,
+  );
   await gotoRoute("/app/penjualan", 800);
   const jualEn = await page.innerText("body");
   // Judul kartu daftar & label kontak = teks terlihat; harga satuan hanya ada

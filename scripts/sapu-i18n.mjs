@@ -7,7 +7,8 @@
 //   - argumen kunci kamus: u("namaKunci")
 //   - nama kelas Tailwind
 // Sisanya dikelompokkan: [LAYAR] teks layar (utang nyata), [TOAST] pesan toast
-// (di luar lingkup program 16b–16k), [XLSX] nama sheet/kolom ekspor Excel.
+// (di luar lingkup program 16b–16k), [BERKAS] header kolom / nama sheet berkas
+// ekspor CSV-Excel (format berkas, bukan teks layar).
 //
 // Pakai: node scripts/sapu-i18n.mjs apps/web/src/pages/*.tsx
 import { readFileSync } from "node:fs";
@@ -86,7 +87,14 @@ for (const file of process.argv.slice(2)) {
     }
     return out;
   };
-  const zona = [...rentang("toast", "TOAST"), ...rentang("downloadXlsx", "XLSX")];
+  // downloadCsv/downloadXlsx = isi BERKAS ekspor (nama sheet, header kolom),
+  // bukan teks layar — sama seperti header template CSV impor (Fase 16m).
+  // Menerjemahkannya berarti mengubah format berkas, bukan bahasa antarmuka.
+  const zona = [
+    ...rentang("toast", "TOAST"),
+    ...rentang("downloadXlsx", "BERKAS"),
+    ...rentang("downloadCsv", "BERKAS"),
+  ];
 
   // Ternary dwibahasa yang memang sah: lang === "en" ? "…" : "…"
   const zonaSah = [];
@@ -111,7 +119,7 @@ for (const file of process.argv.slice(2)) {
   const rows = [...hits.values()].sort((a, b) => a.baris - b.baris);
   const layar = rows.filter((r) => r.jenis === "LAYAR");
   totalLayar += layar.length;
-  const ringkas = `${file}: LAYAR=${layar.length} TOAST=${rows.filter((r) => r.jenis === "TOAST").length} XLSX=${rows.filter((r) => r.jenis === "XLSX").length}`;
+  const ringkas = `${file}: LAYAR=${layar.length} TOAST=${rows.filter((r) => r.jenis === "TOAST").length} BERKAS=${rows.filter((r) => r.jenis === "BERKAS").length}`;
   console.log(layar.length === 0 ? `BERSIH ✅ ${ringkas}` : ringkas);
   for (const r of layar) console.log(`  ${String(r.baris).padStart(4)}  ${JSON.stringify(r.teks.slice(0, 95))}`);
 }

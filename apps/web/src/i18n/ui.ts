@@ -607,6 +607,93 @@ const UI: Record<string, Dual> = {
     id: "Jurnal pembayaran akan dibalik dan sisa tagihan dokumen kembali seperti sebelum pembayaran dicatat. Baris pembayaran tetap tercatat dengan tanda",
     en: "The payment entry is reversed and the outstanding balance returns to what it was before the payment. The payment row stays on record marked",
   },
+  // Data Master — pelunasan utang 16b (Fase 16m)
+  danLainnya: { id: "lainnya", en: "more" },
+  nomorSeri: { id: "Nomor seri", en: "Serial numbers" },
+  tersedia: { id: "tersedia", en: "available" },
+  belumAdaNomorSeri: {
+    id: "Belum ada nomor seri. Tambahkan unit satu per satu di atas.",
+    en: "No serial numbers yet. Add units one by one above.",
+  },
+  tambahProduk: { id: "Tambah produk", en: "Add product" },
+  ubahProduk: { id: "Ubah produk", en: "Edit product" },
+  tambahKontak: { id: "Tambah kontak", en: "Add contact" },
+  ubahKontak: { id: "Ubah kontak", en: "Edit contact" },
+  tambahGudang: { id: "Tambah gudang", en: "Add warehouse" },
+  ubahGudang: { id: "Ubah gudang", en: "Edit warehouse" },
+  descUbahProduk: {
+    id: "Perubahan hanya memengaruhi data master; transaksi lama tetap memakai nilai saat diposting.",
+    en: "Changes affect master data only; past transactions keep the values they were posted with.",
+  },
+  descTambahProduk: {
+    id: "Tambah satu per satu, atau impor sekaligus dari file CSV/Excel.",
+    en: "Add them one by one, or import in bulk from a CSV/Excel file.",
+  },
+  descUbahKontak: {
+    id: "Perubahan berlaku untuk transaksi berikutnya.",
+    en: "Changes apply to subsequent transactions.",
+  },
+  descTambahKontak: {
+    id: "Pelanggan dan pemasok Anda — bisa impor sekaligus dari CSV.",
+    en: "Your customers and suppliers — bulk import from CSV is available.",
+  },
+  descUbahGudang: {
+    id: "Stok & riwayat mutasi tetap terikat pada gudang ini.",
+    en: "Stock and movement history stay tied to this warehouse.",
+  },
+  descTambahGudang: {
+    id: "Gudang Utama sudah dibuat otomatis.",
+    en: "The Main Warehouse was created automatically.",
+  },
+  lacakLotKedaluwarsa: {
+    id: "Lacak lot & tanggal kedaluwarsa (F&B/farmasi) — wajib isi tgl exp saat pembelian, keluar otomatis FEFO",
+    en: "Track lots & expiry dates (F&B/pharma) — the exp date is required on purchase, issued automatically by FEFO",
+  },
+  jasaTanpaStok: {
+    id: "Jasa (tanpa stok) — faktur tidak menggerakkan stok/HPP; cocok untuk layanan, sewa, langganan",
+    en: "Service (no stock) — invoices do not move stock/COGS; suited to services, rentals, subscriptions",
+  },
+  lacakNomorSeri: {
+    id: "Lacak nomor seri — untuk barang bernilai tinggi/garansi (elektronik, mesin)",
+    en: "Track serial numbers — for high-value or warrantied goods (electronics, machinery)",
+  },
+  contohSatuanBesar: { id: "mis. dus", en: "e.g. box" },
+  contohFaktorSatuan: { id: "mis. 24", en: "e.g. 24" },
+  satuanBesarSamaDengan: {
+    id: "1 satuan besar = … satuan dasar",
+    en: "1 bulk unit = … base units",
+  },
+  tidakAdaProdukCocok: { id: "Tidak ada produk yang cocok", en: "No matching products" },
+  belumAdaProduk: { id: "Belum ada produk", en: "No products yet" },
+  tidakAdaKontakCocok: { id: "Tidak ada kontak yang cocok", en: "No matching contacts" },
+  belumAdaKontak: { id: "Belum ada kontak", en: "No contacts yet" },
+  tidakAdaGudangCocok: { id: "Tidak ada gudang yang cocok", en: "No matching warehouses" },
+  belumAdaGudang: { id: "Belum ada gudang", en: "No warehouses yet" },
+  cobaKataKunciLain: { id: "Coba kata kunci lain.", en: "Try another keyword." },
+  descBelumAdaProduk: {
+    id: "Tambahkan produk pertama Anda lewat form di atas, atau impor sekaligus dari CSV.",
+    en: "Add your first product with the form above, or import in bulk from CSV.",
+  },
+  descBelumAdaKontak: {
+    id: "Tambahkan pelanggan atau pemasok pertama Anda lewat form di atas.",
+    en: "Add your first customer or supplier with the form above.",
+  },
+  descBelumAdaGudang: {
+    id: "Gudang Utama dibuat otomatis saat registrasi.",
+    en: "The Main Warehouse is created automatically at registration.",
+  },
+  descArsipkan: {
+    id: "akan disembunyikan dari daftar & form transaksi. Riwayat transaksi tetap utuh.",
+    en: "will be hidden from lists and transaction forms. Transaction history stays intact.",
+  },
+  descArsipkanGudang: {
+    id: "akan disembunyikan dari daftar & form transaksi. Riwayat mutasi stok tetap utuh.",
+    en: "will be hidden from lists and transaction forms. Stock movement history stays intact.",
+  },
+  pelangganPemasok: { id: "Pelanggan & Pemasok", en: "Customer & Supplier" },
+  contohNamaPelanggan: { id: "PT Pelanggan Setia", en: "PT Pelanggan Setia" },
+  contohNamaGudang: { id: "Gudang Cabang Bandung", en: "Bandung Branch Warehouse" },
+  barisKe: { id: "Baris", en: "Row" },
 };
 
 export type UiKey = keyof typeof UI;
