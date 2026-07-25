@@ -307,6 +307,17 @@ try {
     adaPosEn && tanpaPosId,
     `→ tertutup=${shiftTertutup} terbuka=${shiftTerbuka} tanpaID=${tanpaPosId}`,
   );
+  await gotoRoute("/app/crm/leads", 800);
+  const crmEn = await page.innerText("body");
+  // Penanda positif wajib (pelajaran 16g) + penanda negatif dari teks murni UI.
+  const adaActiveLeads = crmEn.includes("Active leads") || crmEn.includes("No leads yet");
+  const adaSource = crmEn.includes("Source") || crmEn.includes("Conversion by source");
+  const tanpaCrmId = !crmEn.includes("Lead aktif") && !crmEn.includes("Konversi per sumber");
+  check(
+    "F0j isi halaman CRM ikut EN: kartu lead + konversi sumber, tanpa teks Indonesia",
+    adaActiveLeads && adaSource && tanpaCrmId,
+    `→ leads=${adaActiveLeads} source=${adaSource} tanpaID=${tanpaCrmId}`,
+  );
   await gotoRoute("/app/keuangan/neraca-saldo", 700);
   const tbEn = await page.innerText("body");
   check(
