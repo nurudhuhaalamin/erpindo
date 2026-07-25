@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useUi } from "../i18n/ui";
+import { useUi, type UiKey } from "../i18n/ui";
 import { Download, PackageOpen } from "lucide-react";
 import { useState } from "react";
 import { api, downloadCsv, formatDate, formatIDR } from "../api/client";
@@ -37,10 +37,12 @@ type WarehouseRow = { id: string; name: string };
 // commerce.tsx me-re-export StockPage sehingga main.tsx tidak berubah).
 // ---------------------------------------------------------------------------
 
-const REF_TYPE_LABELS: Record<string, string> = {
-  purchase: "Pembelian",
-  sale: "Penjualan",
-  adjustment: "Penyesuaian",
+// Konstanta tingkat modul tidak boleh memanggil hook, jadi yang disimpan
+// adalah KUNCI kamus — diterjemahkan saat render (pola tetap sejak 16j).
+const REF_TYPE_LABELS: Record<string, UiKey> = {
+  purchase: "pembelianJudul",
+  sale: "penjualanJudul",
+  adjustment: "penyesuaian",
 };
 
 function StockCard({
@@ -61,10 +63,7 @@ function StockCard({
 
   return (
     <Card>
-      <CardHeader
-        title={`Kartu stok — ${title}`}
-        description={u("riwayatMutasi")}
-      />
+      <CardHeader title={`${u("kartuStok")} — ${title}`} description={u("riwayatMutasi")} />
       <CardBody>
         {query.isLoading ? (
           <Spinner />
@@ -81,31 +80,36 @@ function StockCard({
                 </tr>
               </thead>
               <tbody>
-                {query.data?.rows.map((r, i) => (
-                  <tr key={i}>
-                    <td className="border-b border-slate-100 py-2 pr-4 dark:border-slate-800/60">
-                      {formatDate(r.date)}
-                    </td>
-                    <td className="border-b border-slate-100 py-2 pr-4 dark:border-slate-800/60">
-                      {REF_TYPE_LABELS[r.refType] ?? r.refType}
-                    </td>
-                    <td
-                      className={`border-b border-slate-100 py-2 pr-4 text-right tabular-nums dark:border-slate-800/60 ${
-                        r.qty >= 0
-                          ? "text-emerald-700 dark:text-emerald-400"
-                          : "text-red-700 dark:text-red-400"
-                      }`}
-                    >
-                      {r.qty >= 0 ? `+${r.qty}` : r.qty}
-                    </td>
-                    <td className="border-b border-slate-100 py-2 pr-4 text-right tabular-nums dark:border-slate-800/60">
-                      {formatIDR(r.unitCost)}
-                    </td>
-                    <td className="border-b border-slate-100 py-2 text-right font-medium tabular-nums dark:border-slate-800/60">
-                      {r.balance}
-                    </td>
-                  </tr>
-                ))}
+                {query.data?.rows.map((r, i) => {
+                  // refType datang dari server; bila jenisnya belum dikenal
+                  // kamus, tampilkan apa adanya daripada kunci mentah.
+                  const refKey = REF_TYPE_LABELS[r.refType];
+                  return (
+                    <tr key={i}>
+                      <td className="border-b border-slate-100 py-2 pr-4 dark:border-slate-800/60">
+                        {formatDate(r.date)}
+                      </td>
+                      <td className="border-b border-slate-100 py-2 pr-4 dark:border-slate-800/60">
+                        {refKey ? u(refKey) : r.refType}
+                      </td>
+                      <td
+                        className={`border-b border-slate-100 py-2 pr-4 text-right tabular-nums dark:border-slate-800/60 ${
+                          r.qty >= 0
+                            ? "text-emerald-700 dark:text-emerald-400"
+                            : "text-red-700 dark:text-red-400"
+                        }`}
+                      >
+                        {r.qty >= 0 ? `+${r.qty}` : r.qty}
+                      </td>
+                      <td className="border-b border-slate-100 py-2 pr-4 text-right tabular-nums dark:border-slate-800/60">
+                        {formatIDR(r.unitCost)}
+                      </td>
+                      <td className="border-b border-slate-100 py-2 text-right font-medium tabular-nums dark:border-slate-800/60">
+                        {r.balance}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -158,10 +162,7 @@ function StockAdjustmentForm() {
 
   return (
     <Card>
-      <CardHeader
-        title={u("penyesuaianStok")}
-        description={u("descOpname")}
-      />
+      <CardHeader title={u("penyesuaianStok")} description={u("descOpname")} />
       <CardBody>
         <div className="grid gap-3 sm:grid-cols-[1fr_12rem_8rem_1fr_auto] sm:items-end">
           <div>
@@ -171,7 +172,7 @@ function StockAdjustmentForm() {
               value={productId}
               onChange={(e) => setProductId(e.target.value)}
             >
-              <option value="">— pilih produk —</option>
+              <option value="">{u("pilihProdukOpsi")}</option>
               {((productsQuery.data?.items ?? []) as ProductRow[]).map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.sku} · {p.name}
@@ -264,10 +265,7 @@ function StockTransferForm() {
 
   return (
     <Card>
-      <CardHeader
-        title={u("transferAntarGudang")}
-        description="Nilai persediaan berpindah pada biaya rata-rata — tanpa jurnal."
-      />
+      <CardHeader title={u("transferAntarGudang")} description={u("descTransferGudang")} />
       <CardBody>
         <div className="grid gap-3 sm:grid-cols-[1fr_11rem_11rem_7rem_auto] sm:items-end">
           <div>
@@ -277,7 +275,7 @@ function StockTransferForm() {
               value={productId}
               onChange={(e) => setProductId(e.target.value)}
             >
-              <option value="">— pilih produk —</option>
+              <option value="">{u("pilihProdukOpsi")}</option>
               {((productsQuery.data?.items ?? []) as ProductRow[]).map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.sku} · {p.name}
@@ -298,7 +296,7 @@ function StockTransferForm() {
           <div>
             <Label htmlFor="tr-to">{u("keGudang")}</Label>
             <Select id="tr-to" value={toWh} onChange={(e) => setToWh(e.target.value)}>
-              <option value="">— pilih —</option>
+              <option value="">{u("pilihOpsi")}</option>
               {warehouses.map((w) => (
                 <option key={w.id} value={w.id}>
                   {w.name}
@@ -320,7 +318,7 @@ function StockTransferForm() {
             onClick={() => transfer.mutate()}
             disabled={!productId || !toWh || !qty || transfer.isPending}
           >
-            {transfer.isPending ? <Spinner /> : null} Transfer
+            {transfer.isPending ? <Spinner /> : null} {u("transferAksi")}
           </Button>
         </div>
       </CardBody>
@@ -341,15 +339,11 @@ function LotsCard() {
 
   return (
     <Card>
-      <CardHeader
-        title={u("lotKedaluwarsa")}
-        description="Lot aktif urut kedaluwarsa terdekat — penjualan mengambil lot paling awal kedaluwarsa lebih dulu (FEFO)."
-      />
+      <CardHeader title={u("lotKedaluwarsa")} description={u("descLotFefo")} />
       <CardBody>
         {(query.data?.expiringSoon ?? 0) > 0 ? (
           <Alert tone="error">
-            {query.data!.expiringSoon} lot kedaluwarsa dalam ≤ 30 hari — prioritaskan penjualannya
-            atau tarik dari rak.
+            {query.data!.expiringSoon} {u("peringatanLotKedaluwarsa")}
           </Alert>
         ) : null}
         <div className="mt-3 overflow-x-auto">
@@ -522,7 +516,7 @@ export function StockPage() {
       <Card>
         <CardHeader
           title={u("levelStokPerGudang")}
-          description="Nilai persediaan memakai metode biaya rata-rata bergerak (moving average)."
+          description={u("descBiayaRataRataBergerak")}
           action={
             allLevels.length > 0 ? (
               <Button
@@ -580,7 +574,7 @@ export function StockPage() {
             />
           ) : levels.length === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Tidak ada produk dengan stok ≤ {lowLimit}.
+              {u("tidakAdaProdukStokKurang")} {lowLimit}.
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -636,7 +630,7 @@ export function StockPage() {
                   ))}
                   <tr className="font-semibold">
                     <td className="py-2.5 pr-4" colSpan={5}>
-                      {lowOnly ? "Total nilai (terfilter)" : "Total nilai persediaan"}
+                      {lowOnly ? u("totalNilaiTerfilter") : u("totalNilaiPersediaan")}
                     </td>
                     <td className="py-2.5 text-right tabular-nums">
                       {formatIDR(

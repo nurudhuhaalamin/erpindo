@@ -396,6 +396,22 @@ try {
     adaAssetKpi && adaAssetList && tanpaAsetId,
     `→ kpi=${adaAssetKpi} daftar=${adaAssetList} tanpaID=${tanpaAsetId}`,
   );
+  // Fase 16q — pelunasan utang 16d. Rute diverifikasi ke main.tsx: /app/stok.
+  // Kartu transfer & level stok selalu tampil untuk admin.
+  await gotoRoute("/app/stok", 900);
+  const stokSisaEn = await page.innerText("body");
+  const adaStokSisaEn =
+    stokSisaEn.includes("Inventory value moves at average cost") ||
+    stokSisaEn.includes("moving average cost method");
+  const tanpaStokSisaId =
+    !stokSisaEn.includes("Nilai persediaan berpindah") &&
+    !stokSisaEn.includes("biaya rata-rata bergerak") &&
+    !stokSisaEn.includes("Total nilai persediaan");
+  check(
+    "F0u sisa teks Stok ikut EN: penjelasan transfer & metode biaya, tanpa teks Indonesia",
+    adaStokSisaEn && tanpaStokSisaId,
+    `→ penjelasan=${adaStokSisaEn} tanpaID=${tanpaStokSisaId}`,
+  );
   // Fase 16p — pelunasan utang 16j. Rute diverifikasi ke main.tsx: /app/proyek.
   // Tombol buat proyek selalu tampil untuk admin; lencana status hanya muncul
   // bila ada proyek, jadi asersinya hanya menuntut tombolnya.
