@@ -318,6 +318,17 @@ try {
     adaActiveLeads && adaSource && tanpaCrmId,
     `→ leads=${adaActiveLeads} source=${adaSource} tanpaID=${tanpaCrmId}`,
   );
+  // Rute diverifikasi ke main.tsx lebih dulu: /app/hr/penggajian (bukan /app/payroll).
+  await gotoRoute("/app/hr/penggajian", 900);
+  const hrEn = await page.innerText("body");
+  const adaEmployees = hrEn.includes("Employees") || hrEn.includes("No employees yet");
+  const adaRunPayroll = hrEn.includes("Run monthly payroll") || hrEn.includes("Payroll history");
+  const tanpaHrId = !hrEn.includes("Jalankan penggajian bulanan") && !hrEn.includes("Riwayat penggajian");
+  check(
+    "F0k isi halaman Penggajian ikut EN: kartu karyawan + penggajian, tanpa teks Indonesia",
+    adaEmployees && adaRunPayroll && tanpaHrId,
+    `→ employees=${adaEmployees} payroll=${adaRunPayroll} tanpaID=${tanpaHrId}`,
+  );
   await gotoRoute("/app/keuangan/neraca-saldo", 700);
   const tbEn = await page.innerText("body");
   check(
