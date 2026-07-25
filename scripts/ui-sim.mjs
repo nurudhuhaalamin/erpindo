@@ -344,6 +344,23 @@ try {
     adaProjectList && adaNewProject && tanpaPrjId,
     `→ list=${adaProjectList} form=${adaNewProject} tanpaID=${tanpaPrjId}`,
   );
+  // Rute diverifikasi ke main.tsx: /app/keuangan/aset. Kartu ikhtisar + kartu
+  // "Daftar aset" selalu tampil (tak bergantung ada/tidaknya data), jadi asersi
+  // memakai penanda positif yang stabil di kedua keadaan.
+  await gotoRoute("/app/keuangan/aset", 800);
+  const asetEn = await page.innerText("body");
+  const adaAssetKpi =
+    asetEn.includes("Active assets") && asetEn.includes("Total book value");
+  const adaAssetList = asetEn.includes("Asset list") || asetEn.includes("No assets yet");
+  const tanpaAsetId =
+    !asetEn.includes("Aset aktif") &&
+    !asetEn.includes("Nilai buku total") &&
+    !asetEn.includes("Daftarkan aset baru");
+  check(
+    "F0m isi halaman Aset Tetap ikut EN: kartu ikhtisar + daftar aset, tanpa teks Indonesia",
+    adaAssetKpi && adaAssetList && tanpaAsetId,
+    `→ kpi=${adaAssetKpi} daftar=${adaAssetList} tanpaID=${tanpaAsetId}`,
+  );
   await gotoRoute("/app/keuangan/neraca-saldo", 700);
   const tbEn = await page.innerText("body");
   check(
