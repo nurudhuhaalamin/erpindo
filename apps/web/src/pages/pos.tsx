@@ -4,6 +4,7 @@ import {
   type PosPaymentMethod,
 } from "@erpindo/shared";
 import { useHeading } from "../i18n/pageHeadings";
+import { useUi } from "../i18n/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { api, formatIDR } from "../api/client";
@@ -69,13 +70,13 @@ function printReceipt(opts: {
     <div class="c">${opts.invoiceNo} · ${new Date().toLocaleString("id-ID")}</div>
     <hr/><table>${rows}</table><hr/>
     <table>
-      <tr><td>Subtotal</td><td style="text-align:right">${opts.subtotal.toLocaleString("id-ID")}</td></tr>
+      <tr><td>{u("subtotal")}</td><td style="text-align:right">${opts.subtotal.toLocaleString("id-ID")}</td></tr>
       ${opts.taxAmount > 0 ? `<tr><td>PPN ${opts.taxRate}%</td><td style="text-align:right">${opts.taxAmount.toLocaleString("id-ID")}</td></tr>` : ""}
       <tr class="b"><td>TOTAL</td><td style="text-align:right">${opts.total.toLocaleString("id-ID")}</td></tr>
-      <tr><td>Tunai</td><td style="text-align:right">${opts.cashReceived.toLocaleString("id-ID")}</td></tr>
-      <tr><td>Kembalian</td><td style="text-align:right">${opts.change.toLocaleString("id-ID")}</td></tr>
+      <tr><td>{u("tunai")}</td><td style="text-align:right">${opts.cashReceived.toLocaleString("id-ID")}</td></tr>
+      <tr><td>{u("kembalian")}</td><td style="text-align:right">${opts.change.toLocaleString("id-ID")}</td></tr>
     </table><hr/>
-    <div class="c">Terima kasih 🙏</div>
+    <div class="c">{u("terimaKasih")}</div>
     <script>window.print();</script>
   </body></html>`);
   w.document.close();
@@ -90,6 +91,7 @@ function printReceipt(opts: {
  * lipat agar layar kasir tetap ringkas; data baru diambil saat dibuka.
  */
 function RecapCard({ tenantId }: { tenantId: string }) {
+  const u = useUi();
   const [open, setOpen] = useState(false);
   const query = useQuery({
     queryKey: ["pos-recap", tenantId],
@@ -103,8 +105,8 @@ function RecapCard({ tenantId }: { tenantId: string }) {
   return (
     <Card>
       <CardHeader
-        title="Rekap hari ini"
-        description="Penjualan POS per jam, per shift, dan per metode pembayaran."
+        title={u("rekapHariIni")}
+        description={u("descRekapPos")}
         action={
           <Button variant="secondary" onClick={() => setOpen((v) => !v)}>
             {open ? "Tutup" : "Lihat rekap"}
@@ -117,7 +119,7 @@ function RecapCard({ tenantId }: { tenantId: string }) {
             <Spinner />
           ) : !recap || recap.salesCount === 0 ? (
             <p className="py-2 text-center text-sm text-slate-500 dark:text-slate-400">
-              Belum ada penjualan POS hari ini.
+              {u("belumAdaPenjualanPos")}
             </p>
           ) : (
             <div className="grid gap-6 md:grid-cols-3">
@@ -138,7 +140,7 @@ function RecapCard({ tenantId }: { tenantId: string }) {
               </div>
               <div>
                 <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Per shift
+                  {u("perShift")}
                 </div>
                 <ul className="space-y-1 text-sm">
                   {recap.byShift.map((s) => (
@@ -153,7 +155,7 @@ function RecapCard({ tenantId }: { tenantId: string }) {
               </div>
               <div>
                 <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Per metode
+                  {u("perMetode")}
                 </div>
                 <ul className="space-y-1 text-sm">
                   {recap.byMethod.map((m) => (
@@ -175,6 +177,7 @@ function RecapCard({ tenantId }: { tenantId: string }) {
 }
 
 function RefundPanel({ tenantId, onDone }: { tenantId: string; onDone: () => void }) {
+  const u = useUi();
   const toast = useToast();
   const [search, setSearch] = useState("");
   const q = useDebounced(search);
@@ -209,19 +212,19 @@ function RefundPanel({ tenantId, onDone }: { tenantId: string; onDone: () => voi
   return (
     <Card>
       <CardHeader
-        title="Struk & Refund"
-        description="Pilih struk, isi qty barang yang dikembalikan — uang tunai keluar dari laci shift ini."
+        title={u("strukRefund")}
+        description={u("descStrukRefund")}
       />
       <CardBody className="space-y-2">
         <Input
-          placeholder="Cari nomor struk…"
+          placeholder={u("cariNomorStruk")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         {receiptsQuery.isLoading ? (
           <Spinner />
         ) : receipts.length === 0 ? (
-          <p className="text-sm text-slate-400">Belum ada struk POS.</p>
+          <p className="text-sm text-slate-400">{u("belumAdaStrukPos")}</p>
         ) : (
           receipts.map((r) => (
             <div
@@ -280,7 +283,7 @@ function RefundPanel({ tenantId, onDone }: { tenantId: string; onDone: () => voi
                       onClick={() => refund.mutate(r.id)}
                       disabled={refund.isPending || !Object.values(qty).some((v) => Number(v) > 0)}
                     >
-                      {refund.isPending ? <Spinner /> : null} Proses Refund
+                      {refund.isPending ? <Spinner /> : null} {u("prosesRefund")}
                     </Button>
                   </div>
                 </div>
@@ -294,6 +297,7 @@ function RefundPanel({ tenantId, onDone }: { tenantId: string; onDone: () => voi
 }
 
 export function PosPage() {
+  const u = useUi();
   const h = useHeading("kasirPos");
   const { me, tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
@@ -529,7 +533,7 @@ export function PosPage() {
   if (!isAdmin) {
     return (
       <div className="p-2">
-        <Alert tone="info">Halaman kasir hanya untuk Owner/Admin.</Alert>
+        <Alert tone="info">{u("kasirHanyaAdmin")}</Alert>
       </div>
     );
   }
@@ -550,12 +554,12 @@ export function PosPage() {
         <h1 className="text-2xl font-semibold">{h.title}</h1>
         <Card>
           <CardHeader
-            title="Buka shift"
-            description="Mulai sesi kasir dengan mencatat kas awal di laci."
+            title={u("bukaShift")}
+            description={u("descBukaShift")}
           />
           <CardBody className="space-y-4">
             <div>
-              <Label htmlFor="pos-wh">Gudang</Label>
+              <Label htmlFor="pos-wh">{u("gudang")}</Label>
               <Select id="pos-wh" value={openWh} onChange={(e) => setOpenWh(e.target.value)}>
                 {((warehousesQuery.data?.items ?? []) as WarehouseRow[]).map((w) => (
                   <option key={w.id} value={w.id}>
@@ -565,7 +569,7 @@ export function PosPage() {
               </Select>
             </div>
             <div>
-              <Label htmlFor="pos-opening">Kas awal (Rp)</Label>
+              <Label htmlFor="pos-opening">{u("kasAwalRp")}</Label>
               <Input
                 id="pos-opening"
                 type="number"
@@ -580,7 +584,7 @@ export function PosPage() {
               onClick={() => openShift.mutate()}
               disabled={openShift.isPending}
             >
-              {openShift.isPending ? <Spinner /> : null} Buka Shift
+              {openShift.isPending ? <Spinner /> : null} {u("bukaShift")}
             </Button>
           </CardBody>
         </Card>
@@ -601,10 +605,10 @@ export function PosPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => setRefundOpen((o) => !o)}>
-            Struk &amp; Refund
+            {u("strukRefund")}
           </Button>
           <Button variant="secondary" onClick={() => setClosing((o) => !o)}>
-            Tutup Shift
+            {u("tutupShift")}
           </Button>
         </div>
       </div>
@@ -615,7 +619,7 @@ export function PosPage() {
         <Card>
           <CardBody className="flex flex-wrap items-end gap-3">
             <div>
-              <Label htmlFor="pos-closing">Kas fisik di laci (Rp)</Label>
+              <Label htmlFor="pos-closing">{u("kasFisikLaciRp")}</Label>
               <Input
                 id="pos-closing"
                 type="number"
@@ -625,14 +629,14 @@ export function PosPage() {
               />
             </div>
             <div className="text-sm text-slate-500 dark:text-slate-400">
-              Seharusnya: <strong className="tabular-nums">{formatIDR(shift.expectedCash)}</strong>
+              {u("seharusnya")} <strong className="tabular-nums">{formatIDR(shift.expectedCash)}</strong>
             </div>
             <Button
               variant="danger"
               onClick={() => closeShift.mutate()}
               disabled={closeShift.isPending || closingCash === ""}
             >
-              {closeShift.isPending ? <Spinner /> : null} Konfirmasi Tutup
+              {closeShift.isPending ? <Spinner /> : null} {u("konfirmasiTutup")}
             </Button>
           </CardBody>
         </Card>
@@ -643,7 +647,7 @@ export function PosPage() {
         <Card>
           <CardBody className="space-y-3">
             <Input
-              placeholder="Cari produk / SKU…"
+              placeholder={u("cariProdukSku")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -667,10 +671,10 @@ export function PosPage() {
 
         {/* Keranjang */}
         <Card>
-          <CardHeader title="Keranjang" />
+          <CardHeader title={u("keranjang")} />
           <CardBody className="space-y-3">
             {cart.length === 0 ? (
-              <p className="text-sm text-slate-400">Klik produk untuk menambahkan.</p>
+              <p className="text-sm text-slate-400">{u("klikProdukTambah")}</p>
             ) : (
               cart.map((i) => (
                 <div key={i.productId} className="flex items-center gap-2 text-sm">
@@ -705,7 +709,7 @@ export function PosPage() {
 
             <div className="border-t border-slate-200 pt-3 text-sm dark:border-slate-800">
               <div className="flex justify-between">
-                <span>Subtotal</span>
+                <span>{u("subtotal")}</span>
                 <span className="tabular-nums">{formatIDR(subtotal)}</span>
               </div>
               <div className="mt-1 flex items-center justify-between">
@@ -758,7 +762,7 @@ export function PosPage() {
                   />
                   <button
                     type="button"
-                    aria-label="Hapus pembayaran"
+                    aria-label={u("hapusPembayaran")}
                     className="text-slate-400 hover:text-red-600"
                     onClick={() => removeTender(i)}
                   >
@@ -774,7 +778,7 @@ export function PosPage() {
                   disabled={cart.length === 0}
                   className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 disabled:opacity-40 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                 >
-                  Uang pas
+                  {u("uangPas")}
                 </button>
                 {[50_000, 100_000].map((n) => (
                   <button
@@ -794,12 +798,12 @@ export function PosPage() {
                     Sisa: {formatIDR(remaining)}
                   </span>
                 ) : (
-                  <span className="text-emerald-600 dark:text-emerald-400">Lunas</span>
+                  <span className="text-emerald-600 dark:text-emerald-400">{u("lunas")}</span>
                 )}
                 {change > 0 ? (
                   // Kembalian dibuat menonjol agar kasir tak salah hitung (Fase 12e).
                   <span className="text-base font-bold text-emerald-600 dark:text-emerald-400">
-                    Kembalian: <span className="tabular-nums">{formatIDR(change)}</span>
+                    {u("kembalianTitik")} <span className="tabular-nums">{formatIDR(change)}</span>
                   </span>
                 ) : null}
               </div>
@@ -817,7 +821,7 @@ export function PosPage() {
             <div className="flex items-center gap-2 border-t border-slate-200 pt-3 dark:border-slate-800">
               <Input
                 aria-label="Nama tahan"
-                placeholder="Nama tahan (opsional)"
+                placeholder={u("namaTahanOpsional")}
                 className="flex-1"
                 value={holdLabel}
                 onChange={(e) => setHoldLabel(e.target.value)}
@@ -828,13 +832,13 @@ export function PosPage() {
                 onClick={() => hold.mutate()}
                 disabled={cart.length === 0 || hold.isPending}
               >
-                Tahan
+                {u("tahan")}
               </Button>
             </div>
             {(heldQuery.data?.held ?? []).length > 0 ? (
               <div className="space-y-1.5">
                 <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Transaksi ditahan
+                  {u("transaksiDitahan")}
                 </div>
                 {(heldQuery.data?.held ?? []).map((h) => (
                   <div
@@ -844,11 +848,11 @@ export function PosPage() {
                     <span className="min-w-0 flex-1 truncate">{h.label}</span>
                     <span className="text-xs text-slate-400">{h.cart.length} item</span>
                     <Button variant="ghost" className="h-7" onClick={() => recallHeld(h)}>
-                      Panggil
+                      {u("panggil")}
                     </Button>
                     <button
                       type="button"
-                      aria-label="Hapus tahan"
+                      aria-label={u("hapusTahan")}
                       className="text-slate-400 hover:text-red-600"
                       onClick={() => deleteHeld.mutate(h.id)}
                     >

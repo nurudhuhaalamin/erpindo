@@ -289,6 +289,24 @@ try {
     adaPosted && adaNewEntry && tanpaJurnalId,
     `→ posted=${adaPosted} newEntry=${adaNewEntry} tanpaID=${tanpaJurnalId}`,
   );
+  await gotoRoute("/app/pos", 900);
+  const posEn = await page.innerText("body");
+  // Penanda negatif = judul kartu murni UI (bukan "Tunai"/"Lunas" yang bisa
+  // muncul sebagai status/metode pada data struk).
+  // Layar Kasir punya DUA keadaan: shift tertutup (kartu "Buka shift") dan shift
+  // terbuka (keranjang + Rekap + Struk & Refund). Asersi hanya boleh menuntut
+  // teks yang benar-benar ter-render pada keadaan saat itu — menuntut kartu
+  // Rekap saat shift tertutup adalah kesalahan asersi, bukan bukti bug.
+  const shiftTertutup = posEn.includes("Open shift") || posEn.includes("Opening cash");
+  const shiftTerbuka = posEn.includes("Cart") || posEn.includes("Today's summary");
+  const adaPosEn = shiftTertutup || shiftTerbuka;
+  const tanpaPosId =
+    !posEn.includes("Buka shift") && !posEn.includes("Kas awal") && !posEn.includes("Rekap hari ini");
+  check(
+    "F0i isi halaman Kasir ikut EN (kedua keadaan shift), tanpa teks Indonesia",
+    adaPosEn && tanpaPosId,
+    `→ tertutup=${shiftTertutup} terbuka=${shiftTerbuka} tanpaID=${tanpaPosId}`,
+  );
   await gotoRoute("/app/keuangan/neraca-saldo", 700);
   const tbEn = await page.innerText("body");
   check(

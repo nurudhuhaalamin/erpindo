@@ -339,7 +339,7 @@ function SerialManager({ product }: { product: ProductRow }) {
           className="flex-1"
         />
         <Button type="submit" disabled={add.isPending || !serialNo.trim()}>
-          {add.isPending ? <Spinner /> : null} Tambah seri
+          {add.isPending ? <Spinner /> : null} {u("tambahSeri")}
         </Button>
       </form>
       {query.isLoading ? (
