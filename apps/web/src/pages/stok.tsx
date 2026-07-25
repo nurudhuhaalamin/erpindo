@@ -160,7 +160,7 @@ function StockAdjustmentForm() {
     <Card>
       <CardHeader
         title={u("penyesuaianStok")}
-        description="Samakan stok sistem dengan hasil hitung fisik — selisih nilainya otomatis dijurnal ke Beban Operasional Lain."
+        description={u("descOpname")}
       />
       <CardBody>
         <div className="grid gap-3 sm:grid-cols-[1fr_12rem_8rem_1fr_auto] sm:items-end">
@@ -443,7 +443,7 @@ function ReorderCard() {
     <Card>
       <CardHeader
         title={u("usulanPembelianOtomatis")}
-        description="Produk dengan total stok di bawah/di ambang minimum. Buat permintaan pembelian sekali klik."
+        description={u("descUsulanBeli")}
         action={
           <Button className="h-9" onClick={() => createPr.mutate()} disabled={createPr.isPending}>
             {createPr.isPending ? <Spinner /> : null} Buat permintaan pembelian
@@ -576,7 +576,7 @@ export function StockPage() {
             <EmptyState
               icon={<PackageOpen className="size-6" aria-hidden />}
               title={u("belumAdaStok")}
-              description="Catat faktur pembelian untuk mengisi stok — level per gudang akan tampil di sini."
+              description={u("descBelumAdaStok")}
             />
           ) : levels.length === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">

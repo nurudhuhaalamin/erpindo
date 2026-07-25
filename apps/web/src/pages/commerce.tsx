@@ -867,7 +867,7 @@ function DocRow({
                 ) : p.isPos ? (
                   <span
                     className="text-xs text-slate-400"
-                    title="Pembayaran POS menyatu dengan struknya — gunakan Retur/Refund di Kasir."
+                    title={u("descPembayaranPos")}
                   >
                     via Kasir
                   </span>

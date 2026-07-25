@@ -277,6 +277,18 @@ try {
     adaIncome && adaExpense && adaCompare && tanpaCompareId,
     `→ income=${adaIncome} expenses=${adaExpense} compare=${adaCompare} tanpaID=${tanpaCompareId}`,
   );
+  await gotoRoute("/app/keuangan/jurnal", 800);
+  const jrnEn = await page.innerText("body");
+  // Penanda negatif = teks murni UI. "Debit"/"Kredit" & nama akun juga muncul di
+  // DATA (nama akun bagan akun), jadi dipakai judul kartu yang hanya ada di UI.
+  const adaPosted = jrnEn.includes("Posted entries");
+  const adaNewEntry = jrnEn.includes("New manual entry");
+  const tanpaJurnalId = !jrnEn.includes("Jurnal terposting") && !jrnEn.includes("Jurnal manual baru");
+  check(
+    "F0h isi halaman Jurnal Umum ikut EN: judul kartu UI, tanpa teks Indonesia",
+    adaPosted && adaNewEntry && tanpaJurnalId,
+    `→ posted=${adaPosted} newEntry=${adaNewEntry} tanpaID=${tanpaJurnalId}`,
+  );
   await gotoRoute("/app/keuangan/neraca-saldo", 700);
   const tbEn = await page.innerText("body");
   check(

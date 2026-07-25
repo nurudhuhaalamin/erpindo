@@ -155,6 +155,62 @@ const UI: Record<string, Dual> = {
   tidakAda: { id: "Tidak ada.", en: "None." },
   tidakAdaFakturPpn: { id: "Tidak ada faktur ber-PPN pada periode ini.", en: "No VAT invoices in this period." },
   tidakAdaFakturRentang: { id: "Tidak ada faktur pada rentang tanggal ini.", en: "No invoices in this date range." },
+  // Keuangan / jurnal — Fase 16f
+  akun: { id: "Akun", en: "Account" },
+  namaAkun: { id: "Nama akun", en: "Account name" },
+  pilihAkun: { id: "Pilih akun", en: "Select account" },
+  tambahAkun: { id: "Tambah akun", en: "Add account" },
+  ubahNama: { id: "Ubah nama", en: "Rename" },
+  tipe: { id: "Tipe", en: "Type" },
+  debit: { id: "Debit", en: "Debit" },
+  kredit: { id: "Kredit", en: "Credit" },
+  noJurnal: { id: "No. Jurnal", en: "Entry no." },
+  balik: { id: "Balik", en: "Reverse" },
+  muatKeForm: { id: "Muat ke form", en: "Load into form" },
+  belumAdaTransaksi: { id: "Belum ada transaksi.", en: "No transactions yet." },
+  namaTemplate: { id: "Nama template", en: "Template name" },
+  simpanSebagaiTemplate: { id: "Simpan sebagai template", en: "Save as template" },
+  terbitOtomatisBulanan: { id: "Terbit otomatis tiap bulan", en: "Auto-issue monthly" },
+  terbitPertama: { id: "Terbit pertama", en: "First issue" },
+  terbitkanSekarang: { id: "Terbitkan sekarang", en: "Issue now" },
+  templateJurnal: { id: "Template jurnal", en: "Entry templates" },
+  jurnalManualBaru: { id: "Jurnal manual baru", en: "New manual entry" },
+  jurnalTerposting: { id: "Jurnal terposting", en: "Posted entries" },
+  deskripsiOpsional: { id: "Deskripsi (opsional)", en: "Description (optional)" },
+  cariJurnal: { id: "Cari jurnal", en: "Search entries" },
+  cariNoJurnal: { id: "Cari no. jurnal / keterangan…", en: "Search entry no. / notes…" },
+  akunTemplateOtomatis: {
+    id: "Akun template standar Indonesia sudah tersedia otomatis.",
+    en: "The Indonesian standard chart of accounts is provided automatically.",
+  },
+  descJurnalManual: {
+    id: "Total debit harus sama dengan total kredit. Jurnal terposting tidak dapat diubah — koreksi lewat jurnal pembalik.",
+    en: "Total debits must equal total credits. Posted entries cannot be changed — correct them with a reversing entry.",
+  },
+  descTemplateJurnal: {
+    id: "Jurnal rutin siap pakai — terbitkan sekali klik, atau otomatis tiap bulan bila berjadwal.",
+    en: "Ready-made recurring entries — issue in one click, or automatically each month when scheduled.",
+  },
+  descMulaiCepat: {
+    id: "Belum punya produk? Pilih jenis usaha untuk mengisi contoh produk & kontak — semua bisa diubah/hapus kapan saja.",
+    en: "No products yet? Pick a business type to load sample products & contacts — all editable or removable at any time.",
+  },
+  descPembayaranPos: {
+    id: "Pembayaran POS menyatu dengan struknya — gunakan Retur/Refund di Kasir.",
+    en: "POS payments are tied to their receipt — use Return/Refund in the Cashier.",
+  },
+  descOpname: {
+    id: "Samakan stok sistem dengan hasil hitung fisik — selisih nilainya otomatis dijurnal ke Beban Operasional Lain.",
+    en: "Match system stock to your physical count — the value difference is journaled automatically to Other Operating Expense.",
+  },
+  descUsulanBeli: {
+    id: "Produk dengan total stok di bawah/di ambang minimum. Buat permintaan pembelian sekali klik.",
+    en: "Products at or below their minimum stock. Create a purchase request in one click.",
+  },
+  descBelumAdaStok: {
+    id: "Catat faktur pembelian untuk mengisi stok — level per gudang akan tampil di sini.",
+    en: "Record a purchase invoice to fill stock — levels per warehouse will appear here.",
+  },
 };
 
 export type UiKey = keyof typeof UI;

@@ -401,7 +401,7 @@ function IndustryTemplateCard() {
     <Card>
       <CardHeader
         title={u("mulaiCepat")}
-        description="Belum punya produk? Pilih jenis usaha untuk mengisi contoh produk & kontak — semua bisa diubah/hapus kapan saja."
+        description={u("descMulaiCepat")}
       />
       <CardBody className="flex flex-wrap items-end gap-3">
         <div>
