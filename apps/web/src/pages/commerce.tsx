@@ -357,7 +357,9 @@ export function CommercePage({ mode }: { mode: Mode }) {
               ) : null}
               {isForeign ? (
                 <div>
-                  <Label htmlFor="doc-rate">Kurs (IDR/{currency})</Label>
+                  <Label htmlFor="doc-rate">
+                    {u("kurs")} (IDR/{currency})
+                  </Label>
                   <Input
                     id="doc-rate"
                     type="number"
@@ -415,7 +417,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
                       <Button
                         type="button"
                         variant="ghost"
-                        aria-label={`Hapus baris ${i + 1}`}
+                        aria-label={`${u("hapusBaris")} ${i + 1}`}
                         onClick={() =>
                           setLines((ls) => (ls.length > 1 ? ls.filter((_, idx) => idx !== i) : ls))
                         }
@@ -426,20 +428,19 @@ export function CommercePage({ mode }: { mode: Mode }) {
                     {tracked ? (
                       <div className="grid grid-cols-2 gap-2 rounded-lg bg-amber-50 p-2 sm:grid-cols-[10rem_11rem_1fr] sm:items-center dark:bg-amber-950/40">
                         <Input
-                          aria-label={`Nomor lot baris ${i + 1}`}
+                          aria-label={`${u("nomorLotBaris")} ${i + 1}`}
                           placeholder={u("noLotOpsional")}
                           value={line.lotNo}
                           onChange={(e) => setLine(i, { lotNo: e.target.value })}
                         />
                         <Input
-                          aria-label={`Tanggal kedaluwarsa baris ${i + 1}`}
+                          aria-label={`${u("tanggalKedaluwarsaBaris")} ${i + 1}`}
                           type="date"
                           value={line.expiryDate}
                           onChange={(e) => setLine(i, { expiryDate: e.target.value })}
                         />
                         <span className="text-xs text-amber-700 dark:text-amber-300">
-                          Produk ini melacak kedaluwarsa — tanggal exp wajib diisi (keluar otomatis
-                          FEFO).
+                          {u("hintFefo")}
                         </span>
                       </div>
                     ) : null}
@@ -454,7 +455,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
                 variant="secondary"
                 onClick={() => setLines((ls) => [...ls, emptyLine()])}
               >
-                + Tambah barang
+                + {u("tambahBarang")}
               </Button>
               <div className="text-sm">
                 {isForeign ? (
@@ -485,7 +486,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
                 )}
               </div>
               <Button onClick={submit} disabled={create.isPending || !contactId || subtotal === 0}>
-                {create.isPending ? <Spinner /> : null} Posting Faktur
+                {create.isPending ? <Spinner /> : null} {u("postingFaktur")}
               </Button>
             </div>
           </CardBody>
@@ -523,8 +524,8 @@ export function CommercePage({ mode }: { mode: Mode }) {
               }
               description={
                 docQ
-                  ? "Coba kata kunci lain — pencarian mencocokkan nomor dokumen dan nama kontak."
-                  : "Dokumen yang Anda posting akan muncul di sini beserta status pembayarannya."
+                  ? u("descCariDokumenKosong")
+                  : u("descBelumAdaDokumen")
               }
             />
           ) : (
@@ -543,7 +544,8 @@ export function CommercePage({ mode }: { mode: Mode }) {
               {(docsQuery.data?.total ?? 0) > (docsQuery.data?.docs.length ?? 0) ? (
                 <div className="flex items-center justify-center gap-3 pt-1">
                   <span className="text-xs text-slate-500 dark:text-slate-400">
-                    Menampilkan {docsQuery.data!.docs.length} dari {docsQuery.data!.total}
+                    {u("menampilkan")} {docsQuery.data!.docs.length} {u("dariTotal")}{" "}
+                    {docsQuery.data!.total}
                   </span>
                   <Button
                     variant="secondary"
@@ -769,9 +771,9 @@ function DocRow({
           {isVoided ? (
             <Badge tone="red">{u("dibatalkan")}</Badge>
           ) : doc.status === "paid" ? (
-            <Badge tone="green">lunas</Badge>
+            <Badge tone="green">{u("lunas")}</Badge>
           ) : (
-            <Badge tone="amber">belum lunas</Badge>
+            <Badge tone="amber">{u("belumLunas")}</Badge>
           )}
           {isForeign ? (
             <Badge tone="brand">
@@ -838,7 +840,7 @@ function DocRow({
           ) : null}
           {isAdmin && !isVoided && doc.status !== "paid" ? (
             <Button className="h-8" onClick={() => setPayOpen((o) => !o)}>
-              {mode === "sale" ? "Terima Pembayaran" : "Bayar"}
+              {mode === "sale" ? u("terimaPembayaran") : u("bayar")}
             </Button>
           ) : null}
         </div>
@@ -923,10 +925,13 @@ function DocRow({
           {doc.lines.map((l) => (
             <div key={l.id} className="flex items-center gap-3 text-sm">
               <span className="flex-1">
-                {l.productName} <span className="text-slate-400">(dibeli {l.qty})</span>
+                {l.productName}{" "}
+                <span className="text-slate-400">
+                  ({u("dibeli")} {l.qty})
+                </span>
               </span>
               <Input
-                aria-label={`Qty retur ${l.productName}`}
+                aria-label={`${u("qtyRetur")} ${l.productName}`}
                 type="number"
                 min={0}
                 max={l.qty}
@@ -939,7 +944,7 @@ function DocRow({
           ))}
           <div>
             <Label htmlFor="refund-acct" className="text-xs">
-              Akun refund tunai (bila nilai retur melebihi sisa tagihan)
+              {u("akunRefundTunai")}
             </Label>
             <Select
               id="refund-acct"
@@ -947,7 +952,7 @@ function DocRow({
               value={refundAccountId}
               onChange={(e) => setRefundAccountId(e.target.value)}
             >
-              <option value="">— tanpa refund tunai —</option>
+              <option value="">{u("tanpaRefundTunai")}</option>
               {cashAccounts.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.code} · {a.name}
@@ -960,7 +965,7 @@ function DocRow({
               onClick={() => doReturn.mutate()}
               disabled={doReturn.isPending || !Object.values(returnQty).some((q) => Number(q) > 0)}
             >
-              {doReturn.isPending ? <Spinner /> : null} Posting Retur
+              {doReturn.isPending ? <Spinner /> : null} {u("postingRetur")}
             </Button>
           </div>
         </div>
@@ -976,7 +981,7 @@ function DocRow({
                 value={payAccount}
                 onChange={(e) => setPayAccount(e.target.value)}
               >
-                <option value="">— pilih kas/bank —</option>
+                <option value="">{u("pilihKasBank")}</option>
                 {cashAccounts.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.code} · {a.name}
@@ -986,7 +991,7 @@ function DocRow({
             </div>
             <div>
               <Label htmlFor={`pay-amt-${doc.id}`}>
-                {isForeign ? `Jumlah (${doc.currency})` : "Nominal"}
+                {isForeign ? `${u("jumlah")} (${doc.currency})` : u("nominal")}
               </Label>
               <Input
                 id={`pay-amt-${doc.id}`}
@@ -1012,7 +1017,9 @@ function DocRow({
           {isForeign ? (
             <div className="grid gap-2 sm:grid-cols-[10rem_1fr] sm:items-end">
               <div>
-                <Label htmlFor={`pay-rate-${doc.id}`}>Kurs saat bayar (IDR/{doc.currency})</Label>
+                <Label htmlFor={`pay-rate-${doc.id}`}>
+                  {u("kursSaatBayar")} (IDR/{doc.currency})
+                </Label>
                 <Input
                   id={`pay-rate-${doc.id}`}
                   type="number"
@@ -1022,8 +1029,8 @@ function DocRow({
                 />
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Faktur pada kurs {doc.exchangeRate.toLocaleString("id-ID")}. Selisih dengan kurs
-                bayar otomatis dijurnal sebagai laba/rugi selisih kurs.
+                {u("fakturPadaKurs")} {doc.exchangeRate.toLocaleString("id-ID")}
+                {u("descSelisihKurs")}
               </p>
             </div>
           ) : null}
@@ -1032,12 +1039,11 @@ function DocRow({
 
       <ConfirmDialog
         open={voidOpen}
-        title={`Batalkan ${doc.docNo}?`}
+        title={`${u("batalkan")} ${doc.docNo}?`}
         description={
           <>
-            Jurnal pembalik akan diposting dan stok dikembalikan seperti sebelum dokumen ini dibuat.
-            Dokumen tetap tercatat dengan tanda <strong>{u("dibatalkan")}</strong> — aksi ini tidak bisa
-            diurungkan.
+            {u("descBatalkanDokumen1")} <strong>{u("dibatalkan")}</strong>{" "}
+            {u("descBatalkanDokumen2")}
           </>
         }
         confirmLabel={u("yaBatalkanDokumen")}
@@ -1049,13 +1055,11 @@ function DocRow({
 
       <ConfirmDialog
         open={editOpen}
-        title={`Ubah ${doc.docNo}?`}
+        title={`${u("ubah")} ${doc.docNo}?`}
         description={
           <>
-            Dokumen ini akan <strong>dibatalkan</strong> (jurnal pembalik + stok pulih), lalu isinya
-            dimuat ke form di atas untuk diperbaiki dan diposting sebagai dokumen{" "}
-            <strong>baru bernomor baru</strong> — begitulah koreksi pada pembukuan yang jejaknya
-            utuh.
+            {u("descUbahDokumen1")} <strong>{u("dibatalkan")}</strong> {u("descUbahDokumen2")}{" "}
+            <strong>{u("descUbahDokumen3")}</strong> {u("descUbahDokumen4")}
           </>
         }
         confirmLabel={u("batalkanMuatForm")}
@@ -1069,9 +1073,7 @@ function DocRow({
         title={u("hapusPembayaranIni")}
         description={
           <>
-            Jurnal pembayaran akan dibalik dan sisa tagihan dokumen kembali seperti sebelum
-            pembayaran dicatat. Baris pembayaran tetap tercatat dengan tanda{" "}
-            <strong>{u("dihapus")}</strong>.
+            {u("descHapusPembayaran1")} <strong>{u("dihapus")}</strong>.
           </>
         }
         confirmLabel={u("yaHapusPembayaran")}

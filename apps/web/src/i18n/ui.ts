@@ -546,6 +546,67 @@ const UI: Record<string, Dual> = {
     id: "akan dihapus dari neraca dan laba/rugi pelepasan dijurnal otomatis. Aksi ini tidak bisa diurungkan.",
     en: "will be removed from the balance sheet and the disposal gain/loss is posted automatically. This action cannot be undone.",
   },
+  // Penjualan & Pembelian — pelunasan utang 16c (Fase 16l)
+  kurs: { id: "Kurs", en: "Rate" },
+  kursSaatBayar: { id: "Kurs saat bayar", en: "Rate at payment" },
+  hapusBaris: { id: "Hapus baris", en: "Remove line" },
+  nomorLotBaris: { id: "Nomor lot baris", en: "Lot number line" },
+  tanggalKedaluwarsaBaris: { id: "Tanggal kedaluwarsa baris", en: "Expiry date line" },
+  qtyRetur: { id: "Qty retur", en: "Return qty" },
+  dibeli: { id: "dibeli", en: "bought" },
+  tambahBarang: { id: "Tambah barang", en: "Add item" },
+  postingFaktur: { id: "Posting Faktur", en: "Post Invoice" },
+  postingRetur: { id: "Posting Retur", en: "Post Return" },
+  terimaPembayaran: { id: "Terima Pembayaran", en: "Receive Payment" },
+  bayar: { id: "Bayar", en: "Pay" },
+  belumLunas: { id: "belum lunas", en: "unpaid" },
+  menampilkan: { id: "Menampilkan", en: "Showing" },
+  dariTotal: { id: "dari", en: "of" },
+  akunRefundTunai: {
+    id: "Akun refund tunai (bila nilai retur melebihi sisa tagihan)",
+    en: "Cash refund account (when the return exceeds the outstanding balance)",
+  },
+  tanpaRefundTunai: { id: "— tanpa refund tunai —", en: "— no cash refund —" },
+  pilihKasBank: { id: "— pilih kas/bank —", en: "— pick cash/bank —" },
+  fakturPadaKurs: { id: "Faktur pada kurs", en: "Invoice at rate" },
+  hintFefo: {
+    id: "Produk ini melacak kedaluwarsa — tanggal exp wajib diisi (keluar otomatis FEFO).",
+    en: "This product tracks expiry — the exp date is required (issued automatically by FEFO).",
+  },
+  descCariDokumenKosong: {
+    id: "Coba kata kunci lain — pencarian mencocokkan nomor dokumen dan nama kontak.",
+    en: "Try another keyword — the search matches document numbers and contact names.",
+  },
+  descBelumAdaDokumen: {
+    id: "Dokumen yang Anda posting akan muncul di sini beserta status pembayarannya.",
+    en: "Documents you post will appear here along with their payment status.",
+  },
+  descSelisihKurs: {
+    id: ". Selisih dengan kurs bayar otomatis dijurnal sebagai laba/rugi selisih kurs.",
+    en: ". The gap against the payment rate is posted automatically as a forex gain/loss.",
+  },
+  descBatalkanDokumen1: {
+    id: "Jurnal pembalik akan diposting dan stok dikembalikan seperti sebelum dokumen ini dibuat. Dokumen tetap tercatat dengan tanda",
+    en: "A reversing entry is posted and stock is restored to how it was before this document. The document stays on record marked",
+  },
+  descBatalkanDokumen2: {
+    id: "— aksi ini tidak bisa diurungkan.",
+    en: "— this action cannot be undone.",
+  },
+  descUbahDokumen1: { id: "Dokumen ini akan", en: "This document will be" },
+  descUbahDokumen2: {
+    id: "(jurnal pembalik + stok pulih), lalu isinya dimuat ke form di atas untuk diperbaiki dan diposting sebagai dokumen",
+    en: "(reversing entry + stock restored), then its contents load into the form above to be corrected and posted as a",
+  },
+  descUbahDokumen3: { id: "baru bernomor baru", en: "new document with a new number" },
+  descUbahDokumen4: {
+    id: "— begitulah koreksi pada pembukuan yang jejaknya utuh.",
+    en: "— that is how corrections work in books that keep a full trail.",
+  },
+  descHapusPembayaran1: {
+    id: "Jurnal pembayaran akan dibalik dan sisa tagihan dokumen kembali seperti sebelum pembayaran dicatat. Baris pembayaran tetap tercatat dengan tanda",
+    en: "The payment entry is reversed and the outstanding balance returns to what it was before the payment. The payment row stays on record marked",
+  },
 };
 
 export type UiKey = keyof typeof UI;
