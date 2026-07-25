@@ -252,6 +252,19 @@ try {
     adaSalesList && adaCustomer && tanpaDaftarPenjualan && phUnitPrice,
     `→ salesList=${adaSalesList} customer=${adaCustomer} tanpaID=${tanpaDaftarPenjualan} placeholder=${phUnitPrice}`,
   );
+  // Fase 16l — pelunasan utang 16c: teks yang dulu tertinggal berbahasa
+  // Indonesia di halaman ini. Penanda negatifnya murni teks UI (bukan nama
+  // produk/kontak), sesuai pelajaran Fase 16e.
+  const adaAddItem = jualEn.includes("Add item") && jualEn.includes("Post Invoice");
+  const tanpaSisaId =
+    !jualEn.includes("Tambah barang") &&
+    !jualEn.includes("Posting Faktur") &&
+    !jualEn.includes("Dokumen yang Anda posting");
+  check(
+    "F0n sisa teks halaman Penjualan ikut EN: tombol baris & posting, tanpa teks Indonesia",
+    adaAddItem && tanpaSisaId,
+    `→ tombol=${adaAddItem} tanpaID=${tanpaSisaId}`,
+  );
   await gotoRoute("/app/stok", 800);
   const stokEn = await page.innerText("body");
   const adaStockLevels = stokEn.includes("Stock levels per warehouse");

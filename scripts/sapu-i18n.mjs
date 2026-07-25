@@ -69,16 +69,36 @@ for (const file of process.argv.slice(2)) {
     const k = `${baris}|${teks.replace(/\s+/g, " ").trim()}`;
     if (!hits.has(k)) hits.set(k, { jenis, baris, teks: teks.replace(/\s+/g, " ").trim() });
   };
-  const konteks = (idx) => {
-    const awal = src.lastIndexOf("\n", Math.max(0, idx - 400));
-    return src.slice(Math.max(0, awal), idx + 40);
+  // Rentang [awal, akhir) dari tiap panggilan yang isinya bukan teks layar,
+  // dihitung dengan mencocokkan kurung — jauh lebih tepat daripada menebak
+  // dari konteks beberapa ratus karakter sebelumnya.
+  const rentang = (nama, jenis) => {
+    const out = [];
+    for (const m of src.matchAll(new RegExp(`\\b${nama}\\(`, "g"))) {
+      let d = 0;
+      for (let i = m.index + m[0].length - 1; i < src.length; i++) {
+        if (src[i] === "(") d++;
+        else if (src[i] === ")" && --d === 0) {
+          out.push({ a: m.index, b: i, jenis });
+          break;
+        }
+      }
+    }
+    return out;
   };
+  const zona = [...rentang("toast", "TOAST"), ...rentang("downloadXlsx", "XLSX")];
+
+  // Ternary dwibahasa yang memang sah: lang === "en" ? "…" : "…"
+  const zonaSah = [];
+  for (const m of src.matchAll(/lang\s*===\s*"en"\s*\?/g)) {
+    const akhir = src.indexOf("\n", src.indexOf(":", m.index + m[0].length));
+    zonaSah.push({ a: m.index, b: akhir < 0 ? src.length : akhir });
+  }
+
   const jenisDari = (idx) => {
-    const c = konteks(idx);
-    if (/\btoast\(\s*"[a-z]+"\s*,\s*$/.test(src.slice(Math.max(0, idx - 200), idx + 1))) return "TOAST";
-    if (/\btoast\(/.test(c) && !/\n\s*(<|return)/.test(c.slice(c.lastIndexOf("toast(")))) return "TOAST";
-    if (/downloadXlsx\(/.test(c)) return "XLSX";
-    return "LAYAR";
+    if (zonaSah.some((z) => idx >= z.a && idx <= z.b)) return "SAH";
+    const z = zona.find((z) => idx >= z.a && idx <= z.b);
+    return z ? z.jenis : "LAYAR";
   };
 
   for (const m of src.matchAll(/(?:^|[^\w])"((?:[^"\\]|\\.)*)"/gm))
@@ -86,7 +106,7 @@ for (const file of process.argv.slice(2)) {
   for (const m of src.matchAll(/`((?:[^`\\]|\\.)*)`/gs))
     if (isID(m[1])) add(jenisDari(m.index), m[1], m.index);
   for (const m of src.matchAll(/[>}]([^<>{}]+)[<{]/gs))
-    if (isID(m[1])) add("LAYAR", m[1], m.index);
+    if (isID(m[1])) add(jenisDari(m.index), m[1], m.index);
 
   const rows = [...hits.values()].sort((a, b) => a.baris - b.baris);
   const layar = rows.filter((r) => r.jenis === "LAYAR");
