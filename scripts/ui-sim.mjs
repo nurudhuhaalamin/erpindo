@@ -289,7 +289,7 @@ try {
     adaPosted && adaNewEntry && tanpaJurnalId,
     `→ posted=${adaPosted} newEntry=${adaNewEntry} tanpaID=${tanpaJurnalId}`,
   );
-  await gotoRoute("/app/kasir", 900);
+  await gotoRoute("/app/pos", 900);
   const posEn = await page.innerText("body");
   // Penanda negatif = judul kartu murni UI (bukan "Tunai"/"Lunas" yang bisa
   // muncul sebagai status/metode pada data struk).

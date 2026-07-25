@@ -253,6 +253,9 @@ const UI: Record<string, Dual> = {
     id: "Pilih struk, isi qty barang yang dikembalikan — uang tunai keluar dari laci shift ini.",
     en: "Pick a receipt and enter the quantity returned — cash leaves this shift's drawer.",
   },
+  prosesRefund: { id: "Proses Refund", en: "Process refund" },
+  konfirmasiTutup: { id: "Konfirmasi Tutup", en: "Confirm close" },
+  tambahSeri: { id: "Tambah seri", en: "Add serial" },
 };
 
 export type UiKey = keyof typeof UI;

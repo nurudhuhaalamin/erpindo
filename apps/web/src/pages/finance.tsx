@@ -134,7 +134,7 @@ export function AccountsPage() {
                 </Select>
               </div>
               <Button type="submit" disabled={create.isPending}>
-                {create.isPending ? <Spinner /> : null} Tambah
+                {create.isPending ? <Spinner /> : null} {u("tambah")}
               </Button>
             </form>
           </CardBody>
@@ -181,7 +181,7 @@ export function AccountsPage() {
                                 onClick={() => saveRename(a.id)}
                                 disabled={rename.isPending}
                               >
-                                {rename.isPending ? <Spinner /> : null} Simpan
+                                {rename.isPending ? <Spinner /> : null} {u("simpan")}
                               </Button>
                               <Button
                                 variant="ghost"

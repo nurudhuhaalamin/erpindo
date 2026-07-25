@@ -283,7 +283,7 @@ function RefundPanel({ tenantId, onDone }: { tenantId: string; onDone: () => voi
                       onClick={() => refund.mutate(r.id)}
                       disabled={refund.isPending || !Object.values(qty).some((v) => Number(v) > 0)}
                     >
-                      {refund.isPending ? <Spinner /> : null} Proses Refund
+                      {refund.isPending ? <Spinner /> : null} {u("prosesRefund")}
                     </Button>
                   </div>
                 </div>
@@ -584,7 +584,7 @@ export function PosPage() {
               onClick={() => openShift.mutate()}
               disabled={openShift.isPending}
             >
-              {openShift.isPending ? <Spinner /> : null} Buka Shift
+              {openShift.isPending ? <Spinner /> : null} {u("bukaShift")}
             </Button>
           </CardBody>
         </Card>
@@ -636,7 +636,7 @@ export function PosPage() {
               onClick={() => closeShift.mutate()}
               disabled={closeShift.isPending || closingCash === ""}
             >
-              {closeShift.isPending ? <Spinner /> : null} Konfirmasi Tutup
+              {closeShift.isPending ? <Spinner /> : null} {u("konfirmasiTutup")}
             </Button>
           </CardBody>
         </Card>

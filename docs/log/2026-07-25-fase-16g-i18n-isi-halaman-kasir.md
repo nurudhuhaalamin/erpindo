@@ -41,3 +41,39 @@ bersih.
 - **Sengaja tidak diterjemahkan:** `PPN` (nama pajak resmi) dan nilai contoh
   (`500000`).
 - **Cakupan kumulatif: ±15 layar** tuntas isinya; kamus **201 entri**.
+
+## Koreksi: dua cacat lagi pada cara kerja (bukan pada terjemahan)
+
+Cek `F0i` gagal dengan `shift=false recap=false tanpaID=true`. Diagnostik itu
+langsung mencurigakan: teks Inggris **dan** Indonesia sama-sama absen — pertanda
+halamannya tidak ter-render sama sekali.
+
+**1. Rute uji salah.** Saya menulis `/app/kasir`, padahal rute sebenarnya
+`/app/pos` (`main.tsx`). Halaman kosong → asersi negatif `tanpaID` **lolos
+secara hampa**, bukan karena terjemahan benar.
+
+> **Pelajaran:** asersi negatif saja tidak pernah cukup — ia bisa lolos justru
+> ketika halaman gagal dimuat. Setiap cek i18n **wajib** memuat asersi **positif**
+> (teks Inggris yang harus ada). Di sini justru asersi positif itulah yang
+> menyelamatkan: tanpa `shift`/`recap`, kegagalan ini akan lolos sebagai "hijau".
+
+**2. Pola keempat yang belum tertangkap alat.** Teks JSX yang didahului ekspresi
+tidak pernah cocok dengan regex `>teks<`:
+
+```jsx
+{openShift.isPending ? <Spinner /> : null} Buka Shift
+```
+
+Sapuan pola ini (`}` … teks … `<`) menemukan 3 di `pos.tsx` ("Proses Refund",
+"Buka Shift", "Konfirmasi Tutup") dan **3 lagi di halaman yang sudah dinyatakan
+selesai** — "Tambah seri" (masterdata, 16b), "Tambah" & "Simpan" (finance, 16f).
+Semuanya diperbaiki di fase ini.
+
+### Empat pola sapuan yang kini wajib sebelum menyatakan halaman selesai
+
+| # | Pola | Ditemukan di fase |
+|---|---|---|
+| 1 | Teks JSX multi-baris (`>\n teks \n<`) | 16c |
+| 2 | Atribut **tanpa batas panjang** | 16f |
+| 3 | Teks setelah ekspresi (`{expr} teks <`) | 16g |
+| 4 | Asersi wajib punya penanda **positif**, bukan hanya negatif | 16g |
