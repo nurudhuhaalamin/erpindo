@@ -1006,7 +1006,7 @@ function DocRow({
               />
             </div>
             <Button onClick={() => pay.mutate()} disabled={pay.isPending || !payAccount}>
-              {pay.isPending ? <Spinner /> : null} Catat
+              {pay.isPending ? <Spinner /> : null} {u("catat")}
             </Button>
           </div>
           {isForeign ? (

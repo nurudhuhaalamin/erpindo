@@ -9,6 +9,7 @@ import {
   type LeadStage,
 } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useUi } from "../i18n/ui";
 import { ArrowRight, Check, FileText, Send, UserPlus, Users, X } from "lucide-react";
 import { useState } from "react";
 import { api, formatIDR } from "../api/client";
@@ -45,6 +46,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 // ===========================================================================
 
 export function LeadsPage() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
   const toast = useToast();
@@ -120,14 +122,14 @@ export function LeadsPage() {
       {isAdmin ? (
         <Card>
           <CardHeader
-            title="Lead baru"
-            description="Perusahaan/orang yang berpotensi jadi pelanggan."
+            title={u("leadBaru")}
+            description={u("descLeadAktif")}
           />
           <CardBody className="space-y-4">
             {error ? <Alert tone="error">{error}</Alert> : null}
             <div className="grid gap-3 sm:grid-cols-3">
               <div>
-                <Label htmlFor="lead-name">Nama perusahaan/prospek</Label>
+                <Label htmlFor="lead-name">{u("namaProspek")}</Label>
                 <Input
                   id="lead-name"
                   value={form.name}
@@ -135,7 +137,7 @@ export function LeadsPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="lead-cp">Narahubung</Label>
+                <Label htmlFor="lead-cp">{u("narahubung")}</Label>
                 <Input
                   id="lead-cp"
                   value={form.contactPerson}
@@ -143,7 +145,7 @@ export function LeadsPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="lead-phone">Telepon</Label>
+                <Label htmlFor="lead-phone">{u("telepon")}</Label>
                 <Input
                   id="lead-phone"
                   value={form.phone}
@@ -151,7 +153,7 @@ export function LeadsPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="lead-email">Email</Label>
+                <Label htmlFor="lead-email">{u("email")}</Label>
                 <Input
                   id="lead-email"
                   type="email"
@@ -160,16 +162,16 @@ export function LeadsPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="lead-source">Sumber</Label>
+                <Label htmlFor="lead-source">{u("sumber")}</Label>
                 <Input
                   id="lead-source"
-                  placeholder="mis. Instagram, referensi"
+                  placeholder={u("contohSumber")}
                   value={form.source}
                   onChange={(e) => setForm({ ...form, source: e.target.value })}
                 />
               </div>
               <div>
-                <Label htmlFor="lead-value">Perkiraan nilai (Rp)</Label>
+                <Label htmlFor="lead-value">{u("perkiraanNilai")}</Label>
                 <Input
                   id="lead-value"
                   type="number"
@@ -185,7 +187,7 @@ export function LeadsPage() {
                 disabled={create.isPending || form.name.trim().length < 2}
               >
                 {create.isPending ? <Spinner /> : <UserPlus className="size-4" aria-hidden />}{" "}
-                Tambah Lead
+                {u("tambahLead")}
               </Button>
             </div>
           </CardBody>
@@ -193,15 +195,15 @@ export function LeadsPage() {
       ) : null}
 
       <Card>
-        <CardHeader title="Lead aktif" description={`${openLeads.length} lead terbuka`} />
+        <CardHeader title={u("leadAktif")} description={`${openLeads.length} lead terbuka`} />
         <CardBody>
           {leadsQuery.isLoading ? (
             <Spinner />
           ) : leads.length === 0 ? (
             <EmptyState
               icon={<Users className="size-6" aria-hidden />}
-              title="Belum ada lead"
-              description="Tambahkan calon pelanggan untuk mulai membangun pipeline penjualan Anda."
+              title={u("belumAdaLead")}
+              description={u("descBelumAdaLead")}
             />
           ) : (
             <div className="space-y-3">
@@ -310,6 +312,7 @@ function KanbanBoard({ leads, isAdmin }: { leads: ApiLead[]; isAdmin: boolean })
 
 /** Laporan konversi per sumber lead (dari mana pelanggan terbaik datang). */
 function SourceReportCard({ tenantId }: { tenantId: string }) {
+  const u = useUi();
   const query = useQuery({
     queryKey: ["crm-report", tenantId],
     queryFn: () => api.crmReport(tenantId),
@@ -320,19 +323,19 @@ function SourceReportCard({ tenantId }: { tenantId: string }) {
   return (
     <Card>
       <CardHeader
-        title="Konversi per sumber"
-        description="Sumber lead mana yang paling banyak menghasilkan pelanggan — arahkan promosi ke sana."
+        title={u("konversiPerSumber")}
+        description={u("descKonversiSumber")}
       />
       <CardBody>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[480px] text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                <th className="py-2 pr-3 font-medium">Sumber</th>
-                <th className="py-2 pr-3 text-right font-medium">Lead</th>
-                <th className="py-2 pr-3 text-right font-medium">Menang</th>
-                <th className="py-2 pr-3 text-right font-medium">Kalah</th>
-                <th className="py-2 text-right font-medium">Konversi</th>
+                <th className="py-2 pr-3 font-medium">{u("sumber")}</th>
+                <th className="py-2 pr-3 text-right font-medium">{u("lead")}</th>
+                <th className="py-2 pr-3 text-right font-medium">{u("menang")}</th>
+                <th className="py-2 pr-3 text-right font-medium">{u("kalah")}</th>
+                <th className="py-2 text-right font-medium">{u("konversi")}</th>
               </tr>
             </thead>
             <tbody>
@@ -356,6 +359,7 @@ function SourceReportCard({ tenantId }: { tenantId: string }) {
 }
 
 function LeadRow({ lead, isAdmin }: { lead: ApiLead; isAdmin: boolean }) {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -441,7 +445,7 @@ function LeadRow({ lead, isAdmin }: { lead: ApiLead; isAdmin: boolean }) {
           {isAdmin && lead.status === "open" ? (
             <div className="flex flex-wrap items-end gap-3">
               <div>
-                <Label htmlFor={`stage-${lead.id}`}>Pindah tahap</Label>
+                <Label htmlFor={`stage-${lead.id}`}>{u("pindahTahap")}</Label>
                 <Select
                   id={`stage-${lead.id}`}
                   value={lead.stage}
@@ -462,7 +466,7 @@ function LeadRow({ lead, isAdmin }: { lead: ApiLead; isAdmin: boolean }) {
                   disabled={convert.isPending}
                 >
                   {convert.isPending ? <Spinner /> : <ArrowRight className="size-4" aria-hidden />}{" "}
-                  Konversi ke Pelanggan
+                  {u("konversiPelanggan")}
                 </Button>
               ) : null}
             </div>
@@ -471,13 +475,13 @@ function LeadRow({ lead, isAdmin }: { lead: ApiLead; isAdmin: boolean }) {
           {/* Log aktivitas */}
           <div>
             <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Aktivitas follow-up
+              {u("aktivitasFollowUp")}
             </div>
             {isAdmin ? (
               <div className="mb-3 flex flex-wrap items-end gap-2">
                 <div className="w-32">
                   <Select
-                    aria-label="Jenis aktivitas"
+                    aria-label={u("jenisAktivitas")}
                     value={act.type}
                     onChange={(e) => setAct({ ...act, type: e.target.value as LeadActivityType })}
                   >
@@ -490,14 +494,14 @@ function LeadRow({ lead, isAdmin }: { lead: ApiLead; isAdmin: boolean }) {
                 </div>
                 <div className="min-w-48 flex-1">
                   <Input
-                    aria-label="Catatan aktivitas"
-                    placeholder="Catatan singkat…"
+                    aria-label={u("catatanAktivitas")}
+                    placeholder={u("catatanSingkat")}
                     value={act.note}
                     onChange={(e) => setAct({ ...act, note: e.target.value })}
                   />
                 </div>
                 <div>
-                  <Label htmlFor={`due-${lead.id}`}>Tenggat (opsional)</Label>
+                  <Label htmlFor={`due-${lead.id}`}>{u("tenggatOpsional")}</Label>
                   <Input
                     id={`due-${lead.id}`}
                     type="date"
@@ -509,14 +513,14 @@ function LeadRow({ lead, isAdmin }: { lead: ApiLead; isAdmin: boolean }) {
                   onClick={() => addActivity.mutate()}
                   disabled={addActivity.isPending || !act.note.trim()}
                 >
-                  {addActivity.isPending ? <Spinner /> : null} Catat
+                  {addActivity.isPending ? <Spinner /> : null} {u("catat")}
                 </Button>
               </div>
             ) : null}
             {activitiesQuery.isLoading ? (
               <Spinner />
             ) : (activitiesQuery.data?.activities.length ?? 0) === 0 ? (
-              <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada aktivitas.</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{u("belumAdaAktivitas")}</p>
             ) : (
               <ul className="space-y-1.5">
                 {activitiesQuery.data!.activities.map((a) => (
@@ -564,6 +568,7 @@ const QUOTE_LABEL: Record<ApiQuotation["status"], string> = {
 };
 
 export function QuotationsPage() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
   const toast = useToast();
@@ -639,14 +644,14 @@ export function QuotationsPage() {
       {isAdmin ? (
         <Card>
           <CardHeader
-            title="Penawaran baru"
-            description="Belum memengaruhi stok/jurnal — baru mengikat saat dikonversi ke faktur."
+            title={u("penawaranBaru")}
+            description={u("descPenawaranBaru")}
           />
           <CardBody className="space-y-4">
             {error ? <Alert tone="error">{error}</Alert> : null}
             <div className="grid gap-3 sm:grid-cols-4">
               <div>
-                <Label htmlFor="q-contact">Pelanggan</Label>
+                <Label htmlFor="q-contact">{u("pelanggan")}</Label>
                 <Select
                   id="q-contact"
                   value={contactId}
@@ -661,7 +666,7 @@ export function QuotationsPage() {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="q-date">Tanggal</Label>
+                <Label htmlFor="q-date">{u("tanggal")}</Label>
                 <Input
                   id="q-date"
                   type="date"
@@ -670,7 +675,7 @@ export function QuotationsPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="q-valid">Berlaku sampai</Label>
+                <Label htmlFor="q-valid">{u("berlakuSampai")}</Label>
                 <Input
                   id="q-valid"
                   type="date"
@@ -685,7 +690,7 @@ export function QuotationsPage() {
                   value={String(taxRate)}
                   onChange={(e) => setTaxRate(Number(e.target.value) as 0 | 11 | 12)}
                 >
-                  <option value="0">Tanpa PPN</option>
+                  <option value="0">{u("tanpaPpn")}</option>
                   <option value="11">PPN 11%</option>
                   <option value="12">PPN 12%</option>
                 </Select>
@@ -751,7 +756,7 @@ export function QuotationsPage() {
                 + Tambah barang
               </Button>
               <div className="text-sm">
-                Subtotal <strong className="tabular-nums">{formatIDR(subtotal)}</strong>
+                {u("subtotal")} <strong className="tabular-nums">{formatIDR(subtotal)}</strong>
                 {taxRate > 0 ? (
                   <>
                     {" "}
@@ -764,7 +769,7 @@ export function QuotationsPage() {
                 onClick={() => create.mutate()}
                 disabled={create.isPending || !contactId || subtotal === 0}
               >
-                {create.isPending ? <Spinner /> : null} Buat Penawaran
+                {create.isPending ? <Spinner /> : null} {u("buatPenawaran")}
               </Button>
             </div>
           </CardBody>
@@ -772,15 +777,15 @@ export function QuotationsPage() {
       ) : null}
 
       <Card>
-        <CardHeader title="Daftar penawaran" />
+        <CardHeader title={u("daftarPenawaran")} />
         <CardBody>
           {quotesQuery.isLoading ? (
             <Spinner />
           ) : (quotesQuery.data?.quotations.length ?? 0) === 0 ? (
             <EmptyState
               icon={<FileText className="size-6" aria-hidden />}
-              title="Belum ada penawaran"
-              description="Penawaran yang Anda buat akan muncul di sini beserta statusnya."
+              title={u("belumAdaPenawaran")}
+              description={u("descBelumAdaPenawaran")}
             />
           ) : (
             <div className="space-y-3">
@@ -796,6 +801,7 @@ export function QuotationsPage() {
 }
 
 function QuoteRow({ quote, isAdmin }: { quote: ApiQuotation; isAdmin: boolean }) {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -860,7 +866,7 @@ function QuoteRow({ quote, isAdmin }: { quote: ApiQuotation; isAdmin: boolean })
           rel="noreferrer"
           className="text-sm font-medium text-brand-700 hover:underline dark:text-brand-300"
         >
-          Cetak
+          {u("cetak")}
         </a>
         <span className="ml-auto text-sm font-semibold tabular-nums">{formatIDR(quote.total)}</span>
       </div>
@@ -891,7 +897,7 @@ function QuoteRow({ quote, isAdmin }: { quote: ApiQuotation; isAdmin: boolean })
               onClick={() => setStatus.mutate("sent")}
               disabled={setStatus.isPending}
             >
-              <Send className="size-4" aria-hidden /> Tandai Terkirim
+              <Send className="size-4" aria-hidden /> {u("tandaiTerkirim")}
             </Button>
           ) : null}
           {quote.status !== "accepted" && quote.status !== "rejected" ? (
@@ -901,7 +907,7 @@ function QuoteRow({ quote, isAdmin }: { quote: ApiQuotation; isAdmin: boolean })
               onClick={() => setStatus.mutate("accepted")}
               disabled={setStatus.isPending}
             >
-              <Check className="size-4" aria-hidden /> Diterima
+              <Check className="size-4" aria-hidden /> {u("diterima")}
             </Button>
           ) : null}
           {quote.status !== "rejected" ? (
@@ -911,12 +917,12 @@ function QuoteRow({ quote, isAdmin }: { quote: ApiQuotation; isAdmin: boolean })
               onClick={() => setStatus.mutate("rejected")}
               disabled={setStatus.isPending}
             >
-              <X className="size-4" aria-hidden /> Ditolak
+              <X className="size-4" aria-hidden /> {u("ditolak")}
             </Button>
           ) : null}
           {quote.status === "accepted" ? (
             <Button className="h-8" onClick={() => setConvertOpen((o) => !o)}>
-              <ArrowRight className="size-4" aria-hidden /> Konversi ke Faktur
+              <ArrowRight className="size-4" aria-hidden /> {u("konversiFaktur")}
             </Button>
           ) : null}
         </div>
@@ -924,14 +930,14 @@ function QuoteRow({ quote, isAdmin }: { quote: ApiQuotation; isAdmin: boolean })
 
       {quote.status === "converted" ? (
         <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">
-          Penawaran ini sudah menjadi faktur penjualan.
+          {u("sudahJadiFaktur")}
         </p>
       ) : null}
 
       {convertOpen && quote.status === "accepted" ? (
         <div className="mt-3 flex flex-wrap items-end gap-3 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/40">
           <div>
-            <Label htmlFor={`cv-wh-${quote.id}`}>Gudang (stok keluar)</Label>
+            <Label htmlFor={`cv-wh-${quote.id}`}>{u("gudangStokKeluar")}</Label>
             <Select
               id={`cv-wh-${quote.id}`}
               value={warehouseId}
@@ -945,7 +951,7 @@ function QuoteRow({ quote, isAdmin }: { quote: ApiQuotation; isAdmin: boolean })
             </Select>
           </div>
           <div>
-            <Label htmlFor={`cv-date-${quote.id}`}>Tanggal faktur</Label>
+            <Label htmlFor={`cv-date-${quote.id}`}>{u("tanggalFaktur")}</Label>
             <Input
               id={`cv-date-${quote.id}`}
               type="date"
@@ -957,7 +963,7 @@ function QuoteRow({ quote, isAdmin }: { quote: ApiQuotation; isAdmin: boolean })
             onClick={() => convert.mutate()}
             disabled={convert.isPending || warehouses.length === 0}
           >
-            {convert.isPending ? <Spinner /> : null} Buat Faktur
+            {convert.isPending ? <Spinner /> : null} {u("buatFaktur")}
           </Button>
         </div>
       ) : null}

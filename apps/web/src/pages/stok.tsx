@@ -446,7 +446,7 @@ function ReorderCard() {
         description={u("descUsulanBeli")}
         action={
           <Button className="h-9" onClick={() => createPr.mutate()} disabled={createPr.isPending}>
-            {createPr.isPending ? <Spinner /> : null} Buat permintaan pembelian
+            {createPr.isPending ? <Spinner /> : null} {u("buatPermintaanPembelian")}
           </Button>
         }
       />
