@@ -14,6 +14,7 @@ import {
   EmptyState,
   Input,
   Label,
+  PageHeading,
   Select,
   Spinner,
   useToast,
@@ -38,9 +39,18 @@ export function AssetsPage() {
     queryKey: ["accounts", tenant.tenantId],
     queryFn: () => api.accounts(tenant.tenantId),
   });
-  const cashAccounts = (accountsQuery.data?.accounts ?? []).filter((a: AccountRow) => a.type === "asset");
+  const cashAccounts = (accountsQuery.data?.accounts ?? []).filter(
+    (a: AccountRow) => a.type === "asset"
+  );
 
-  const [form, setForm] = useState({ name: "", category: "", acquisitionDate: today(), acquisitionCost: "", usefulLifeMonths: "48", residualValue: "" });
+  const [form, setForm] = useState({
+    name: "",
+    category: "",
+    acquisitionDate: today(),
+    acquisitionCost: "",
+    usefulLifeMonths: "48",
+    residualValue: "",
+  });
   const [cashAccountId, setCashAccountId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [depPeriod, setDepPeriod] = useState(thisMonth);
@@ -59,7 +69,14 @@ export function AssetsPage() {
       }),
     onSuccess: () => {
       toast("success", "Aset terdaftar & jurnal perolehan dibuat.");
-      setForm({ name: "", category: "", acquisitionDate: today(), acquisitionCost: "", usefulLifeMonths: "48", residualValue: "" });
+      setForm({
+        name: "",
+        category: "",
+        acquisitionDate: today(),
+        acquisitionCost: "",
+        usefulLifeMonths: "48",
+        residualValue: "",
+      });
       setError(null);
       queryClient.invalidateQueries({ queryKey: ["assets", tenant.tenantId] });
     },
@@ -71,7 +88,9 @@ export function AssetsPage() {
     onSuccess: (res) => {
       toast(
         "success",
-        res.count > 0 ? `Penyusutan ${depPeriod}: ${res.count} aset, total ${formatIDR(res.total)}.` : "Tidak ada aset yang perlu disusutkan bulan ini.",
+        res.count > 0
+          ? `Penyusutan ${depPeriod}: ${res.count} aset, total ${formatIDR(res.total)}.`
+          : "Tidak ada aset yang perlu disusutkan bulan ini."
       );
       queryClient.invalidateQueries({ queryKey: ["assets", tenant.tenantId] });
     },
@@ -85,10 +104,7 @@ export function AssetsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Aset Tetap</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Register aset, penyusutan garis lurus otomatis tiap bulan (jurnal beban penyusutan), dan pelepasan aset.
-        </p>
+        <PageHeading k="asetTetap" />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -108,7 +124,12 @@ export function AssetsPage() {
           <CardBody className="py-3">
             <div className="text-xs text-slate-500 dark:text-slate-400">Penyusutan/bulan</div>
             <div className="mt-1 text-xl font-semibold tabular-nums">
-              {formatIDR(active.reduce((s, a) => s + Math.min(a.monthlyDepreciation, a.bookValue - a.residualValue), 0))}
+              {formatIDR(
+                active.reduce(
+                  (s, a) => s + Math.min(a.monthlyDepreciation, a.bookValue - a.residualValue),
+                  0
+                )
+              )}
             </div>
           </CardBody>
         </Card>
@@ -116,37 +137,76 @@ export function AssetsPage() {
 
       {isAdmin ? (
         <Card>
-          <CardHeader title="Daftarkan aset baru" description="Jurnal perolehan (Debit Aset Tetap / Kredit kas-bank) dibuat otomatis." />
+          <CardHeader
+            title="Daftarkan aset baru"
+            description="Jurnal perolehan (Debit Aset Tetap / Kredit kas-bank) dibuat otomatis."
+          />
           <CardBody className="space-y-4">
             {error ? <Alert tone="error">{error}</Alert> : null}
             <div className="grid gap-3 sm:grid-cols-3">
               <div>
                 <Label htmlFor="as-name">Nama aset</Label>
-                <Input id="as-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                <Input
+                  id="as-name"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                />
               </div>
               <div>
                 <Label htmlFor="as-cat">Kategori</Label>
-                <Input id="as-cat" placeholder="mis. Kendaraan, Peralatan" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
+                <Input
+                  id="as-cat"
+                  placeholder="mis. Kendaraan, Peralatan"
+                  value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                />
               </div>
               <div>
                 <Label htmlFor="as-date">Tanggal perolehan</Label>
-                <Input id="as-date" type="date" value={form.acquisitionDate} onChange={(e) => setForm({ ...form, acquisitionDate: e.target.value })} />
+                <Input
+                  id="as-date"
+                  type="date"
+                  value={form.acquisitionDate}
+                  onChange={(e) => setForm({ ...form, acquisitionDate: e.target.value })}
+                />
               </div>
               <div>
                 <Label htmlFor="as-cost">Nilai perolehan</Label>
-                <Input id="as-cost" type="number" min={1} value={form.acquisitionCost} onChange={(e) => setForm({ ...form, acquisitionCost: e.target.value })} />
+                <Input
+                  id="as-cost"
+                  type="number"
+                  min={1}
+                  value={form.acquisitionCost}
+                  onChange={(e) => setForm({ ...form, acquisitionCost: e.target.value })}
+                />
               </div>
               <div>
                 <Label htmlFor="as-life">Masa manfaat (bulan)</Label>
-                <Input id="as-life" type="number" min={1} value={form.usefulLifeMonths} onChange={(e) => setForm({ ...form, usefulLifeMonths: e.target.value })} />
+                <Input
+                  id="as-life"
+                  type="number"
+                  min={1}
+                  value={form.usefulLifeMonths}
+                  onChange={(e) => setForm({ ...form, usefulLifeMonths: e.target.value })}
+                />
               </div>
               <div>
                 <Label htmlFor="as-res">Nilai residu</Label>
-                <Input id="as-res" type="number" min={0} value={form.residualValue} onChange={(e) => setForm({ ...form, residualValue: e.target.value })} />
+                <Input
+                  id="as-res"
+                  type="number"
+                  min={0}
+                  value={form.residualValue}
+                  onChange={(e) => setForm({ ...form, residualValue: e.target.value })}
+                />
               </div>
               <div className="sm:col-span-2">
                 <Label htmlFor="as-cash">Dibayar dari akun</Label>
-                <Select id="as-cash" value={cashAccountId} onChange={(e) => setCashAccountId(e.target.value)}>
+                <Select
+                  id="as-cash"
+                  value={cashAccountId}
+                  onChange={(e) => setCashAccountId(e.target.value)}
+                >
                   {cashAccounts.map((a: AccountRow) => (
                     <option key={a.id} value={a.id}>
                       {a.code} · {a.name}
@@ -158,9 +218,15 @@ export function AssetsPage() {
             <div className="flex justify-end">
               <Button
                 onClick={() => create.mutate()}
-                disabled={create.isPending || form.name.trim().length < 2 || !form.acquisitionCost || cashAccounts.length === 0}
+                disabled={
+                  create.isPending ||
+                  form.name.trim().length < 2 ||
+                  !form.acquisitionCost ||
+                  cashAccounts.length === 0
+                }
               >
-                {create.isPending ? <Spinner /> : <PackagePlus className="size-4" aria-hidden />} Daftarkan Aset
+                {create.isPending ? <Spinner /> : <PackagePlus className="size-4" aria-hidden />}{" "}
+                Daftarkan Aset
               </Button>
             </div>
           </CardBody>
@@ -169,17 +235,34 @@ export function AssetsPage() {
 
       {isAdmin ? (
         <Card>
-          <CardHeader title="Jalankan penyusutan bulanan" description="Otomatis tiap awal bulan; bisa juga dipicu manual. Aman diulang (tak dobel per periode)." />
+          <CardHeader
+            title="Jalankan penyusutan bulanan"
+            description="Otomatis tiap awal bulan; bisa juga dipicu manual. Aman diulang (tak dobel per periode)."
+          />
           <CardBody className="flex flex-wrap items-end gap-3">
             <div>
               <Label htmlFor="dep-period">Periode</Label>
-              <Input id="dep-period" type="month" value={depPeriod} onChange={(e) => setDepPeriod(e.target.value)} />
+              <Input
+                id="dep-period"
+                type="month"
+                value={depPeriod}
+                onChange={(e) => setDepPeriod(e.target.value)}
+              />
             </div>
             <div>
               <Label htmlFor="dep-date">Tanggal jurnal</Label>
-              <Input id="dep-date" type="date" value={depDate} onChange={(e) => setDepDate(e.target.value)} />
+              <Input
+                id="dep-date"
+                type="date"
+                value={depDate}
+                onChange={(e) => setDepDate(e.target.value)}
+              />
             </div>
-            <Button variant="secondary" onClick={() => depreciate.mutate()} disabled={depreciate.isPending || active.length === 0}>
+            <Button
+              variant="secondary"
+              onClick={() => depreciate.mutate()}
+              disabled={depreciate.isPending || active.length === 0}
+            >
               {depreciate.isPending ? <Spinner /> : null} Jalankan Penyusutan
             </Button>
           </CardBody>
@@ -192,7 +275,11 @@ export function AssetsPage() {
           {assetsQuery.isLoading ? (
             <Spinner />
           ) : assets.length === 0 ? (
-            <EmptyState icon={<Landmark className="size-6" aria-hidden />} title="Belum ada aset" description="Daftarkan aset tetap (kendaraan, peralatan, dll.) untuk mulai menyusutkan otomatis." />
+            <EmptyState
+              icon={<Landmark className="size-6" aria-hidden />}
+              title="Belum ada aset"
+              description="Daftarkan aset tetap (kendaraan, peralatan, dll.) untuk mulai menyusutkan otomatis."
+            />
           ) : (
             <div className="space-y-3">
               {assets.map((a) => (
@@ -206,7 +293,15 @@ export function AssetsPage() {
   );
 }
 
-function AssetRow({ asset, isAdmin, cashAccounts }: { asset: ApiFixedAsset; isAdmin: boolean; cashAccounts: AccountRow[] }) {
+function AssetRow({
+  asset,
+  isAdmin,
+  cashAccounts,
+}: {
+  asset: ApiFixedAsset;
+  isAdmin: boolean;
+  cashAccounts: AccountRow[];
+}) {
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -224,7 +319,10 @@ function AssetRow({ asset, isAdmin, cashAccounts }: { asset: ApiFixedAsset; isAd
         cashAccountId: cashAccountId || cashAccounts[0]?.id || "",
       }),
     onSuccess: (res) => {
-      toast("success", `Aset dilepas. ${res.gain >= 0 ? "Laba" : "Rugi"} pelepasan ${formatIDR(Math.abs(res.gain))}.`);
+      toast(
+        "success",
+        `Aset dilepas. ${res.gain >= 0 ? "Laba" : "Rugi"} pelepasan ${formatIDR(Math.abs(res.gain))}.`
+      );
       setOpen(false);
       setConfirmOpen(false);
       queryClient.invalidateQueries({ queryKey: ["assets", tenant.tenantId] });
@@ -235,17 +333,27 @@ function AssetRow({ asset, isAdmin, cashAccounts }: { asset: ApiFixedAsset; isAd
     },
   });
 
-  const pct = asset.acquisitionCost > 0 ? Math.round((asset.accumulatedDepreciation / asset.acquisitionCost) * 100) : 0;
+  const pct =
+    asset.acquisitionCost > 0
+      ? Math.round((asset.accumulatedDepreciation / asset.acquisitionCost) * 100)
+      : 0;
 
   return (
     <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="font-medium">{asset.name}</span>
         {asset.category ? <span className="text-xs text-slate-400">{asset.category}</span> : null}
-        {asset.status === "disposed" ? <Badge tone="neutral">dilepas</Badge> : <Badge tone="green">aktif</Badge>}
+        {asset.status === "disposed" ? (
+          <Badge tone="neutral">dilepas</Badge>
+        ) : (
+          <Badge tone="green">aktif</Badge>
+        )}
         <span className="ml-auto text-sm text-slate-500 dark:text-slate-400">
-          Perolehan <span className="tabular-nums">{formatIDR(asset.acquisitionCost)}</span> · Nilai buku{" "}
-          <strong className="tabular-nums text-slate-800 dark:text-slate-100">{formatIDR(asset.bookValue)}</strong>
+          Perolehan <span className="tabular-nums">{formatIDR(asset.acquisitionCost)}</span> · Nilai
+          buku{" "}
+          <strong className="tabular-nums text-slate-800 dark:text-slate-100">
+            {formatIDR(asset.bookValue)}
+          </strong>
         </span>
         {isAdmin && asset.status === "active" ? (
           <Button variant="ghost" className="h-8" onClick={() => setOpen((o) => !o)}>
@@ -254,7 +362,8 @@ function AssetRow({ asset, isAdmin, cashAccounts }: { asset: ApiFixedAsset; isAd
         ) : null}
       </div>
       <div className="mt-1 text-xs text-slate-400">
-        Sejak {asset.acquisitionDate} · masa {asset.usefulLifeMonths} bln · penyusutan {formatIDR(asset.monthlyDepreciation)}/bln · tersusut {pct}%
+        Sejak {asset.acquisitionDate} · masa {asset.usefulLifeMonths} bln · penyusutan{" "}
+        {formatIDR(asset.monthlyDepreciation)}/bln · tersusut {pct}%
         {asset.disposedDate ? ` · dilepas ${asset.disposedDate}` : ""}
       </div>
 
@@ -262,15 +371,30 @@ function AssetRow({ asset, isAdmin, cashAccounts }: { asset: ApiFixedAsset; isAd
         <div className="mt-3 flex flex-wrap items-end gap-3 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/40">
           <div>
             <Label htmlFor={`d-date-${asset.id}`}>Tanggal pelepasan</Label>
-            <Input id={`d-date-${asset.id}`} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <Input
+              id={`d-date-${asset.id}`}
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
           </div>
           <div>
             <Label htmlFor={`d-proc-${asset.id}`}>Hasil penjualan (0 bila dibuang)</Label>
-            <Input id={`d-proc-${asset.id}`} type="number" min={0} value={proceeds} onChange={(e) => setProceeds(e.target.value)} />
+            <Input
+              id={`d-proc-${asset.id}`}
+              type="number"
+              min={0}
+              value={proceeds}
+              onChange={(e) => setProceeds(e.target.value)}
+            />
           </div>
           <div>
             <Label htmlFor={`d-cash-${asset.id}`}>Diterima di akun</Label>
-            <Select id={`d-cash-${asset.id}`} value={cashAccountId} onChange={(e) => setCashAccountId(e.target.value)}>
+            <Select
+              id={`d-cash-${asset.id}`}
+              value={cashAccountId}
+              onChange={(e) => setCashAccountId(e.target.value)}
+            >
               {cashAccounts.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.code} · {a.name}
@@ -278,7 +402,11 @@ function AssetRow({ asset, isAdmin, cashAccounts }: { asset: ApiFixedAsset; isAd
               ))}
             </Select>
           </div>
-          <Button variant="danger" onClick={() => setConfirmOpen(true)} disabled={dispose.isPending}>
+          <Button
+            variant="danger"
+            onClick={() => setConfirmOpen(true)}
+            disabled={dispose.isPending}
+          >
             Lepas Aset
           </Button>
           <ConfirmDialog

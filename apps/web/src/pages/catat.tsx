@@ -3,7 +3,19 @@ import { ArrowDownToLine, ArrowRightLeft, ArrowUpFromLine } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import type { ApiAccount } from "@erpindo/shared";
 import { api, formatIDR } from "../api/client";
-import { Alert, Button, Card, CardBody, CardHeader, Input, Label, Select, Spinner, useToast } from "../components/ui";
+import {
+  Alert,
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  Input,
+  Label,
+  PageHeading,
+  Select,
+  Spinner,
+  useToast,
+} from "../components/ui";
 import { useWorkspace } from "./app";
 
 /**
@@ -41,7 +53,9 @@ const MODE_META: { key: Mode; label: string; icon: typeof ArrowDownToLine }[] = 
 const MANUAL = "__manual__";
 
 function isWallet(a: ApiAccount): boolean {
-  return a.type === "asset" && (a.code === "1-1000" || a.code === "1-1100" || /kas|bank/i.test(a.name));
+  return (
+    a.type === "asset" && (a.code === "1-1000" || a.code === "1-1100" || /kas|bank/i.test(a.name))
+  );
 }
 
 export function CatatPage() {
@@ -65,7 +79,7 @@ export function CatatPage() {
   });
   const accounts = useMemo(
     () => (accountsQuery.data?.accounts ?? []).filter((a) => !a.isArchived),
-    [accountsQuery.data],
+    [accountsQuery.data]
   );
   const wallets = accounts.filter(isWallet);
   const byCode = useMemo(() => new Map(accounts.map((a) => [a.code, a])), [accounts]);
@@ -97,7 +111,9 @@ export function CatatPage() {
   const mutation = useMutation({
     mutationFn: () => {
       if (!wallet || !targetAccount) throw new Error("Pilih dompet dan kategori dulu.");
-      const memo = note.trim() || (mode === "pindah" ? `Pindah dana ${wallet.name} → ${targetAccount.name}` : categoryLabel);
+      const memo =
+        note.trim() ||
+        (mode === "pindah" ? `Pindah dana ${wallet.name} → ${targetAccount.name}` : categoryLabel);
       const debitFirst = mode !== "keluar"; // masuk & pindah: dana bertambah di tujuan (debit)
       const lines =
         mode === "keluar"
@@ -106,8 +122,16 @@ export function CatatPage() {
               { accountId: wallet.id, debit: 0, credit: amountInt },
             ]
           : [
-              { accountId: (mode === "pindah" ? targetAccount : wallet).id, debit: amountInt, credit: 0 },
-              { accountId: (mode === "pindah" ? wallet : targetAccount).id, debit: 0, credit: amountInt },
+              {
+                accountId: (mode === "pindah" ? targetAccount : wallet).id,
+                debit: amountInt,
+                credit: 0,
+              },
+              {
+                accountId: (mode === "pindah" ? wallet : targetAccount).id,
+                debit: 0,
+                credit: amountInt,
+              },
             ];
       void debitFirst;
       return api.createJournalEntry(tenant.tenantId, { entryDate, memo, lines });
@@ -133,14 +157,14 @@ export function CatatPage() {
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Catat Transaksi</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Catat uang masuk, uang keluar, atau pindah dana dengan bahasa sehari-hari — pembukuan (jurnal) dibuat otomatis
-          di belakang layar. Tanpa perlu paham debit-kredit.
-        </p>
+        <PageHeading k="catatTransaksi" />
       </div>
 
-      {!canWrite ? <Alert tone="info">Peran Anda hanya bisa melihat — minta Owner/Admin untuk mencatat transaksi.</Alert> : null}
+      {!canWrite ? (
+        <Alert tone="info">
+          Peran Anda hanya bisa melihat — minta Owner/Admin untuk mencatat transaksi.
+        </Alert>
+      ) : null}
 
       <Card>
         <CardBody className="space-y-5">
@@ -174,7 +198,13 @@ export function CatatPage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="catat-tanggal">Tanggal</Label>
-                  <Input id="catat-tanggal" type="date" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} required />
+                  <Input
+                    id="catat-tanggal"
+                    type="date"
+                    value={entryDate}
+                    onChange={(e) => setEntryDate(e.target.value)}
+                    required
+                  />
                 </div>
                 <div>
                   <Label htmlFor="catat-jumlah">Jumlah (Rp)</Label>
@@ -193,8 +223,14 @@ export function CatatPage() {
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <Label htmlFor="catat-dompet">{mode === "pindah" ? "Dari dompet" : "Dompet (kas/bank)"}</Label>
-                  <Select id="catat-dompet" value={wallet?.id ?? ""} onChange={(e) => setWalletId(e.target.value)}>
+                  <Label htmlFor="catat-dompet">
+                    {mode === "pindah" ? "Dari dompet" : "Dompet (kas/bank)"}
+                  </Label>
+                  <Select
+                    id="catat-dompet"
+                    value={wallet?.id ?? ""}
+                    onChange={(e) => setWalletId(e.target.value)}
+                  >
                     {wallets.map((w) => (
                       <option key={w.id} value={w.id}>
                         {w.name}
@@ -205,7 +241,11 @@ export function CatatPage() {
                 {mode === "pindah" ? (
                   <div>
                     <Label htmlFor="catat-dompet-tujuan">Ke dompet</Label>
-                    <Select id="catat-dompet-tujuan" value={walletTo?.id ?? ""} onChange={(e) => setWalletToId(e.target.value)}>
+                    <Select
+                      id="catat-dompet-tujuan"
+                      value={walletTo?.id ?? ""}
+                      onChange={(e) => setWalletToId(e.target.value)}
+                    >
                       {wallets
                         .filter((w) => w.id !== wallet?.id)
                         .map((w) => (
@@ -217,7 +257,9 @@ export function CatatPage() {
                   </div>
                 ) : (
                   <div>
-                    <Label htmlFor="catat-kategori">{mode === "masuk" ? "Uangnya dari mana?" : "Untuk apa?"}</Label>
+                    <Label htmlFor="catat-kategori">
+                      {mode === "masuk" ? "Uangnya dari mana?" : "Untuk apa?"}
+                    </Label>
                     <Select
                       id="catat-kategori"
                       value={category}
@@ -239,7 +281,12 @@ export function CatatPage() {
               {category === MANUAL && mode !== "pindah" ? (
                 <div>
                   <Label htmlFor="catat-akun-manual">Akun tujuan</Label>
-                  <Select id="catat-akun-manual" value={manualAccountId} onChange={(e) => setManualAccountId(e.target.value)} required>
+                  <Select
+                    id="catat-akun-manual"
+                    value={manualAccountId}
+                    onChange={(e) => setManualAccountId(e.target.value)}
+                    required
+                  >
                     <option value="">— pilih akun —</option>
                     {accounts
                       .filter((a) => !isWallet(a))

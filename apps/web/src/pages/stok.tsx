@@ -12,6 +12,7 @@ import {
   EmptyState,
   Input,
   Label,
+  PageHeading,
   Select,
   Spinner,
   useToast,
@@ -20,7 +21,14 @@ import { useWorkspace } from "./app";
 
 const th = "pb-2 pr-4 text-left font-medium text-slate-500 dark:text-slate-400";
 
-type ProductRow = { id: string; sku: string; name: string; sell_price: number; buy_price: number; track_expiry: number };
+type ProductRow = {
+  id: string;
+  sku: string;
+  name: string;
+  sell_price: number;
+  buy_price: number;
+  track_expiry: number;
+};
 type WarehouseRow = { id: string; name: string };
 
 // ---------------------------------------------------------------------------
@@ -34,7 +42,15 @@ const REF_TYPE_LABELS: Record<string, string> = {
   adjustment: "Penyesuaian",
 };
 
-function StockCard({ productId, warehouseId, title }: { productId: string; warehouseId: string; title: string }) {
+function StockCard({
+  productId,
+  warehouseId,
+  title,
+}: {
+  productId: string;
+  warehouseId: string;
+  title: string;
+}) {
   const { tenant } = useWorkspace();
   const query = useQuery({
     queryKey: ["stock-card", tenant.tenantId, productId, warehouseId],
@@ -43,7 +59,10 @@ function StockCard({ productId, warehouseId, title }: { productId: string; wareh
 
   return (
     <Card>
-      <CardHeader title={`Kartu stok — ${title}`} description="Riwayat mutasi dengan saldo berjalan." />
+      <CardHeader
+        title={`Kartu stok — ${title}`}
+        description="Riwayat mutasi dengan saldo berjalan."
+      />
       <CardBody>
         {query.isLoading ? (
           <Spinner />
@@ -62,13 +81,17 @@ function StockCard({ productId, warehouseId, title }: { productId: string; wareh
               <tbody>
                 {query.data?.rows.map((r, i) => (
                   <tr key={i}>
-                    <td className="border-b border-slate-100 py-2 pr-4 dark:border-slate-800/60">{formatDate(r.date)}</td>
+                    <td className="border-b border-slate-100 py-2 pr-4 dark:border-slate-800/60">
+                      {formatDate(r.date)}
+                    </td>
                     <td className="border-b border-slate-100 py-2 pr-4 dark:border-slate-800/60">
                       {REF_TYPE_LABELS[r.refType] ?? r.refType}
                     </td>
                     <td
                       className={`border-b border-slate-100 py-2 pr-4 text-right tabular-nums dark:border-slate-800/60 ${
-                        r.qty >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"
+                        r.qty >= 0
+                          ? "text-emerald-700 dark:text-emerald-400"
+                          : "text-red-700 dark:text-red-400"
                       }`}
                     >
                       {r.qty >= 0 ? `+${r.qty}` : r.qty}
@@ -112,14 +135,15 @@ function StockAdjustmentForm() {
     mutationFn: () =>
       api.adjustStock(tenant.tenantId, {
         productId,
-        warehouseId: warehouseId || (warehousesQuery.data?.items[0] as WarehouseRow | undefined)?.id || "",
+        warehouseId:
+          warehouseId || (warehousesQuery.data?.items[0] as WarehouseRow | undefined)?.id || "",
         physicalQty: Number(physicalQty),
         note: note || undefined,
       }),
     onSuccess: (res) => {
       toast(
         "success",
-        `Stok disesuaikan (${res.delta > 0 ? "+" : ""}${res.delta}${res.entryNo ? `, jurnal ${res.entryNo}` : ""}).`,
+        `Stok disesuaikan (${res.delta > 0 ? "+" : ""}${res.delta}${res.entryNo ? `, jurnal ${res.entryNo}` : ""}).`
       );
       setPhysicalQty("");
       setNote("");
@@ -139,7 +163,11 @@ function StockAdjustmentForm() {
         <div className="grid gap-3 sm:grid-cols-[1fr_12rem_8rem_1fr_auto] sm:items-end">
           <div>
             <Label htmlFor="adj-product">Produk</Label>
-            <Select id="adj-product" value={productId} onChange={(e) => setProductId(e.target.value)}>
+            <Select
+              id="adj-product"
+              value={productId}
+              onChange={(e) => setProductId(e.target.value)}
+            >
               <option value="">— pilih produk —</option>
               {((productsQuery.data?.items ?? []) as ProductRow[]).map((p) => (
                 <option key={p.id} value={p.id}>
@@ -150,7 +178,11 @@ function StockAdjustmentForm() {
           </div>
           <div>
             <Label htmlFor="adj-wh">Gudang</Label>
-            <Select id="adj-wh" value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
+            <Select
+              id="adj-wh"
+              value={warehouseId}
+              onChange={(e) => setWarehouseId(e.target.value)}
+            >
               {((warehousesQuery.data?.items ?? []) as WarehouseRow[]).map((w) => (
                 <option key={w.id} value={w.id}>
                   {w.name}
@@ -170,9 +202,17 @@ function StockAdjustmentForm() {
           </div>
           <div>
             <Label htmlFor="adj-note">Catatan</Label>
-            <Input id="adj-note" placeholder="opsional" value={note} onChange={(e) => setNote(e.target.value)} />
+            <Input
+              id="adj-note"
+              placeholder="opsional"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
           </div>
-          <Button onClick={() => adjust.mutate()} disabled={!productId || physicalQty === "" || adjust.isPending}>
+          <Button
+            onClick={() => adjust.mutate()}
+            disabled={!productId || physicalQty === "" || adjust.isPending}
+          >
             {adjust.isPending ? <Spinner /> : null} Sesuaikan
           </Button>
         </div>
@@ -220,12 +260,19 @@ function StockTransferForm() {
 
   return (
     <Card>
-      <CardHeader title="Transfer antar gudang" description="Nilai persediaan berpindah pada biaya rata-rata — tanpa jurnal." />
+      <CardHeader
+        title="Transfer antar gudang"
+        description="Nilai persediaan berpindah pada biaya rata-rata — tanpa jurnal."
+      />
       <CardBody>
         <div className="grid gap-3 sm:grid-cols-[1fr_11rem_11rem_7rem_auto] sm:items-end">
           <div>
             <Label htmlFor="tr-product">Produk</Label>
-            <Select id="tr-product" value={productId} onChange={(e) => setProductId(e.target.value)}>
+            <Select
+              id="tr-product"
+              value={productId}
+              onChange={(e) => setProductId(e.target.value)}
+            >
               <option value="">— pilih produk —</option>
               {((productsQuery.data?.items ?? []) as ProductRow[]).map((p) => (
                 <option key={p.id} value={p.id}>
@@ -257,9 +304,18 @@ function StockTransferForm() {
           </div>
           <div>
             <Label htmlFor="tr-qty">Qty</Label>
-            <Input id="tr-qty" type="number" min={1} value={qty} onChange={(e) => setQty(e.target.value)} />
+            <Input
+              id="tr-qty"
+              type="number"
+              min={1}
+              value={qty}
+              onChange={(e) => setQty(e.target.value)}
+            />
           </div>
-          <Button onClick={() => transfer.mutate()} disabled={!productId || !toWh || !qty || transfer.isPending}>
+          <Button
+            onClick={() => transfer.mutate()}
+            disabled={!productId || !toWh || !qty || transfer.isPending}
+          >
             {transfer.isPending ? <Spinner /> : null} Transfer
           </Button>
         </div>
@@ -287,7 +343,8 @@ function LotsCard() {
       <CardBody>
         {(query.data?.expiringSoon ?? 0) > 0 ? (
           <Alert tone="error">
-            {query.data!.expiringSoon} lot kedaluwarsa dalam ≤ 30 hari — prioritaskan penjualannya atau tarik dari rak.
+            {query.data!.expiringSoon} lot kedaluwarsa dalam ≤ 30 hari — prioritaskan penjualannya
+            atau tarik dari rak.
           </Alert>
         ) : null}
         <div className="mt-3 overflow-x-auto">
@@ -308,9 +365,15 @@ function LotsCard() {
                   <td className="border-b border-slate-100 py-2.5 pr-4 font-mono text-xs dark:border-slate-800/60">
                     {l.sku}
                   </td>
-                  <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">{l.productName}</td>
-                  <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">{l.warehouseName}</td>
-                  <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">{l.lotNo ?? "—"}</td>
+                  <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">
+                    {l.productName}
+                  </td>
+                  <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">
+                    {l.warehouseName}
+                  </td>
+                  <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">
+                    {l.lotNo ?? "—"}
+                  </td>
                   <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">
                     {l.expiryDate ? (
                       <span className="inline-flex items-center gap-2">
@@ -346,14 +409,21 @@ function ReorderCard() {
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
-  const query = useQuery({ queryKey: ["reorder", tenant.tenantId], queryFn: () => api.reorderSuggestions(tenant.tenantId) });
+  const query = useQuery({
+    queryKey: ["reorder", tenant.tenantId],
+    queryFn: () => api.reorderSuggestions(tenant.tenantId),
+  });
   const suggestions = query.data?.suggestions ?? [];
 
   const createPr = useMutation({
     mutationFn: () =>
       api.createRequisition(tenant.tenantId, {
         note: "Usulan otomatis dari titik pesan (stok menipis)",
-        lines: suggestions.map((s) => ({ productId: s.productId, qty: s.suggestedQty, note: `Stok ${s.qty} ≤ minimum ${s.minStock}` })),
+        lines: suggestions.map((s) => ({
+          productId: s.productId,
+          qty: s.suggestedQty,
+          note: `Stok ${s.qty} ≤ minimum ${s.minStock}`,
+        })),
       }),
     onSuccess: (r) => {
       queryClient.invalidateQueries({ queryKey: ["requisitions", tenant.tenantId] });
@@ -389,13 +459,23 @@ function ReorderCard() {
             <tbody>
               {suggestions.map((s) => (
                 <tr key={s.productId}>
-                  <td className="border-b border-slate-100 py-2.5 pr-4 font-mono text-xs dark:border-slate-800/60">{s.sku}</td>
-                  <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">{s.name}</td>
-                  <td className="border-b border-slate-100 py-2.5 pr-4 text-right tabular-nums dark:border-slate-800/60">
-                    <Badge tone={s.qty <= 0 ? "red" : "amber"}>{s.qty} {s.unit}</Badge>
+                  <td className="border-b border-slate-100 py-2.5 pr-4 font-mono text-xs dark:border-slate-800/60">
+                    {s.sku}
                   </td>
-                  <td className="border-b border-slate-100 py-2.5 pr-4 text-right tabular-nums dark:border-slate-800/60">{s.minStock}</td>
-                  <td className="border-b border-slate-100 py-2.5 pr-4 text-right font-medium tabular-nums dark:border-slate-800/60">{s.suggestedQty} {s.unit}</td>
+                  <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">
+                    {s.name}
+                  </td>
+                  <td className="border-b border-slate-100 py-2.5 pr-4 text-right tabular-nums dark:border-slate-800/60">
+                    <Badge tone={s.qty <= 0 ? "red" : "amber"}>
+                      {s.qty} {s.unit}
+                    </Badge>
+                  </td>
+                  <td className="border-b border-slate-100 py-2.5 pr-4 text-right tabular-nums dark:border-slate-800/60">
+                    {s.minStock}
+                  </td>
+                  <td className="border-b border-slate-100 py-2.5 pr-4 text-right font-medium tabular-nums dark:border-slate-800/60">
+                    {s.suggestedQty} {s.unit}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -409,8 +489,15 @@ function ReorderCard() {
 export function StockPage() {
   const { tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
-  const query = useQuery({ queryKey: ["stock", tenant.tenantId], queryFn: () => api.stock(tenant.tenantId) });
-  const [selected, setSelected] = useState<{ productId: string; warehouseId: string; title: string } | null>(null);
+  const query = useQuery({
+    queryKey: ["stock", tenant.tenantId],
+    queryFn: () => api.stock(tenant.tenantId),
+  });
+  const [selected, setSelected] = useState<{
+    productId: string;
+    warehouseId: string;
+    title: string;
+  } | null>(null);
   const [lowOnly, setLowOnly] = useState(false);
   const [threshold, setThreshold] = useState("10");
 
@@ -420,8 +507,7 @@ export function StockPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Stok</h1>
-      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Level stok per gudang beserta nilai persediaan, kartu stok, transfer antar gudang, dan opname.</p>
+      <PageHeading k="stok" />
       {isAdmin ? <ReorderCard /> : null}
       {isAdmin ? <StockAdjustmentForm /> : null}
       {isAdmin ? <StockTransferForm /> : null}
@@ -439,7 +525,15 @@ export function StockPage() {
                   downloadCsv(
                     "stok.csv",
                     ["SKU", "Produk", "Gudang", "Qty", "Satuan", "Biaya rata-rata", "Nilai"],
-                    levels.map((l) => [l.sku, l.productName, l.warehouseName, l.qty, l.unit, l.avgCost, l.value]),
+                    levels.map((l) => [
+                      l.sku,
+                      l.productName,
+                      l.warehouseName,
+                      l.qty,
+                      l.unit,
+                      l.avgCost,
+                      l.value,
+                    ])
                   )
                 }
               >
@@ -478,7 +572,9 @@ export function StockPage() {
               description="Catat faktur pembelian untuk mengisi stok — level per gudang akan tampil di sini."
             />
           ) : levels.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">Tidak ada produk dengan stok ≤ {lowLimit}.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Tidak ada produk dengan stok ≤ {lowLimit}.
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -499,8 +595,12 @@ export function StockPage() {
                       <td className="border-b border-slate-100 py-2.5 pr-4 font-mono text-xs dark:border-slate-800/60">
                         {l.sku}
                       </td>
-                      <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">{l.productName}</td>
-                      <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">{l.warehouseName}</td>
+                      <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">
+                        {l.productName}
+                      </td>
+                      <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">
+                        {l.warehouseName}
+                      </td>
                       <td className="border-b border-slate-100 py-2.5 pr-4 text-right tabular-nums dark:border-slate-800/60">
                         {l.qty} {l.unit}
                       </td>
@@ -532,7 +632,9 @@ export function StockPage() {
                       {lowOnly ? "Total nilai (terfilter)" : "Total nilai persediaan"}
                     </td>
                     <td className="py-2.5 text-right tabular-nums">
-                      {formatIDR(lowOnly ? levels.reduce((s, l) => s + l.value, 0) : query.data!.totalValue)}
+                      {formatIDR(
+                        lowOnly ? levels.reduce((s, l) => s + l.value, 0) : query.data!.totalValue
+                      )}
                     </td>
                     <td></td>
                   </tr>
@@ -544,7 +646,11 @@ export function StockPage() {
       </Card>
 
       {selected ? (
-        <StockCard productId={selected.productId} warehouseId={selected.warehouseId} title={selected.title} />
+        <StockCard
+          productId={selected.productId}
+          warehouseId={selected.warehouseId}
+          title={selected.title}
+        />
       ) : null}
     </div>
   );

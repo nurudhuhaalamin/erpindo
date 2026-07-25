@@ -223,9 +223,32 @@ try {
     appEn.includes("Sales") && appEn.includes("Inventory") && appEn.includes("Profit This Month") && (appEn.includes("Good ") || appEn.includes("Overview of")),
     `→ EN aplikasi tidak lengkap`,
   );
+  // Fase 16a: judul + pengantar HALAMAN MODUL ikut bahasa aktif (dulu selalu
+  // Indonesia walau menu sidebar sudah Inggris).
+  await gotoRoute("/app/master/produk", 700);
+  const produkEn = await page.innerText("body");
+  check(
+    "F0c judul halaman modul ikut EN: Produk → 'Products' + pengantar Inggris",
+    produkEn.includes("Products") && produkEn.includes("catalogue of goods") && !produkEn.includes("Katalog barang"),
+    `→ judul/pengantar halaman modul belum Inggris`,
+  );
+  await gotoRoute("/app/keuangan/neraca-saldo", 700);
+  const tbEn = await page.innerText("body");
+  check(
+    "F0c halaman laporan ikut EN: Neraca Saldo → 'Trial Balance'",
+    tbEn.includes("Trial Balance") && !tbEn.includes("Ringkasan saldo semua akun"),
+    `→ judul laporan belum Inggris`,
+  );
+  await gotoRoute("/app", 600);
   await page.locator("aside").getByRole("button", { name: "ID", exact: true }).first().click();
   await page.waitForTimeout(300);
   check("F0b toggle kembali ke ID", (await page.innerText("body")).includes("Penjualan"));
+  await gotoRoute("/app/master/produk", 700);
+  check(
+    "F0c kembali ke ID: judul halaman modul kembali 'Produk'",
+    (await page.innerText("body")).includes("Katalog barang"),
+  );
+  await gotoRoute("/app", 600);
   check("F0b multibahasa aplikasi bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
   await page.getByRole("button", { name: "7 hari", exact: true }).click();
   await page.getByText("Penjualan 7 hari terakhir").first().waitFor({ timeout: 10_000 });

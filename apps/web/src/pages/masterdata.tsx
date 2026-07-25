@@ -1,4 +1,12 @@
-import { contactSchema, INDUSTRY_KEYS, INDUSTRY_LABELS, productSchema, warehouseSchema, type ContactType, type IndustryKey } from "@erpindo/shared";
+import {
+  contactSchema,
+  INDUSTRY_KEYS,
+  INDUSTRY_LABELS,
+  productSchema,
+  warehouseSchema,
+  type ContactType,
+  type IndustryKey,
+} from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Contact, Package, Search, Upload, Warehouse } from "lucide-react";
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
@@ -15,6 +23,7 @@ import {
   FieldError,
   Input,
   Label,
+  PageHeading,
   Select,
   Spinner,
   useToast,
@@ -43,13 +52,20 @@ function ImportCsvButton({
   const toast = useToast();
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [result, setResult] = useState<{ inserted: number; failed: number; errors: { row: number; message: string }[] } | null>(null);
+  const [result, setResult] = useState<{
+    inserted: number;
+    failed: number;
+    errors: { row: number; message: string }[];
+  } | null>(null);
 
   const importMutation = useMutation({
     mutationFn: (rows: unknown[]) => api.importItems(tenant.tenantId, entity, rows),
     onSuccess: (res) => {
       setResult(res);
-      toast(res.failed === 0 ? "success" : "error", `Impor selesai: ${res.inserted} masuk, ${res.failed} gagal/dilewati.`);
+      toast(
+        res.failed === 0 ? "success" : "error",
+        `Impor selesai: ${res.inserted} masuk, ${res.failed} gagal/dilewati.`
+      );
       queryClient.invalidateQueries({ queryKey: [entity, tenant.tenantId] });
     },
     onError: (err) => toast("error", (err as Error).message),
@@ -69,9 +85,20 @@ function ImportCsvButton({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onFile} />
-      <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={importMutation.isPending}>
-        {importMutation.isPending ? <Spinner /> : <Upload className="size-4" aria-hidden />} Impor CSV
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".csv,text/csv"
+        className="hidden"
+        onChange={onFile}
+      />
+      <Button
+        variant="secondary"
+        onClick={() => fileRef.current?.click()}
+        disabled={importMutation.isPending}
+      >
+        {importMutation.isPending ? <Spinner /> : <Upload className="size-4" aria-hidden />} Impor
+        CSV
       </Button>
       <Button
         variant="ghost"
@@ -119,7 +146,8 @@ function useEntityPage<Row extends { id: string }>(entity: "products" | "contact
   const invalidate = () => queryClient.invalidateQueries({ queryKey: [entity, tenant.tenantId] });
 
   const create = useMutation({
-    mutationFn: (input: Parameters<typeof api.createItem>[2]) => api.createItem(tenant.tenantId, entity, input),
+    mutationFn: (input: Parameters<typeof api.createItem>[2]) =>
+      api.createItem(tenant.tenantId, entity, input),
     onSuccess: () => {
       toast("success", "Data tersimpan.");
       invalidate();
@@ -184,8 +212,17 @@ function SearchBox({
 }) {
   return (
     <div className="relative sm:max-w-xs">
-      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
-      <Input aria-label={label} className="pl-9" placeholder={label} value={value} onChange={(e) => onChange(e.target.value)} />
+      <Search
+        className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400"
+        aria-hidden
+      />
+      <Input
+        aria-label={label}
+        className="pl-9"
+        placeholder={label}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
     </div>
   );
 }
@@ -212,7 +249,11 @@ function RowActions({ onEdit, onArchive }: { onEdit: () => void; onArchive: () =
       <Button variant="ghost" className="h-8" onClick={onEdit}>
         Ubah
       </Button>
-      <Button variant="ghost" className="h-8 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" onClick={onArchive}>
+      <Button
+        variant="ghost"
+        className="h-8 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
+        onClick={onArchive}
+      >
         Arsipkan
       </Button>
     </div>
@@ -244,10 +285,14 @@ function SerialManager({ product }: { product: ProductRow }) {
   const queryClient = useQueryClient();
   const [serialNo, setSerialNo] = useState("");
   const key = ["serials", tenant.tenantId, product.id] as const;
-  const query = useQuery({ queryKey: key, queryFn: () => api.productSerials(tenant.tenantId, product.id) });
+  const query = useQuery({
+    queryKey: key,
+    queryFn: () => api.productSerials(tenant.tenantId, product.id),
+  });
 
   const add = useMutation({
-    mutationFn: () => api.addProductSerial(tenant.tenantId, product.id, { serialNo: serialNo.trim() }),
+    mutationFn: () =>
+      api.addProductSerial(tenant.tenantId, product.id, { serialNo: serialNo.trim() }),
     onSuccess: () => {
       setSerialNo("");
       queryClient.invalidateQueries({ queryKey: key });
@@ -256,7 +301,8 @@ function SerialManager({ product }: { product: ProductRow }) {
     onError: (e: Error) => toast("error", e.message),
   });
   const setStatus = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: "in_stock" | "sold" }) => api.setSerialStatus(tenant.tenantId, product.id, id, status),
+    mutationFn: ({ id, status }: { id: string; status: "in_stock" | "sold" }) =>
+      api.setSerialStatus(tenant.tenantId, product.id, id, status),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
     onError: (e: Error) => toast("error", e.message),
   });
@@ -267,7 +313,9 @@ function SerialManager({ product }: { product: ProductRow }) {
     <div className="mt-4 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Nomor seri — {product.name}</h3>
-        <span className="text-xs text-slate-400">{available} tersedia / {serials.length} total</span>
+        <span className="text-xs text-slate-400">
+          {available} tersedia / {serials.length} total
+        </span>
       </div>
       <form
         className="mt-3 flex flex-wrap gap-2"
@@ -276,26 +324,43 @@ function SerialManager({ product }: { product: ProductRow }) {
           if (serialNo.trim()) add.mutate();
         }}
       >
-        <Input id="serial-no" value={serialNo} onChange={(e) => setSerialNo(e.target.value)} placeholder="Masukkan nomor seri unit" className="flex-1" />
+        <Input
+          id="serial-no"
+          value={serialNo}
+          onChange={(e) => setSerialNo(e.target.value)}
+          placeholder="Masukkan nomor seri unit"
+          className="flex-1"
+        />
         <Button type="submit" disabled={add.isPending || !serialNo.trim()}>
           {add.isPending ? <Spinner /> : null} Tambah seri
         </Button>
       </form>
       {query.isLoading ? (
-        <div className="mt-3"><Spinner /></div>
+        <div className="mt-3">
+          <Spinner />
+        </div>
       ) : serials.length === 0 ? (
-        <p className="mt-3 text-sm text-slate-400">Belum ada nomor seri. Tambahkan unit satu per satu di atas.</p>
+        <p className="mt-3 text-sm text-slate-400">
+          Belum ada nomor seri. Tambahkan unit satu per satu di atas.
+        </p>
       ) : (
         <ul className="mt-3 space-y-1.5">
           {serials.map((s) => (
             <li key={s.id} className="flex items-center justify-between gap-2 text-sm">
               <span className="font-mono text-xs">{s.serialNo}</span>
               <span className="flex items-center gap-2">
-                <Badge tone={s.status === "in_stock" ? "green" : "neutral"}>{s.status === "in_stock" ? "Tersedia" : "Terjual"}</Badge>
+                <Badge tone={s.status === "in_stock" ? "green" : "neutral"}>
+                  {s.status === "in_stock" ? "Tersedia" : "Terjual"}
+                </Badge>
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={() => setStatus.mutate({ id: s.id, status: s.status === "in_stock" ? "sold" : "in_stock" })}
+                  onClick={() =>
+                    setStatus.mutate({
+                      id: s.id,
+                      status: s.status === "in_stock" ? "sold" : "in_stock",
+                    })
+                  }
                   disabled={setStatus.isPending}
                 >
                   {s.status === "in_stock" ? "Tandai terjual" : "Kembalikan"}
@@ -333,7 +398,11 @@ function IndustryTemplateCard() {
       <CardBody className="flex flex-wrap items-end gap-3">
         <div>
           <Label>Jenis usaha</Label>
-          <Select value={industry} onChange={(e) => setIndustry(e.target.value as IndustryKey)} className="w-56">
+          <Select
+            value={industry}
+            onChange={(e) => setIndustry(e.target.value as IndustryKey)}
+            className="w-56"
+          >
             {INDUSTRY_KEYS.map((k) => (
               <option key={k} value={k}>
                 {INDUSTRY_LABELS[k]}
@@ -351,8 +420,21 @@ function IndustryTemplateCard() {
 
 export function ProductsPage() {
   const {
-    isAdmin, query, create, update, archive, issues, setIssues, editing, setEditing, toArchive, setToArchive,
-    search, setSearch, q, setLimit,
+    isAdmin,
+    query,
+    create,
+    update,
+    archive,
+    issues,
+    setIssues,
+    editing,
+    setEditing,
+    toArchive,
+    setToArchive,
+    search,
+    setSearch,
+    q,
+    setLimit,
   } = useEntityPage<ProductRow>("products");
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -388,8 +470,7 @@ export function ProductsPage() {
   const busy = create.isPending || update.isPending;
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Produk</h1>
-      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Katalog barang & jasa Anda — harga jual/beli, satuan, pelacakan kedaluwarsa, dan ambang stok minimum.</p>
+      <PageHeading k="produk" />
 
       {isAdmin && (query.data?.total ?? 0) === 0 ? <IndustryTemplateCard /> : null}
 
@@ -415,7 +496,9 @@ export function ProductsPage() {
                   unit: r.satuan || r.unit || "pcs",
                   sellPrice: Number(r.harga_jual ?? r.sellprice ?? 0) || 0,
                   buyPrice: Number(r.harga_beli ?? r.buyprice ?? 0) || 0,
-                  trackExpiry: ["ya", "yes", "1", "true"].includes((r.lacak_exp ?? "").toLowerCase()),
+                  trackExpiry: ["ya", "yes", "1", "true"].includes(
+                    (r.lacak_exp ?? "").toLowerCase()
+                  ),
                 })}
               />
             )}
@@ -427,25 +510,56 @@ export function ProductsPage() {
             >
               <div>
                 <Label htmlFor="p-sku">SKU</Label>
-                <Input id="p-sku" name="sku" placeholder="BRG-001" defaultValue={editing?.sku} required />
+                <Input
+                  id="p-sku"
+                  name="sku"
+                  placeholder="BRG-001"
+                  defaultValue={editing?.sku}
+                  required
+                />
                 <FieldError messages={issues.sku} />
               </div>
               <div>
                 <Label htmlFor="p-name">Nama</Label>
-                <Input id="p-name" name="name" placeholder="Kopi Arabika 1kg" defaultValue={editing?.name} required />
+                <Input
+                  id="p-name"
+                  name="name"
+                  placeholder="Kopi Arabika 1kg"
+                  defaultValue={editing?.name}
+                  required
+                />
                 <FieldError messages={issues.name} />
               </div>
               <div>
                 <Label htmlFor="p-unit">Satuan</Label>
-                <Input id="p-unit" name="unit" placeholder="pcs" defaultValue={editing?.unit ?? "pcs"} />
+                <Input
+                  id="p-unit"
+                  name="unit"
+                  placeholder="pcs"
+                  defaultValue={editing?.unit ?? "pcs"}
+                />
               </div>
               <div>
                 <Label htmlFor="p-sell">Harga jual (Rp)</Label>
-                <Input id="p-sell" name="sellPrice" type="number" min={0} placeholder="150000" defaultValue={editing?.sell_price} />
+                <Input
+                  id="p-sell"
+                  name="sellPrice"
+                  type="number"
+                  min={0}
+                  placeholder="150000"
+                  defaultValue={editing?.sell_price}
+                />
               </div>
               <div>
                 <Label htmlFor="p-buy">Harga beli (Rp)</Label>
-                <Input id="p-buy" name="buyPrice" type="number" min={0} placeholder="100000" defaultValue={editing?.buy_price} />
+                <Input
+                  id="p-buy"
+                  name="buyPrice"
+                  type="number"
+                  min={0}
+                  placeholder="100000"
+                  defaultValue={editing?.buy_price}
+                />
               </div>
               <div>
                 <Label htmlFor="p-minstock">Stok minimum</Label>
@@ -475,8 +589,8 @@ export function ProductsPage() {
                   className="h-4 w-4 rounded border-slate-300"
                   defaultChecked={editing ? editing.track_expiry === 1 : false}
                 />
-                Lacak lot &amp; tanggal kedaluwarsa (F&amp;B/farmasi) — wajib isi tgl exp saat pembelian, keluar otomatis
-                FEFO
+                Lacak lot &amp; tanggal kedaluwarsa (F&amp;B/farmasi) — wajib isi tgl exp saat
+                pembelian, keluar otomatis FEFO
               </label>
               <label className="flex items-center gap-2 text-sm text-slate-600 sm:col-span-3 dark:text-slate-300">
                 <input
@@ -485,20 +599,40 @@ export function ProductsPage() {
                   className="h-4 w-4 rounded border-slate-300"
                   defaultChecked={editing ? editing.is_service === 1 : false}
                 />
-                Jasa (tanpa stok) — faktur tidak menggerakkan stok/HPP; cocok untuk layanan, sewa, langganan
+                Jasa (tanpa stok) — faktur tidak menggerakkan stok/HPP; cocok untuk layanan, sewa,
+                langganan
               </label>
               <div className="sm:col-span-3">
                 <Label htmlFor="p-barcode">Barcode / kode batang</Label>
-                <Input id="p-barcode" name="barcode" placeholder="opsional — untuk pindai di kasir" defaultValue={editing?.barcode ?? ""} />
+                <Input
+                  id="p-barcode"
+                  name="barcode"
+                  placeholder="opsional — untuk pindai di kasir"
+                  defaultValue={editing?.barcode ?? ""}
+                />
                 <FieldError messages={issues.barcode} />
               </div>
               <div className="sm:col-span-2">
                 <Label htmlFor="p-uom2">Satuan besar (opsional)</Label>
-                <Input id="p-uom2" name="uomSecondary" placeholder="mis. dus" defaultValue={editing?.uom_secondary ?? ""} />
+                <Input
+                  id="p-uom2"
+                  name="uomSecondary"
+                  placeholder="mis. dus"
+                  defaultValue={editing?.uom_secondary ?? ""}
+                />
               </div>
               <div className="sm:col-span-2">
                 <Label htmlFor="p-uomf">1 satuan besar = … satuan dasar</Label>
-                <Input id="p-uomf" name="uomFactor" type="number" min={1} placeholder="mis. 24" defaultValue={editing?.uom_factor && editing.uom_factor > 1 ? editing.uom_factor : ""} />
+                <Input
+                  id="p-uomf"
+                  name="uomFactor"
+                  type="number"
+                  min={1}
+                  placeholder="mis. 24"
+                  defaultValue={
+                    editing?.uom_factor && editing.uom_factor > 1 ? editing.uom_factor : ""
+                  }
+                />
                 <FieldError messages={issues.uomFactor} />
               </div>
               <label className="flex items-center gap-2 text-sm text-slate-600 sm:col-span-3 dark:text-slate-300">
@@ -518,14 +652,25 @@ export function ProductsPage() {
 
       <Card>
         <CardBody className="space-y-3">
-          <SearchBox label="Cari SKU / nama produk…" value={search} onChange={(v) => { setSearch(v); setLimit(100); }} />
+          <SearchBox
+            label="Cari SKU / nama produk…"
+            value={search}
+            onChange={(v) => {
+              setSearch(v);
+              setLimit(100);
+            }}
+          />
           {query.isLoading ? (
             <Spinner />
           ) : (query.data?.items.length ?? 0) === 0 ? (
             <EmptyState
               icon={<Package className="size-6" aria-hidden />}
               title={q ? "Tidak ada produk yang cocok" : "Belum ada produk"}
-              description={q ? "Coba kata kunci lain." : "Tambahkan produk pertama Anda lewat form di atas, atau impor sekaligus dari CSV."}
+              description={
+                q
+                  ? "Coba kata kunci lain."
+                  : "Tambahkan produk pertama Anda lewat form di atas, atau impor sekaligus dari CSV."
+              }
             />
           ) : (
             <div className="overflow-x-auto">
@@ -549,13 +694,17 @@ export function ProductsPage() {
                       <td className={td}>
                         {p.name}
                         {p.uom_secondary && p.uom_factor > 1 ? (
-                          <span className="ml-1 text-xs text-slate-400">· 1 {p.uom_secondary} = {p.uom_factor} {p.unit}</span>
+                          <span className="ml-1 text-xs text-slate-400">
+                            · 1 {p.uom_secondary} = {p.uom_factor} {p.unit}
+                          </span>
                         ) : null}
                       </td>
                       <td className={td}>{p.unit}</td>
                       <td className={`${td} text-right tabular-nums`}>{formatIDR(p.sell_price)}</td>
                       <td className={`${td} text-right tabular-nums`}>{formatIDR(p.buy_price)}</td>
-                      <td className={`${td} hidden font-mono text-xs sm:table-cell`}>{p.barcode || "—"}</td>
+                      <td className={`${td} hidden font-mono text-xs sm:table-cell`}>
+                        {p.barcode || "—"}
+                      </td>
                       <td className={`${td} space-x-1`}>
                         {p.track_expiry ? <Badge tone="amber">FEFO</Badge> : null}
                         {p.track_serial ? <Badge tone="brand">Seri</Badge> : null}
@@ -563,7 +712,10 @@ export function ProductsPage() {
                       </td>
                       {isAdmin ? (
                         <td className={`${td} text-right`}>
-                          <RowActions onEdit={() => setEditing(p)} onArchive={() => setToArchive(p)} />
+                          <RowActions
+                            onEdit={() => setEditing(p)}
+                            onArchive={() => setToArchive(p)}
+                          />
                         </td>
                       ) : null}
                     </tr>
@@ -584,7 +736,9 @@ export function ProductsPage() {
         open={toArchive !== null}
         title="Arsipkan produk ini?"
         description={
-          toArchive ? `${toArchive.sku} — ${toArchive.name} akan disembunyikan dari daftar & form transaksi. Riwayat transaksi tetap utuh.` : undefined
+          toArchive
+            ? `${toArchive.sku} — ${toArchive.name} akan disembunyikan dari daftar & form transaksi. Riwayat transaksi tetap utuh.`
+            : undefined
         }
         confirmLabel="Arsipkan"
         danger
@@ -616,8 +770,21 @@ const CONTACT_TYPE_LABELS: Record<ContactType, string> = {
 
 export function ContactsPage() {
   const {
-    isAdmin, query, create, update, archive, issues, setIssues, editing, setEditing, toArchive, setToArchive,
-    search, setSearch, q, setLimit,
+    isAdmin,
+    query,
+    create,
+    update,
+    archive,
+    issues,
+    setIssues,
+    editing,
+    setEditing,
+    toArchive,
+    setToArchive,
+    search,
+    setSearch,
+    q,
+    setLimit,
   } = useEntityPage<ContactRow>("contacts");
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -639,26 +806,37 @@ export function ContactsPage() {
   const busy = create.isPending || update.isPending;
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Kontak</h1>
-      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Pelanggan dan pemasok dalam satu daftar — dipakai di faktur, kontrak, dan tiket dukungan.</p>
+      <PageHeading k="kontak" />
 
       {isAdmin ? (
         <Card>
           <CardHeader
             title={editing ? `Ubah kontak — ${editing.name}` : "Tambah kontak"}
-            description={editing ? "Perubahan berlaku untuk transaksi berikutnya." : "Pelanggan dan pemasok Anda — bisa impor sekaligus dari CSV."}
+            description={
+              editing
+                ? "Perubahan berlaku untuk transaksi berikutnya."
+                : "Pelanggan dan pemasok Anda — bisa impor sekaligus dari CSV."
+            }
           />
           <CardBody className="space-y-4">
             {editing ? null : (
               <ImportCsvButton
                 entity="contacts"
                 templateHeaders={["jenis", "nama", "email", "telepon", "alamat", "npwp"]}
-                templateExample={["pelanggan", "PT Pelanggan Setia", "info@pelanggan.co.id", "0812345678", "Jakarta", ""]}
+                templateExample={[
+                  "pelanggan",
+                  "PT Pelanggan Setia",
+                  "info@pelanggan.co.id",
+                  "0812345678",
+                  "Jakarta",
+                  "",
+                ]}
                 mapRow={(r) => ({
                   type:
                     { pelanggan: "customer", pemasok: "supplier", keduanya: "both" }[
                       (r.jenis ?? r.type ?? "").toLowerCase()
-                    ] ?? (r.type || "customer"),
+                    ] ??
+                    (r.type || "customer"),
                   name: r.nama ?? r.name ?? "",
                   email: r.email || undefined,
                   phone: r.telepon || r.phone || undefined,
@@ -683,17 +861,34 @@ export function ContactsPage() {
               </div>
               <div>
                 <Label htmlFor="k-name">Nama</Label>
-                <Input id="k-name" name="name" placeholder="PT Pelanggan Setia" defaultValue={editing?.name} required />
+                <Input
+                  id="k-name"
+                  name="name"
+                  placeholder="PT Pelanggan Setia"
+                  defaultValue={editing?.name}
+                  required
+                />
                 <FieldError messages={issues.name} />
               </div>
               <div>
                 <Label htmlFor="k-email">Email</Label>
-                <Input id="k-email" name="email" type="email" placeholder="opsional" defaultValue={editing?.email ?? ""} />
+                <Input
+                  id="k-email"
+                  name="email"
+                  type="email"
+                  placeholder="opsional"
+                  defaultValue={editing?.email ?? ""}
+                />
                 <FieldError messages={issues.email} />
               </div>
               <div>
                 <Label htmlFor="k-phone">Telepon</Label>
-                <Input id="k-phone" name="phone" placeholder="opsional" defaultValue={editing?.phone ?? ""} />
+                <Input
+                  id="k-phone"
+                  name="phone"
+                  placeholder="opsional"
+                  defaultValue={editing?.phone ?? ""}
+                />
               </div>
               <div className="flex gap-2">
                 <Button type="submit" disabled={busy}>
@@ -709,11 +904,21 @@ export function ContactsPage() {
                 <>
                   <div className="sm:col-span-2">
                     <Label htmlFor="k-address">Alamat</Label>
-                    <Input id="k-address" name="address" placeholder="opsional" defaultValue={editing.address ?? ""} />
+                    <Input
+                      id="k-address"
+                      name="address"
+                      placeholder="opsional"
+                      defaultValue={editing.address ?? ""}
+                    />
                   </div>
                   <div>
                     <Label htmlFor="k-npwp">NPWP</Label>
-                    <Input id="k-npwp" name="npwp" placeholder="opsional" defaultValue={editing.npwp ?? ""} />
+                    <Input
+                      id="k-npwp"
+                      name="npwp"
+                      placeholder="opsional"
+                      defaultValue={editing.npwp ?? ""}
+                    />
                   </div>
                 </>
               ) : null}
@@ -724,14 +929,25 @@ export function ContactsPage() {
 
       <Card>
         <CardBody className="space-y-3">
-          <SearchBox label="Cari nama / email / telepon…" value={search} onChange={(v) => { setSearch(v); setLimit(100); }} />
+          <SearchBox
+            label="Cari nama / email / telepon…"
+            value={search}
+            onChange={(v) => {
+              setSearch(v);
+              setLimit(100);
+            }}
+          />
           {query.isLoading ? (
             <Spinner />
           ) : (query.data?.items.length ?? 0) === 0 ? (
             <EmptyState
               icon={<Contact className="size-6" aria-hidden />}
               title={q ? "Tidak ada kontak yang cocok" : "Belum ada kontak"}
-              description={q ? "Coba kata kunci lain." : "Tambahkan pelanggan atau pemasok pertama Anda lewat form di atas."}
+              description={
+                q
+                  ? "Coba kata kunci lain."
+                  : "Tambahkan pelanggan atau pemasok pertama Anda lewat form di atas."
+              }
             />
           ) : (
             <div className="overflow-x-auto">
@@ -756,7 +972,10 @@ export function ContactsPage() {
                       <td className={td}>{k.phone ?? "—"}</td>
                       {isAdmin ? (
                         <td className={`${td} text-right`}>
-                          <RowActions onEdit={() => setEditing(k)} onArchive={() => setToArchive(k)} />
+                          <RowActions
+                            onEdit={() => setEditing(k)}
+                            onArchive={() => setToArchive(k)}
+                          />
                         </td>
                       ) : null}
                     </tr>
@@ -776,7 +995,11 @@ export function ContactsPage() {
       <ConfirmDialog
         open={toArchive !== null}
         title="Arsipkan kontak ini?"
-        description={toArchive ? `${toArchive.name} akan disembunyikan dari daftar & form transaksi. Riwayat transaksi tetap utuh.` : undefined}
+        description={
+          toArchive
+            ? `${toArchive.name} akan disembunyikan dari daftar & form transaksi. Riwayat transaksi tetap utuh.`
+            : undefined
+        }
         confirmLabel="Arsipkan"
         danger
         busy={archive.isPending}
@@ -793,8 +1016,21 @@ type WarehouseRow = { id: string; code: string; name: string; address: string | 
 
 export function WarehousesPage() {
   const {
-    isAdmin, query, create, update, archive, issues, setIssues, editing, setEditing, toArchive, setToArchive,
-    search, setSearch, q, setLimit,
+    isAdmin,
+    query,
+    create,
+    update,
+    archive,
+    issues,
+    setIssues,
+    editing,
+    setEditing,
+    toArchive,
+    setToArchive,
+    search,
+    setSearch,
+    q,
+    setLimit,
   } = useEntityPage<WarehouseRow>("warehouses");
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -816,14 +1052,17 @@ export function WarehousesPage() {
   const busy = create.isPending || update.isPending;
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Gudang</h1>
-      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Lokasi penyimpanan stok. Setiap transaksi barang selalu tercatat per gudang.</p>
+      <PageHeading k="gudang" />
 
       {isAdmin ? (
         <Card>
           <CardHeader
             title={editing ? `Ubah gudang — ${editing.code}` : "Tambah gudang"}
-            description={editing ? "Stok & riwayat mutasi tetap terikat pada gudang ini." : "Gudang Utama sudah dibuat otomatis."}
+            description={
+              editing
+                ? "Stok & riwayat mutasi tetap terikat pada gudang ini."
+                : "Gudang Utama sudah dibuat otomatis."
+            }
           />
           <CardBody>
             <form
@@ -834,17 +1073,34 @@ export function WarehousesPage() {
             >
               <div>
                 <Label htmlFor="w-code">Kode</Label>
-                <Input id="w-code" name="code" placeholder="CAB-01" defaultValue={editing?.code} required />
+                <Input
+                  id="w-code"
+                  name="code"
+                  placeholder="CAB-01"
+                  defaultValue={editing?.code}
+                  required
+                />
                 <FieldError messages={issues.code} />
               </div>
               <div>
                 <Label htmlFor="w-name">Nama</Label>
-                <Input id="w-name" name="name" placeholder="Gudang Cabang Bandung" defaultValue={editing?.name} required />
+                <Input
+                  id="w-name"
+                  name="name"
+                  placeholder="Gudang Cabang Bandung"
+                  defaultValue={editing?.name}
+                  required
+                />
                 <FieldError messages={issues.name} />
               </div>
               <div>
                 <Label htmlFor="w-address">Alamat</Label>
-                <Input id="w-address" name="address" placeholder="opsional" defaultValue={editing?.address ?? ""} />
+                <Input
+                  id="w-address"
+                  name="address"
+                  placeholder="opsional"
+                  defaultValue={editing?.address ?? ""}
+                />
               </div>
               <div className="flex gap-2">
                 <Button type="submit" disabled={busy}>
@@ -863,14 +1119,23 @@ export function WarehousesPage() {
 
       <Card>
         <CardBody className="space-y-3">
-          <SearchBox label="Cari kode / nama gudang…" value={search} onChange={(v) => { setSearch(v); setLimit(100); }} />
+          <SearchBox
+            label="Cari kode / nama gudang…"
+            value={search}
+            onChange={(v) => {
+              setSearch(v);
+              setLimit(100);
+            }}
+          />
           {query.isLoading ? (
             <Spinner />
           ) : (query.data?.items.length ?? 0) === 0 ? (
             <EmptyState
               icon={<Warehouse className="size-6" aria-hidden />}
               title={q ? "Tidak ada gudang yang cocok" : "Belum ada gudang"}
-              description={q ? "Coba kata kunci lain." : "Gudang Utama dibuat otomatis saat registrasi."}
+              description={
+                q ? "Coba kata kunci lain." : "Gudang Utama dibuat otomatis saat registrasi."
+              }
             />
           ) : (
             <div className="overflow-x-auto">
@@ -891,7 +1156,10 @@ export function WarehousesPage() {
                       <td className={td}>{w.address ?? "—"}</td>
                       {isAdmin ? (
                         <td className={`${td} text-right`}>
-                          <RowActions onEdit={() => setEditing(w)} onArchive={() => setToArchive(w)} />
+                          <RowActions
+                            onEdit={() => setEditing(w)}
+                            onArchive={() => setToArchive(w)}
+                          />
                         </td>
                       ) : null}
                     </tr>
@@ -911,7 +1179,11 @@ export function WarehousesPage() {
       <ConfirmDialog
         open={toArchive !== null}
         title="Arsipkan gudang ini?"
-        description={toArchive ? `${toArchive.code} — ${toArchive.name} akan disembunyikan dari daftar & form transaksi. Riwayat mutasi stok tetap utuh.` : undefined}
+        description={
+          toArchive
+            ? `${toArchive.code} — ${toArchive.name} akan disembunyikan dari daftar & form transaksi. Riwayat mutasi stok tetap utuh.`
+            : undefined
+        }
         confirmLabel="Arsipkan"
         danger
         busy={archive.isPending}

@@ -1,12 +1,32 @@
 import { AGING_BUCKETS, AGING_BUCKET_LABELS, type ApiReportLine } from "@erpindo/shared";
+import { useHeading } from "../i18n/pageHeadings";
 import { useQuery } from "@tanstack/react-query";
 import { Download, Inbox } from "lucide-react";
 import { useState } from "react";
 import { api, downloadCsv, downloadXlsx, downloadXml, formatDate, formatIDR } from "../api/client";
-import { Badge, Button, Card, CardBody, CardHeader, EmptyState, Input, Label, Select, Spinner, useToast } from "../components/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  EmptyState,
+  Input,
+  Label,
+  PageHeading,
+  Select,
+  Spinner,
+  useToast,
+} from "../components/ui";
 import { useWorkspace } from "./app";
 
-export function ExportButton({ onClick, label = "Ekspor CSV" }: { onClick: () => void; label?: string }) {
+export function ExportButton({
+  onClick,
+  label = "Ekspor CSV",
+}: {
+  onClick: () => void;
+  label?: string;
+}) {
   return (
     <Button variant="secondary" className="h-9" onClick={onClick}>
       <Download className="size-4" aria-hidden /> {label}
@@ -22,10 +42,20 @@ function monthStart(): string {
   return `${new Date().toISOString().slice(0, 7)}-01`;
 }
 
-function ReportSection({ title, lines, total }: { title: string; lines: ApiReportLine[]; total: number }) {
+function ReportSection({
+  title,
+  lines,
+  total,
+}: {
+  title: string;
+  lines: ApiReportLine[];
+  total: number;
+}) {
   return (
     <div>
-      <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{title}</h3>
+      <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        {title}
+      </h3>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <tbody>
@@ -88,17 +118,20 @@ export function IncomeStatementPage() {
 
   // Rasio ringkas dari data yang sudah ada: margin kotor (pendapatan − HPP)
   // dan margin bersih. Ditampilkan bila ada pendapatan.
-  const hpp = (query.data?.expense ?? []).filter((l) => l.code.startsWith("5-1")).reduce((s, l) => s + l.amount, 0);
+  const hpp = (query.data?.expense ?? [])
+    .filter((l) => l.code.startsWith("5-1"))
+    .reduce((s, l) => s + l.amount, 0);
   const income = query.data?.totalIncome ?? 0;
-  const grossMargin = income > 0 ? (((income - hpp) / income) * 100).toFixed(1).replace(".", ",") : null;
-  const netMargin = income > 0 ? (((query.data!.netProfit / income) * 100).toFixed(1).replace(".", ",")) : null;
+  const grossMargin =
+    income > 0 ? (((income - hpp) / income) * 100).toFixed(1).replace(".", ",") : null;
+  const netMargin =
+    income > 0 ? ((query.data!.netProfit / income) * 100).toFixed(1).replace(".", ",") : null;
 
   return (
     <div className="max-w-3xl space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold">Laba Rugi</h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Pendapatan dikurangi beban untuk periode pilihan Anda — dihitung langsung dari jurnal.</p>
+          <PageHeading k="labaRugi" />
         </div>
         {query.data ? (
           <ExportButton
@@ -107,10 +140,14 @@ export function IncomeStatementPage() {
                 `laba-rugi-${from}-${to}.csv`,
                 ["Kode", "Akun", "Jenis", "Jumlah"],
                 [
-                  ...query.data!.income.map((l) => [l.code, l.name, "Pendapatan", l.amount] as (string | number)[]),
-                  ...query.data!.expense.map((l) => [l.code, l.name, "Beban", l.amount] as (string | number)[]),
+                  ...query.data!.income.map(
+                    (l) => [l.code, l.name, "Pendapatan", l.amount] as (string | number)[]
+                  ),
+                  ...query.data!.expense.map(
+                    (l) => [l.code, l.name, "Beban", l.amount] as (string | number)[]
+                  ),
                   ["", "Laba Bersih", "", query.data!.netProfit],
-                ],
+                ]
               )
             }
           />
@@ -121,7 +158,12 @@ export function IncomeStatementPage() {
           <div className="flex flex-wrap items-end gap-3">
             <div>
               <Label htmlFor="pl-from">Dari</Label>
-              <Input id="pl-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+              <Input
+                id="pl-from"
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+              />
             </div>
             <div>
               <Label htmlFor="pl-to">Sampai</Label>
@@ -152,8 +194,16 @@ export function IncomeStatementPage() {
                   </span>
                 </div>
               ) : null}
-              <ReportSection title="Pendapatan" lines={query.data.income} total={query.data.totalIncome} />
-              <ReportSection title="Beban" lines={query.data.expense} total={query.data.totalExpense} />
+              <ReportSection
+                title="Pendapatan"
+                lines={query.data.income}
+                total={query.data.totalIncome}
+              />
+              <ReportSection
+                title="Beban"
+                lines={query.data.expense}
+                total={query.data.totalExpense}
+              />
               <div
                 className={`flex items-center justify-between rounded-lg px-4 py-3 text-sm font-semibold ${
                   query.data.netProfit >= 0
@@ -174,11 +224,23 @@ export function IncomeStatementPage() {
                     ["Beban", query.data.totalExpense, prevQuery.data.totalExpense],
                     ["Laba bersih", query.data.netProfit, prevQuery.data.netProfit],
                   ].map(([label, now, was]) => (
-                    <div key={label as string} className="flex flex-wrap items-center justify-between gap-x-4 py-1">
+                    <div
+                      key={label as string}
+                      className="flex flex-wrap items-center justify-between gap-x-4 py-1"
+                    >
                       <span>{label}</span>
                       <span className="tabular-nums text-slate-500 dark:text-slate-400">
-                        {formatIDR(was as number)} → <strong className="text-slate-900 dark:text-white">{formatIDR(now as number)}</strong>{" "}
-                        <span className={(now as number) >= (was as number) ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}>
+                        {formatIDR(was as number)} →{" "}
+                        <strong className="text-slate-900 dark:text-white">
+                          {formatIDR(now as number)}
+                        </strong>{" "}
+                        <span
+                          className={
+                            (now as number) >= (was as number)
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : "text-red-600 dark:text-red-400"
+                          }
+                        >
                           ({deltaPct(now as number, was as number)})
                         </span>
                       </span>
@@ -220,8 +282,7 @@ export function CashFlowPage() {
     <div className="max-w-3xl space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold">Arus Kas</h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Uang masuk dan keluar dari akun kas & bank untuk periode pilihan, dengan saldo awal dan akhir.</p>
+          <PageHeading k="arusKas" />
         </div>
         {query.data ? (
           <ExportButton
@@ -230,9 +291,13 @@ export function CashFlowPage() {
                 `arus-kas-${from}-${to}.csv`,
                 ["Keterangan", "Arah", "Jumlah"],
                 [
-                  ...query.data!.inflows.map((r) => [r.label, "Masuk", r.amount] as (string | number)[]),
-                  ...query.data!.outflows.map((r) => [r.label, "Keluar", r.amount] as (string | number)[]),
-                ],
+                  ...query.data!.inflows.map(
+                    (r) => [r.label, "Masuk", r.amount] as (string | number)[]
+                  ),
+                  ...query.data!.outflows.map(
+                    (r) => [r.label, "Keluar", r.amount] as (string | number)[]
+                  ),
+                ]
               )
             }
           />
@@ -243,7 +308,12 @@ export function CashFlowPage() {
           <div className="flex flex-wrap items-end gap-3">
             <div>
               <Label htmlFor="cf-from">Dari</Label>
-              <Input id="cf-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+              <Input
+                id="cf-from"
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+              />
             </div>
             <div>
               <Label htmlFor="cf-to">Sampai</Label>
@@ -297,6 +367,7 @@ export function CashFlowPage() {
 export function AgingPage() {
   const { tenant } = useWorkspace();
   const [kind, setKind] = useState<"receivable" | "payable">("receivable");
+  const hAging = useHeading(kind === "receivable" ? "umurPiutang" : "umurHutang");
   const query = useQuery({
     queryKey: ["aging", tenant.tenantId, kind],
     queryFn: () => api.aging(tenant.tenantId, kind),
@@ -308,7 +379,7 @@ export function AgingPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Umur {kind === "receivable" ? "Piutang" : "Hutang"}</h1>
+        <h1 className="text-2xl font-semibold">{hAging.title}</h1>
         <div className="flex items-center gap-2">
           <Select
             aria-label="Jenis"
@@ -325,7 +396,11 @@ export function AgingPage() {
                 downloadCsv(
                   `aging-${kind}.csv`,
                   ["Kontak", ...AGING_BUCKETS.map((b) => AGING_BUCKET_LABELS[b]), "Total"],
-                  query.data!.rows.map((r) => [r.contactName, ...AGING_BUCKETS.map((b) => r.buckets[b]), r.total]),
+                  query.data!.rows.map((r) => [
+                    r.contactName,
+                    ...AGING_BUCKETS.map((b) => r.buckets[b]),
+                    r.total,
+                  ])
                 )
               }
             />
@@ -364,14 +439,18 @@ export function AgingPage() {
                           {r.buckets[b] === 0 ? "—" : formatIDR(r.buckets[b])}
                         </td>
                       ))}
-                      <td className={`${td} text-right font-medium tabular-nums`}>{formatIDR(r.total)}</td>
+                      <td className={`${td} text-right font-medium tabular-nums`}>
+                        {formatIDR(r.total)}
+                      </td>
                     </tr>
                   ))}
                   <tr className="font-semibold">
                     <td className="py-2.5 pr-4" colSpan={AGING_BUCKETS.length + 1}>
                       Total keseluruhan
                     </td>
-                    <td className="py-2.5 text-right tabular-nums">{formatIDR(query.data!.grandTotal)}</td>
+                    <td className="py-2.5 text-right tabular-nums">
+                      {formatIDR(query.data!.grandTotal)}
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -420,19 +499,27 @@ export function EfakturPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Ekspor e-Faktur</h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Rekap faktur keluaran ber-PPN per periode — siap diunduh untuk pelaporan pajak.</p>
+          <PageHeading k="eFaktur" />
         </div>
         {query.data && query.data.rows.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2">
             <Button className="h-9" onClick={downloadCoretaxXml} disabled={xmlBusy}>
-              <Download className="size-4" aria-hidden /> {xmlBusy ? "Menyiapkan…" : "Unduh XML Coretax"}
+              <Download className="size-4" aria-hidden />{" "}
+              {xmlBusy ? "Menyiapkan…" : "Unduh XML Coretax"}
             </Button>
             <ExportButton
               onClick={() =>
                 downloadCsv(
                   `e-faktur-${from}-${to}.csv`,
-                  ["Nomor Faktur", "Tanggal", "NPWP Pembeli", "Nama Pembeli", "DPP", "PPN", "Total"],
+                  [
+                    "Nomor Faktur",
+                    "Tanggal",
+                    "NPWP Pembeli",
+                    "Nama Pembeli",
+                    "DPP",
+                    "PPN",
+                    "Total",
+                  ],
                   query.data!.rows.map((r) => [
                     r.invoiceNo,
                     r.invoiceDate,
@@ -441,7 +528,7 @@ export function EfakturPage() {
                     r.dpp,
                     r.ppn,
                     r.total,
-                  ]),
+                  ])
                 )
               }
             />
@@ -449,9 +536,10 @@ export function EfakturPage() {
         ) : null}
       </div>
       <p className="text-sm text-slate-500 dark:text-slate-400">
-        Sejak 2025 Coretax DJP menerima impor faktur keluaran dalam format <strong>XML</strong> — unduh XML Coretax
-        lalu impor di menu e-Faktur Coretax. Faktur non-mewah memakai kode transaksi 04 dengan DPP nilai lain (11/12);
-        NPWP perusahaan diambil dari Pengaturan. CSV tetap tersedia sebagai rekap. Pembeli tanpa NPWP diekspor sebagai{" "}
+        Sejak 2025 Coretax DJP menerima impor faktur keluaran dalam format <strong>XML</strong> —
+        unduh XML Coretax lalu impor di menu e-Faktur Coretax. Faktur non-mewah memakai kode
+        transaksi 04 dengan DPP nilai lain (11/12); NPWP perusahaan diambil dari Pengaturan. CSV
+        tetap tersedia sebagai rekap. Pembeli tanpa NPWP diekspor sebagai{" "}
         <span className="font-mono">0000000000000000</span>.
       </p>
 
@@ -460,7 +548,12 @@ export function EfakturPage() {
           <div className="flex flex-wrap items-end gap-3">
             <div>
               <Label htmlFor="ef-from">Dari</Label>
-              <Input id="ef-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+              <Input
+                id="ef-from"
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+              />
             </div>
             <div>
               <Label htmlFor="ef-to">Sampai</Label>
@@ -471,7 +564,9 @@ export function EfakturPage() {
           {query.isLoading ? (
             <Spinner />
           ) : (query.data?.rows.length ?? 0) === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">Tidak ada faktur ber-PPN pada periode ini.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Tidak ada faktur ber-PPN pada periode ini.
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-sm">
@@ -491,7 +586,9 @@ export function EfakturPage() {
                     <tr key={r.invoiceNo}>
                       <td className={`${td} font-mono text-xs`}>{r.invoiceNo}</td>
                       <td className={`${td} tabular-nums`}>{formatDate(r.invoiceDate)}</td>
-                      <td className={`${td} font-mono text-xs`}>{r.buyerNpwp ?? "000000000000000"}</td>
+                      <td className={`${td} font-mono text-xs`}>
+                        {r.buyerNpwp ?? "000000000000000"}
+                      </td>
                       <td className={td}>{r.buyerName}</td>
                       <td className={`${td} text-right tabular-nums`}>{formatIDR(r.dpp)}</td>
                       <td className={`${td} text-right tabular-nums`}>{formatIDR(r.ppn)}</td>
@@ -502,9 +599,15 @@ export function EfakturPage() {
                     <td className="py-2 pr-4" colSpan={4}>
                       Total ({query.data!.rows.length} faktur)
                     </td>
-                    <td className="py-2 pr-4 text-right tabular-nums">{formatIDR(query.data!.totalDpp)}</td>
-                    <td className="py-2 pr-4 text-right tabular-nums">{formatIDR(query.data!.totalPpn)}</td>
-                    <td className="py-2 text-right tabular-nums">{formatIDR(query.data!.totalDpp + query.data!.totalPpn)}</td>
+                    <td className="py-2 pr-4 text-right tabular-nums">
+                      {formatIDR(query.data!.totalDpp)}
+                    </td>
+                    <td className="py-2 pr-4 text-right tabular-nums">
+                      {formatIDR(query.data!.totalPpn)}
+                    </td>
+                    <td className="py-2 text-right tabular-nums">
+                      {formatIDR(query.data!.totalDpp + query.data!.totalPpn)}
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -521,6 +624,7 @@ export function EfakturPage() {
 // ---------------------------------------------------------------------------
 
 export function BalanceSheetPage() {
+  const hNeraca = useHeading("neraca");
   const { tenant } = useWorkspace();
   const [asOf, setAsOf] = useState(today);
 
@@ -534,7 +638,7 @@ export function BalanceSheetPage() {
     <div className="max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold">Neraca</h1>
+          <h1 className="text-2xl font-semibold">{hNeraca.title}</h1>
           {query.data ? (
             query.data.balanced ? (
               <Badge tone="brand">seimbang ✓</Badge>
@@ -550,10 +654,16 @@ export function BalanceSheetPage() {
                 `neraca-${asOf}.csv`,
                 ["Kode", "Akun", "Kelompok", "Jumlah"],
                 [
-                  ...query.data!.assets.map((l) => [l.code, l.name, "Aset", l.amount] as (string | number)[]),
-                  ...query.data!.liabilities.map((l) => [l.code, l.name, "Kewajiban", l.amount] as (string | number)[]),
-                  ...query.data!.equity.map((l) => [l.code, l.name, "Ekuitas", l.amount] as (string | number)[]),
-                ],
+                  ...query.data!.assets.map(
+                    (l) => [l.code, l.name, "Aset", l.amount] as (string | number)[]
+                  ),
+                  ...query.data!.liabilities.map(
+                    (l) => [l.code, l.name, "Kewajiban", l.amount] as (string | number)[]
+                  ),
+                  ...query.data!.equity.map(
+                    (l) => [l.code, l.name, "Ekuitas", l.amount] as (string | number)[]
+                  ),
+                ]
               )
             }
           />
@@ -576,12 +686,26 @@ export function BalanceSheetPage() {
             <Spinner />
           ) : query.data ? (
             <>
-              <ReportSection title="Aset" lines={query.data.assets} total={query.data.totalAssets} />
-              <ReportSection title="Kewajiban" lines={query.data.liabilities} total={query.data.totalLiabilities} />
-              <ReportSection title="Ekuitas" lines={query.data.equity} total={query.data.totalEquity} />
+              <ReportSection
+                title="Aset"
+                lines={query.data.assets}
+                total={query.data.totalAssets}
+              />
+              <ReportSection
+                title="Kewajiban"
+                lines={query.data.liabilities}
+                total={query.data.totalLiabilities}
+              />
+              <ReportSection
+                title="Ekuitas"
+                lines={query.data.equity}
+                total={query.data.totalEquity}
+              />
               <div className="flex items-center justify-between rounded-lg bg-slate-100 px-4 py-3 text-sm font-semibold dark:bg-slate-800">
                 <span>Kewajiban + Ekuitas</span>
-                <span className="tabular-nums">{formatIDR(query.data.totalLiabilities + query.data.totalEquity)}</span>
+                <span className="tabular-nums">
+                  {formatIDR(query.data.totalLiabilities + query.data.totalEquity)}
+                </span>
               </div>
             </>
           ) : null}
@@ -610,15 +734,17 @@ export function SalesReportPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Laporan Penjualan</h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Produk terlaris dan pelanggan terbesar pada rentang tanggal — dari faktur (di luar yang dibatalkan).
-          </p>
+          <PageHeading k="laporanPenjualan" />
         </div>
         <div className="flex flex-wrap items-end gap-2">
           <div>
             <Label htmlFor="sr-from">Dari</Label>
-            <Input id="sr-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <Input
+              id="sr-from"
+              type="date"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+            />
           </div>
           <div>
             <Label htmlFor="sr-to">Sampai</Label>
@@ -654,20 +780,28 @@ export function SalesReportPage() {
             <Card>
               <CardBody>
                 <div className="text-sm text-slate-500 dark:text-slate-400">Total penjualan</div>
-                <div className="mt-1 text-xl font-semibold tabular-nums">{formatIDR(data.totalRevenue)}</div>
+                <div className="mt-1 text-xl font-semibold tabular-nums">
+                  {formatIDR(data.totalRevenue)}
+                </div>
               </CardBody>
             </Card>
             <Card>
               <CardBody>
                 <div className="text-sm text-slate-500 dark:text-slate-400">Jumlah faktur</div>
-                <div className="mt-1 text-xl font-semibold tabular-nums">{data.invoiceCount.toLocaleString("id-ID")}</div>
+                <div className="mt-1 text-xl font-semibold tabular-nums">
+                  {data.invoiceCount.toLocaleString("id-ID")}
+                </div>
               </CardBody>
             </Card>
             <Card>
               <CardBody>
-                <div className="text-sm text-slate-500 dark:text-slate-400">Rata-rata per faktur</div>
+                <div className="text-sm text-slate-500 dark:text-slate-400">
+                  Rata-rata per faktur
+                </div>
                 <div className="mt-1 text-xl font-semibold tabular-nums">
-                  {formatIDR(data.invoiceCount > 0 ? Math.round(data.totalRevenue / data.invoiceCount) : 0)}
+                  {formatIDR(
+                    data.invoiceCount > 0 ? Math.round(data.totalRevenue / data.invoiceCount) : 0
+                  )}
                 </div>
               </CardBody>
             </Card>
@@ -683,7 +817,7 @@ export function SalesReportPage() {
                       downloadCsv(
                         `penjualan-per-produk-${from}_${to}.csv`,
                         ["SKU", "Produk", "Qty", "Omzet"],
-                        data.byProduct.map((r) => [r.sku, r.name, r.qty, r.revenue]),
+                        data.byProduct.map((r) => [r.sku, r.name, r.qty, r.revenue])
                       )
                     }
                   />
@@ -692,7 +826,11 @@ export function SalesReportPage() {
             />
             <CardBody>
               {data.byProduct.length === 0 ? (
-                <EmptyState icon={<Inbox className="size-6" aria-hidden />} title="Belum ada penjualan" description="Tidak ada faktur pada rentang tanggal ini." />
+                <EmptyState
+                  icon={<Inbox className="size-6" aria-hidden />}
+                  title="Belum ada penjualan"
+                  description="Tidak ada faktur pada rentang tanggal ini."
+                />
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -706,10 +844,15 @@ export function SalesReportPage() {
                     </thead>
                     <tbody>
                       {data.byProduct.map((r) => (
-                        <tr key={r.productId} className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
+                        <tr
+                          key={r.productId}
+                          className="border-b border-slate-100 last:border-0 dark:border-slate-800/60"
+                        >
                           <td className="py-2 pr-4 font-mono text-xs">{r.sku}</td>
                           <td className="py-2 pr-4">{r.name}</td>
-                          <td className="py-2 pr-4 text-right tabular-nums">{r.qty.toLocaleString("id-ID")}</td>
+                          <td className="py-2 pr-4 text-right tabular-nums">
+                            {r.qty.toLocaleString("id-ID")}
+                          </td>
                           <td className="py-2 text-right tabular-nums">{formatIDR(r.revenue)}</td>
                         </tr>
                       ))}
@@ -730,7 +873,7 @@ export function SalesReportPage() {
                       downloadCsv(
                         `penjualan-per-pelanggan-${from}_${to}.csv`,
                         ["Pelanggan", "Jumlah faktur", "Omzet"],
-                        data.byCustomer.map((r) => [r.name, r.invoiceCount, r.revenue]),
+                        data.byCustomer.map((r) => [r.name, r.invoiceCount, r.revenue])
                       )
                     }
                   />
@@ -739,7 +882,11 @@ export function SalesReportPage() {
             />
             <CardBody>
               {data.byCustomer.length === 0 ? (
-                <EmptyState icon={<Inbox className="size-6" aria-hidden />} title="Belum ada penjualan" description="Tidak ada faktur pada rentang tanggal ini." />
+                <EmptyState
+                  icon={<Inbox className="size-6" aria-hidden />}
+                  title="Belum ada penjualan"
+                  description="Tidak ada faktur pada rentang tanggal ini."
+                />
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -752,9 +899,14 @@ export function SalesReportPage() {
                     </thead>
                     <tbody>
                       {data.byCustomer.map((r) => (
-                        <tr key={r.contactId} className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
+                        <tr
+                          key={r.contactId}
+                          className="border-b border-slate-100 last:border-0 dark:border-slate-800/60"
+                        >
                           <td className="py-2 pr-4">{r.name}</td>
-                          <td className="py-2 pr-4 text-right tabular-nums">{r.invoiceCount.toLocaleString("id-ID")}</td>
+                          <td className="py-2 pr-4 text-right tabular-nums">
+                            {r.invoiceCount.toLocaleString("id-ID")}
+                          </td>
                           <td className="py-2 text-right tabular-nums">{formatIDR(r.revenue)}</td>
                         </tr>
                       ))}

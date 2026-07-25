@@ -2,7 +2,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Landmark, Link2, Link2Off, Upload, Wallet } from "lucide-react";
 import { useMemo, useState } from "react";
 import { api, formatDate, formatIDR } from "../api/client";
-import { Badge, Button, Card, CardBody, CardHeader, Label, Select, Spinner, useToast } from "../components/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  Label,
+  PageHeading,
+  Select,
+  Spinner,
+  useToast,
+} from "../components/ui";
 import { useWorkspace } from "./app";
 
 /**
@@ -13,7 +24,10 @@ import { useWorkspace } from "./app";
  */
 
 /** Parse CSV mutasi sederhana: tanggal, keterangan, jumlah (+masuk/−keluar). */
-function parseCsv(text: string): { rows: { date: string; description: string; amount: number }[]; errors: string[] } {
+function parseCsv(text: string): {
+  rows: { date: string; description: string; amount: number }[];
+  errors: string[];
+} {
   const rows: { date: string; description: string; amount: number }[] = [];
   const errors: string[] = [];
   const lines = text
@@ -27,12 +41,23 @@ function parseCsv(text: string): { rows: { date: string; description: string; am
       errors.push(`Baris ${i + 1}: butuh 3 kolom (tanggal;keterangan;jumlah)`);
       continue;
     }
-    const [rawDate, description, rawAmount] = [parts[0]!, parts.slice(1, -1).join(", "), parts[parts.length - 1]!];
-    const m = rawDate.match(/^(\d{4})-(\d{2})-(\d{2})$/) ?? rawDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    const date = m ? (m[3]!.length === 4 ? `${m[3]}-${m[2]}-${m[1]}` : `${m[1]}-${m[2]}-${m[3]}`) : null;
+    const [rawDate, description, rawAmount] = [
+      parts[0]!,
+      parts.slice(1, -1).join(", "),
+      parts[parts.length - 1]!,
+    ];
+    const m =
+      rawDate.match(/^(\d{4})-(\d{2})-(\d{2})$/) ?? rawDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    const date = m
+      ? m[3]!.length === 4
+        ? `${m[3]}-${m[2]}-${m[1]}`
+        : `${m[1]}-${m[2]}-${m[3]}`
+      : null;
     const amount = Math.round(Number(rawAmount.replace(/\./g, "").replace(",", ".")));
     if (!date) {
-      errors.push(`Baris ${i + 1}: tanggal tidak dikenal (${rawDate}) — pakai YYYY-MM-DD atau DD/MM/YYYY`);
+      errors.push(
+        `Baris ${i + 1}: tanggal tidak dikenal (${rawDate}) — pakai YYYY-MM-DD atau DD/MM/YYYY`
+      );
       continue;
     }
     if (!Number.isFinite(amount) || amount === 0) {
@@ -64,9 +89,12 @@ export function KasBankPage() {
   const wallets = useMemo(
     () =>
       (accountsQuery.data?.accounts ?? []).filter(
-        (a) => !a.isArchived && a.type === "asset" && (a.code === "1-1000" || a.code === "1-1100" || /kas|bank/i.test(a.name)),
+        (a) =>
+          !a.isArchived &&
+          a.type === "asset" &&
+          (a.code === "1-1000" || a.code === "1-1100" || /kas|bank/i.test(a.name))
       ),
-    [accountsQuery.data],
+    [accountsQuery.data]
   );
   const balanceByCode = useMemo(() => {
     const map = new Map<string, number>();
@@ -95,7 +123,10 @@ export function KasBankPage() {
       return api.bankReconImport(tenant.tenantId, { accountId: selected!.id, items: rows });
     },
     onSuccess: (res) => {
-      toast("success", `${res.imported} mutasi diimpor — ${res.autoMatched} langsung cocok otomatis.`);
+      toast(
+        "success",
+        `${res.imported} mutasi diimpor — ${res.autoMatched} langsung cocok otomatis.`
+      );
       setCsvText("");
       queryClient.invalidateQueries({ queryKey: ["bank-recon", tenant.tenantId] });
     },
@@ -103,7 +134,8 @@ export function KasBankPage() {
   });
 
   const matchMutation = useMutation({
-    mutationFn: ({ itemId, lineId }: { itemId: string; lineId: string }) => api.bankReconMatch(tenant.tenantId, itemId, lineId),
+    mutationFn: ({ itemId, lineId }: { itemId: string; lineId: string }) =>
+      api.bankReconMatch(tenant.tenantId, itemId, lineId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["bank-recon", tenant.tenantId] }),
     onError: (err) => toast("error", (err as Error).message),
   });
@@ -117,11 +149,7 @@ export function KasBankPage() {
   return (
     <div className="max-w-5xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Kas & Bank</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Saldo dan mutasi tiap akun kas/bank, plus rekonsiliasi dengan rekening koran — pastikan catatan Anda sama
-          dengan catatan bank.
-        </p>
+        <PageHeading k="kasBank" />
       </div>
 
       {accountsQuery.isLoading || tbQuery.isLoading ? (
@@ -147,7 +175,9 @@ export function KasBankPage() {
                   )}
                   {w.name}
                 </div>
-                <div className="mt-1.5 text-xl font-semibold tabular-nums">{formatIDR(balanceByCode.get(w.code) ?? 0)}</div>
+                <div className="mt-1.5 text-xl font-semibold tabular-nums">
+                  {formatIDR(balanceByCode.get(w.code) ?? 0)}
+                </div>
               </button>
             ))}
           </div>
@@ -161,7 +191,9 @@ export function KasBankPage() {
               {ledgerQuery.isLoading ? (
                 <Spinner />
               ) : (ledgerQuery.data?.entries.length ?? 0) === 0 ? (
-                <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada mutasi pada akun ini.</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Belum ada mutasi pada akun ini.
+                </p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[560px] text-sm">
@@ -179,9 +211,15 @@ export function KasBankPage() {
                         <tr key={i} className="border-b border-slate-100 dark:border-slate-800">
                           <td className="py-2 pr-3 whitespace-nowrap">{formatDate(e.entryDate)}</td>
                           <td className="py-2 pr-3">{e.description ?? e.entryNo}</td>
-                          <td className="py-2 pr-3 text-right tabular-nums">{e.debit ? formatIDR(e.debit) : "—"}</td>
-                          <td className="py-2 pr-3 text-right tabular-nums">{e.credit ? formatIDR(e.credit) : "—"}</td>
-                          <td className="py-2 text-right font-medium tabular-nums">{formatIDR(e.balance)}</td>
+                          <td className="py-2 pr-3 text-right tabular-nums">
+                            {e.debit ? formatIDR(e.debit) : "—"}
+                          </td>
+                          <td className="py-2 pr-3 text-right tabular-nums">
+                            {e.credit ? formatIDR(e.credit) : "—"}
+                          </td>
+                          <td className="py-2 text-right font-medium tabular-nums">
+                            {formatIDR(e.balance)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -207,11 +245,17 @@ export function KasBankPage() {
                     rows={4}
                     value={csvText}
                     onChange={(e) => setCsvText(e.target.value)}
-                    placeholder={"2026-07-01;TRSF DARI PT MAJU;5000000\n2026-07-03;BIAYA ADMIN;-6500"}
+                    placeholder={
+                      "2026-07-01;TRSF DARI PT MAJU;5000000\n2026-07-03;BIAYA ADMIN;-6500"
+                    }
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-xs focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-slate-600 dark:bg-slate-800"
                   />
-                  <Button onClick={() => importMutation.mutate()} disabled={!csvText.trim() || importMutation.isPending}>
-                    <Upload className="size-4" aria-hidden /> {importMutation.isPending ? "Mengimpor…" : "Impor & cocokkan otomatis"}
+                  <Button
+                    onClick={() => importMutation.mutate()}
+                    disabled={!csvText.trim() || importMutation.isPending}
+                  >
+                    <Upload className="size-4" aria-hidden />{" "}
+                    {importMutation.isPending ? "Mengimpor…" : "Impor & cocokkan otomatis"}
                   </Button>
                 </div>
               ) : null}
@@ -220,8 +264,12 @@ export function KasBankPage() {
                 <>
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <Badge tone="green">{recon.summary.matched} cocok</Badge>
-                    <Badge tone={recon.summary.unmatched > 0 ? "amber" : "green"}>{recon.summary.unmatched} belum cocok</Badge>
-                    <span className="text-slate-500 dark:text-slate-400">dari {recon.summary.total} baris mutasi</span>
+                    <Badge tone={recon.summary.unmatched > 0 ? "amber" : "green"}>
+                      {recon.summary.unmatched} belum cocok
+                    </Badge>
+                    <span className="text-slate-500 dark:text-slate-400">
+                      dari {recon.summary.total} baris mutasi
+                    </span>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[640px] text-sm">
@@ -235,10 +283,17 @@ export function KasBankPage() {
                       </thead>
                       <tbody>
                         {recon.items.map((item) => (
-                          <tr key={item.id} className="border-b border-slate-100 align-top dark:border-slate-800">
-                            <td className="py-2 pr-3 whitespace-nowrap">{formatDate(item.stmtDate)}</td>
+                          <tr
+                            key={item.id}
+                            className="border-b border-slate-100 align-top dark:border-slate-800"
+                          >
+                            <td className="py-2 pr-3 whitespace-nowrap">
+                              {formatDate(item.stmtDate)}
+                            </td>
                             <td className="py-2 pr-3">{item.description}</td>
-                            <td className={`py-2 pr-3 text-right tabular-nums ${item.amount < 0 ? "text-red-600 dark:text-red-400" : ""}`}>
+                            <td
+                              className={`py-2 pr-3 text-right tabular-nums ${item.amount < 0 ? "text-red-600 dark:text-red-400" : ""}`}
+                            >
                               {formatIDR(item.amount)}
                             </td>
                             <td className="py-2">
@@ -260,12 +315,15 @@ export function KasBankPage() {
                                     aria-label="Pilih baris jurnal untuk dicocokkan"
                                     className="h-8 max-w-64 text-xs"
                                     value={matchPick[item.id] ?? ""}
-                                    onChange={(e) => setMatchPick((m) => ({ ...m, [item.id]: e.target.value }))}
+                                    onChange={(e) =>
+                                      setMatchPick((m) => ({ ...m, [item.id]: e.target.value }))
+                                    }
                                   >
                                     <option value="">— pilih baris jurnal —</option>
                                     {recon.unmatchedLines.map((l) => (
                                       <option key={l.id} value={l.id}>
-                                        {formatDate(l.entryDate)} · {l.entryNo} · {formatIDR(l.amount)}
+                                        {formatDate(l.entryDate)} · {l.entryNo} ·{" "}
+                                        {formatIDR(l.amount)}
                                       </option>
                                     ))}
                                   </Select>
@@ -273,7 +331,12 @@ export function KasBankPage() {
                                     variant="ghost"
                                     className="h-8"
                                     disabled={!matchPick[item.id] || matchMutation.isPending}
-                                    onClick={() => matchMutation.mutate({ itemId: item.id, lineId: matchPick[item.id]! })}
+                                    onClick={() =>
+                                      matchMutation.mutate({
+                                        itemId: item.id,
+                                        lineId: matchPick[item.id]!,
+                                      })
+                                    }
                                   >
                                     <Link2 className="size-4" aria-hidden /> Cocokkan
                                   </Button>

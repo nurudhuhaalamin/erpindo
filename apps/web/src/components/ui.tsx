@@ -1,4 +1,15 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
+import { useLang } from "../i18n";
+import { PAGE_HEADINGS, type PageHeadingKey } from "../i18n/pageHeadings";
 
 /**
  * Komponen dasar design system erpindo (gaya shadcn/ui, tanpa dependensi
@@ -32,14 +43,17 @@ export function Button({
   size = "md",
   className,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant; size?: keyof typeof buttonSizes }) {
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: ButtonVariant;
+  size?: keyof typeof buttonSizes;
+}) {
   return (
     <button
       className={cx(
         "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 dark:ring-offset-slate-950",
         buttonSizes[size],
         buttonVariants[variant],
-        className,
+        className
       )}
       {...props}
     />
@@ -50,7 +64,13 @@ export function Button({
 
 export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) {
   return (
-    <label className={cx("mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300", className)} {...props} />
+    <label
+      className={cx(
+        "mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300",
+        className
+      )}
+      {...props}
+    />
   );
 }
 
@@ -59,7 +79,7 @@ export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInp
     <input
       className={cx(
         "h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
-        className,
+        className
       )}
       {...props}
     />
@@ -71,7 +91,7 @@ export function Select({ className, ...props }: React.SelectHTMLAttributes<HTMLS
     <select
       className={cx(
         "h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
-        className,
+        className
       )}
       {...props}
     />
@@ -99,8 +119,9 @@ export function Card({
     <div
       className={cx(
         "rounded-card border border-slate-200 bg-white shadow-card dark:border-slate-700/60 dark:bg-slate-900",
-        hover && "transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-lg dark:hover:border-brand-700",
-        className,
+        hover &&
+          "transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-lg dark:hover:border-brand-700",
+        className
       )}
     >
       {children}
@@ -108,12 +129,22 @@ export function Card({
   );
 }
 
-export function CardHeader({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
+export function CardHeader({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description?: string;
+  action?: ReactNode;
+}) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-5 py-4 dark:border-slate-800">
       <div>
         <h2 className="text-base font-semibold">{title}</h2>
-        {description ? <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{description}</p> : null}
+        {description ? (
+          <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{description}</p>
+        ) : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
@@ -126,12 +157,19 @@ export function CardBody({ className, children }: { className?: string; children
 
 // --- Alert ----------------------------------------------------------------------
 
-export function Alert({ tone, children }: { tone: "info" | "success" | "error"; children: ReactNode }) {
+export function Alert({
+  tone,
+  children,
+}: {
+  tone: "info" | "success" | "error";
+  children: ReactNode;
+}) {
   const tones = {
     info: "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-200",
     success:
       "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200",
-    error: "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200",
+    error:
+      "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200",
   };
   return <div className={cx("rounded-lg border px-4 py-3 text-sm", tones[tone])}>{children}</div>;
 }
@@ -161,7 +199,12 @@ export function Badge({
     green: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200",
   };
   return (
-    <span className={cx("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium", tones[tone])}>
+    <span
+      className={cx(
+        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+        tones[tone]
+      )}
+    >
       {children}
     </span>
   );
@@ -171,7 +214,9 @@ export function Badge({
 
 /** Placeholder berkilau saat data dimuat — pengganti spinner untuk konten berbentuk. */
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cx("animate-pulse rounded-lg bg-slate-200 dark:bg-slate-800", className)} />;
+  return (
+    <div className={cx("animate-pulse rounded-lg bg-slate-200 dark:bg-slate-800", className)} />
+  );
 }
 
 /** Keadaan kosong yang ramah: ikon besar + judul + penjelasan (+ aksi opsional). */
@@ -192,7 +237,9 @@ export function EmptyState({
         {icon}
       </div>
       <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{title}</div>
-      {description ? <p className="max-w-sm text-sm text-slate-500 dark:text-slate-400">{description}</p> : null}
+      {description ? (
+        <p className="max-w-sm text-sm text-slate-500 dark:text-slate-400">{description}</p>
+      ) : null}
       {children}
     </div>
   );
@@ -309,7 +356,9 @@ export function SearchSelect({
           {loading ? (
             <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">Mencari…</div>
           ) : options.length === 0 ? (
-            <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">Tidak ada hasil.</div>
+            <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">
+              Tidak ada hasil.
+            </div>
           ) : (
             options.map((opt, i) => (
               <button
@@ -320,13 +369,15 @@ export function SearchSelect({
                   i === highlight
                     ? "bg-brand-50 text-brand-800 dark:bg-brand-600/20 dark:text-brand-100"
                     : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800",
-                  opt.value === value && "font-semibold",
+                  opt.value === value && "font-semibold"
                 )}
                 onMouseEnter={() => setHighlight(i)}
                 onClick={() => choose(opt)}
               >
                 <span className="truncate">{opt.label}</span>
-                {opt.hint ? <span className="shrink-0 text-xs text-slate-400">{opt.hint}</span> : null}
+                {opt.hint ? (
+                  <span className="shrink-0 text-xs text-slate-400">{opt.hint}</span>
+                ) : null}
               </button>
             ))
           )}
@@ -375,11 +426,21 @@ export function ConfirmDialog({
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onCancel} aria-hidden="true" />
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+        onClick={onCancel}
+        aria-hidden="true"
+      />
       <div className="relative w-full max-w-md rounded-card border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-800 dark:bg-slate-900">
         <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
-        {description ? <div className="mt-2 text-sm text-slate-600 dark:text-slate-400">{description}</div> : null}
+        {description ? (
+          <div className="mt-2 text-sm text-slate-600 dark:text-slate-400">{description}</div>
+        ) : null}
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="secondary" onClick={onCancel} disabled={busy}>
             {cancelLabel}
@@ -421,7 +482,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             key={t.id}
             className={cx(
               "pointer-events-auto rounded-lg px-4 py-2.5 text-sm font-medium text-white shadow-lg",
-              t.tone === "success" ? "bg-emerald-600" : "bg-red-600",
+              t.tone === "success" ? "bg-emerald-600" : "bg-red-600"
             )}
           >
             {t.message}
@@ -465,7 +526,11 @@ export function useDarkMode() {
 export function BrandWordmark({ className = "h-8" }: { className?: string }) {
   return (
     <span className={`inline-flex items-center rounded-lg bg-white px-1.5 py-1 ${className}`}>
-      <img src="/brand/logo-erpindo.png" alt="ERPindo — Integrate. Automate. Grow." className="h-full w-auto" />
+      <img
+        src="/brand/logo-erpindo.png"
+        alt="ERPindo — Integrate. Automate. Grow."
+        className="h-full w-auto"
+      />
     </span>
   );
 }
@@ -486,7 +551,13 @@ export function Tabs<T extends string>({
   className?: string;
 }) {
   return (
-    <div className={cx("flex flex-wrap gap-1.5 border-b border-slate-200 dark:border-slate-800", className)} role="tablist">
+    <div
+      className={cx(
+        "flex flex-wrap gap-1.5 border-b border-slate-200 dark:border-slate-800",
+        className
+      )}
+      role="tablist"
+    >
       {tabs.map((t) => (
         <button
           key={t.key}
@@ -498,7 +569,7 @@ export function Tabs<T extends string>({
             "-mb-px border-b-2 px-3 py-2 text-sm font-medium",
             active === t.key
               ? "border-brand-500 text-brand-600 dark:text-brand-300"
-              : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400",
+              : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400"
           )}
         >
           {t.label}
@@ -639,14 +710,23 @@ export function PageTour({
         <span className="text-xs font-semibold uppercase tracking-wide text-brand-600 dark:text-brand-400">
           Tur · {i + 1}/{steps.length}
         </span>
-        <button onClick={finish} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" aria-label="Tutup tur">
+        <button
+          onClick={finish}
+          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          aria-label="Tutup tur"
+        >
           ✕
         </button>
       </div>
-      <h3 className="mt-1.5 text-base font-semibold text-slate-900 dark:text-slate-100">{step.title}</h3>
+      <h3 className="mt-1.5 text-base font-semibold text-slate-900 dark:text-slate-100">
+        {step.title}
+      </h3>
       <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{step.body}</p>
       <div className="mt-4 flex items-center justify-between gap-2">
-        <button onClick={finish} className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+        <button
+          onClick={finish}
+          className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+        >
           Lewati
         </button>
         <div className="flex gap-2">
@@ -687,5 +767,25 @@ export function PageTour({
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * Judul + paragraf pengantar halaman modul, mengikuti bahasa aktif (Fase 16a).
+ * Teksnya diambil dari kamus `PAGE_HEADINGS` agar seluruh halaman konsisten
+ * dwibahasa — sebelumnya tiap halaman menulis <h1>/<p> berbahasa Indonesia
+ * sendiri walau menu sidebar sudah mengikuti bahasa aktif.
+ */
+export function PageHeading({ k }: { k: PageHeadingKey }) {
+  const lang = useLang();
+  const h = PAGE_HEADINGS[k];
+  const desc = "desc" in h ? h.desc[lang] : "";
+  // Fragment (bukan <div>) agar h1 & p tetap anak langsung kontainer halaman —
+  // jarak vertikalnya persis sama seperti sebelum diekstrak.
+  return (
+    <>
+      <h1 className="text-2xl font-semibold">{h.title[lang]}</h1>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{desc}</p>
+    </>
   );
 }

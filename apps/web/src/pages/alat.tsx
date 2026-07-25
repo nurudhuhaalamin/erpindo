@@ -1,7 +1,16 @@
 import { PTKP_STATUSES, terCategory, terRate, type PtkpStatus } from "@erpindo/shared";
 import { useState } from "react";
 import { formatIDR } from "../api/client";
-import { Card, CardBody, CardHeader, Input, Label, Select, Tabs } from "../components/ui";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  Input,
+  Label,
+  PageHeading,
+  Select,
+  Tabs,
+} from "../components/ui";
 
 /**
  * Alat bantu bisnis (Fase 10g) — kalkulator klien-saja (tanpa API): HPP per
@@ -15,21 +24,61 @@ const num = (v: string): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
-function ResultRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+function ResultRow({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+}) {
   return (
-    <div className={`flex items-center justify-between py-1.5 ${strong ? "text-base font-semibold" : "text-sm"}`}>
-      <span className={strong ? "text-slate-900 dark:text-slate-100" : "text-slate-600 dark:text-slate-400"}>{label}</span>
-      <span className={strong ? "text-brand-700 dark:text-brand-300" : "text-slate-800 dark:text-slate-200"}>{value}</span>
+    <div
+      className={`flex items-center justify-between py-1.5 ${strong ? "text-base font-semibold" : "text-sm"}`}
+    >
+      <span
+        className={
+          strong ? "text-slate-900 dark:text-slate-100" : "text-slate-600 dark:text-slate-400"
+        }
+      >
+        {label}
+      </span>
+      <span
+        className={
+          strong ? "text-brand-700 dark:text-brand-300" : "text-slate-800 dark:text-slate-200"
+        }
+      >
+        {value}
+      </span>
     </div>
   );
 }
 
-function Field({ id, label, value, onChange, suffix }: { id: string; label: string; value: string; onChange: (v: string) => void; suffix?: string }) {
+function Field({
+  id,
+  label,
+  value,
+  onChange,
+  suffix,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  suffix?: string;
+}) {
   return (
     <div>
       <Label htmlFor={id}>{label}</Label>
       <div className="flex items-center gap-2">
-        <Input id={id} type="number" min="0" value={value} onChange={(e) => onChange(e.target.value)} />
+        <Input
+          id={id}
+          type="number"
+          min="0"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
         {suffix ? <span className="text-sm text-slate-500">{suffix}</span> : null}
       </div>
     </div>
@@ -51,10 +100,7 @@ export function AlatPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Alat Bantu</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Kalkulator cepat untuk keputusan harga, pajak, dan gaji. Hitungan bantu perencanaan — bukan pencatatan resmi.
-        </p>
+        <PageHeading k="alatBantu" />
       </div>
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
       {tab === "hpp" ? <HppCalc /> : null}
@@ -78,13 +124,40 @@ function HppCalc() {
   const laba = hargaJual - hpp;
   return (
     <Card>
-      <CardHeader title="Harga Pokok Produksi (HPP) per unit" description="Jumlahkan biaya per unit, tentukan margin, dapatkan harga jual." />
+      <CardHeader
+        title="Harga Pokok Produksi (HPP) per unit"
+        description="Jumlahkan biaya per unit, tentukan margin, dapatkan harga jual."
+      />
       <CardBody className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field id="hpp-bahan" label="Biaya bahan / unit" value={bahan} onChange={setBahan} suffix="Rp" />
-          <Field id="hpp-tenaga" label="Biaya tenaga / unit" value={tenaga} onChange={setTenaga} suffix="Rp" />
-          <Field id="hpp-overhead" label="Overhead / unit" value={overhead} onChange={setOverhead} suffix="Rp" />
-          <Field id="hpp-margin" label="Target margin" value={margin} onChange={setMargin} suffix="%" />
+          <Field
+            id="hpp-bahan"
+            label="Biaya bahan / unit"
+            value={bahan}
+            onChange={setBahan}
+            suffix="Rp"
+          />
+          <Field
+            id="hpp-tenaga"
+            label="Biaya tenaga / unit"
+            value={tenaga}
+            onChange={setTenaga}
+            suffix="Rp"
+          />
+          <Field
+            id="hpp-overhead"
+            label="Overhead / unit"
+            value={overhead}
+            onChange={setOverhead}
+            suffix="Rp"
+          />
+          <Field
+            id="hpp-margin"
+            label="Target margin"
+            value={margin}
+            onChange={setMargin}
+            suffix="%"
+          />
         </div>
         <div className="rounded-xl bg-slate-50 px-4 py-2 dark:bg-slate-800/50">
           <ResultRow label="HPP per unit" value={formatIDR(hpp)} />
@@ -106,10 +179,19 @@ function MarkupCalc() {
   const margin = price > 0 ? (laba / price) * 100 : 0;
   return (
     <Card>
-      <CardHeader title="Markup vs Margin" description="Dua cara melihat untung: markup dihitung dari modal, margin dari harga jual." />
+      <CardHeader
+        title="Markup vs Margin"
+        description="Dua cara melihat untung: markup dihitung dari modal, margin dari harga jual."
+      />
       <CardBody className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field id="mk-hpp" label="Harga pokok (modal)" value={hpp} onChange={setHpp} suffix="Rp" />
+          <Field
+            id="mk-hpp"
+            label="Harga pokok (modal)"
+            value={hpp}
+            onChange={setHpp}
+            suffix="Rp"
+          />
           <Field id="mk-jual" label="Harga jual" value={jual} onChange={setJual} suffix="Rp" />
         </div>
         <div className="rounded-xl bg-slate-50 px-4 py-2 dark:bg-slate-800/50">
@@ -131,22 +213,49 @@ function BepCalc() {
   const bepRupiah = bepUnit * num(price);
   return (
     <Card>
-      <CardHeader title="Titik Impas (BEP)" description="Berapa unit harus terjual agar tidak rugi — menutup biaya tetap." />
+      <CardHeader
+        title="Titik Impas (BEP)"
+        description="Berapa unit harus terjual agar tidak rugi — menutup biaya tetap."
+      />
       <CardBody className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field id="bep-fixed" label="Biaya tetap / bulan" value={fixed} onChange={setFixed} suffix="Rp" />
-          <Field id="bep-price" label="Harga jual / unit" value={price} onChange={setPrice} suffix="Rp" />
-          <Field id="bep-var" label="Biaya variabel / unit" value={variable} onChange={setVariable} suffix="Rp" />
+          <Field
+            id="bep-fixed"
+            label="Biaya tetap / bulan"
+            value={fixed}
+            onChange={setFixed}
+            suffix="Rp"
+          />
+          <Field
+            id="bep-price"
+            label="Harga jual / unit"
+            value={price}
+            onChange={setPrice}
+            suffix="Rp"
+          />
+          <Field
+            id="bep-var"
+            label="Biaya variabel / unit"
+            value={variable}
+            onChange={setVariable}
+            suffix="Rp"
+          />
         </div>
         <div className="rounded-xl bg-slate-50 px-4 py-2 dark:bg-slate-800/50">
           <ResultRow label="Margin kontribusi / unit" value={formatIDR(contrib)} />
           {contrib > 0 ? (
             <>
-              <ResultRow label="Impas pada" value={`${bepUnit.toLocaleString("id-ID")} unit`} strong />
+              <ResultRow
+                label="Impas pada"
+                value={`${bepUnit.toLocaleString("id-ID")} unit`}
+                strong
+              />
               <ResultRow label="Setara omzet" value={formatIDR(bepRupiah)} />
             </>
           ) : (
-            <p className="py-2 text-sm text-red-600 dark:text-red-400">Harga jual harus lebih tinggi dari biaya variabel agar bisa impas.</p>
+            <p className="py-2 text-sm text-red-600 dark:text-red-400">
+              Harga jual harus lebih tinggi dari biaya variabel agar bisa impas.
+            </p>
           )}
         </div>
       </CardBody>
@@ -163,13 +272,26 @@ function Pph21Calc() {
   const pph = Math.round((g * rate) / 100);
   return (
     <Card>
-      <CardHeader title="Simulasi PPh 21 (metode TER)" description="Tarif Efektif Rata-rata bulanan (PMK 168/2023). Mesin yang sama dengan penggajian." />
+      <CardHeader
+        title="Simulasi PPh 21 (metode TER)"
+        description="Tarif Efektif Rata-rata bulanan (PMK 168/2023). Mesin yang sama dengan penggajian."
+      />
       <CardBody className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field id="pph-gross" label="Penghasilan bruto / bulan" value={gross} onChange={setGross} suffix="Rp" />
+          <Field
+            id="pph-gross"
+            label="Penghasilan bruto / bulan"
+            value={gross}
+            onChange={setGross}
+            suffix="Rp"
+          />
           <div>
             <Label htmlFor="pph-ptkp">Status PTKP</Label>
-            <Select id="pph-ptkp" value={ptkp} onChange={(e) => setPtkp(e.target.value as PtkpStatus)}>
+            <Select
+              id="pph-ptkp"
+              value={ptkp}
+              onChange={(e) => setPtkp(e.target.value as PtkpStatus)}
+            >
               {PTKP_STATUSES.map((s) => (
                 <option key={s} value={s}>
                   {s}
@@ -200,7 +322,13 @@ function PpnCalc() {
       <CardHeader title="PPN" description="Hitung PPN dari Dasar Pengenaan Pajak (DPP)." />
       <CardBody className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field id="ppn-dpp" label="DPP (harga sebelum PPN)" value={dpp} onChange={setDpp} suffix="Rp" />
+          <Field
+            id="ppn-dpp"
+            label="DPP (harga sebelum PPN)"
+            value={dpp}
+            onChange={setDpp}
+            suffix="Rp"
+          />
           <div>
             <Label htmlFor="ppn-rate">Tarif PPN</Label>
             <Select id="ppn-rate" value={rate} onChange={(e) => setRate(e.target.value)}>
@@ -227,15 +355,32 @@ function KasbonCalc() {
   const terakhir = p - perBulan * (t - 1);
   return (
     <Card>
-      <CardHeader title="Cicilan Kasbon Karyawan" description="Bagi pinjaman rata per bulan (tanpa bunga) — potongan gaji tiap periode." />
+      <CardHeader
+        title="Cicilan Kasbon Karyawan"
+        description="Bagi pinjaman rata per bulan (tanpa bunga) — potongan gaji tiap periode."
+      />
       <CardBody className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field id="kb-pokok" label="Jumlah pinjaman" value={pokok} onChange={setPokok} suffix="Rp" />
-          <Field id="kb-tenor" label="Jumlah cicilan" value={tenor} onChange={setTenor} suffix="bulan" />
+          <Field
+            id="kb-pokok"
+            label="Jumlah pinjaman"
+            value={pokok}
+            onChange={setPokok}
+            suffix="Rp"
+          />
+          <Field
+            id="kb-tenor"
+            label="Jumlah cicilan"
+            value={tenor}
+            onChange={setTenor}
+            suffix="bulan"
+          />
         </div>
         <div className="rounded-xl bg-slate-50 px-4 py-2 dark:bg-slate-800/50">
           <ResultRow label="Potongan per bulan" value={formatIDR(perBulan)} strong />
-          {terakhir !== perBulan ? <ResultRow label="Cicilan terakhir" value={formatIDR(terakhir)} /> : null}
+          {terakhir !== perBulan ? (
+            <ResultRow label="Cicilan terakhir" value={formatIDR(terakhir)} />
+          ) : null}
           <ResultRow label="Total dipotong" value={formatIDR(p)} />
         </div>
       </CardBody>

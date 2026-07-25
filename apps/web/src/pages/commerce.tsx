@@ -1,4 +1,5 @@
 import type { ApiCommerceDoc } from "@erpindo/shared";
+import { useHeading } from "../i18n/pageHeadings";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, MessageCircle, Printer, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -40,7 +41,8 @@ const MODE_CFG = {
     contactTypes: ["supplier", "both"],
     priceField: "buy_price" as const,
     queryKey: "purchases" as const,
-    stockHint: "Stok bertambah otomatis (biaya rata-rata); jurnal persediaan, PPN & hutang dibuat otomatis.",
+    stockHint:
+      "Stok bertambah otomatis (biaya rata-rata); jurnal persediaan, PPN & hutang dibuat otomatis.",
   },
 };
 
@@ -72,7 +74,14 @@ function lineAmount(l: { qty: string; unitPrice: string; discountPct: string }):
   return Math.round((Number(l.qty) || 0) * (Number(l.unitPrice) || 0) * (1 - disc / 100));
 }
 
-type ProductRow = { id: string; sku: string; name: string; sell_price: number; buy_price: number; track_expiry: number };
+type ProductRow = {
+  id: string;
+  sku: string;
+  name: string;
+  sell_price: number;
+  buy_price: number;
+  track_expiry: number;
+};
 type ContactRow = { id: string; name: string; type: string };
 type WarehouseRow = { id: string; name: string };
 
@@ -87,6 +96,7 @@ export function useDebounced<T>(value: T, ms = 300): T {
 }
 
 export function CommercePage({ mode }: { mode: Mode }) {
+  const h = useHeading(mode === "sale" ? "penjualan" : "pembelian");
   const cfg = MODE_CFG[mode];
   const { tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
@@ -112,7 +122,9 @@ export function CommercePage({ mode }: { mode: Mode }) {
     queryKey: ["projects", tenant.tenantId],
     queryFn: () => api.projects(tenant.tenantId),
   });
-  const activeProjects = (projectsQuery.data?.projects ?? []).filter((p) => p.status !== "completed");
+  const activeProjects = (projectsQuery.data?.projects ?? []).filter(
+    (p) => p.status !== "completed"
+  );
   const currenciesQuery = useQuery({
     queryKey: ["currencies", tenant.tenantId],
     queryFn: () => api.currencies(tenant.tenantId),
@@ -133,12 +145,17 @@ export function CommercePage({ mode }: { mode: Mode }) {
 
   const create = useMutation({
     mutationFn: async (
-      input: Parameters<typeof api.createInvoice>[1],
+      input: Parameters<typeof api.createInvoice>[1]
     ): Promise<{ total: number; docNo?: string; pendingApproval?: boolean; requestNo?: string }> =>
-      mode === "sale" ? api.createInvoice(tenant.tenantId, input) : api.createPurchase(tenant.tenantId, input),
+      mode === "sale"
+        ? api.createInvoice(tenant.tenantId, input)
+        : api.createPurchase(tenant.tenantId, input),
     onSuccess: (res) => {
       if (res.pendingApproval) {
-        toast("success", `Pengajuan ${res.requestNo} menunggu persetujuan Owner (${formatIDR(res.total)}).`);
+        toast(
+          "success",
+          `Pengajuan ${res.requestNo} menunggu persetujuan Owner (${formatIDR(res.total)}).`
+        );
       } else {
         toast("success", `${cfg.docLabel} ${res.docNo} diposting (${formatIDR(res.total)}).`);
       }
@@ -169,7 +186,9 @@ export function CommercePage({ mode }: { mode: Mode }) {
 
   async function fetchContactOptions(q: string) {
     const res = await api.listItems<ContactRow>(tenant.tenantId, "contacts", { q, limit: 20 });
-    return res.items.filter((k) => cfg.contactTypes.includes(k.type)).map((k) => ({ value: k.id, label: k.name }));
+    return res.items
+      .filter((k) => cfg.contactTypes.includes(k.type))
+      .map((k) => ({ value: k.id, label: k.name }));
   }
 
   function setLine(i: number, patch: Partial<DraftLine>) {
@@ -207,7 +226,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
         discountPct: l.discountPct > 0 ? String(l.discountPct) : "",
         lotNo: "",
         expiryDate: "",
-      })),
+      }))
     );
     setError(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -237,7 +256,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">{cfg.title}</h1>
+      <h1 className="text-2xl font-semibold">{h.title}</h1>
 
       {isAdmin ? (
         <Card>
@@ -261,7 +280,11 @@ export function CommercePage({ mode }: { mode: Mode }) {
               </div>
               <div>
                 <Label htmlFor="doc-wh">Gudang</Label>
-                <Select id="doc-wh" value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
+                <Select
+                  id="doc-wh"
+                  value={warehouseId}
+                  onChange={(e) => setWarehouseId(e.target.value)}
+                >
                   {warehouses.map((w) => (
                     <option key={w.id} value={w.id}>
                       {w.name}
@@ -271,7 +294,12 @@ export function CommercePage({ mode }: { mode: Mode }) {
               </div>
               <div>
                 <Label htmlFor="doc-date">Tanggal</Label>
-                <Input id="doc-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                <Input
+                  id="doc-date"
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
               </div>
               <div>
                 <Label htmlFor="doc-tax">PPN</Label>
@@ -288,7 +316,11 @@ export function CommercePage({ mode }: { mode: Mode }) {
               {activeProjects.length > 0 ? (
                 <div>
                   <Label htmlFor="doc-project">Proyek (opsional)</Label>
-                  <Select id="doc-project" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+                  <Select
+                    id="doc-project"
+                    value={projectId}
+                    onChange={(e) => setProjectId(e.target.value)}
+                  >
                     <option value="">— tanpa proyek —</option>
                     {activeProjects.map((p) => (
                       <option key={p.id} value={p.id}>
@@ -301,7 +333,11 @@ export function CommercePage({ mode }: { mode: Mode }) {
               {currencies.length > 1 ? (
                 <div>
                   <Label htmlFor="doc-currency">Mata uang</Label>
-                  <Select id="doc-currency" value={currency} onChange={(e) => setCurrency(e.target.value)}>
+                  <Select
+                    id="doc-currency"
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value)}
+                  >
                     {currencies.map((cur) => (
                       <option key={cur.code} value={cur.code}>
                         {cur.code}
@@ -317,7 +353,9 @@ export function CommercePage({ mode }: { mode: Mode }) {
                     id="doc-rate"
                     type="number"
                     min={0}
-                    placeholder={String(currencies.find((cur) => cur.code === currency)?.rate ?? "")}
+                    placeholder={String(
+                      currencies.find((cur) => cur.code === currency)?.rate ?? ""
+                    )}
                     value={exchangeRate}
                     onChange={(e) => setExchangeRate(e.target.value)}
                   />
@@ -362,12 +400,16 @@ export function CommercePage({ mode }: { mode: Mode }) {
                         value={line.discountPct}
                         onChange={(e) => setLine(i, { discountPct: e.target.value })}
                       />
-                      <div className="text-right text-sm tabular-nums">{formatIDR(lineAmount(line))}</div>
+                      <div className="text-right text-sm tabular-nums">
+                        {formatIDR(lineAmount(line))}
+                      </div>
                       <Button
                         type="button"
                         variant="ghost"
                         aria-label={`Hapus baris ${i + 1}`}
-                        onClick={() => setLines((ls) => (ls.length > 1 ? ls.filter((_, idx) => idx !== i) : ls))}
+                        onClick={() =>
+                          setLines((ls) => (ls.length > 1 ? ls.filter((_, idx) => idx !== i) : ls))
+                        }
                       >
                         ✕
                       </Button>
@@ -387,7 +429,8 @@ export function CommercePage({ mode }: { mode: Mode }) {
                           onChange={(e) => setLine(i, { expiryDate: e.target.value })}
                         />
                         <span className="text-xs text-amber-700 dark:text-amber-300">
-                          Produk ini melacak kedaluwarsa — tanggal exp wajib diisi (keluar otomatis FEFO).
+                          Produk ini melacak kedaluwarsa — tanggal exp wajib diisi (keluar otomatis
+                          FEFO).
                         </span>
                       </div>
                     ) : null}
@@ -397,7 +440,11 @@ export function CommercePage({ mode }: { mode: Mode }) {
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <Button type="button" variant="secondary" onClick={() => setLines((ls) => [...ls, emptyLine()])}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setLines((ls) => [...ls, emptyLine()])}
+              >
                 + Tambah barang
               </Button>
               <div className="text-sm">
@@ -419,10 +466,12 @@ export function CommercePage({ mode }: { mode: Mode }) {
                     Subtotal <strong className="tabular-nums">{formatIDR(subtotal)}</strong>
                     {taxRate > 0 ? (
                       <>
-                        {" "}· PPN <strong className="tabular-nums">{formatIDR(taxAmount)}</strong>
+                        {" "}
+                        · PPN <strong className="tabular-nums">{formatIDR(taxAmount)}</strong>
                       </>
                     ) : null}{" "}
-                    · Total <strong className="tabular-nums">{formatIDR(subtotal + taxAmount)}</strong>
+                    · Total{" "}
+                    <strong className="tabular-nums">{formatIDR(subtotal + taxAmount)}</strong>
                   </>
                 )}
               </div>
@@ -438,7 +487,10 @@ export function CommercePage({ mode }: { mode: Mode }) {
         <CardHeader title={`Daftar ${cfg.title.toLowerCase()}`} />
         <CardBody className="space-y-3">
           <div className="relative sm:max-w-xs">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400"
+              aria-hidden
+            />
             <Input
               aria-label={`Cari ${cfg.docLabel.toLowerCase()}`}
               className="pl-9"
@@ -455,7 +507,9 @@ export function CommercePage({ mode }: { mode: Mode }) {
           ) : (docsQuery.data?.docs.length ?? 0) === 0 ? (
             <EmptyState
               icon={<FileText className="size-6" aria-hidden />}
-              title={docQ ? "Tidak ada dokumen yang cocok" : `Belum ada ${cfg.docLabel.toLowerCase()}`}
+              title={
+                docQ ? "Tidak ada dokumen yang cocok" : `Belum ada ${cfg.docLabel.toLowerCase()}`
+              }
               description={
                 docQ
                   ? "Coba kata kunci lain — pencarian mencocokkan nomor dokumen dan nama kontak."
@@ -466,7 +520,13 @@ export function CommercePage({ mode }: { mode: Mode }) {
             <>
               <div className="space-y-3">
                 {docsQuery.data!.docs.map((doc) => (
-                  <DocRow key={doc.id} doc={doc} mode={mode} isAdmin={isAdmin} onEdit={prefillFromDoc} />
+                  <DocRow
+                    key={doc.id}
+                    doc={doc}
+                    mode={mode}
+                    isAdmin={isAdmin}
+                    onEdit={prefillFromDoc}
+                  />
                 ))}
               </div>
               {(docsQuery.data?.total ?? 0) > (docsQuery.data?.docs.length ?? 0) ? (
@@ -474,7 +534,11 @@ export function CommercePage({ mode }: { mode: Mode }) {
                   <span className="text-xs text-slate-500 dark:text-slate-400">
                     Menampilkan {docsQuery.data!.docs.length} dari {docsQuery.data!.total}
                   </span>
-                  <Button variant="secondary" className="h-8" onClick={() => setDocLimit((l) => Math.min(l + 100, 500))}>
+                  <Button
+                    variant="secondary"
+                    className="h-8"
+                    onClick={() => setDocLimit((l) => Math.min(l + 100, 500))}
+                  >
                     Muat lebih banyak
                   </Button>
                 </div>
@@ -537,20 +601,32 @@ function DocRow({
       /* clipboard opsional */
     }
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank", "noopener");
-    toast("success", link ? "Link bayar dibuat & pesan disiapkan di WhatsApp." : "Pesan tagihan disiapkan di WhatsApp.");
+    toast(
+      "success",
+      link
+        ? "Link bayar dibuat & pesan disiapkan di WhatsApp."
+        : "Pesan tagihan disiapkan di WhatsApp."
+    );
   }
 
   const doVoid = useMutation({
     mutationFn: () =>
-      mode === "sale" ? api.voidInvoice(tenant.tenantId, doc.id) : api.voidPurchase(tenant.tenantId, doc.id),
+      mode === "sale"
+        ? api.voidInvoice(tenant.tenantId, doc.id)
+        : api.voidPurchase(tenant.tenantId, doc.id),
     onSuccess: (res) => {
-      toast("success", `${res.docNo} dibatalkan — jurnal pembalik ${res.reversalEntryNo} diposting, stok dikembalikan.`);
+      toast(
+        "success",
+        `${res.docNo} dibatalkan — jurnal pembalik ${res.reversalEntryNo} diposting, stok dikembalikan.`
+      );
       setVoidOpen(false);
       if (editOpen) {
         setEditOpen(false);
         onEdit?.(doc);
       }
-      queryClient.invalidateQueries({ queryKey: [mode === "sale" ? "invoices" : "purchases", tenant.tenantId] });
+      queryClient.invalidateQueries({
+        queryKey: [mode === "sale" ? "invoices" : "purchases", tenant.tenantId],
+      });
       queryClient.invalidateQueries({ queryKey: ["stock", tenant.tenantId] });
     },
     onError: (err) => {
@@ -563,16 +639,25 @@ function DocRow({
   // Fase 10c — daftar pembayaran dokumen ini + void per baris.
   const paymentsQuery = useQuery({
     queryKey: ["payments", tenant.tenantId, mode === "sale" ? "invoice" : "purchase", doc.id],
-    queryFn: () => api.payments(tenant.tenantId, { refType: mode === "sale" ? "invoice" : "purchase", refId: doc.id }),
+    queryFn: () =>
+      api.payments(tenant.tenantId, {
+        refType: mode === "sale" ? "invoice" : "purchase",
+        refId: doc.id,
+      }),
     enabled: paymentsOpen,
   });
   const doVoidPayment = useMutation({
     mutationFn: (paymentId: string) => api.voidPayment(tenant.tenantId, paymentId),
     onSuccess: (res) => {
-      toast("success", `Pembayaran ${res.paymentNo} dihapus — jurnal pembalik ${res.reversalEntryNo} diposting.`);
+      toast(
+        "success",
+        `Pembayaran ${res.paymentNo} dihapus — jurnal pembalik ${res.reversalEntryNo} diposting.`
+      );
       setVoidPaymentId(null);
       queryClient.invalidateQueries({ queryKey: ["payments", tenant.tenantId] });
-      queryClient.invalidateQueries({ queryKey: [mode === "sale" ? "invoices" : "purchases", tenant.tenantId] });
+      queryClient.invalidateQueries({
+        queryKey: [mode === "sale" ? "invoices" : "purchases", tenant.tenantId],
+      });
     },
     onError: (err) => {
       toast("error", (err as Error).message);
@@ -600,11 +685,16 @@ function DocRow({
       }),
     onSuccess: (res) => {
       const refundNote = res.refund > 0 ? `, refund tunai ${formatIDR(res.refund)}` : "";
-      toast("success", `Retur ${res.returnNo} diposting (${formatIDR(res.total)}${refundNote}, jurnal ${res.journalNo}).`);
+      toast(
+        "success",
+        `Retur ${res.returnNo} diposting (${formatIDR(res.total)}${refundNote}, jurnal ${res.journalNo}).`
+      );
       setReturnOpen(false);
       setReturnQty({});
       setRefundAccountId("");
-      queryClient.invalidateQueries({ queryKey: [mode === "sale" ? "invoices" : "purchases", tenant.tenantId] });
+      queryClient.invalidateQueries({
+        queryKey: [mode === "sale" ? "invoices" : "purchases", tenant.tenantId],
+      });
       queryClient.invalidateQueries({ queryKey: ["stock", tenant.tenantId] });
     },
     onError: (err) => toast("error", (err as Error).message),
@@ -616,7 +706,10 @@ function DocRow({
     enabled: payOpen || returnOpen,
   });
   const cashAccounts = (accountsQuery.data?.accounts ?? []).filter(
-    (a) => !a.isArchived && a.type === "asset" && (a.code.startsWith("1-10") || a.code.startsWith("1-11")),
+    (a) =>
+      !a.isArchived &&
+      a.type === "asset" &&
+      (a.code.startsWith("1-10") || a.code.startsWith("1-11"))
   );
 
   const isForeign = doc.currency !== "IDR";
@@ -642,9 +735,14 @@ function DocRow({
         res.forexGain && res.forexGain !== 0
           ? ` (selisih kurs ${res.forexGain > 0 ? "laba" : "rugi"} ${formatIDR(Math.abs(res.forexGain))})`
           : "";
-      toast("success", (res.settled ? `${doc.docNo} lunas.` : `Pembayaran ${res.paymentNo} dicatat.`) + forex);
+      toast(
+        "success",
+        (res.settled ? `${doc.docNo} lunas.` : `Pembayaran ${res.paymentNo} dicatat.`) + forex
+      );
       setPayOpen(false);
-      queryClient.invalidateQueries({ queryKey: [mode === "sale" ? "invoices" : "purchases", tenant.tenantId] });
+      queryClient.invalidateQueries({
+        queryKey: [mode === "sale" ? "invoices" : "purchases", tenant.tenantId],
+      });
     },
     onError: (err) => toast("error", (err as Error).message),
   });
@@ -663,14 +761,26 @@ function DocRow({
           ) : (
             <Badge tone="amber">belum lunas</Badge>
           )}
-          {isForeign ? <Badge tone="brand">{doc.currency} @ {doc.exchangeRate.toLocaleString("id-ID")}</Badge> : null}
+          {isForeign ? (
+            <Badge tone="brand">
+              {doc.currency} @ {doc.exchangeRate.toLocaleString("id-ID")}
+            </Badge>
+          ) : null}
         </div>
         <span className="text-base font-semibold tabular-nums">
-          {isForeign ? `${doc.currency} ${doc.foreignTotal.toLocaleString("id-ID")}` : formatIDR(doc.total)}
+          {isForeign
+            ? `${doc.currency} ${doc.foreignTotal.toLocaleString("id-ID")}`
+            : formatIDR(doc.total)}
         </span>
       </div>
 
-      {(mode === "sale" || doc.paidAmount > 0 || (isAdmin && !isVoided && (remaining > 0 || doc.status !== "paid" || (doc.paidAmount === 0 && doc.returnedAmount === 0)))) ? (
+      {mode === "sale" ||
+      doc.paidAmount > 0 ||
+      (isAdmin &&
+        !isVoided &&
+        (remaining > 0 ||
+          doc.status !== "paid" ||
+          (doc.paidAmount === 0 && doc.returnedAmount === 0))) ? (
         <div className="mt-2.5 flex flex-wrap gap-2 border-t border-slate-100 pt-2.5 dark:border-slate-800/60">
           {mode === "sale" ? (
             <a
@@ -685,7 +795,8 @@ function DocRow({
           {mode === "sale" && isAdmin && !isVoided && remaining > 0 ? (
             <Button variant="secondary" className="h-8" onClick={kirimTagih} disabled={tagihBusy}>
               <span className="inline-flex items-center gap-1.5">
-                <MessageCircle className="size-4" aria-hidden /> {tagihBusy ? "Menyiapkan…" : "Tagih (WA)"}
+                <MessageCircle className="size-4" aria-hidden />{" "}
+                {tagihBusy ? "Menyiapkan…" : "Tagih (WA)"}
               </span>
             </Button>
           ) : null}
@@ -727,18 +838,25 @@ function DocRow({
           {paymentsQuery.isLoading ? (
             <Spinner />
           ) : (paymentsQuery.data?.payments ?? []).length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada pembayaran tercatat.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Belum ada pembayaran tercatat.
+            </p>
           ) : (
             (paymentsQuery.data?.payments ?? []).map((p) => (
               <div key={p.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                 <span className="font-mono text-xs font-semibold">{p.paymentNo}</span>
-                <span className="text-slate-500 dark:text-slate-400">{formatDate(p.paymentDate)}</span>
+                <span className="text-slate-500 dark:text-slate-400">
+                  {formatDate(p.paymentDate)}
+                </span>
                 <span className="text-slate-500 dark:text-slate-400">{p.accountName}</span>
                 <span className="tabular-nums font-medium">{formatIDR(p.amount)}</span>
                 {p.voidedAt ? (
                   <Badge tone="red">DIHAPUS{p.voidJournalNo ? ` · ${p.voidJournalNo}` : ""}</Badge>
                 ) : p.isPos ? (
-                  <span className="text-xs text-slate-400" title="Pembayaran POS menyatu dengan struknya — gunakan Retur/Refund di Kasir.">
+                  <span
+                    className="text-xs text-slate-400"
+                    title="Pembayaran POS menyatu dengan struknya — gunakan Retur/Refund di Kasir."
+                  >
                     via Kasir
                   </span>
                 ) : isAdmin ? (
@@ -760,7 +878,9 @@ function DocRow({
           <div key={l.id} className="flex justify-between">
             <span>
               {l.productName} × {l.qty}
-              {l.discountPct > 0 ? <span className="text-emerald-600 dark:text-emerald-400"> (−{l.discountPct}%)</span> : null}
+              {l.discountPct > 0 ? (
+                <span className="text-emerald-600 dark:text-emerald-400"> (−{l.discountPct}%)</span>
+              ) : null}
             </span>
             <span className="tabular-nums">{formatIDR(l.amount)}</span>
           </div>
@@ -809,7 +929,12 @@ function DocRow({
             <Label htmlFor="refund-acct" className="text-xs">
               Akun refund tunai (bila nilai retur melebihi sisa tagihan)
             </Label>
-            <Select id="refund-acct" className="h-9" value={refundAccountId} onChange={(e) => setRefundAccountId(e.target.value)}>
+            <Select
+              id="refund-acct"
+              className="h-9"
+              value={refundAccountId}
+              onChange={(e) => setRefundAccountId(e.target.value)}
+            >
               <option value="">— tanpa refund tunai —</option>
               {cashAccounts.map((a) => (
                 <option key={a.id} value={a.id}>
@@ -834,7 +959,11 @@ function DocRow({
           <div className="grid gap-2 sm:grid-cols-[1fr_10rem_10rem_auto] sm:items-end">
             <div>
               <Label htmlFor={`pay-acc-${doc.id}`}>Masuk/keluar dari akun</Label>
-              <Select id={`pay-acc-${doc.id}`} value={payAccount} onChange={(e) => setPayAccount(e.target.value)}>
+              <Select
+                id={`pay-acc-${doc.id}`}
+                value={payAccount}
+                onChange={(e) => setPayAccount(e.target.value)}
+              >
                 <option value="">— pilih kas/bank —</option>
                 {cashAccounts.map((a) => (
                   <option key={a.id} value={a.id}>
@@ -844,7 +973,9 @@ function DocRow({
               </Select>
             </div>
             <div>
-              <Label htmlFor={`pay-amt-${doc.id}`}>{isForeign ? `Jumlah (${doc.currency})` : "Nominal"}</Label>
+              <Label htmlFor={`pay-amt-${doc.id}`}>
+                {isForeign ? `Jumlah (${doc.currency})` : "Nominal"}
+              </Label>
               <Input
                 id={`pay-amt-${doc.id}`}
                 type="number"
@@ -855,7 +986,12 @@ function DocRow({
             </div>
             <div>
               <Label htmlFor={`pay-date-${doc.id}`}>Tanggal</Label>
-              <Input id={`pay-date-${doc.id}`} type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
+              <Input
+                id={`pay-date-${doc.id}`}
+                type="date"
+                value={payDate}
+                onChange={(e) => setPayDate(e.target.value)}
+              />
             </div>
             <Button onClick={() => pay.mutate()} disabled={pay.isPending || !payAccount}>
               {pay.isPending ? <Spinner /> : null} Catat
@@ -865,11 +1001,17 @@ function DocRow({
             <div className="grid gap-2 sm:grid-cols-[10rem_1fr] sm:items-end">
               <div>
                 <Label htmlFor={`pay-rate-${doc.id}`}>Kurs saat bayar (IDR/{doc.currency})</Label>
-                <Input id={`pay-rate-${doc.id}`} type="number" min={0} value={payRate} onChange={(e) => setPayRate(e.target.value)} />
+                <Input
+                  id={`pay-rate-${doc.id}`}
+                  type="number"
+                  min={0}
+                  value={payRate}
+                  onChange={(e) => setPayRate(e.target.value)}
+                />
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Faktur pada kurs {doc.exchangeRate.toLocaleString("id-ID")}. Selisih dengan kurs bayar otomatis dijurnal
-                sebagai laba/rugi selisih kurs.
+                Faktur pada kurs {doc.exchangeRate.toLocaleString("id-ID")}. Selisih dengan kurs
+                bayar otomatis dijurnal sebagai laba/rugi selisih kurs.
               </p>
             </div>
           ) : null}
@@ -881,8 +1023,9 @@ function DocRow({
         title={`Batalkan ${doc.docNo}?`}
         description={
           <>
-            Jurnal pembalik akan diposting dan stok dikembalikan seperti sebelum dokumen ini dibuat. Dokumen tetap
-            tercatat dengan tanda <strong>DIBATALKAN</strong> — aksi ini tidak bisa diurungkan.
+            Jurnal pembalik akan diposting dan stok dikembalikan seperti sebelum dokumen ini dibuat.
+            Dokumen tetap tercatat dengan tanda <strong>DIBATALKAN</strong> — aksi ini tidak bisa
+            diurungkan.
           </>
         }
         confirmLabel="Ya, batalkan dokumen"
@@ -897,9 +1040,10 @@ function DocRow({
         title={`Ubah ${doc.docNo}?`}
         description={
           <>
-            Dokumen ini akan <strong>dibatalkan</strong> (jurnal pembalik + stok pulih), lalu isinya dimuat ke form di
-            atas untuk diperbaiki dan diposting sebagai dokumen <strong>baru bernomor baru</strong> — begitulah koreksi
-            pada pembukuan yang jejaknya utuh.
+            Dokumen ini akan <strong>dibatalkan</strong> (jurnal pembalik + stok pulih), lalu isinya
+            dimuat ke form di atas untuk diperbaiki dan diposting sebagai dokumen{" "}
+            <strong>baru bernomor baru</strong> — begitulah koreksi pada pembukuan yang jejaknya
+            utuh.
           </>
         }
         confirmLabel="Batalkan & muat ke form"
@@ -913,8 +1057,9 @@ function DocRow({
         title="Hapus pembayaran ini?"
         description={
           <>
-            Jurnal pembayaran akan dibalik dan sisa tagihan dokumen kembali seperti sebelum pembayaran dicatat. Baris
-            pembayaran tetap tercatat dengan tanda <strong>DIHAPUS</strong>.
+            Jurnal pembayaran akan dibalik dan sisa tagihan dokumen kembali seperti sebelum
+            pembayaran dicatat. Baris pembayaran tetap tercatat dengan tanda{" "}
+            <strong>DIHAPUS</strong>.
           </>
         }
         confirmLabel="Ya, hapus pembayaran"
@@ -934,7 +1079,6 @@ export function SalesPage() {
 export function PurchasesPage() {
   return <CommercePage mode="purchase" />;
 }
-
 
 // Halaman Stok diekstrak ke ./stok pada Fase 12c; re-export agar impor lama tetap.
 export { StockPage } from "./stok";

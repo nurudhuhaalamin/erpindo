@@ -21,6 +21,10 @@ export default tseslint.config(
       "out/**",
       "venv/**",
       "wrangler.dev.jsonc",
+      // Artefak sementara `wrangler dev` (bundel yang di-generate). Sudah
+      // diabaikan git, tetapi tanpa baris ini lint LOKAL gagal palsu selama
+      // smoke/ui-sim berjalan karena direktori ini sedang ada.
+      ".wrangler/**",
     ],
   },
   js.configs.recommended,
