@@ -396,7 +396,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
                         aria-label={`Harga baris ${i + 1}`}
                         type="number"
                         min={0}
-                        placeholder="Harga satuan"
+                        placeholder={u("hargaSatuan")}
                         value={line.unitPrice}
                         onChange={(e) => setLine(i, { unitPrice: e.target.value })}
                       />
@@ -405,7 +405,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
                         type="number"
                         min={0}
                         max={100}
-                        placeholder="Disc %"
+                        placeholder={u("disc")}
                         value={line.discountPct}
                         onChange={(e) => setLine(i, { discountPct: e.target.value })}
                       />
@@ -427,7 +427,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
                       <div className="grid grid-cols-2 gap-2 rounded-lg bg-amber-50 p-2 sm:grid-cols-[10rem_11rem_1fr] sm:items-center dark:bg-amber-950/40">
                         <Input
                           aria-label={`Nomor lot baris ${i + 1}`}
-                          placeholder="No. lot (opsional)"
+                          placeholder={u("noLotOpsional")}
                           value={line.lotNo}
                           onChange={(e) => setLine(i, { lotNo: e.target.value })}
                         />
@@ -472,7 +472,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
                   </>
                 ) : (
                   <>
-                    Subtotal <strong className="tabular-nums">{formatIDR(subtotal)}</strong>
+                    {u("subtotal")} <strong className="tabular-nums">{formatIDR(subtotal)}</strong>
                     {taxRate > 0 ? (
                       <>
                         {" "}
@@ -550,7 +550,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
                     className="h-8"
                     onClick={() => setDocLimit((l) => Math.min(l + 100, 500))}
                   >
-                    Muat lebih banyak
+                    {u("muatLebihBanyak")}
                   </Button>
                 </div>
               ) : null}
@@ -801,7 +801,7 @@ function DocRow({
               rel="noreferrer"
               className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-300 px-3 text-sm hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
             >
-              <Printer className="size-4" aria-hidden /> Cetak
+              <Printer className="size-4" aria-hidden /> {u("cetak")}
             </a>
           ) : null}
           {mode === "sale" && isAdmin && !isVoided && remaining > 0 ? (
@@ -814,26 +814,26 @@ function DocRow({
           ) : null}
           {isAdmin && !isVoided && remaining > 0 ? (
             <Button variant="secondary" className="h-8" onClick={() => setReturnOpen((o) => !o)}>
-              Retur
+              {u("retur")}
             </Button>
           ) : null}
           {isAdmin && !isVoided && doc.paidAmount === 0 && doc.returnedAmount === 0 ? (
             <>
               <Button variant="secondary" className="h-8" onClick={() => setEditOpen(true)}>
-                Ubah
+                {u("ubah")}
               </Button>
               <Button
                 variant="secondary"
                 className="h-8 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
                 onClick={() => setVoidOpen(true)}
               >
-                Batalkan
+                {u("batalkan")}
               </Button>
             </>
           ) : null}
           {doc.paidAmount > 0 ? (
             <Button variant="secondary" className="h-8" onClick={() => setPaymentsOpen((o) => !o)}>
-              Pembayaran
+              {u("pembayaran")}
             </Button>
           ) : null}
           {isAdmin && !isVoided && doc.status !== "paid" ? (
@@ -851,7 +851,7 @@ function DocRow({
             <Spinner />
           ) : (paymentsQuery.data?.payments ?? []).length === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Belum ada pembayaran tercatat.
+              {u("belumAdaPembayaran")}
             </p>
           ) : (
             (paymentsQuery.data?.payments ?? []).map((p) => (
@@ -876,7 +876,7 @@ function DocRow({
                     className="text-xs font-medium text-red-600 underline-offset-2 hover:underline dark:text-red-400"
                     onClick={() => setVoidPaymentId(p.id)}
                   >
-                    Hapus
+                    {u("hapus")}
                   </button>
                 ) : null}
               </div>
@@ -1058,7 +1058,7 @@ function DocRow({
             utuh.
           </>
         }
-        confirmLabel="Batalkan & muat ke form"
+        confirmLabel={u("batalkanMuatForm")}
         busy={doVoid.isPending}
         onConfirm={() => doVoid.mutate()}
         onCancel={() => setEditOpen(false)}
