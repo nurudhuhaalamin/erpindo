@@ -289,6 +289,18 @@ try {
     adaPosted && adaNewEntry && tanpaJurnalId,
     `→ posted=${adaPosted} newEntry=${adaNewEntry} tanpaID=${tanpaJurnalId}`,
   );
+  await gotoRoute("/app/kasir", 900);
+  const posEn = await page.innerText("body");
+  // Penanda negatif = judul kartu murni UI (bukan "Tunai"/"Lunas" yang bisa
+  // muncul sebagai status/metode pada data struk).
+  const adaOpenShift = posEn.includes("Open shift") || posEn.includes("Cart");
+  const adaRecap = posEn.includes("Today's summary") || posEn.includes("Receipts & Refunds");
+  const tanpaPosId = !posEn.includes("Rekap hari ini") && !posEn.includes("Buka shift");
+  check(
+    "F0i isi halaman Kasir ikut EN: judul kartu UI, tanpa teks Indonesia",
+    adaOpenShift && adaRecap && tanpaPosId,
+    `→ shift=${adaOpenShift} recap=${adaRecap} tanpaID=${tanpaPosId}`,
+  );
   await gotoRoute("/app/keuangan/neraca-saldo", 700);
   const tbEn = await page.innerText("body");
   check(
