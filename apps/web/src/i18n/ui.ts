@@ -825,6 +825,37 @@ const UI: Record<string, Dual> = {
     id: "Nilai persediaan memakai metode biaya rata-rata bergerak (moving average).",
     en: "Inventory is valued using the moving average cost method.",
   },
+  // Penggajian — pelunasan utang 16i (Fase 16r)
+  nonaktif: { id: "nonaktif", en: "inactive" },
+  aktifKecil: { id: "aktif", en: "active" },
+  menungguKecil: { id: "menunggu", en: "pending" },
+  disetujuiKecil: { id: "disetujui", en: "approved" },
+  ditolakKecil: { id: "ditolak", en: "rejected" },
+  diBawah: { id: "di bawah", en: "under" },
+  hariSatuan: { id: "hari", en: "days" },
+  sisaKecil: { id: "sisa", en: "left" },
+  jurnalKecil: { id: "jurnal", en: "entry" },
+  periodeLabel: { id: "Periode", en: "Period" },
+  bonusLemburPotongan: { id: "Bonus, lembur & potongan — periode", en: "Bonus, overtime & deductions — period" },
+  aktifDari: { id: "aktif dari", en: "active of" },
+  karyawanSatuan: { id: "karyawan", en: "employees" },
+  batalkanPenggajianTanya: { id: "Batalkan penggajian", en: "Void payroll run" },
+  descCatatanPajakPayroll: {
+    id: "tarif TER (PPh 21) & BPJS mengikuti ketentuan 2024. Peraturan dapat berubah — verifikasi angka dengan konsultan/peraturan terbaru sebelum penggajian resmi.",
+    en: "TER (PPh 21) & BPJS rates follow the 2024 rules. Regulations can change — verify the figures with a consultant or the latest rules before running official payroll.",
+  },
+  belumAdaStruktur: {
+    id: "Belum ada struktur — tambahkan departemen lalu tempatkan karyawan.",
+    en: "No structure yet — add a department, then place employees into it.",
+  },
+  descBatalkanPenggajian1: {
+    id: "Jurnal beban gaji akan dibalik, saldo kasbon karyawan dipulihkan, dan komponen ad-hoc dilepas agar bisa dipakai lagi. Periode",
+    en: "The wage expense entry is reversed, employee advance balances are restored, and ad-hoc components are released for reuse. Period",
+  },
+  descBatalkanPenggajian2: {
+    id: "bisa digaji ulang. Slip lama tetap tersimpan dengan tanda",
+    en: "can be run again. Old payslips stay on record marked",
+  },
 };
 
 export type UiKey = keyof typeof UI;
