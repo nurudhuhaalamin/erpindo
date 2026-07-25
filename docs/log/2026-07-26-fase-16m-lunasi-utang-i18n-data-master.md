@@ -60,6 +60,22 @@ Sapuan menyisakan tujuh temuan, seluruhnya sudah diperiksa satu per satu:
   seluruhnya deskriptif.
 - Sisanya: nama berkas template, potongan kode, dan argumen kunci kamus.
 
+## Prinsip itu dipasang ke alat
+
+Argumen "header template CSV adalah format berkas, bukan teks layar" tidak
+cukup ditulis di log — kalau tidak dipasang ke alat, sapuan berikutnya akan
+melaporkannya lagi sebagai utang dan menggoda untuk "diperbaiki".
+
+Karena itu `scripts/sapu-i18n.mjs` kini memperlakukan isi `downloadCsv()`
+sama seperti `downloadXlsx()`: kelompok **BERKAS**, bukan `LAYAR`. Keduanya
+menghasilkan berkas yang dibaca mesin lain (atau diimpor balik), jadi
+menerjemahkannya mengubah format, bukan bahasa.
+
+Efeknya langsung terasa saat menyiapkan fase berikutnya: `reports.tsx` yang
+di audit 16k tercatat 44 temuan ternyata **27 di antaranya header kolom
+ekspor**. Utang layarnya jauh lebih kecil daripada yang tercatat. Ini
+penegasan ketiga bahwa angka ~297 dari 16k adalah batas atas yang longgar.
+
 ## Validasi
 
 | Gerbang | Hasil |
