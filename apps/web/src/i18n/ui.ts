@@ -721,6 +721,52 @@ const UI: Record<string, Dual> = {
     id: "— unduh XML Coretax lalu impor di menu e-Faktur Coretax. Faktur non-mewah memakai kode transaksi 04 dengan DPP nilai lain (11/12); NPWP perusahaan diambil dari Pengaturan. CSV tetap tersedia sebagai rekap. Pembeli tanpa NPWP diekspor sebagai",
     en: "— download the Coretax XML then import it from the Coretax e-Faktur menu. Non-luxury invoices use transaction code 04 with an alternative DPP basis (11/12); the company NPWP comes from Settings. CSV remains available as a recap. Buyers without an NPWP are exported as",
   },
+  // Keuangan — pelunasan utang 16f (Fase 16o)
+  namaBaruAkun: { id: "Nama baru untuk akun", en: "New name for account" },
+  akunBaris: { id: "Akun baris", en: "Account line" },
+  debitBaris: { id: "Debit baris", en: "Debit line" },
+  kreditBaris: { id: "Kredit baris", en: "Credit line" },
+  pilihAkunOpsi: { id: "— pilih akun —", en: "— pick an account —" },
+  tambahBaris: { id: "Tambah baris", en: "Add line" },
+  seimbangSingkat: { id: "seimbang", en: "balanced" },
+  belumSeimbang: { id: "belum seimbang", en: "not balanced" },
+  postingJurnal: { id: "Posting Jurnal", en: "Post Entry" },
+  contohMemoJurnal: { id: "Setoran modal awal", en: "Initial capital deposit" },
+  contohNamaTemplate: { id: "mis. Sewa ruko bulanan", en: "e.g. Monthly shop rent" },
+  tidakAdaJurnalCocok: {
+    id: "Tidak ada jurnal yang cocok dengan pencarian.",
+    en: "No entries match the search.",
+  },
+  belumAdaJurnal: { id: "Belum ada jurnal.", en: "No entries yet." },
+  dibalikLabel: { id: "DIBALIK", en: "REVERSED" },
+  pembalikLabel: { id: "PEMBALIK", en: "REVERSING" },
+  periodeTerkunciBalik: {
+    id: "Periode terkunci — balik per hari ini?",
+    en: "Period locked — reverse as of today?",
+  },
+  balikJurnalTanya: { id: "Balik jurnal", en: "Reverse entry" },
+  balikPerHariIni: { id: "Balik per hari ini", en: "Reverse as of today" },
+  yaBalikJurnal: { id: "Ya, balik jurnal", en: "Yes, reverse entry" },
+  tanggalHariIni: { id: "tanggal hari ini", en: "today's date" },
+  descBalikTerkunci1: {
+    id: "Tanggal jurnal asal berada di periode yang sudah ditutup. Jurnal pembalik dapat diposting dengan",
+    en: "The original entry falls in a closed period. The reversing entry can be posted with",
+  },
+  descBalikTerkunci2: {
+    id: "sehingga koreksi terjadi di periode berjalan.",
+    en: "so the correction lands in the current period.",
+  },
+  descBalikBiasa: {
+    id: "Jurnal pembalik (debit↔kredit ditukar) akan diposting dengan tanggal yang sama. Keduanya saling tertaut dan tidak bisa dibalik ulang — begitulah koreksi pada buku besar yang jejaknya utuh.",
+    en: "A reversing entry (debit↔credit swapped) is posted with the same date. The two stay linked and cannot be reversed again — that is how corrections work in a ledger that keeps a full trail.",
+  },
+  memuat: { id: "Memuat…", en: "Loading…" },
+  muatLebihLama: { id: "Muat lebih lama", en: "Load older" },
+  saldoAkhir: { id: "Saldo akhir", en: "Closing balance" },
+  bulananBerikutnya: { id: "bulanan · berikutnya", en: "monthly · next" },
+  manualLabel: { id: "manual", en: "manual" },
+  debitSingkat: { id: "D", en: "D" },
+  kreditSingkat: { id: "K", en: "C" },
 };
 
 export type UiKey = keyof typeof UI;

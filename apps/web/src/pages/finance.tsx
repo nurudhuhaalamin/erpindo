@@ -166,7 +166,7 @@ export function AccountsPage() {
                           {renamingId === a.id ? (
                             <div className="flex items-center gap-2">
                               <Input
-                                aria-label={`Nama baru untuk akun ${a.code}`}
+                                aria-label={`${u("namaBaruAkun")} ${a.code}`}
                                 className="h-8 max-w-xs"
                                 value={renameValue}
                                 onChange={(e) => setRenameValue(e.target.value)}
@@ -442,7 +442,7 @@ export function JournalPage() {
                   id="jr-memo"
                   value={memo}
                   onChange={(e) => setMemo(e.target.value)}
-                  placeholder="Setoran modal awal"
+                  placeholder={u("contohMemoJurnal")}
                 />
               </div>
               {activeProjects.length > 0 ? (
@@ -471,11 +471,11 @@ export function JournalPage() {
                   className={`grid grid-cols-2 gap-2 ${costCenters.length > 0 ? "sm:grid-cols-[1fr_1fr_9rem_7rem_7rem_2.5rem]" : "sm:grid-cols-[1fr_1fr_8rem_8rem_2.5rem]"}`}
                 >
                   <Select
-                    aria-label={`Akun baris ${i + 1}`}
+                    aria-label={`${u("akunBaris")} ${i + 1}`}
                     value={line.accountId}
                     onChange={(e) => setLine(i, { accountId: e.target.value })}
                   >
-                    <option value="">— pilih akun —</option>
+                    <option value="">{u("pilihAkunOpsi")}</option>
                     {activeAccounts.map((a: ApiAccount) => (
                       <option key={a.id} value={a.id}>
                         {a.code} · {a.name}
@@ -503,7 +503,7 @@ export function JournalPage() {
                     </Select>
                   ) : null}
                   <Input
-                    aria-label={`Debit baris ${i + 1}`}
+                    aria-label={`${u("debitBaris")} ${i + 1}`}
                     type="number"
                     min={0}
                     placeholder={u("debit")}
@@ -516,7 +516,7 @@ export function JournalPage() {
                     }
                   />
                   <Input
-                    aria-label={`Kredit baris ${i + 1}`}
+                    aria-label={`${u("kreditBaris")} ${i + 1}`}
                     type="number"
                     min={0}
                     placeholder={u("kredit")}
@@ -531,7 +531,7 @@ export function JournalPage() {
                   <Button
                     type="button"
                     variant="ghost"
-                    aria-label={`Hapus baris ${i + 1}`}
+                    aria-label={`${u("hapusBaris")} ${i + 1}`}
                     onClick={() =>
                       setLines((ls) => (ls.length > 2 ? ls.filter((_, idx) => idx !== i) : ls))
                     }
@@ -548,15 +548,16 @@ export function JournalPage() {
                 variant="secondary"
                 onClick={() => setLines((ls) => [...ls, emptyLine()])}
               >
-                + Tambah baris
+                + {u("tambahBaris")}
               </Button>
               <div className="text-sm">
-                {u("debit")} <strong className="tabular-nums">{formatIDR(totalDebit)}</strong> · Kredit{" "}
+                {u("debit")} <strong className="tabular-nums">{formatIDR(totalDebit)}</strong> ·{" "}
+                {u("kredit")}{" "}
                 <strong className="tabular-nums">{formatIDR(totalCredit)}</strong>{" "}
                 {balanced ? (
-                  <Badge tone="brand">seimbang</Badge>
+                  <Badge tone="brand">{u("seimbangSingkat")}</Badge>
                 ) : (
-                  <Badge tone="amber">belum seimbang</Badge>
+                  <Badge tone="amber">{u("belumSeimbang")}</Badge>
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -569,7 +570,7 @@ export function JournalPage() {
                   {u("simpanSebagaiTemplate")}
                 </Button>
                 <Button onClick={submit} disabled={!balanced || create.isPending}>
-                  {create.isPending ? <Spinner /> : null} Posting Jurnal
+                  {create.isPending ? <Spinner /> : null} {u("postingJurnal")}
                 </Button>
               </div>
             </div>
@@ -580,7 +581,7 @@ export function JournalPage() {
                   <Label htmlFor="tpl-name">{u("namaTemplate")}</Label>
                   <Input
                     id="tpl-name"
-                    placeholder="mis. Sewa ruko bulanan"
+                    placeholder={u("contohNamaTemplate")}
                     value={templateName}
                     onChange={(e) => setTemplateName(e.target.value)}
                   />
@@ -661,7 +662,7 @@ export function JournalPage() {
             <Spinner />
           ) : (entriesQuery.data?.entries.length ?? 0) === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              {entryQ ? "Tidak ada jurnal yang cocok dengan pencarian." : "Belum ada jurnal."}
+              {entryQ ? u("tidakAdaJurnalCocok") : u("belumAdaJurnal")}
             </p>
           ) : (
             <div className="space-y-4">
@@ -679,10 +680,14 @@ export function JournalPage() {
                       <span className="text-slate-600 dark:text-slate-300">— {e.memo}</span>
                     ) : null}
                     {e.reversedByEntryNo ? (
-                      <Badge tone="red">DIBALIK · {e.reversedByEntryNo}</Badge>
+                      <Badge tone="red">
+                        {u("dibalikLabel")} · {e.reversedByEntryNo}
+                      </Badge>
                     ) : null}
                     {e.reversesEntryNo ? (
-                      <Badge tone="amber">PEMBALIK · {e.reversesEntryNo}</Badge>
+                      <Badge tone="amber">
+                        {u("pembalikLabel")} · {e.reversesEntryNo}
+                      </Badge>
                     ) : null}
                     {isAdmin &&
                     !e.reversedByEntryNo &&
@@ -719,7 +724,8 @@ export function JournalPage() {
               {(entriesQuery.data?.total ?? 0) > (entriesQuery.data?.entries.length ?? 0) ? (
                 <div className="flex items-center justify-center gap-3">
                   <span className="text-xs text-slate-500 dark:text-slate-400">
-                    Menampilkan {entriesQuery.data!.entries.length} dari {entriesQuery.data!.total}
+                    {u("menampilkan")} {entriesQuery.data!.entries.length} {u("dariTotal")}{" "}
+                    {entriesQuery.data!.total}
                   </span>
                   <Button
                     variant="secondary"
@@ -739,25 +745,22 @@ export function JournalPage() {
         open={reverseTarget !== null}
         title={
           reverseToday
-            ? `Periode terkunci — balik per hari ini?`
-            : `Balik jurnal ${reverseTarget?.entryNo}?`
+            ? u("periodeTerkunciBalik")
+            : `${u("balikJurnalTanya")} ${reverseTarget?.entryNo}?`
         }
         description={
           reverseToday ? (
             <>
-              Tanggal jurnal asal berada di periode yang sudah ditutup. Jurnal pembalik dapat
-              diposting dengan <strong>tanggal hari ini</strong> sehingga koreksi terjadi di periode
-              berjalan.
+              {u("descBalikTerkunci1")} <strong>{u("tanggalHariIni")}</strong>{" "}
+              {u("descBalikTerkunci2")}
             </>
           ) : (
             <>
-              Jurnal pembalik (debit↔kredit ditukar) akan diposting dengan tanggal yang sama.
-              Keduanya saling tertaut dan tidak bisa dibalik ulang — begitulah koreksi pada buku
-              besar yang jejaknya utuh.
+              {u("descBalikBiasa")}
             </>
           )
         }
-        confirmLabel={reverseToday ? "Balik per hari ini" : "Ya, balik jurnal"}
+        confirmLabel={reverseToday ? u("balikPerHariIni") : u("yaBalikJurnal")}
         danger
         busy={doReverse.isPending}
         onConfirm={() =>
@@ -839,7 +842,7 @@ export function LedgerPage() {
           <div className="sm:w-96">
             <Label htmlFor="lg-acc">{u("pilihAkun")}</Label>
             <Select id="lg-acc" value={accountId} onChange={(e) => pickAccount(e.target.value)}>
-              <option value="">— pilih akun —</option>
+              <option value="">{u("pilihAkunOpsi")}</option>
               {(accountsQuery.data?.accounts ?? []).map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.code} · {a.name}
@@ -858,7 +861,7 @@ export function LedgerPage() {
                   onClick={() => void loadOlder()}
                   disabled={loadingOlder}
                 >
-                  {loadingOlder ? "Memuat…" : "Muat lebih lama"}
+                  {loadingOlder ? u("memuat") : u("muatLebihLama")}
                 </Button>
               ) : null}
               <div className="overflow-x-auto">
@@ -894,7 +897,7 @@ export function LedgerPage() {
                 </table>
               </div>
               <p className="text-sm">
-                Saldo akhir{" "}
+                {u("saldoAkhir")}{" "}
                 <strong className="tabular-nums">{formatIDR(ledgerQuery.data.balance)}</strong>
               </p>
             </>
@@ -923,7 +926,7 @@ export function TrialBalancePage() {
         <PageHeading k="neracaSaldo" />
         {query.data ? (
           query.data.balanced ? (
-            <Badge tone="brand">seimbang ✓</Badge>
+            <Badge tone="brand">{u("seimbang")}</Badge>
           ) : (
             <Badge tone="amber">{u("tidakSeimbang")}</Badge>
           )
@@ -1048,10 +1051,11 @@ function TemplatesCard({
                 <span className="font-medium">{t.name}</span>
                 {t.schedule === "monthly" ? (
                   <Badge tone="brand">
-                    bulanan · berikutnya {t.nextRunDate ? formatDate(t.nextRunDate) : "—"}
+                    {u("bulananBerikutnya")}{" "}
+                    {t.nextRunDate ? formatDate(t.nextRunDate) : "—"}
                   </Badge>
                 ) : (
-                  <Badge>manual</Badge>
+                  <Badge>{u("manualLabel")}</Badge>
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm sm:justify-end">
@@ -1082,7 +1086,9 @@ function TemplatesCard({
                     {l.accountCode} · {l.accountName}
                   </span>
                   <span className="tabular-nums">
-                    {l.debit ? `D ${formatIDR(l.debit)}` : `K ${formatIDR(l.credit)}`}
+                    {l.debit
+                      ? `${u("debitSingkat")} ${formatIDR(l.debit)}`
+                      : `${u("kreditSingkat")} ${formatIDR(l.credit)}`}
                   </span>
                 </div>
               ))}

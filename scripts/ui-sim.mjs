@@ -396,6 +396,21 @@ try {
     adaAssetKpi && adaAssetList && tanpaAsetId,
     `→ kpi=${adaAssetKpi} daftar=${adaAssetList} tanpaID=${tanpaAsetId}`,
   );
+  // Fase 16o — pelunasan utang 16f. Rute diverifikasi ke main.tsx:
+  // /app/keuangan/jurnal. Form jurnal manual selalu tampil untuk admin, jadi
+  // penanda positifnya tak bergantung ada/tidaknya jurnal tersimpan.
+  await gotoRoute("/app/keuangan/jurnal", 900);
+  const jrSisaEn = await page.innerText("body");
+  const adaJurnalSisaEn = jrSisaEn.includes("Post Entry") && jrSisaEn.includes("Add line");
+  const tanpaJurnalSisaId =
+    !jrSisaEn.includes("Posting Jurnal") &&
+    !jrSisaEn.includes("Tambah baris") &&
+    !jrSisaEn.includes("belum seimbang");
+  check(
+    "F0s sisa teks Jurnal Umum ikut EN: tombol posting & tambah baris, tanpa teks Indonesia",
+    adaJurnalSisaEn && tanpaJurnalSisaId,
+    `→ tombol=${adaJurnalSisaEn} tanpaID=${tanpaJurnalSisaId}`,
+  );
   // Fase 16n — pelunasan utang 16e. Rute diverifikasi ke main.tsx:
   // /app/keuangan/arus-kas dan /app/keuangan/neraca. Baris ringkasan arus kas
   // selalu tampil begitu data termuat (tak bergantung ada/tidaknya mutasi).
