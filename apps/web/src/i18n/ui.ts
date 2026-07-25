@@ -767,6 +767,34 @@ const UI: Record<string, Dual> = {
   manualLabel: { id: "manual", en: "manual" },
   debitSingkat: { id: "D", en: "D" },
   kreditSingkat: { id: "K", en: "C" },
+  // Proyek — pelunasan utang 16j (Fase 16p)
+  selesaiStatus: { id: "selesai", en: "completed" },
+  buatProyek: { id: "Buat Proyek", en: "Create Project" },
+  waktuBerjalan: { id: "waktu berjalan", en: "of time elapsed" },
+  lewatTenggat: { id: "lewat tenggat", en: "past due" },
+  belumAdaTugasBerjadwal: { id: "Belum ada tugas berjadwal.", en: "No scheduled tasks yet." },
+  petunjukJadwalTugas: {
+    id: "Klik “Jadwal” pada tugas di bawah untuk menetapkan tanggal mulai–selesai.",
+    en: "Click “Schedule” on a task below to set its start and end dates.",
+  },
+  belumDitugaskan: { id: "Belum ditugaskan", en: "Unassigned" },
+  kolomKosong: { id: "kosong", en: "empty" },
+  petunjukSeretKartu: {
+    id: "Seret kartu untuk memindahkan tahap. Progres proyek dihitung dari tugas selesai.",
+    en: "Drag a card to move it between stages. Project progress is derived from completed tasks.",
+  },
+  terbuka: { id: "terbuka", en: "open" },
+  belumKecil: { id: "belum", en: "to do" },
+  prosesKecil: { id: "proses", en: "in progress" },
+  selesaiKecil: { id: "selesai", en: "done" },
+  sudahDitagih: { id: "sudah ditagih", en: "billed" },
+  realisasi: { id: "Realisasi", en: "Actual" },
+  dariAnggaran: { id: "dari anggaran", en: "of budget" },
+  melebihiRab: { id: "— melebihi RAB", en: "— over budget" },
+  descTimesheetEstimasi: {
+    id: "Timesheet bersifat estimasi — gaji sudah dibebankan lewat penggajian, jadi tidak dijurnal ulang di sini agar tidak dobel-hitung.",
+    en: "Timesheets are estimates — wages are already charged through payroll, so they are not posted again here to avoid double counting.",
+  },
 };
 
 export type UiKey = keyof typeof UI;
