@@ -77,3 +77,29 @@ Semuanya diperbaiki di fase ini.
 | 2 | Atribut **tanpa batas panjang** | 16f |
 | 3 | Teks setelah ekspresi (`{expr} teks <`) | 16g |
 | 4 | Asersi wajib punya penanda **positif**, bukan hanya negatif | 16g |
+
+## Iterasi asersi ketiga: halaman ber-state menuntut cek yang lebih hati-hati
+
+Setelah rute diperbaiki, `F0i` masih gagal — kini `shift=true recap=false`.
+Terjemahannya benar; asersinya yang keliru lagi.
+
+Layar Kasir punya **dua keadaan**:
+
+| Keadaan | Yang ter-render |
+|---|---|
+| Shift **tertutup** | hanya kartu "Buka shift" (+ gudang, kas awal) |
+| Shift **terbuka** | keranjang, Rekap hari ini, Struk & Refund |
+
+ui-sim mendarat pada keadaan **tertutup**, sehingga kartu Rekap/Struk memang
+tidak ada di layar. Menuntut keduanya sekaligus adalah kesalahan asersi, bukan
+bukti halaman belum diterjemahkan.
+
+Cek disesuaikan: menerima **salah satu** keadaan (penanda positif per keadaan)
+dengan penanda negatif yang mencakup ketiga teks Indonesia. Alasannya ditulis di
+komentar uji.
+
+**Pelajaran (menambah daftar 4 pola):** untuk halaman yang punya beberapa
+keadaan, asersi harus menyebut keadaan mana yang diuji — atau menerima keduanya
+secara eksplisit. Cek yang menganggap satu halaman selalu menampilkan hal sama
+akan gagal palsu, dan (lebih berbahaya) bisa juga **lolos palsu** bila keadaan
+yang kebetulan muncul tidak memuat teks yang diperiksa.
