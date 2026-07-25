@@ -262,6 +262,16 @@ try {
     adaStockLevels && adaBalance && tanpaLevelId,
     `→ stockLevels=${adaStockLevels} balance=${adaBalance} tanpaID=${tanpaLevelId}`,
   );
+  await gotoRoute("/app/keuangan/laba-rugi", 800);
+  const lrEn = await page.innerText("body");
+  const adaIncome = lrEn.includes("Income");
+  const adaExpense = lrEn.includes("Expenses");
+  const tanpaPendapatanId = !lrEn.includes("Pendapatan");
+  check(
+    "F0g isi halaman Laba Rugi ikut EN: Income/Expenses, tanpa teks Indonesia",
+    adaIncome && adaExpense && tanpaPendapatanId,
+    `→ income=${adaIncome} expenses=${adaExpense} tanpaID=${tanpaPendapatanId}`,
+  );
   await gotoRoute("/app/keuangan/neraca-saldo", 700);
   const tbEn = await page.innerText("body");
   check(

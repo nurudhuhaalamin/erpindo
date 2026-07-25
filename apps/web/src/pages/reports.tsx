@@ -1,4 +1,5 @@
 import { AGING_BUCKETS, AGING_BUCKET_LABELS, type ApiReportLine } from "@erpindo/shared";
+import { useUi } from "../i18n/ui";
 import { useHeading } from "../i18n/pageHeadings";
 import { useQuery } from "@tanstack/react-query";
 import { Download, Inbox } from "lucide-react";
@@ -99,6 +100,7 @@ function deltaPct(now: number, prev: number): string {
 }
 
 export function IncomeStatementPage() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const [from, setFrom] = useState(monthStart);
   const [to, setTo] = useState(today);
@@ -157,7 +159,7 @@ export function IncomeStatementPage() {
         <CardBody className="space-y-5">
           <div className="flex flex-wrap items-end gap-3">
             <div>
-              <Label htmlFor="pl-from">Dari</Label>
+              <Label htmlFor="pl-from">{u("dari")}</Label>
               <Input
                 id="pl-from"
                 type="date"
@@ -166,7 +168,7 @@ export function IncomeStatementPage() {
               />
             </div>
             <div>
-              <Label htmlFor="pl-to">Sampai</Label>
+              <Label htmlFor="pl-to">{u("sampai")}</Label>
               <Input id="pl-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
             </div>
             <label className="flex items-center gap-2 pb-2 text-sm">
@@ -176,7 +178,7 @@ export function IncomeStatementPage() {
                 onChange={(e) => setCompare(e.target.checked)}
                 className="size-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
               />
-              Bandingkan dengan periode sebelumnya
+              {u("bandingkanPeriode")}
             </label>
           </div>
 
@@ -187,20 +189,20 @@ export function IncomeStatementPage() {
               {grossMargin !== null ? (
                 <div className="flex flex-wrap gap-2 text-xs">
                   <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                    Margin kotor <strong>{grossMargin}%</strong>
+                    {u("marginKotor")} <strong>{grossMargin}%</strong>
                   </span>
                   <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                    Margin bersih <strong>{netMargin}%</strong>
+                    {u("marginBersih")} <strong>{netMargin}%</strong>
                   </span>
                 </div>
               ) : null}
               <ReportSection
-                title="Pendapatan"
+                title={u("pendapatan")}
                 lines={query.data.income}
                 total={query.data.totalIncome}
               />
               <ReportSection
-                title="Beban"
+                title={u("beban")}
                 lines={query.data.expense}
                 total={query.data.totalExpense}
               />
@@ -261,6 +263,7 @@ export function IncomeStatementPage() {
 // ---------------------------------------------------------------------------
 
 export function CashFlowPage() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const [from, setFrom] = useState(monthStart);
   const [to, setTo] = useState(today);
@@ -307,7 +310,7 @@ export function CashFlowPage() {
         <CardBody className="space-y-5">
           <div className="flex flex-wrap items-end gap-3">
             <div>
-              <Label htmlFor="cf-from">Dari</Label>
+              <Label htmlFor="cf-from">{u("dari")}</Label>
               <Input
                 id="cf-from"
                 type="date"
@@ -316,7 +319,7 @@ export function CashFlowPage() {
               />
             </div>
             <div>
-              <Label htmlFor="cf-to">Sampai</Label>
+              <Label htmlFor="cf-to">{u("sampai")}</Label>
               <Input id="cf-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
             </div>
           </div>
@@ -328,10 +331,10 @@ export function CashFlowPage() {
               {row("Saldo kas awal periode", query.data.openingBalance, true)}
               <div>
                 <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
-                  Kas Masuk
+                  {u("kasMasuk")}
                 </h3>
                 {query.data.inflows.length === 0 ? (
-                  <p className="text-sm text-slate-400">Tidak ada.</p>
+                  <p className="text-sm text-slate-400">{u("tidakAda")}</p>
                 ) : (
                   query.data.inflows.map((r, i) => <div key={i}>{row(r.label, r.amount)}</div>)
                 )}
@@ -339,10 +342,10 @@ export function CashFlowPage() {
               </div>
               <div>
                 <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-red-600 dark:text-red-400">
-                  Kas Keluar
+                  {u("kasKeluar")}
                 </h3>
                 {query.data.outflows.length === 0 ? (
-                  <p className="text-sm text-slate-400">Tidak ada.</p>
+                  <p className="text-sm text-slate-400">{u("tidakAda")}</p>
                 ) : (
                   query.data.outflows.map((r, i) => <div key={i}>{row(r.label, r.amount)}</div>)
                 )}
@@ -365,6 +368,7 @@ export function CashFlowPage() {
 // ---------------------------------------------------------------------------
 
 export function AgingPage() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const [kind, setKind] = useState<"receivable" | "payable">("receivable");
   const hAging = useHeading(kind === "receivable" ? "umurPiutang" : "umurHutang");
@@ -387,8 +391,8 @@ export function AgingPage() {
             value={kind}
             onChange={(e) => setKind(e.target.value as "receivable" | "payable")}
           >
-            <option value="receivable">Piutang</option>
-            <option value="payable">Hutang</option>
+            <option value="receivable">{u("piutang")}</option>
+            <option value="payable">{u("hutang")}</option>
           </Select>
           {query.data ? (
             <ExportButton
@@ -421,13 +425,13 @@ export function AgingPage() {
               <table className="w-full min-w-[640px] text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-800">
-                    <th className={th}>Kontak</th>
+                    <th className={th}>{u("kontakKolom")}</th>
                     {AGING_BUCKETS.map((b) => (
                       <th key={b} className={`${th} text-right`}>
                         {AGING_BUCKET_LABELS[b]}
                       </th>
                     ))}
-                    <th className={`${th} text-right`}>Total</th>
+                    <th className={`${th} text-right`}>{u("total")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -446,7 +450,7 @@ export function AgingPage() {
                   ))}
                   <tr className="font-semibold">
                     <td className="py-2.5 pr-4" colSpan={AGING_BUCKETS.length + 1}>
-                      Total keseluruhan
+                      {u("totalKeseluruhan")}
                     </td>
                     <td className="py-2.5 text-right tabular-nums">
                       {formatIDR(query.data!.grandTotal)}
@@ -467,6 +471,7 @@ export function AgingPage() {
 // ---------------------------------------------------------------------------
 
 export function EfakturPage() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const [from, setFrom] = useState(monthStart);
@@ -547,7 +552,7 @@ export function EfakturPage() {
         <CardBody className="space-y-5">
           <div className="flex flex-wrap items-end gap-3">
             <div>
-              <Label htmlFor="ef-from">Dari</Label>
+              <Label htmlFor="ef-from">{u("dari")}</Label>
               <Input
                 id="ef-from"
                 type="date"
@@ -556,7 +561,7 @@ export function EfakturPage() {
               />
             </div>
             <div>
-              <Label htmlFor="ef-to">Sampai</Label>
+              <Label htmlFor="ef-to">{u("sampai")}</Label>
               <Input id="ef-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
             </div>
           </div>
@@ -565,20 +570,20 @@ export function EfakturPage() {
             <Spinner />
           ) : (query.data?.rows.length ?? 0) === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Tidak ada faktur ber-PPN pada periode ini.
+              {u("tidakAdaFakturPpn")}
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-800">
-                    <th className={th}>Nomor</th>
-                    <th className={th}>Tanggal</th>
+                    <th className={th}>{u("nomor")}</th>
+                    <th className={th}>{u("tanggal")}</th>
                     <th className={th}>NPWP</th>
-                    <th className={th}>Pembeli</th>
+                    <th className={th}>{u("pembeli")}</th>
                     <th className={`${th} text-right`}>DPP</th>
                     <th className={`${th} text-right`}>PPN</th>
-                    <th className={`${th} text-right`}>Total</th>
+                    <th className={`${th} text-right`}>{u("total")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -624,6 +629,7 @@ export function EfakturPage() {
 // ---------------------------------------------------------------------------
 
 export function BalanceSheetPage() {
+  const u = useUi();
   const hNeraca = useHeading("neraca");
   const { tenant } = useWorkspace();
   const [asOf, setAsOf] = useState(today);
@@ -643,7 +649,7 @@ export function BalanceSheetPage() {
             query.data.balanced ? (
               <Badge tone="brand">seimbang ✓</Badge>
             ) : (
-              <Badge tone="amber">TIDAK seimbang</Badge>
+              <Badge tone="amber">{u("tidakSeimbang")}</Badge>
             )
           ) : null}
         </div>
@@ -672,7 +678,7 @@ export function BalanceSheetPage() {
       <Card>
         <CardBody className="space-y-5">
           <div>
-            <Label htmlFor="bs-asof">Per tanggal</Label>
+            <Label htmlFor="bs-asof">{u("perTanggal")}</Label>
             <Input
               id="bs-asof"
               type="date"
@@ -687,22 +693,22 @@ export function BalanceSheetPage() {
           ) : query.data ? (
             <>
               <ReportSection
-                title="Aset"
+                title={u("aset")}
                 lines={query.data.assets}
                 total={query.data.totalAssets}
               />
               <ReportSection
-                title="Kewajiban"
+                title={u("kewajiban")}
                 lines={query.data.liabilities}
                 total={query.data.totalLiabilities}
               />
               <ReportSection
-                title="Ekuitas"
+                title={u("ekuitas")}
                 lines={query.data.equity}
                 total={query.data.totalEquity}
               />
               <div className="flex items-center justify-between rounded-lg bg-slate-100 px-4 py-3 text-sm font-semibold dark:bg-slate-800">
-                <span>Kewajiban + Ekuitas</span>
+                <span>{u("kewajibanEkuitas")}</span>
                 <span className="tabular-nums">
                   {formatIDR(query.data.totalLiabilities + query.data.totalEquity)}
                 </span>
@@ -720,6 +726,7 @@ export function BalanceSheetPage() {
 // ---------------------------------------------------------------------------
 
 export function SalesReportPage() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const [from, setFrom] = useState(monthStart);
   const [to, setTo] = useState(today);
@@ -738,7 +745,7 @@ export function SalesReportPage() {
         </div>
         <div className="flex flex-wrap items-end gap-2">
           <div>
-            <Label htmlFor="sr-from">Dari</Label>
+            <Label htmlFor="sr-from">{u("dari")}</Label>
             <Input
               id="sr-from"
               type="date"
@@ -747,7 +754,7 @@ export function SalesReportPage() {
             />
           </div>
           <div>
-            <Label htmlFor="sr-to">Sampai</Label>
+            <Label htmlFor="sr-to">{u("sampai")}</Label>
             <Input id="sr-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
           </div>
           {data && (data.byProduct.length > 0 || data.byCustomer.length > 0) ? (
@@ -779,7 +786,7 @@ export function SalesReportPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Card>
               <CardBody>
-                <div className="text-sm text-slate-500 dark:text-slate-400">Total penjualan</div>
+                <div className="text-sm text-slate-500 dark:text-slate-400">{u("totalPenjualan")}</div>
                 <div className="mt-1 text-xl font-semibold tabular-nums">
                   {formatIDR(data.totalRevenue)}
                 </div>
@@ -787,7 +794,7 @@ export function SalesReportPage() {
             </Card>
             <Card>
               <CardBody>
-                <div className="text-sm text-slate-500 dark:text-slate-400">Jumlah faktur</div>
+                <div className="text-sm text-slate-500 dark:text-slate-400">{u("jumlahFaktur")}</div>
                 <div className="mt-1 text-xl font-semibold tabular-nums">
                   {data.invoiceCount.toLocaleString("id-ID")}
                 </div>
@@ -796,7 +803,7 @@ export function SalesReportPage() {
             <Card>
               <CardBody>
                 <div className="text-sm text-slate-500 dark:text-slate-400">
-                  Rata-rata per faktur
+                  {u("rataRataPerFaktur")}
                 </div>
                 <div className="mt-1 text-xl font-semibold tabular-nums">
                   {formatIDR(
@@ -809,7 +816,7 @@ export function SalesReportPage() {
 
           <Card>
             <CardHeader
-              title="Per produk"
+              title={u("perProduk")}
               action={
                 data.byProduct.length > 0 ? (
                   <ExportButton
@@ -828,8 +835,8 @@ export function SalesReportPage() {
               {data.byProduct.length === 0 ? (
                 <EmptyState
                   icon={<Inbox className="size-6" aria-hidden />}
-                  title="Belum ada penjualan"
-                  description="Tidak ada faktur pada rentang tanggal ini."
+                  title={u("belumAdaPenjualan")}
+                  description={u("tidakAdaFakturRentang")}
                 />
               ) : (
                 <div className="overflow-x-auto">
@@ -837,9 +844,9 @@ export function SalesReportPage() {
                     <thead>
                       <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
                         <th className="pb-2 pr-4 font-medium">SKU</th>
-                        <th className="pb-2 pr-4 font-medium">Produk</th>
+                        <th className="pb-2 pr-4 font-medium">{u("produk")}</th>
                         <th className="pb-2 pr-4 text-right font-medium">Qty</th>
-                        <th className="pb-2 text-right font-medium">Omzet</th>
+                        <th className="pb-2 text-right font-medium">{u("omzet")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -865,7 +872,7 @@ export function SalesReportPage() {
 
           <Card>
             <CardHeader
-              title="Per pelanggan"
+              title={u("perPelanggan")}
               action={
                 data.byCustomer.length > 0 ? (
                   <ExportButton
@@ -884,17 +891,17 @@ export function SalesReportPage() {
               {data.byCustomer.length === 0 ? (
                 <EmptyState
                   icon={<Inbox className="size-6" aria-hidden />}
-                  title="Belum ada penjualan"
-                  description="Tidak ada faktur pada rentang tanggal ini."
+                  title={u("belumAdaPenjualan")}
+                  description={u("tidakAdaFakturRentang")}
                 />
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                        <th className="pb-2 pr-4 font-medium">Pelanggan</th>
-                        <th className="pb-2 pr-4 text-right font-medium">Faktur</th>
-                        <th className="pb-2 text-right font-medium">Omzet</th>
+                        <th className="pb-2 pr-4 font-medium">{u("pelanggan")}</th>
+                        <th className="pb-2 pr-4 text-right font-medium">{u("faktur")}</th>
+                        <th className="pb-2 text-right font-medium">{u("omzet")}</th>
                       </tr>
                     </thead>
                     <tbody>
