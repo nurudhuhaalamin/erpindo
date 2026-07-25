@@ -396,6 +396,19 @@ try {
     adaAssetKpi && adaAssetList && tanpaAsetId,
     `→ kpi=${adaAssetKpi} daftar=${adaAssetList} tanpaID=${tanpaAsetId}`,
   );
+  // Fase 16p — pelunasan utang 16j. Rute diverifikasi ke main.tsx: /app/proyek.
+  // Tombol buat proyek selalu tampil untuk admin; lencana status hanya muncul
+  // bila ada proyek, jadi asersinya hanya menuntut tombolnya.
+  await gotoRoute("/app/proyek", 800);
+  const prjSisaEn = await page.innerText("body");
+  const adaProyekSisaEn = prjSisaEn.includes("Create Project");
+  const tanpaProyekSisaId =
+    !prjSisaEn.includes("Buat Proyek") && !prjSisaEn.includes("Seret kartu untuk memindahkan");
+  check(
+    "F0t sisa teks Proyek ikut EN: tombol buat proyek, tanpa teks Indonesia",
+    adaProyekSisaEn && tanpaProyekSisaId,
+    `→ tombol=${adaProyekSisaEn} tanpaID=${tanpaProyekSisaId}`,
+  );
   // Fase 16o — pelunasan utang 16f. Rute diverifikasi ke main.tsx:
   // /app/keuangan/jurnal. Form jurnal manual selalu tampil untuk admin, jadi
   // penanda positifnya tak bergantung ada/tidaknya jurnal tersimpan.

@@ -41,7 +41,13 @@ import { useWorkspace } from "./app";
 type ProjectDetailTab = "ikhtisar" | "tugas" | "timesheet" | "anggaran";
 
 const STATUS_TONE = { active: "green", on_hold: "amber", completed: "neutral" } as const;
-const STATUS_LABEL = { active: "berjalan", on_hold: "ditunda", completed: "selesai" } as const;
+// Konstanta tingkat modul tidak boleh memanggil hook, jadi yang disimpan
+// adalah KUNCI kamus — diterjemahkan saat render (pola sama dengan 16j/16m).
+const STATUS_LABEL: Record<"active" | "on_hold" | "completed", UiKey> = {
+  active: "berjalan",
+  on_hold: "ditunda",
+  completed: "selesaiStatus",
+} as const;
 const TASK_TONE = { todo: "neutral", in_progress: "brand", done: "green" } as const;
 const PRIORITY_TONE: Record<ProjectTaskPriority, "red" | "amber" | "neutral"> = {
   high: "red",
@@ -165,8 +171,8 @@ export function ProjectsPage() {
                   create.isPending || form.code.trim().length < 1 || form.name.trim().length < 2
                 }
               >
-                {create.isPending ? <Spinner /> : <Plus className="size-4" aria-hidden />} Buat
-                Proyek
+                {create.isPending ? <Spinner /> : <Plus className="size-4" aria-hidden />}{" "}
+                {u("buatProyek")}
               </Button>
             </div>
           </CardBody>
@@ -241,7 +247,7 @@ function ProjectRow({ project, isAdmin }: { project: ApiProject; isAdmin: boolea
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="font-mono text-sm">{project.code}</span>
         <span className="font-medium">{project.name}</span>
-        <Badge tone={STATUS_TONE[project.status]}>{STATUS_LABEL[project.status]}</Badge>
+        <Badge tone={STATUS_TONE[project.status]}>{u(STATUS_LABEL[project.status])}</Badge>
         {project.contactName ? (
           <span className="text-xs text-slate-400">{project.contactName}</span>
         ) : null}
@@ -257,8 +263,9 @@ function ProjectRow({ project, isAdmin }: { project: ApiProject; isAdmin: boolea
           </span>
         ) : null}
         <span className="ml-auto text-sm">
-          {u("pendapatan")} <span className="tabular-nums">{formatIDR(project.revenue)}</span> · Biaya{" "}
-          <span className="tabular-nums">{formatIDR(project.cost)}</span> · Laba{" "}
+          {u("pendapatan")} <span className="tabular-nums">{formatIDR(project.revenue)}</span> ·{" "}
+          {u("biaya")} <span className="tabular-nums">{formatIDR(project.cost)}</span> ·{" "}
+          {u("laba")}{" "}
           <strong
             className={`tabular-nums ${project.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
           >
@@ -434,7 +441,7 @@ function ProjectTimeline({ detail }: { detail: ApiProjectDetail }) {
       </div>
       <div className="mt-1 flex justify-between text-xs text-slate-500 dark:text-slate-400">
         <span>{formatDate(detail.startDate)}</span>
-        <span>{past ? "lewat tenggat" : `${pct}% waktu berjalan`}</span>
+        <span>{past ? u("lewatTenggat") : `${pct}% ${u("waktuBerjalan")}`}</span>
         <span>{formatDate(detail.endDate)}</span>
       </div>
     </div>
@@ -495,10 +502,7 @@ function GanttChart({
       </div>
       {scheduled.length === 0 ? (
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Belum ada tugas berjadwal.{" "}
-          {isAdmin
-            ? "Klik “Jadwal” pada tugas di bawah untuk menetapkan tanggal mulai–selesai."
-            : ""}
+          {u("belumAdaTugasBerjadwal")} {isAdmin ? u("petunjukJadwalTugas") : ""}
         </p>
       ) : (
         <div className="space-y-1.5">
@@ -696,7 +700,7 @@ function TaskBoard({
         <div className="mb-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
           <div className="lg:col-span-2">
             <Input
-              aria-label="Nama tugas"
+              aria-label={u("namaTugas")}
               placeholder={u("tambahTugas")}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -794,7 +798,7 @@ function TaskBoard({
                         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-400">
                           <span className="inline-flex items-center gap-1">
                             <UserRound className="size-3" aria-hidden />{" "}
-                            {t.assigneeName ?? "Belum ditugaskan"}
+                            {t.assigneeName ?? u("belumDitugaskan")}
                           </span>
                           {t.dueDate ? (
                             <span className={overdue ? "font-medium text-red-500" : ""}>
@@ -805,7 +809,7 @@ function TaskBoard({
                         {isAdmin ? (
                           <div className="mt-1.5 flex gap-1.5">
                             <select
-                              aria-label="Ubah penanggung jawab"
+                              aria-label={u("ubahPenanggungJawab")}
                               className="min-w-0 flex-1 rounded border border-slate-200 bg-transparent px-1 py-0.5 text-xs dark:border-slate-700"
                               value={t.assigneeId ?? ""}
                               onChange={(e) =>
@@ -820,7 +824,7 @@ function TaskBoard({
                               ))}
                             </select>
                             <select
-                              aria-label="Ubah prioritas"
+                              aria-label={u("ubahPrioritas")}
                               className="rounded border border-slate-200 bg-transparent px-1 py-0.5 text-xs dark:border-slate-700"
                               value={t.priority}
                               onChange={(e) =>
@@ -843,7 +847,7 @@ function TaskBoard({
                   })}
                   {items.length === 0 ? (
                     <div className="rounded-md border border-dashed border-slate-200 p-2 text-center text-xs text-slate-400 dark:border-slate-700">
-                      kosong
+                      {u("kolomKosong")}
                     </div>
                   ) : null}
                 </div>
@@ -854,7 +858,7 @@ function TaskBoard({
       </div>
       {isAdmin ? (
         <p className="mt-1.5 text-xs text-slate-400">
-          Seret kartu untuk memindahkan tahap. Progres proyek dihitung dari tugas selesai.
+          {u("petunjukSeretKartu")}
         </p>
       ) : null}
     </div>
@@ -886,9 +890,12 @@ function WorkloadPanel({ detail }: { detail: ApiProjectDetail }) {
                 <UserRound className="size-3.5 text-slate-400" aria-hidden /> {w.assigneeName}
               </span>
               <span className="ml-auto flex items-center gap-1.5 text-xs">
-                <Badge tone="brand">{w.openTasks} terbuka</Badge>
+                <Badge tone="brand">
+                  {w.openTasks} {u("terbuka")}
+                </Badge>
                 <span className="text-slate-400">
-                  belum {w.todo} · proses {w.inProgress} · selesai {w.done}
+                  {u("belumKecil")} {w.todo} · {u("prosesKecil")} {w.inProgress} ·{" "}
+                  {u("selesaiKecil")} {w.done}
                 </span>
               </span>
             </div>
@@ -1005,7 +1012,7 @@ function MilestonesSection({
       {isAdmin ? (
         <div className="mb-2 flex flex-wrap gap-2">
           <Input
-            aria-label="Nama termin"
+            aria-label={u("namaTermin")}
             placeholder={u("contohTermin")}
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -1119,7 +1126,8 @@ function MilestonesSection({
           ))}
           <p className="pt-1 text-xs text-slate-500 dark:text-slate-400">
             {u("totalTermin")} <span className="font-medium tabular-nums">{formatIDR(totalTermin)}</span>{" "}
-            · sudah ditagih <span className="font-medium tabular-nums">{formatIDR(billed)}</span>
+            · {u("sudahDitagih")}{" "}
+            <span className="font-medium tabular-nums">{formatIDR(billed)}</span>
           </p>
         </div>
       )}
@@ -1173,7 +1181,7 @@ function BudgetSection({
       {isAdmin ? (
         <div className="mb-2 flex flex-wrap gap-2">
           <Input
-            aria-label="Kategori RAB"
+            aria-label={u("kategoriRab")}
             placeholder={u("contohKategoriRab")}
             value={form.category}
             onChange={(e) => setForm({ ...form, category: e.target.value })}
@@ -1236,8 +1244,8 @@ function BudgetSection({
                 <p
                   className={`mt-1 text-xs ${realisasiPct > 100 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"}`}
                 >
-                  Realisasi {realisasiPct}% dari anggaran
-                  {realisasiPct > 100 ? " — melebihi RAB" : ""}
+                  {u("realisasi")} {realisasiPct}% {u("dariAnggaran")}
+                  {realisasiPct > 100 ? ` ${u("melebihiRab")}` : ""}
                 </p>
               </div>
             ) : null}
@@ -1321,7 +1329,7 @@ function TimesheetSection({
             ))}
           </Select>
           <Input
-            aria-label="Tanggal"
+            aria-label={u("tanggal")}
             type="date"
             value={form.date}
             onChange={(e) => setForm({ ...form, date: e.target.value })}
@@ -1388,8 +1396,7 @@ function TimesheetSection({
               </strong>
             </div>
             <p className="mt-1 text-xs text-slate-400">
-              Timesheet bersifat estimasi — gaji sudah dibebankan lewat penggajian, jadi tidak
-              dijurnal ulang di sini agar tidak dobel-hitung.
+              {u("descTimesheetEstimasi")}
             </p>
           </div>
         </div>
