@@ -882,6 +882,30 @@ const UI: Record<string, Dual> = {
   statusDiterima: { id: "diterima", en: "accepted" },
   statusDitolak: { id: "ditolak", en: "rejected" },
   statusJadiFaktur: { id: "jadi faktur", en: "invoiced" },
+  // Peta label packages/shared — dipetakan di sisi web (Fase 16t).
+  // shared TIDAK boleh mengimpor kamus web (apps/api ikut memakainya), jadi
+  // labelnya dibiarkan apa adanya di sana dan web memetakan kunci sendiri.
+  industriRetail: { id: "Toko Retail / Kelontong", en: "Retail / Convenience store" },
+  industriFnb: { id: "Kuliner / F&B", en: "Food & Beverage" },
+  industriJasa: { id: "Jasa / Servis", en: "Services" },
+  industriGrosir: { id: "Grosir / Distribusi", en: "Wholesale / Distribution" },
+  aktivitasTelepon: { id: "Telepon", en: "Call" },
+  aktivitasEmail: { id: "Email", en: "Email" },
+  aktivitasPertemuan: { id: "Pertemuan", en: "Meeting" },
+  aktivitasWhatsapp: { id: "WhatsApp", en: "WhatsApp" },
+  aktivitasCatatan: { id: "Catatan", en: "Note" },
+  bayarTunai: { id: "Tunai", en: "Cash" },
+  bayarQris: { id: "QRIS", en: "QRIS" },
+  bayarKartu: { id: "Kartu/EDC", en: "Card/EDC" },
+  bayarEwallet: { id: "E-Wallet", en: "E-Wallet" },
+  prioritasRendah: { id: "Rendah", en: "Low" },
+  prioritasSedang: { id: "Sedang", en: "Medium" },
+  prioritasTinggi: { id: "Tinggi", en: "High" },
+  umurBelumJatuhTempo: { id: "Belum jatuh tempo", en: "Not yet due" },
+  umur1_30: { id: "1–30 hari", en: "1–30 days" },
+  umur31_60: { id: "31–60 hari", en: "31–60 days" },
+  umur61_90: { id: "61–90 hari", en: "61–90 days" },
+  umur90plus: { id: "> 90 hari", en: "> 90 days" },
 };
 
 export type UiKey = keyof typeof UI;

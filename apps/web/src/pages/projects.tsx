@@ -1,6 +1,5 @@
 import {
   PROJECT_TASK_PRIORITIES,
-  PROJECT_TASK_PRIORITY_LABELS,
   type ApiEmployee,
   type ApiProject,
   type ApiProjectDetail,
@@ -37,6 +36,16 @@ import {
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
+
+// Peta label PROJECT_TASK_PRIORITY_LABELS tinggal di packages/shared dan tetap
+// berbahasa Indonesia (apps/api ikut memakai paket itu, jadi shared tidak
+// boleh bergantung pada kamus web). Pemetaan ke kunci kamus dilakukan di
+// sisi web — Fase 16t.
+const TASK_PRIORITY_KEY: Record<ProjectTaskPriority, UiKey> = {
+  low: "prioritasRendah",
+  medium: "prioritasSedang",
+  high: "prioritasTinggi",
+};
 
 type ProjectDetailTab = "ikhtisar" | "tugas" | "timesheet" | "anggaran";
 
@@ -114,10 +123,7 @@ export function ProjectsPage() {
 
       {isAdmin ? (
         <Card>
-          <CardHeader
-            title={u("proyekBaru")}
-            description={u("descProyekBaru")}
-          />
+          <CardHeader title={u("proyekBaru")} description={u("descProyekBaru")} />
           <CardBody className="space-y-4">
             {error ? <Alert tone="error">{error}</Alert> : null}
             <div className="grid gap-3 sm:grid-cols-4">
@@ -264,8 +270,7 @@ function ProjectRow({ project, isAdmin }: { project: ApiProject; isAdmin: boolea
         ) : null}
         <span className="ml-auto text-sm">
           {u("pendapatan")} <span className="tabular-nums">{formatIDR(project.revenue)}</span> ·{" "}
-          {u("biaya")} <span className="tabular-nums">{formatIDR(project.cost)}</span> ·{" "}
-          {u("laba")}{" "}
+          {u("biaya")} <span className="tabular-nums">{formatIDR(project.cost)}</span> · {u("laba")}{" "}
           <strong
             className={`tabular-nums ${project.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
           >
@@ -380,7 +385,9 @@ function ProjectRow({ project, isAdmin }: { project: ApiProject; isAdmin: boolea
                               <th className="pb-1 pr-3 font-medium">{u("jurnal")}</th>
                               <th className="pb-1 pr-3 font-medium">{u("tanggal")}</th>
                               <th className="pb-1 pr-3 font-medium">{u("keterangan")}</th>
-                              <th className="pb-1 pr-3 text-right font-medium">{u("pendapatan")}</th>
+                              <th className="pb-1 pr-3 text-right font-medium">
+                                {u("pendapatan")}
+                              </th>
                               <th className="pb-1 text-right font-medium">{u("biaya")}</th>
                             </tr>
                           </thead>
@@ -725,7 +732,7 @@ function TaskBoard({
           >
             {PROJECT_TASK_PRIORITIES.map((p) => (
               <option key={p} value={p}>
-                {PROJECT_TASK_PRIORITY_LABELS[p]}
+                {u(TASK_PRIORITY_KEY[p])}
               </option>
             ))}
           </Select>
@@ -792,7 +799,7 @@ function TaskBoard({
                         <div className="flex items-start justify-between gap-2">
                           <span className="min-w-0">{t.name}</span>
                           <Badge tone={PRIORITY_TONE[t.priority]}>
-                            {PROJECT_TASK_PRIORITY_LABELS[t.priority]}
+                            {u(TASK_PRIORITY_KEY[t.priority])}
                           </Badge>
                         </div>
                         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-400">
@@ -836,7 +843,7 @@ function TaskBoard({
                             >
                               {PROJECT_TASK_PRIORITIES.map((p) => (
                                 <option key={p} value={p}>
-                                  {PROJECT_TASK_PRIORITY_LABELS[p]}
+                                  {u(TASK_PRIORITY_KEY[p])}
                                 </option>
                               ))}
                             </select>
@@ -856,11 +863,7 @@ function TaskBoard({
           })}
         </div>
       </div>
-      {isAdmin ? (
-        <p className="mt-1.5 text-xs text-slate-400">
-          {u("petunjukSeretKartu")}
-        </p>
-      ) : null}
+      {isAdmin ? <p className="mt-1.5 text-xs text-slate-400">{u("petunjukSeretKartu")}</p> : null}
     </div>
   );
 }
@@ -1125,8 +1128,9 @@ function MilestonesSection({
             </div>
           ))}
           <p className="pt-1 text-xs text-slate-500 dark:text-slate-400">
-            {u("totalTermin")} <span className="font-medium tabular-nums">{formatIDR(totalTermin)}</span>{" "}
-            · {u("sudahDitagih")}{" "}
+            {u("totalTermin")}{" "}
+            <span className="font-medium tabular-nums">{formatIDR(totalTermin)}</span> ·{" "}
+            {u("sudahDitagih")}{" "}
             <span className="font-medium tabular-nums">{formatIDR(billed)}</span>
           </p>
         </div>
@@ -1395,9 +1399,7 @@ function TimesheetSection({
                 {formatIDR(profitAfterLabor)}
               </strong>
             </div>
-            <p className="mt-1 text-xs text-slate-400">
-              {u("descTimesheetEstimasi")}
-            </p>
+            <p className="mt-1 text-xs text-slate-400">{u("descTimesheetEstimasi")}</p>
           </div>
         </div>
       )}

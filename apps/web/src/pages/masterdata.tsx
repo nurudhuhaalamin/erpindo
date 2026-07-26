@@ -1,7 +1,6 @@
 import {
   contactSchema,
   INDUSTRY_KEYS,
-  INDUSTRY_LABELS,
   productSchema,
   warehouseSchema,
   type ContactType,
@@ -31,6 +30,17 @@ import {
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
+
+// Peta label INDUSTRY_LABELS tinggal di packages/shared dan tetap
+// berbahasa Indonesia (apps/api ikut memakai paket itu, jadi shared tidak
+// boleh bergantung pada kamus web). Pemetaan ke kunci kamus dilakukan di
+// sisi web — Fase 16t.
+const INDUSTRY_KEY: Record<IndustryKey, UiKey> = {
+  retail: "industriRetail",
+  fnb: "industriFnb",
+  jasa: "industriJasa",
+  grosir: "industriGrosir",
+};
 
 const th = "pb-2 pr-4 text-left font-medium text-slate-500 dark:text-slate-400";
 const td = "border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60";
@@ -353,9 +363,7 @@ function SerialManager({ product }: { product: ProductRow }) {
           <Spinner />
         </div>
       ) : serials.length === 0 ? (
-        <p className="mt-3 text-sm text-slate-400">
-          {u("belumAdaNomorSeri")}
-        </p>
+        <p className="mt-3 text-sm text-slate-400">{u("belumAdaNomorSeri")}</p>
       ) : (
         <ul className="mt-3 space-y-1.5">
           {serials.map((s) => (
@@ -405,10 +413,7 @@ function IndustryTemplateCard() {
   });
   return (
     <Card>
-      <CardHeader
-        title={u("mulaiCepat")}
-        description={u("descMulaiCepat")}
-      />
+      <CardHeader title={u("mulaiCepat")} description={u("descMulaiCepat")} />
       <CardBody className="flex flex-wrap items-end gap-3">
         <div>
           <Label>{u("jenisUsaha")}</Label>
@@ -419,7 +424,7 @@ function IndustryTemplateCard() {
           >
             {INDUSTRY_KEYS.map((k) => (
               <option key={k} value={k}>
-                {INDUSTRY_LABELS[k]}
+                {u(INDUSTRY_KEY[k])}
               </option>
             ))}
           </Select>
@@ -741,9 +746,7 @@ export function ProductsPage() {
         open={toArchive !== null}
         title={u("arsipkanProduk")}
         description={
-          toArchive
-            ? `${toArchive.sku} — ${toArchive.name} ${u("descArsipkan")}`
-            : undefined
+          toArchive ? `${toArchive.sku} — ${toArchive.name} ${u("descArsipkan")}` : undefined
         }
         confirmLabel={u("arsipkan")}
         danger
@@ -995,11 +998,7 @@ export function ContactsPage() {
       <ConfirmDialog
         open={toArchive !== null}
         title={u("arsipkanKontak")}
-        description={
-          toArchive
-            ? `${toArchive.name} ${u("descArsipkan")}`
-            : undefined
-        }
+        description={toArchive ? `${toArchive.name} ${u("descArsipkan")}` : undefined}
         confirmLabel={u("arsipkan")}
         danger
         busy={archive.isPending}
@@ -1175,9 +1174,7 @@ export function WarehousesPage() {
         open={toArchive !== null}
         title={u("arsipkanGudang")}
         description={
-          toArchive
-            ? `${toArchive.code} — ${toArchive.name} ${u("descArsipkanGudang")}`
-            : undefined
+          toArchive ? `${toArchive.code} — ${toArchive.name} ${u("descArsipkanGudang")}` : undefined
         }
         confirmLabel={u("arsipkan")}
         danger
