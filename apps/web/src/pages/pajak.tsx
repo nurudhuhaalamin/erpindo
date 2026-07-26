@@ -14,12 +14,15 @@ import {
   PageHeading,
   Select,
   Spinner,
+  Table,
+  Td,
+  Th,
+  Thead,
+  Tr,
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
 
-const th = "pb-2 pr-4 text-left font-medium text-slate-500 dark:text-slate-400";
-const td = "border-b border-slate-100 py-2 pr-4 dark:border-slate-800/60";
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const thisMonth = () => new Date().toISOString().slice(0, 7);
 
@@ -195,30 +198,36 @@ function PphFinalSection({ isAdmin }: { isAdmin: boolean }) {
               Belum ada setoran tercatat.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800">
-                    <th className={th}>Masa</th>
-                    <th className={`${th} text-right`}>Omzet</th>
-                    <th className={`${th} text-right`}>Tarif</th>
-                    <th className={`${th} text-right`}>PPh Final</th>
-                    <th className={th}>Tgl setor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {records.map((r) => (
-                    <tr key={r.id}>
-                      <td className={`${td} font-medium`}>{r.period}</td>
-                      <td className={`${td} text-right tabular-nums`}>{formatIDR(r.omzet)}</td>
-                      <td className={`${td} text-right tabular-nums`}>{r.rate}%</td>
-                      <td className={`${td} text-right tabular-nums`}>{formatIDR(r.amount)}</td>
-                      <td className={`${td} tabular-nums`}>{formatDate(r.paidDate)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <Thead>
+                <tr>
+                  <Th>Masa</Th>
+                  <Th numeric>Omzet</Th>
+                  <Th numeric>Tarif</Th>
+                  <Th numeric>PPh Final</Th>
+                  <Th>Tgl setor</Th>
+                </tr>
+              </Thead>
+              <tbody>
+                {records.map((r) => (
+                  <Tr key={r.id}>
+                    <Td label="Masa" className="font-medium">
+                      {r.period}
+                    </Td>
+                    <Td numeric label="Omzet">
+                      {formatIDR(r.omzet)}
+                    </Td>
+                    <Td numeric label="Tarif">
+                      {r.rate}%
+                    </Td>
+                    <Td numeric label="PPh Final">
+                      {formatIDR(r.amount)}
+                    </Td>
+                    <Td label="Tgl setor">{formatDate(r.paidDate)}</Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
           )}
         </CardBody>
       </Card>
@@ -433,38 +442,43 @@ function Pph23Section({ isAdmin }: { isAdmin: boolean }) {
           ) : records.length === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada bukti potong.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800">
-                    <th className={th}>Nomor</th>
-                    <th className={th}>Tanggal</th>
-                    <th className={th}>Rekanan</th>
-                    <th className={th}>Objek</th>
-                    <th className={`${th} text-right`}>DPP</th>
-                    <th className={`${th} text-right`}>PPh 23</th>
-                    <th className={th}>Status</th>
-                    {isAdmin ? <th className={th}></th> : null}
-                  </tr>
-                </thead>
-                <tbody>
-                  {records.map((r) => (
-                    <tr key={r.id}>
-                      <td className={`${td} font-mono text-xs`}>{r.docNo}</td>
-                      <td className={`${td} tabular-nums`}>{formatDate(r.taxDate)}</td>
-                      <td className={td}>{r.contactName}</td>
-                      <td className={td}>{PPH23_OBJECT_LABELS[r.objectType] ?? r.objectType}</td>
-                      <td className={`${td} text-right tabular-nums`}>{formatIDR(r.gross)}</td>
-                      <td className={`${td} text-right tabular-nums`}>{formatIDR(r.amount)}</td>
-                      <td className={td}>
-                        {r.deposited ? (
-                          <Badge tone="green">Disetor</Badge>
-                        ) : (
-                          <Badge tone="amber">Belum setor</Badge>
-                        )}
-                      </td>
-                      {isAdmin ? (
-                        <td className={`${td} text-right`}>
+            <Table>
+              <Thead>
+                <tr>
+                  <Th>Nomor</Th>
+                  <Th>Tanggal</Th>
+                  <Th>Rekanan</Th>
+                  <Th>Objek</Th>
+                  <Th numeric>DPP</Th>
+                  <Th numeric>PPh 23</Th>
+                  <Th>Status</Th>
+                  {isAdmin ? <Th></Th> : null}
+                </tr>
+              </Thead>
+              <tbody>
+                {records.map((r) => (
+                  <Tr key={r.id}>
+                    <Td label="Nomor" className="font-mono text-xs">
+                      {r.docNo}
+                    </Td>
+                    <Td label="Tanggal">{formatDate(r.taxDate)}</Td>
+                    <Td label="Rekanan">{r.contactName}</Td>
+                    <Td label="Objek">{PPH23_OBJECT_LABELS[r.objectType] ?? r.objectType}</Td>
+                    <Td numeric label="DPP">
+                      {formatIDR(r.gross)}
+                    </Td>
+                    <Td numeric label="PPh 23">
+                      {formatIDR(r.amount)}
+                    </Td>
+                    <Td label="Status">
+                      {r.deposited ? (
+                        <Badge tone="green">Disetor</Badge>
+                      ) : (
+                        <Badge tone="amber">Belum setor</Badge>
+                      )}
+                    </Td>
+                    {isAdmin ? (
+                      <Td className="text-right">
                           {!r.deposited ? (
                             depositId === r.id ? (
                               <span className="flex items-center gap-1">
@@ -481,7 +495,7 @@ function Pph23Section({ isAdmin }: { isAdmin: boolean }) {
                                   ))}
                                 </Select>
                                 <Button
-                                  className="h-8"
+                                  size="xs"
                                   onClick={() => deposit.mutate(r.id)}
                                   disabled={deposit.isPending || !depAccount}
                                 >
@@ -489,7 +503,7 @@ function Pph23Section({ isAdmin }: { isAdmin: boolean }) {
                                 </Button>
                                 <Button
                                   variant="ghost"
-                                  className="h-8"
+                                  size="xs"
                                   onClick={() => setDepositId(null)}
                                 >
                                   Batal
@@ -498,7 +512,7 @@ function Pph23Section({ isAdmin }: { isAdmin: boolean }) {
                             ) : (
                               <Button
                                 variant="secondary"
-                                className="h-8"
+                                size="xs"
                                 onClick={() => {
                                   setDepositId(r.id);
                                   setDepAccount("");
@@ -507,14 +521,13 @@ function Pph23Section({ isAdmin }: { isAdmin: boolean }) {
                                 Setor
                               </Button>
                             )
-                          ) : null}
-                        </td>
-                      ) : null}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        ) : null}
+                      </Td>
+                    ) : null}
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
           )}
         </CardBody>
       </Card>
@@ -663,37 +676,43 @@ function SptTable({
           Tidak ada transaksi ber-PPN pada masa ini.
         </p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800">
-                <th className={th}>Nomor</th>
-                <th className={th}>Tanggal</th>
-                <th className={th}>Lawan Transaksi</th>
-                <th className={`${th} text-right`}>DPP</th>
-                <th className={`${th} text-right`}>PPN</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.docNo}>
-                  <td className={`${td} font-mono text-xs`}>{r.docNo}</td>
-                  <td className={`${td} tabular-nums`}>{formatDate(r.date)}</td>
-                  <td className={td}>{r.partnerName}</td>
-                  <td className={`${td} text-right tabular-nums`}>{formatIDR(r.dpp)}</td>
-                  <td className={`${td} text-right tabular-nums`}>{formatIDR(r.ppn)}</td>
-                </tr>
-              ))}
-              <tr className="font-semibold">
-                <td className="py-2 pr-4" colSpan={3}>
-                  Total ({rows.length})
-                </td>
-                <td className="py-2 pr-4 text-right tabular-nums">{formatIDR(totalDpp)}</td>
-                <td className="py-2 text-right tabular-nums">{formatIDR(totalPpn)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <Table>
+          <Thead>
+            <tr>
+              <Th>Nomor</Th>
+              <Th>Tanggal</Th>
+              <Th>Lawan Transaksi</Th>
+              <Th numeric>DPP</Th>
+              <Th numeric>PPN</Th>
+            </tr>
+          </Thead>
+          <tbody>
+            {rows.map((r) => (
+              <Tr key={r.docNo}>
+                <Td label="Nomor" className="font-mono text-xs">
+                  {r.docNo}
+                </Td>
+                <Td label="Tanggal">{formatDate(r.date)}</Td>
+                <Td label="Lawan Transaksi">{r.partnerName}</Td>
+                <Td numeric label="DPP">
+                  {formatIDR(r.dpp)}
+                </Td>
+                <Td numeric label="PPN">
+                  {formatIDR(r.ppn)}
+                </Td>
+              </Tr>
+            ))}
+            <Tr className="font-semibold">
+              <Td colSpan={3}>Total ({rows.length})</Td>
+              <Td numeric label="DPP">
+                {formatIDR(totalDpp)}
+              </Td>
+              <Td numeric label="PPN">
+                {formatIDR(totalPpn)}
+              </Td>
+            </Tr>
+          </tbody>
+        </Table>
       )}
     </div>
   );
