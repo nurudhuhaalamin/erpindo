@@ -684,14 +684,17 @@ export function AppShell() {
         <div className="flex min-w-0 flex-1 flex-col">
           {/* Topbar — Fase 17c: melekat di atas (dulu ikut mengalir, sehingga
               pada tabel panjang tombol tema/keluar hilang dari jangkauan). */}
-          <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-slate-200 bg-surface px-3 dark:border-slate-800">
+          <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-surface px-3 sm:px-4 md:h-12 dark:border-slate-800">
             <div className="flex items-center gap-3 md:hidden">
+              {/* Sasaran sentuh 44px (Fase 18c). Sebelumnya 34x34 — di bawah
+                  ambang nyaman untuk jempol, dan ini SATU-SATUNYA jalan ke menu
+                  di layar kecil karena sidebar desktop `hidden md:flex`. */}
               <button
                 onClick={() => setMenuOpen((o) => !o)}
-                className="rounded-lg border border-slate-300 p-2 dark:border-slate-700"
+                className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-slate-300 dark:border-slate-700"
                 aria-label="Menu"
               >
-                <Menu className="size-4" aria-hidden />
+                <Menu className="size-5" aria-hidden />
               </button>
               <BrandWordmark className="h-7" />
             </div>
@@ -749,7 +752,7 @@ export function AppShell() {
           >
             <button
               onClick={() => setMenuOpen(false)}
-              className="absolute right-3 top-4 z-10 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/5"
+              className="absolute right-2 top-2 z-10 flex size-11 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/5"
               aria-label="Tutup menu"
             >
               <X className="size-5" aria-hidden />

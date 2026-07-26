@@ -1211,6 +1211,79 @@ try {
   check("F15 sesi demo berada di PT Demo Sejahtera", demoBody.includes("PT Demo Sejahtera"));
   check("F15 mode demo bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
 
+  // ---------------------------------------------------------------------------
+  // F26/F27 — Fase 18c: layar kecil.
+  //
+  // Sampai fase ini, SELURUH cek di berkas ini berjalan pada satu viewport
+  // (1360×900). Artinya klaim "responsif" tidak pernah dijaga apa pun — dan
+  // memang terlihat di kodenya: di 36 berkas halaman hanya ada 10 kelas `md:`.
+  //
+  // Ditaruh paling akhir dengan sengaja: mengubah viewport di tengah suite bisa
+  // menggeser tata letak yang diandalkan asersi lain. Di sini tidak ada lagi
+  // asersi setelahnya.
+  // ---------------------------------------------------------------------------
+  resetErrors();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const ruteMobile = ["/app", "/app/stok", "/app/penjualan", "/app/keuangan/neraca-saldo"];
+  const meluber = [];
+  for (const rute of ruteMobile) {
+    await gotoRoute(rute, 900);
+    // Gulir mendatar pada <body> = tata letak bocor keluar layar. Diberi
+    // toleransi 2px untuk pembulatan sub-piksel peramban.
+    const lebar = await page.evaluate(() => ({
+      scroll: document.documentElement.scrollWidth,
+      klien: document.documentElement.clientWidth,
+    }));
+    if (lebar.scroll > lebar.klien + 2) meluber.push(`${rute} (${lebar.scroll}>${lebar.klien})`);
+  }
+  check(
+    "F26 layar 390px: tidak ada gulir mendatar di rute inti",
+    meluber.length === 0,
+    `→ meluber: ${meluber.join(", ") || "tidak ada"}`,
+  );
+
+  // Drawer navigasi adalah SATU-SATUNYA jalan ke menu di layar kecil (sidebar
+  // desktop `hidden md:flex`). Kalau ia rusak, aplikasi praktis tak bisa
+  // dipakai di HP — dan tak satu pun cek lama akan menyadarinya.
+  await gotoRoute("/app", 700);
+  const tombolMenu = page.locator('button[aria-label="Menu"]');
+  const kotakMenu = await tombolMenu.boundingBox();
+  await tombolMenu.click();
+  await page.waitForTimeout(500);
+  const drawerNav = page.locator('aside[aria-label="Menu navigasi"]');
+  const drawerTerbuka = await drawerNav.locator("nav a:visible").count();
+  await page.locator('button[aria-label="Tutup menu"]').click();
+  await page.waitForTimeout(500);
+  const kotakDrawer = await drawerNav.boundingBox();
+  check(
+    "F27 layar 390px: drawer menu bisa dibuka & ditutup, tombolnya cukup besar disentuh",
+    drawerTerbuka > 5 &&
+      Boolean(kotakMenu && kotakMenu.width >= 36 && kotakMenu.height >= 36) &&
+      Boolean(kotakDrawer && kotakDrawer.x + kotakDrawer.width <= 1),
+    `→ tautan=${drawerTerbuka} tombol=${kotakMenu ? `${Math.round(kotakMenu.width)}x${Math.round(kotakMenu.height)}` : "?"} tertutup=${kotakDrawer ? Math.round(kotakDrawer.x + kotakDrawer.width) <= 1 : "?"}`,
+  );
+  check("F26 layar kecil bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
+  // Tangkapan layar HP untuk halaman DALAM aplikasi diambil di sini, selagi
+  // sesi masih hidup — blok UI_SIM_SHOT di bawah sudah membuang cookie demi
+  // menangkap /masuk, jadi rute /app tidak bisa lagi diambil di sana.
+  if (process.env.UI_SIM_SHOT) {
+    mkdirSync(process.env.UI_SIM_SHOT, { recursive: true });
+    for (const [rute, nama] of [
+      ["/app", "hp-dasbor"],
+      ["/app/stok", "hp-stok"],
+    ]) {
+      await gotoRoute(rute, 900);
+      await page.screenshot({ path: path.join(process.env.UI_SIM_SHOT, `${nama}.png`) });
+    }
+    await gotoRoute("/app", 600);
+    await page.locator('button[aria-label="Menu"]').click();
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: path.join(process.env.UI_SIM_SHOT, "hp-drawer.png") });
+    await page.locator('button[aria-label="Tutup menu"]').click();
+    await page.waitForTimeout(400);
+  }
+  await page.setViewportSize({ width: 1360, height: 900 });
+
   // Tangkapan layar opsional (Fase 17c) — BUKAN cek, tidak menambah hitungan.
   // Perombakan desain Fase 17 perlu diperiksa mata, bukan hanya oleh asersi:
   // asersi bisa lolos sementara tata letaknya kacau. Set `UI_SIM_SHOT=<dir>`
@@ -1251,6 +1324,18 @@ try {
       await halaman.goto(`${BASE}${rute}`, { waitUntil: "networkidle" });
       await halaman.waitForTimeout(1200);
       await halaman.screenshot({ path: path.join(dir, `${nama}.png`), fullPage: penuh });
+    }
+    // Layar kecil (Fase 18c). Tanpa ini tampilan HP hanya pernah DIUKUR asersi,
+    // tidak pernah benar-benar dilihat — padahal bug tata letak paling sering
+    // ketahuan dari melihat, bukan dari angka.
+    await halaman.setViewportSize({ width: 390, height: 844 });
+    for (const [rute, nama] of [
+      ["/masuk", "hp-masuk"],
+      ["/", "hp-landing"],
+    ]) {
+      await halaman.goto(`${BASE}${rute}`, { waitUntil: "networkidle" });
+      await halaman.waitForTimeout(1000);
+      await halaman.screenshot({ path: path.join(dir, `${nama}.png`) });
     }
     console.log(`\nTangkapan layar ditulis ke ${dir}`);
   }
