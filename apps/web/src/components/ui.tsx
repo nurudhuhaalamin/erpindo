@@ -8,6 +8,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
+import { twMerge } from "tailwind-merge";
 import { useLang } from "../i18n";
 import { PAGE_HEADINGS, type PageHeadingKey } from "../i18n/pageHeadings";
 
@@ -16,26 +17,54 @@ import { PAGE_HEADINGS, type PageHeadingKey } from "../i18n/pageHeadings";
  * eksternal). Akan dipindah ke packages/ui saat jumlah komponen bertambah.
  */
 
-function cx(...classes: (string | false | undefined)[]): string {
-  return classes.filter(Boolean).join(" ");
+/**
+ * Gabung kelas Tailwind dengan penyelesaian konflik yang benar.
+ *
+ * Versi sebelumnya hanya menyambung string. Itu terlihat berfungsi, padahal
+ * konflik antar-utilitas diselesaikan oleh **urutan CSS**, bukan urutan
+ * penulisan — dan Tailwind memancarkan `.h-7 → .h-8 → .h-9 → .h-10` menaik,
+ * sehingga nilai terbesar SELALU menang.
+ *
+ * Akibatnya, sampai Fase 17b, `<Button className="h-8">` tidak berpengaruh
+ * sama sekali karena default tombol `h-10` menang. Diukur di Chromium atas CSS
+ * hasil build: `h-10 + h-8` → 40px, `h-10 + h-7` → 40px. Ada **96 dari 98**
+ * penimpaan tinggi tombol di aplikasi yang mati diam-diam seperti ini — salah
+ * satu sebab tampilan terasa longgar.
+ *
+ * `twMerge` menyelesaikannya di tingkat semantik: kelas belakangan dalam
+ * argumen menang atas kelas sebelumnya pada properti yang sama. Karena
+ * `className` pemanggil selalu diletakkan TERAKHIR, penimpaan kini benar-benar
+ * berlaku.
+ */
+export function cx(...classes: (string | false | undefined)[]): string {
+  return twMerge(classes.filter(Boolean).join(" "));
 }
 
 // --- Button -----------------------------------------------------------------
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
+// Fase 17b — gaya "alat padat": warna datar, tanpa gradien, tanpa bayangan.
+// Pemisah antar-permukaan adalah GARIS, bukan kedalaman.
 const buttonVariants: Record<ButtonVariant, string> = {
   primary:
-    "bg-gradient-to-b from-brand-500 to-brand-600 text-white shadow-sm ring-1 ring-inset ring-white/10 hover:from-brand-600 hover:to-brand-700 focus-visible:ring-brand-500 disabled:from-brand-500/60 disabled:to-brand-600/60",
+    "bg-brand-600 text-white hover:bg-brand-500 focus-visible:ring-brand-500 disabled:bg-brand-600/50",
   secondary:
-    "border border-slate-300 bg-white text-slate-800 shadow-sm hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700",
-  ghost: "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800",
-  danger: "bg-red-600 text-white shadow-sm hover:bg-red-700 focus-visible:ring-red-500",
+    "border border-slate-300 bg-surface text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800",
+  ghost: "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
+  danger: "bg-red-600 text-white hover:bg-red-500 focus-visible:ring-red-500",
 };
 
+/**
+ * Skala rapat. Bawaan turun dari `h-10` ke `h-8` karena itulah tinggi yang
+ * sebenarnya diinginkan kode selama ini: 76 pemanggil menulis `h-8`, 15 menulis
+ * `h-9`, 5 menulis `h-7` — dan semuanya diabaikan sebelum `cx()` diperbaiki.
+ */
 const buttonSizes = {
-  md: "h-10 px-4 text-sm",
-  lg: "h-12 px-6 text-base",
+  xs: "h-6 px-2 text-xs",
+  sm: "h-7 px-2.5 text-xs",
+  md: "h-8 px-3 text-sm",
+  lg: "h-10 px-5 text-sm",
 } as const;
 
 export function Button({
@@ -50,7 +79,7 @@ export function Button({
   return (
     <button
       className={cx(
-        "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 dark:ring-offset-slate-950",
+        "inline-flex items-center justify-center gap-1.5 rounded font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60 dark:ring-offset-slate-950",
         buttonSizes[size],
         buttonVariants[variant],
         className
@@ -65,10 +94,7 @@ export function Button({
 export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) {
   return (
     <label
-      className={cx(
-        "mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300",
-        className
-      )}
+      className={cx("mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400", className)}
       {...props}
     />
   );
@@ -78,7 +104,7 @@ export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInp
   return (
     <input
       className={cx(
-        "h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
+        "h-8 w-full rounded border border-slate-300 bg-surface px-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/25 dark:border-slate-700 dark:text-slate-100",
         className
       )}
       {...props}
@@ -90,7 +116,7 @@ export function Select({ className, ...props }: React.SelectHTMLAttributes<HTMLS
   return (
     <select
       className={cx(
-        "h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
+        "h-8 w-full rounded border border-slate-300 bg-surface px-2.5 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/25 dark:border-slate-700 dark:text-slate-100",
         className
       )}
       {...props}
@@ -118,9 +144,8 @@ export function Card({
   return (
     <div
       className={cx(
-        "rounded-card border border-slate-200 bg-white shadow-card dark:border-slate-700/60 dark:bg-slate-900",
-        hover &&
-          "transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-lg dark:hover:border-brand-700",
+        "rounded-card border border-slate-200 bg-surface dark:border-slate-800",
+        hover && "transition-colors hover:border-brand-400 dark:hover:border-brand-600",
         className
       )}
     >
@@ -134,14 +159,15 @@ export function CardHeader({
   description,
   action,
 }: {
-  title: string;
-  description?: string;
+  /** ReactNode agar judul bisa memuat lencana/nomor, bukan hanya teks polos. */
+  title: ReactNode;
+  description?: ReactNode;
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-3 py-2.5 dark:border-slate-800">
       <div>
-        <h2 className="text-base font-semibold">{title}</h2>
+        <h2 className="text-sm font-semibold">{title}</h2>
         {description ? (
           <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{description}</p>
         ) : null}
@@ -152,7 +178,7 @@ export function CardHeader({
 }
 
 export function CardBody({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cx("px-4 py-4 sm:px-5", className)}>{children}</div>;
+  return <div className={cx("px-3 py-3", className)}>{children}</div>;
 }
 
 // --- Alert ----------------------------------------------------------------------
@@ -161,17 +187,100 @@ export function Alert({
   tone,
   children,
 }: {
-  tone: "info" | "success" | "error";
+  tone: "info" | "success" | "warning" | "error";
   children: ReactNode;
 }) {
   const tones = {
     info: "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-200",
     success:
       "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200",
+    // Fase 17b: tone yang selama ini tidak ada, sehingga peringatan "belum
+    // fatal" terpaksa memakai `error` (merah) dan terbaca lebih gawat dari
+    // semestinya.
+    warning:
+      "border-accent-200 bg-accent-50 text-accent-800 dark:border-accent-900 dark:bg-accent-950 dark:text-accent-200",
     error:
       "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200",
   };
-  return <div className={cx("rounded-lg border px-4 py-3 text-sm", tones[tone])}>{children}</div>;
+  return <div className={cx("rounded border px-3 py-2 text-sm", tones[tone])}>{children}</div>;
+}
+
+// --- Tabel ----------------------------------------------------------------------
+
+/**
+ * Tabel padat — sebelum Fase 17b komponen ini TIDAK ADA, sehingga `<table>`
+ * ditulis tangan **31 kali** dengan dua gaya yang bersaing: header `pb-2 pr-4`
+ * (61×) vs `py-2 pr-3` (20×), dan garis baris `border-slate-100` (53×) vs
+ * `border-slate-200` (51×). Komponen ini menyatukannya.
+ *
+ * `Td numeric` memakai utilitas `num` (Fase 17a): font mono + `tabular-nums`,
+ * supaya kolom rupiah benar-benar berbaris — hal yang paling terasa di
+ * aplikasi akuntansi.
+ */
+export function Table({
+  className,
+  minWidth,
+  children,
+}: {
+  className?: string;
+  /** Lebar minimum sebelum tabel menggulir mendatar, mis. `"40rem"`. */
+  minWidth?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table
+        className={cx("w-full text-sm", className)}
+        style={minWidth ? { minWidth } : undefined}
+      >
+        {children}
+      </table>
+    </div>
+  );
+}
+
+export function Thead({ children }: { children: ReactNode }) {
+  return (
+    <thead className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-400">
+      {children}
+    </thead>
+  );
+}
+
+export function Tr({ className, children }: { className?: string; children: ReactNode }) {
+  return (
+    <tr
+      className={cx("border-b border-slate-100 last:border-0 dark:border-slate-800/70", className)}
+    >
+      {children}
+    </tr>
+  );
+}
+
+export function Th({
+  numeric = false,
+  className,
+  children,
+  ...props
+}: React.ThHTMLAttributes<HTMLTableCellElement> & { numeric?: boolean }) {
+  return (
+    <th className={cx("px-2 py-1.5 font-medium", numeric && "text-right", className)} {...props}>
+      {children}
+    </th>
+  );
+}
+
+export function Td({
+  numeric = false,
+  className,
+  children,
+  ...props
+}: React.TdHTMLAttributes<HTMLTableCellElement> & { numeric?: boolean }) {
+  return (
+    <td className={cx("px-2 py-1.5", numeric && "num text-right", className)} {...props}>
+      {children}
+    </td>
+  );
 }
 
 export function Spinner() {
@@ -201,7 +310,7 @@ export function Badge({
   return (
     <span
       className={cx(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+        "inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium",
         tones[tone]
       )}
     >
@@ -214,9 +323,7 @@ export function Badge({
 
 /** Placeholder berkilau saat data dimuat — pengganti spinner untuk konten berbentuk. */
 export function Skeleton({ className }: { className?: string }) {
-  return (
-    <div className={cx("animate-pulse rounded-lg bg-slate-200 dark:bg-slate-800", className)} />
-  );
+  return <div className={cx("animate-pulse rounded bg-slate-200 dark:bg-slate-800", className)} />;
 }
 
 /** Keadaan kosong yang ramah: ikon besar + judul + penjelasan (+ aksi opsional). */
