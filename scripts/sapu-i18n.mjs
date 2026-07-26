@@ -168,6 +168,15 @@ for (const file of process.argv.slice(2)) {
     zonaSah.push({ a: m.index, b: akhir < 0 ? src.length : akhir });
   }
 
+  // Bentuk ketiga (ditambahkan Fase 17d): pembantu `L(lang, "id", "en")` yang
+  // dipakai landing page. Sama sahnya dengan ternary di atas — sisi Indonesia
+  // memang harus ada — tetapi selama ini tak dikenali, sehingga SELURUH teks
+  // landing (69 potong) terhitung utang padahal halaman itu sudah dwibahasa
+  // sejak Fase 13d. Angka utang yang salah lebih berbahaya daripada tidak ada
+  // angka: ia membuat halaman yang sudah selesai terlihat belum digarap.
+  // `\bL\(` aman: pada `HTML(` huruf L didahului M, jadi tak ada batas kata.
+  zonaSah.push(...rentang("L", "SAH"));
+
   // Pakai TUMPANG-TINDIH rentang, bukan sekadar posisi awal: potongan teks JSX
   // sering dimulai tepat SEBELUM `downloadCsv(` sehingga awalnya di luar zona
   // padahal isinya jelas milik panggilan itu.

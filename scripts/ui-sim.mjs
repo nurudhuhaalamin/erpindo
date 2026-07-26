@@ -1056,6 +1056,19 @@ try {
     landingText.includes("Midtrans") && landingText.includes("Coretax") && landingText.includes("Hemat sekitar"),
     `→ badge/hemat tidak tampil`,
   );
+  // F21 — Fase 17d. Kisi modul kini BERBAGI garis (gap-px di atas latar garis),
+  // jadi jumlah sel yang tidak habis dibagi jumlah kolom meninggalkan lubang
+  // yang menganga — pada tata letak kartu terpisah yang lama, lubang itu tak
+  // terlihat sama sekali. FEATURE_GROUPS berisi 11 modul di kisi 3 kolom, dan
+  // sel ke-12 sengaja diisi ajakan. Penjaga ini akan berbunyi kalau modul
+  // ke-12 ditambahkan kelak dan lubang baru muncul di baris berikutnya.
+  const selModul = await page.locator('[data-kisi="modul"] > *').count();
+  check(
+    "F21 kisi modul landing terisi penuh (kelipatan 3 kolom, tanpa sel kosong)",
+    selModul > 0 && selModul % 3 === 0,
+    `→ ${selModul} sel`,
+  );
+
   // Multibahasa (Fase 13d): toggle EN → hero & harga berbahasa Inggris, lalu kembali ID.
   await page.getByRole("button", { name: "EN", exact: true }).first().click();
   await page.waitForTimeout(300);
@@ -1106,19 +1119,29 @@ try {
     // Memakai `page` yang sudah ada, BUKAN ctx.newPage(): penjaga di atas
     // (`ctx.on("page", …)`) menutup setiap halaman selain `page`.
     const halaman = page;
-    for (const [rute, nama] of [
-      ["/app", "dasbor"],
-      ["/app/master/produk", "produk"],
-      ["/app/keuangan/jurnal", "jurnal"],
+    for (const [rute, nama, penuh] of [
+      ["/app", "dasbor", false],
+      ["/app/master/produk", "produk", false],
+      ["/app/keuangan/jurnal", "jurnal", false],
     ]) {
       await halaman.goto(`${BASE}${rute}`, { waitUntil: "networkidle" });
       await halaman.waitForTimeout(1200);
-      await halaman.screenshot({ path: path.join(dir, `${nama}.png`), fullPage: false });
+      await halaman.screenshot({ path: path.join(dir, `${nama}.png`), fullPage: penuh });
     }
     // Palet perintah terbuka — rasa "alat pro" yang jadi inti fase ini.
     await halaman.keyboard.press("Control+k");
     await halaman.waitForTimeout(500);
     await halaman.screenshot({ path: path.join(dir, "palet.png"), fullPage: false });
+    // Landing terakhir — palet hanya ada di dalam shell aplikasi, jadi urutannya
+    // tidak boleh dibalik.
+    for (const [nama, penuh] of [
+      ["landing-atas", false],
+      ["landing-penuh", true],
+    ]) {
+      await halaman.goto(`${BASE}/`, { waitUntil: "networkidle" });
+      await halaman.waitForTimeout(1200);
+      await halaman.screenshot({ path: path.join(dir, `${nama}.png`), fullPage: penuh });
+    }
     console.log(`\nTangkapan layar ditulis ke ${dir}`);
   }
 
