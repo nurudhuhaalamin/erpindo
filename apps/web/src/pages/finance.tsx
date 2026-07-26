@@ -174,8 +174,8 @@ export function AccountsPage() {
                     <Tr key={a.id}>
                       {/* Kode akun: mono, tapi BUKAN `numeric` — ini pengenal,
                           bukan nilai, jadi tidak boleh dirata-kanankan. */}
-                      <Td className="font-mono text-xs">{a.code}</Td>
-                      <Td>
+                      <Td label={u("kode")} className="font-mono text-xs">{a.code}</Td>
+                      <Td label={u("nama")}>
                         {renamingId === a.id ? (
                           <div className="flex items-center gap-2">
                             <Input
@@ -204,7 +204,7 @@ export function AccountsPage() {
                           a.name
                         )}
                       </Td>
-                      <Td>
+                      <Td label={u("tipe")}>
                         <Badge>{u(ACCOUNT_TYPE_KEY[a.type]!)}</Badge>
                       </Td>
                       <Td className="text-right">
@@ -712,12 +712,12 @@ export function JournalPage() {
                     <tbody>
                       {e.lines.map((l) => (
                         <tr key={l.id}>
-                          <Td className="py-1 font-mono text-xs">{l.accountCode}</Td>
-                          <Td className="py-1">{l.accountName}</Td>
-                          <Td numeric className="py-1">
+                          <Td label={u("kode")} className="py-1 font-mono text-xs">{l.accountCode}</Td>
+                          <Td label={u("akun")} className="py-1">{l.accountName}</Td>
+                          <Td numeric label={u("debit")} className="py-1">
                             <Amount value={l.debit} />
                           </Td>
-                          <Td numeric className="py-1">
+                          <Td numeric label={u("kredit")} className="py-1">
                             <Amount value={l.credit} />
                           </Td>
                         </tr>
@@ -881,16 +881,16 @@ export function LedgerPage() {
                 <tbody>
                   {allEntries.map((r, i) => (
                     <Tr key={i}>
-                      <Td className="font-mono text-xs">{r.entryNo}</Td>
-                      <Td>{r.entryDate}</Td>
-                      <Td>{r.description ?? "—"}</Td>
-                      <Td numeric>
+                      <Td label={u("noJurnal")} className="font-mono text-xs">{r.entryNo}</Td>
+                      <Td label={u("tanggal")}>{r.entryDate}</Td>
+                      <Td label={u("keterangan")}>{r.description ?? "—"}</Td>
+                      <Td numeric label={u("debit")}>
                         <Amount value={r.debit} />
                       </Td>
-                      <Td numeric>
+                      <Td numeric label={u("kredit")}>
                         <Amount value={r.credit} />
                       </Td>
-                      <Td numeric className="font-medium">
+                      <Td numeric label={u("saldo")} className="font-medium">
                         {formatIDR(r.balance)}
                       </Td>
                     </Tr>
@@ -974,20 +974,20 @@ export function TrialBalancePage() {
               <tbody>
                 {query.data!.rows.map((r) => (
                   <Tr key={r.accountId}>
-                    <Td className="font-mono text-xs">{r.code}</Td>
-                    <Td>{r.name}</Td>
-                    <Td numeric>
+                    <Td label={u("kode")} className="font-mono text-xs">{r.code}</Td>
+                    <Td label={u("akun")}>{r.name}</Td>
+                    <Td numeric label={u("debit")}>
                       <Amount value={r.debit} />
                     </Td>
-                    <Td numeric>
+                    <Td numeric label={u("kredit")}>
                       <Amount value={r.credit} />
                     </Td>
                   </Tr>
                 ))}
                 <Tr className="font-semibold">
                   <Td colSpan={2}>{u("total")}</Td>
-                  <Td numeric>{formatIDR(query.data!.totalDebit)}</Td>
-                  <Td numeric>{formatIDR(query.data!.totalCredit)}</Td>
+                  <Td numeric label={u("debit")}>{formatIDR(query.data!.totalDebit)}</Td>
+                  <Td numeric label={u("kredit")}>{formatIDR(query.data!.totalCredit)}</Td>
                 </Tr>
               </tbody>
             </Table>

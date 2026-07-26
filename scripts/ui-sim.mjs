@@ -1242,6 +1242,41 @@ try {
     `→ meluber: ${meluber.join(", ") || "tidak ada"}`,
   );
 
+  // F28 — Fase 18d: tabel menumpuk jadi kartu di layar kecil.
+  //
+  // Perlu cek tersendiri karena F26 TIDAK cukup: F26 hanya melihat gulir pada
+  // dokumen, sementara tabel lama menggulir DI DALAM wadah `overflow-x-auto`
+  // miliknya sendiri. Halaman Stok lolos F26 sementara kolom "Kedaluwarsa" dan
+  // "Qty" terpotong di luar layar — terbukti dari tangkapan layar Fase 18c.
+  await gotoRoute("/app/stok", 900);
+  const tabelHp = await page.evaluate(() => {
+    const tabel = document.querySelector("table");
+    if (!tabel) return null;
+    const thead = tabel.querySelector("thead");
+    const td = tabel.querySelector("tbody td");
+    // Label kolom hanya dirender untuk layar kecil; di desktop ia `hidden`.
+    const labelTampak = [...tabel.querySelectorAll("tbody td > span")].filter(
+      (el) => getComputedStyle(el).display !== "none" && el.textContent?.trim(),
+    ).length;
+    return {
+      kepalaTersembunyi: thead ? getComputedStyle(thead).display === "none" : null,
+      selBlok: td ? getComputedStyle(td).display : null,
+      meluber: tabel.scrollWidth > tabel.clientWidth + 2,
+      labelTampak,
+    };
+  });
+  check(
+    "F28 layar 390px: tabel menumpuk jadi kartu berlabel, tanpa gulir di dalam tabel",
+    Boolean(
+      tabelHp &&
+        tabelHp.kepalaTersembunyi === true &&
+        tabelHp.selBlok === "flex" &&
+        !tabelHp.meluber &&
+        tabelHp.labelTampak > 3,
+    ),
+    `→ ${tabelHp ? `kepalaTersembunyi=${tabelHp.kepalaTersembunyi} sel=${tabelHp.selBlok} meluber=${tabelHp.meluber} label=${tabelHp.labelTampak}` : "tidak ada <table>"}`,
+  );
+
   // Drawer navigasi adalah SATU-SATUNYA jalan ke menu di layar kecil (sidebar
   // desktop `hidden md:flex`). Kalau ia rusak, aplikasi praktis tak bisa
   // dipakai di HP — dan tak satu pun cek lama akan menyadarinya.
