@@ -1,39 +1,81 @@
 @import "tailwindcss";
 @import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
 
-/* Design tokens ERPindo — dipetakan ke utilitas Tailwind v4.
-   Identitas Fase 10a: biru logo ERPindo ("Integrate. Automate. Grow.")
-   + aksen amber hangat. */
+/* ---------------------------------------------------------------------------
+   Token desain ERPindo — Fase 17a: "alat pro padat".
+   Arah: rapat, gelap-dulu, informasi padat, cepat. Pemakainya staf akunting
+   dan kasir yang menatap layar berjam-jam; kerapatan dan kecepatan baca angka
+   lebih berharga daripada kartu berbayang lembut.
+
+   CARA KERJA PEROMBAKAN INI — penting dipahami sebelum mengubah:
+   Halaman-halaman menulis warna secara literal (`bg-slate-900`,
+   `border-slate-200`, dst) — ada ~1753 pemakaian `slate-*` di 36 berkas
+   halaman. Karena itu ramp `slate` DIPETAKAN ULANG di sini, bukan diganti satu
+   per satu di halaman. Satu berkas ini mengubah rupa seluruh aplikasi.
+
+   Yang SENGAJA tidak disentuh: `--color-white`. Kelas `text-white` (37×)
+   dipakai untuk teks di atas tombol; memetakannya ulang akan mengubah warna
+   teks, bukan permukaan. Permukaan putih (`bg-white`, 68×) ditangani lewat
+   utilitas `bg-surface` di bawah.
+--------------------------------------------------------------------------- */
 @theme {
-  --color-brand-50: #eff6ff;
-  --color-brand-100: #dbeafe;
-  --color-brand-200: #bfdbfe;
-  --color-brand-300: #93c5fd;
-  --color-brand-400: #60a5fa;
-  --color-brand-500: #3b82f6;
-  --color-brand-600: #2563eb;
-  --color-brand-700: #1d4ed8;
-  --color-brand-800: #1e40af;
-  --color-brand-900: #1e3a8a;
-  --color-brand-950: #172554;
+  /* Neutral "terminal": lebih dingin dan lebih pekat daripada slate bawaan
+     Tailwind. Ujung gelapnya sengaja hampir hitam-kebiruan supaya teks putih
+     dan aksen tipis punya kontras tinggi tanpa perlu bayangan. */
+  --color-slate-50: #f4f6f9;
+  --color-slate-100: #e7ebf1;
+  --color-slate-200: #d2d8e2;
+  --color-slate-300: #aeb7c6;
+  --color-slate-400: #8b95a7;
+  --color-slate-500: #6d7789;
+  --color-slate-600: #515a6b;
+  --color-slate-700: #2f3745;
+  --color-slate-800: #1b2230;
+  --color-slate-900: #121823;
+  --color-slate-950: #0a0e16;
 
-  --color-accent-50: #fffbeb;
-  --color-accent-100: #fef3c7;
-  --color-accent-200: #fde68a;
-  --color-accent-300: #fcd34d;
-  --color-accent-400: #fbbf24;
-  --color-accent-500: #f59e0b;
-  --color-accent-600: #d97706;
-  --color-accent-700: #b45309;
-  --color-accent-800: #92400e;
-  --color-accent-900: #78350f;
-  --color-accent-950: #451a03;
+  /* Aksen: biru sianik yang lebih tajam daripada blue-500 bawaan Tailwind
+     (dulu `brand-*` PERSIS palet blue Tailwind — tidak ada identitas sama
+     sekali). Dipakai tipis: garis fokus, item nav aktif, angka penting. */
+  --color-brand-50: #e8f3ff;
+  --color-brand-100: #cfe6ff;
+  --color-brand-200: #a3ceff;
+  --color-brand-300: #6fb0ff;
+  --color-brand-400: #3f92fb;
+  --color-brand-500: #1f78f0;
+  --color-brand-600: #0f5fd6;
+  --color-brand-700: #0d4cab;
+  --color-brand-800: #103f88;
+  --color-brand-900: #12356e;
+  --color-brand-950: #0b2148;
 
-  --radius-card: 1rem;
-  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.05), 0 4px 12px -2px rgb(15 23 42 / 0.08);
+  /* Aksen hangat untuk peringatan/kedaluwarsa. */
+  --color-accent-50: #fff7ed;
+  --color-accent-100: #ffedd5;
+  --color-accent-200: #fed7aa;
+  --color-accent-300: #fdba74;
+  --color-accent-400: #fb923c;
+  --color-accent-500: #f97316;
+  --color-accent-600: #ea580c;
+  --color-accent-700: #c2410c;
+  --color-accent-800: #9a3412;
+  --color-accent-900: #7c2d12;
+  --color-accent-950: #431407;
+
+  /* Sudut tegas — dari 1rem. Gaya padat memakai sudut kecil supaya baris
+     tabel dan kartu bisa berdempetan tanpa terlihat "gelembung". */
+  --radius-card: 0.375rem;
+
+  /* Bayangan diganti GARIS. Kartu dipisahkan oleh batas 1px, bukan oleh
+     kedalaman — inilah yang membedakan rasa "alat" dari rasa "SaaS umum". */
+  --shadow-card: 0 0 0 1px rgb(148 165 200 / 0.14);
 
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
+  /* Aplikasi akuntansi: `tabular-nums` sudah dipakai 217× tetapi tidak pernah
+     ada font mono. Angka rupiah, nomor dokumen, dan kode akun memakai ini. */
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -44,7 +86,45 @@ body,
   height: 100%;
 }
 
+/* Gelap-dulu: beri tahu peramban supaya kontrol bawaan (scrollbar, date
+   picker, autofill) ikut gelap. Skrip anti-FOUC di index.html menyetel
+   `.dark` + `color-scheme` sebelum React jalan; nilai di sini jadi cadangan. */
+:root {
+  color-scheme: dark;
+}
+:root:not(.dark) {
+  color-scheme: light;
+}
+
 body {
   @apply bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
   font-family: var(--font-sans);
+}
+
+/* ---------------------------------------------------------------------------
+   Utilitas permukaan — pengganti `bg-white` yang sadar tema.
+   Dipakai untuk kartu, topbar, sidebar, dan panel. Dibuat sebagai utilitas
+   (bukan sekadar kelas) supaya bisa dipakai langsung di JSX seperti kelas
+   Tailwind lain, termasuk digabung dengan varian.
+--------------------------------------------------------------------------- */
+@utility bg-surface {
+  background-color: var(--color-white);
+  .dark & {
+    background-color: var(--color-slate-900);
+  }
+}
+
+/* Permukaan satu tingkat lebih dalam — dasar halaman di balik kartu. */
+@utility bg-surface-sunken {
+  background-color: var(--color-slate-50);
+  .dark & {
+    background-color: var(--color-slate-950);
+  }
+}
+
+/* Angka: mono + lebar digit tetap, supaya kolom rupiah berbaris rapi. */
+@utility num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
