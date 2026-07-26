@@ -43,15 +43,15 @@ function Header() {
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-slate-50/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 sm:px-6">
-        <span className="flex h-12 items-center gap-2">
-          <BrandWordmark className="h-7" />
+        <span className="flex h-16 items-center gap-2">
+          <BrandWordmark className="h-8" />
         </span>
         <nav className="flex items-center gap-1">
           {NAV_LINKS.map(([href, label]) => (
             <a
               key={href}
               href={href}
-              className="hidden rounded px-2.5 py-1.5 text-[13px] text-slate-600 hover:text-slate-900 md:block dark:text-slate-300 dark:hover:text-white"
+              className="hidden rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 md:block dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
             >
               {label[lang]}
             </a>
@@ -150,7 +150,7 @@ function Hero() {
       {/* Kisi tipis menggantikan "orb" gradien buram khas landing SaaS. Gaya
           alat: garis, bukan kabut. Digambar dengan gradien CSS (tanpa aset). */}
       <div
-        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.06] dark:opacity-[0.09]"
+        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.035] dark:opacity-[0.07]"
         style={{
           backgroundImage:
             "linear-gradient(to right, currentColor 1px, transparent 1px), linear-gradient(to bottom, currentColor 1px, transparent 1px)",
@@ -160,30 +160,30 @@ function Hero() {
         }}
         aria-hidden
       />
-      <div className="mx-auto max-w-6xl px-4 pt-12 sm:px-6 sm:pt-16">
+      <div className="mx-auto max-w-6xl px-4 pt-16 sm:px-6 sm:pt-24">
         {/* `uppercase` aman di sini: tak satu pun asersi membaca kalimat ini.
             Aturannya (lihat log 17d): JANGAN pakai `uppercase` pada teks yang
             dibaca asersi innerText — `text-transform` ikut mengubah nilainya. */}
-        <div className="mb-5 inline-flex items-center gap-1.5 rounded border border-brand-300 bg-brand-50 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-brand-700 dark:border-brand-800 dark:bg-brand-950 dark:text-brand-300">
+        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-brand-700 dark:border-brand-800 dark:bg-brand-950 dark:text-brand-300">
           <Sparkles className="size-3.5" aria-hidden />{" "}
           {L(lang, "ERP lengkap untuk bisnis Indonesia", "Complete ERP for Indonesian business")}
         </div>
         {/* Rata kiri, bukan rata tengah: halaman ini menjual alat kerja, dan
             teks rata tengah membuat semuanya terbaca seperti brosur. */}
-        <h1 className="max-w-3xl text-3xl font-bold leading-[1.1] tracking-tight sm:text-5xl">
+        <h1 className="max-w-4xl text-4xl font-bold leading-[1.08] tracking-tight sm:text-6xl">
           {L(lang, "Pembukuan, stok, gaji, dan pajak —", "Accounting, stock, payroll, and tax —")}{" "}
           <span className="text-brand-600 dark:text-brand-400">
             {L(lang, "beres dalam satu aplikasi", "all in one app")}
           </span>
         </h1>
-        <p className="mt-5 max-w-2xl text-base text-slate-600 dark:text-slate-300">
+        <p className="mt-5 max-w-2xl text-lg leading-relaxed text-slate-600 dark:text-slate-300">
           {L(
             lang,
-            "Catat transaksi sekali — jurnal double-entry, stok, laporan keuangan, PPN, sampai PPh 21 karyawan beres sendiri. Siap Coretax 2026.",
-            "Record once — double-entry journals, inventory, financial reports, VAT, and payroll tax all handled automatically. Ready for Coretax 2026.",
+            "Berhenti menyalin angka dari nota ke Excel. Sekali catat, jurnal double-entry, stok, laporan keuangan, PPN, sampai PPh 21 karyawan ikut terisi sendiri — dan neracanya dijamin seimbang.",
+            "Stop copying numbers from receipts into Excel. Record once, and journals, stock, financial reports, VAT, and payroll tax all fill themselves in — with a balance sheet guaranteed to balance.",
           )}
         </p>
-        <div className="mt-7 flex flex-wrap items-start gap-2.5">
+        <div className="mt-9 flex flex-wrap items-start gap-3">
           <Link to="/daftar">
             <Button size="lg">
               {L(lang, `Coba Gratis ${TRIAL_DAYS} Hari`, `Try Free for ${TRIAL_DAYS} Days`)}
@@ -191,11 +191,11 @@ function Hero() {
           </Link>
           <DemoButton />
         </div>
-        <p className="mt-3 text-xs text-slate-400">
+        <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
           {L(
             lang,
-            "Tanpa kartu kredit · siap dipakai dalam 1 menit · demo tanpa daftar",
-            "No credit card · ready in 1 minute · demo without signing up",
+            "Tanpa kartu kredit · bagan akun standar Indonesia sudah terpasang · demo tanpa daftar",
+            "No credit card · a standard Indonesian chart of accounts is preloaded · demo without signing up",
           )}
         </p>
       </div>
@@ -203,8 +203,8 @@ function Hero() {
       {/* Screenshot produk nyata. Bingkainya bukan lagi jendela macOS bertitik
           tiga (klise landing SaaS) melainkan bilah alat rapat dengan jalur rute
           bergaya mono — sama seperti aplikasinya sendiri. */}
-      <div className="mx-auto mt-10 max-w-6xl px-4 sm:px-6">
-        <div className="overflow-hidden rounded-card border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900">
+      <div className="mx-auto mt-14 max-w-6xl px-4 sm:px-6">
+        <div className="overflow-hidden rounded-card border border-slate-200 bg-white shadow-card dark:border-slate-700 dark:bg-slate-900">
           <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-100 px-3 py-1.5 dark:border-slate-700 dark:bg-slate-800">
             <span className="size-1.5 rounded-full bg-emerald-500" />
             <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400">
@@ -248,30 +248,30 @@ function Showcase() {
   const [active, setActive] = useState("pos");
   const item = SHOWCASE.find((s) => s.id === active) ?? SHOWCASE[0]!;
   return (
-    <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
-      <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{L(lang, "Lihat cara kerjanya", "See how it works")}</h2>
-      <p className="mt-2 max-w-2xl text-[15px] text-slate-600 dark:text-slate-300">
-        {L(lang, "Lima alur yang paling sering dipakai UMKM — semuanya otomatis masuk pembukuan.", "Five flows SMEs use most — all automatically flowing into the books.")}
+    <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+      <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">{L(lang, "Lihat cara kerjanya", "See how it works")}</h2>
+      <p className="mt-3 max-w-2xl text-base leading-relaxed text-slate-600 dark:text-slate-300">
+        {L(lang, "Lima pekerjaan yang paling menyita waktu tiap hari. Pilih satu untuk melihat bentuk nyatanya di dalam aplikasi.", "The five jobs that eat the most time every day. Pick one to see what it actually looks like inside the app.")}
       </p>
       {/* Tab bergaya bilah alat: sudut tegas, berdempetan dalam satu bingkai —
           bukan pil melayang berbayang. */}
-      <div className="mt-6 flex flex-wrap gap-px rounded border border-slate-200 bg-slate-200 p-px dark:border-slate-800 dark:bg-slate-800">
+      <div className="mt-8 flex flex-wrap gap-2">
         {SHOWCASE.map((s) => (
           <button
             key={s.id}
             onClick={() => setActive(s.id)}
-            className={`inline-flex flex-1 items-center justify-center gap-2 px-3 py-2 text-[13px] font-medium transition-colors ${
+            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
               s.id === active
-                ? "bg-brand-600 text-white"
-                : "bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                ? "bg-brand-600 text-white shadow-sm"
+                : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
             }`}
           >
             <s.icon className="size-4" aria-hidden /> {pick(s.label, lang)}
           </button>
         ))}
       </div>
-      <div className="mt-6 grid items-start gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <div className="overflow-hidden rounded-card border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900">
+      <div className="mt-8 grid items-start gap-8 lg:grid-cols-[1.4fr_1fr]">
+        <div className="overflow-hidden rounded-card border border-slate-200 bg-white shadow-card dark:border-slate-700 dark:bg-slate-900">
           <img
             key={item.image}
             src={item.image}
@@ -283,11 +283,11 @@ function Showcase() {
             className="w-full"
           />
         </div>
-        <div className="rounded-card border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-          <h3 className="text-base font-semibold">{pick(item.title, lang)}</h3>
+        <div className="rounded-card border border-slate-200 bg-white p-6 shadow-card dark:border-slate-800 dark:bg-slate-900">
+          <h3 className="text-lg font-semibold">{pick(item.title, lang)}</h3>
           <ul className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">
             {item.benefits.map((b) => (
-              <li key={b.id} className="flex items-start gap-2 py-2 text-[13px] text-slate-600 dark:text-slate-300">
+              <li key={b.id} className="flex items-start gap-2.5 py-2.5 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
                 <Check className="mt-0.5 size-3.5 shrink-0 text-accent-500" aria-hidden />
                 {pick(b, lang)}
               </li>
@@ -306,35 +306,35 @@ function FeaturesGrid() {
   const lang = useLang();
   return (
     <section id="fitur" className="scroll-mt-16 border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-      <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
-        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{L(lang, "Satu sistem untuk seluruh operasional", "One system for all your operations")}</h2>
-        <p className="mt-2 max-w-2xl text-[15px] text-slate-600 dark:text-slate-300">
-          {L(lang, "Semua modul saling terhubung dan otomatis masuk pembukuan — tidak perlu banyak aplikasi.", "Every module is connected and automatically flows into the books — no juggling many apps.")}
+      <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">{L(lang, "Satu sistem untuk seluruh operasional", "One system for all your operations")}</h2>
+        <p className="mt-3 max-w-2xl text-base leading-relaxed text-slate-600 dark:text-slate-300">
+          {L(lang, "Tidak ada modul yang berdiri sendiri. Apa pun yang Anda catat di satu tempat langsung terbaca di tempat lain — tanpa impor-ekspor antar aplikasi.", "No module stands alone. Whatever you record in one place is immediately readable in another — no importing and exporting between apps.")}
         </p>
         {/* Kisi rapat berbagi garis (gap-px di atas latar garis) — modul terlihat
             sebagai satu sistem yang menyatu, bukan kartu-kartu terpisah. */}
         <div
           data-kisi="modul"
-          className="mt-6 grid gap-px overflow-hidden rounded-card border border-slate-200 bg-slate-200 sm:grid-cols-2 lg:grid-cols-3 dark:border-slate-800 dark:bg-slate-800"
+          className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
         >
           {FEATURE_GROUPS.map((f) => (
-            <div key={f.title.id} className="bg-slate-50 p-4 transition-colors hover:bg-white dark:bg-slate-950 dark:hover:bg-slate-900">
-              <span className="flex size-8 items-center justify-center rounded bg-brand-100 text-brand-700 dark:bg-brand-900/60 dark:text-brand-300">
-                <f.icon className="size-4" aria-hidden />
+            <div key={f.title.id} className="rounded-card border border-slate-200 bg-white p-5 shadow-card transition-shadow hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+              <span className="flex size-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/60 dark:text-brand-300">
+                <f.icon className="size-5" aria-hidden />
               </span>
-              <h3 className="mt-2.5 text-sm font-semibold">{pick(f.title, lang)}</h3>
-              <p className="mt-1 text-[13px] leading-relaxed text-slate-600 dark:text-slate-300">{pick(f.desc, lang)}</p>
+              <h3 className="mt-3.5 text-base font-semibold">{pick(f.title, lang)}</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{pick(f.desc, lang)}</p>
             </div>
           ))}
           {/* Sel terakhir mengisi sisa kisi. FEATURE_GROUPS berisi 11 modul
               sedangkan kisinya 3 kolom (12 slot); pada tata letak lama yang
               memakai kartu terpisah lubang itu tak terlihat, tetapi kisi
               berbagi-garis membuatnya menganga. Diisi ajakan, bukan ruang mati. */}
-          <div className="flex flex-col justify-center bg-brand-50 p-4 dark:bg-brand-950/40">
+          <div className="flex flex-col justify-center rounded-card border border-brand-200 bg-brand-50 p-5 dark:border-brand-900 dark:bg-brand-950/40">
             <p className="text-sm font-semibold text-brand-800 dark:text-brand-200">
               {L(lang, "Semua modul termasuk di setiap paket.", "Every module is included in every plan.")}
             </p>
-            <Link to="/daftar" className="mt-2 text-[13px] font-semibold text-brand-700 hover:underline dark:text-brand-300">
+            <Link to="/daftar" className="mt-2 text-sm font-semibold text-brand-700 hover:underline dark:text-brand-300">
               {L(lang, "Coba semua gratis →", "Try everything free →")}
             </Link>
           </div>
@@ -347,10 +347,10 @@ function FeaturesGrid() {
 function Comparison() {
   const lang = useLang();
   return (
-    <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
-      <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{L(lang, "Masih pakai buku & Excel?", "Still using ledgers & Excel?")}</h2>
-      <p className="mt-2 max-w-2xl text-[15px] text-slate-600 dark:text-slate-300">
-        {L(lang, "Waktu Anda lebih berharga daripada menyalin angka. Bandingkan sendiri.", "Your time is worth more than copying numbers. See for yourself.")}
+    <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+      <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">{L(lang, "Masih pakai buku & Excel?", "Still using ledgers & Excel?")}</h2>
+      <p className="mt-3 max-w-2xl text-base leading-relaxed text-slate-600 dark:text-slate-300">
+        {L(lang, "Bukan soal rapi atau tidak rapi — soal berapa jam yang hilang tiap bulan, dan berapa selisih yang baru ketahuan saat tutup buku.", "It is not about being tidy — it is about the hours lost each month, and the discrepancies you only find at closing.")}
       </p>
       <div className="mt-6 overflow-x-auto">
         <table className="w-full min-w-[640px] border-separate border-spacing-0 overflow-hidden rounded-card border border-slate-200 text-[13px] dark:border-slate-800">
@@ -512,25 +512,27 @@ function Pricing() {
   const lang = useLang();
   return (
     <section id="harga" className="scroll-mt-16 border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-      <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
-        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+      <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
           {L(lang, "Satu sistem, dari toko pertama sampai grup perusahaan", "One system, from your first shop to a group of companies")}
         </h2>
-        <p className="mt-2 max-w-2xl text-[15px] text-slate-600 dark:text-slate-300">
+        <p className="mt-3 max-w-2xl text-base leading-relaxed text-slate-600 dark:text-slate-300">
           {L(lang, "Pengguna", "Users are")} <span className="font-semibold">{L(lang, "selalu tak terbatas", "always unlimited")}</span>{" "}
           {L(lang, `di semua paket. Mulai gratis ${TRIAL_DAYS} hari dengan akses penuh — tanpa kartu kredit.`, `on every plan. Start free for ${TRIAL_DAYS} days with full access — no credit card.`)}
         </p>
 
         {/* Kartu paket berbagi satu garis, tanpa kartu "populer" yang diangkat
             dan diberi bayangan — penandanya cukup garis merek + lencana datar. */}
-        <div className="mt-6 grid gap-px overflow-hidden rounded-card border border-slate-200 bg-slate-200 lg:grid-cols-3 dark:border-slate-800 dark:bg-slate-800">
+        <div className="mt-10 grid gap-5 lg:grid-cols-3">
           {TIER_INFO.map((tier) => {
             const info = PLAN_LIMITS[tier.plan];
             return (
               <div
                 key={tier.plan}
-                className={`relative flex flex-col bg-white p-5 dark:bg-slate-950 ${
-                  tier.popular ? "ring-1 ring-inset ring-brand-500" : ""
+                className={`relative flex flex-col rounded-card border bg-white p-6 dark:bg-slate-900 ${
+                  tier.popular
+                    ? "border-brand-500 shadow-md ring-1 ring-brand-500/20"
+                    : "border-slate-200 shadow-card dark:border-slate-800"
                 }`}
               >
                 {/* Lencana TANPA `uppercase`: asersi ui-sim membaca innerText,
@@ -634,8 +636,8 @@ function DemoRequest() {
   const field = "w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-[13px] dark:border-slate-700 dark:bg-slate-950";
   return (
     <section id="demo" className="scroll-mt-16 border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-      <div className="mx-auto max-w-2xl px-4 py-14 sm:px-6">
-        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{L(lang, "Jadwalkan demo", "Schedule a demo")}</h2>
+      <div className="mx-auto max-w-2xl px-4 py-20 sm:px-6">
+        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">{L(lang, "Jadwalkan demo", "Schedule a demo")}</h2>
         <p className="mt-2 text-[15px] text-slate-600 dark:text-slate-300">
           {L(
             lang,
@@ -673,20 +675,20 @@ function DemoRequest() {
 function Security() {
   const lang = useLang();
   return (
-    <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
-      <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{L(lang, "Data bisnis Anda, aman di tangan Anda", "Your business data, safe in your hands")}</h2>
-      <p className="mt-2 max-w-2xl text-[15px] text-slate-600 dark:text-slate-300">
-        {L(lang, "Kami merancang ERPindo agar Anda tidak pernah terkunci — bukan sekadar aman, tapi juga bebas.", "We built ERPindo so you're never locked in — not just secure, but free.")}
+    <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+      <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">{L(lang, "Data bisnis Anda, aman di tangan Anda", "Your business data, safe in your hands")}</h2>
+      <p className="mt-3 max-w-2xl text-base leading-relaxed text-slate-600 dark:text-slate-300">
+        {L(lang, "Aman itu perlu, tapi tidak cukup. Anda juga harus bisa pergi kapan saja dan membawa seluruh data Anda.", "Secure is necessary, but not enough. You should also be able to leave whenever you want — and take all your data with you.")}
       </p>
-      <div className="mt-6 grid gap-px overflow-hidden rounded-card border border-slate-200 bg-slate-200 sm:grid-cols-2 dark:border-slate-800 dark:bg-slate-800">
+      <div className="mt-10 grid gap-4 sm:grid-cols-2">
         {SECURITY_POINTS.map((s) => (
-          <div key={s.title.id} className="flex items-start gap-2.5 bg-white p-4 dark:bg-slate-900">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
-              <ShieldCheck className="size-4" aria-hidden />
+          <div key={s.title.id} className="flex items-start gap-3.5 rounded-card border border-slate-200 bg-white p-5 shadow-card dark:border-slate-800 dark:bg-slate-900">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300">
+              <ShieldCheck className="size-5" aria-hidden />
             </span>
             <div>
-              <h3 className="text-sm font-semibold">{pick(s.title, lang)}</h3>
-              <p className="mt-1 text-[13px] leading-relaxed text-slate-600 dark:text-slate-300">{pick(s.desc, lang)}</p>
+              <h3 className="text-base font-semibold">{pick(s.title, lang)}</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{pick(s.desc, lang)}</p>
             </div>
           </div>
         ))}
@@ -698,17 +700,17 @@ function Security() {
 function Faq() {
   const lang = useLang();
   return (
-    <section id="faq" className="mx-auto max-w-3xl scroll-mt-16 px-4 py-14 sm:px-6">
-      <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{L(lang, "Pertanyaan umum", "Frequently asked questions")}</h2>
+    <section id="faq" className="mx-auto max-w-3xl scroll-mt-16 px-4 py-20 sm:px-6">
+      <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">{L(lang, "Pertanyaan umum", "Frequently asked questions")}</h2>
       {/* Daftar menyatu berpembatas garis, bukan tumpukan kartu terpisah. */}
-      <div className="mt-6 divide-y divide-slate-200 overflow-hidden rounded-card border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
+      <div className="mt-10 divide-y divide-slate-200 overflow-hidden rounded-card border border-slate-200 bg-white shadow-card dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
         {FAQ.map((item) => (
-          <details key={item.q.id} className="group px-4 py-2.5">
-            <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium">
+          <details key={item.q.id} className="group px-5 py-4">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-[15px] font-medium">
               {pick(item.q, lang)}
               <span className="ml-4 text-slate-400 transition-transform group-open:rotate-45">+</span>
             </summary>
-            <p className="mt-2 text-[13px] leading-relaxed text-slate-600 dark:text-slate-300">{pick(item.a, lang)}</p>
+            <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{pick(item.a, lang)}</p>
           </details>
         ))}
       </div>
@@ -722,10 +724,10 @@ function CtaBand() {
     <section className="px-4 pb-14 sm:px-6">
       {/* Gradien dua-warna diganti bidang merek datar berbingkai — pita CTA
           bergradien adalah salah satu penanda paling khas "SaaS umum". */}
-      <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-5 rounded-card border border-brand-500 bg-brand-600 px-6 py-8 text-white sm:flex-row sm:items-center">
+      <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 rounded-card bg-brand-600 px-8 py-12 text-white shadow-lg sm:flex-row sm:items-center">
         <div>
-          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{L(lang, "Siap merapikan bisnis Anda?", "Ready to tidy up your business?")}</h2>
-          <p className="mt-1.5 max-w-xl text-[13px] text-brand-50">
+          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{L(lang, "Siap merapikan bisnis Anda?", "Ready to tidy up your business?")}</h2>
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-brand-50">
             {L(
               lang,
               `Coba semua fitur gratis ${TRIAL_DAYS} hari. Tanpa kartu kredit · batal kapan saja · data Anda bisa diekspor kapan pun.`,
@@ -789,11 +791,11 @@ function IntegrationBadges() {
       <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
         {L(lang, "Kompatibel dengan alat & standar yang Anda pakai", "Works with the tools & standards you already use")}
       </p>
-      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         {items.map((it) => (
           <span
             key={it}
-            className="rounded border border-slate-200 bg-white px-2 py-1 text-[13px] text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+            className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-sm text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
           >
             {it}
           </span>
