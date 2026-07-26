@@ -685,6 +685,30 @@ try {
   check("F4 Neraca Saldo tetap 'seimbang ✓' setelah jurnal manual", (await page.innerText("body")).includes("seimbang ✓"));
   check("F4 jurnal bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
 
+  // F25 — Fase 17h. Mengunci keputusan yang mudah terbalik saat migrasi tabel:
+  // kolom NILAI (debit/kredit) memakai `Td numeric` → mono + rata KANAN,
+  // sedangkan kolom KODE AKUN memakai mono tetapi tetap rata KIRI, karena ia
+  // pengenal, bukan nilai. Menandai kode akun sebagai `numeric` akan terlihat
+  // "rapi" sekilas padahal salah secara akuntansi.
+  const kolomNeraca = await page.evaluate(() => {
+    const kode = document.querySelector("td.font-mono");
+    const nilai = document.querySelector("td.num");
+    const baca = (el) => (el ? { font: getComputedStyle(el).fontFamily, align: getComputedStyle(el).textAlign } : null);
+    return { kode: baca(kode), nilai: baca(nilai) };
+  });
+  check(
+    "F25 Neraca Saldo: kolom nilai mono rata-kanan, kode akun mono rata-kiri",
+    Boolean(
+      kolomNeraca.kode &&
+        kolomNeraca.nilai &&
+        /mono/i.test(kolomNeraca.kode.font) &&
+        kolomNeraca.kode.align !== "right" &&
+        /mono/i.test(kolomNeraca.nilai.font) &&
+        kolomNeraca.nilai.align === "right",
+    ),
+    `→ kode=${kolomNeraca.kode ? kolomNeraca.kode.align : "tidak ada"} nilai=${kolomNeraca.nilai ? kolomNeraca.nilai.align : "tidak ada"}`,
+  );
+
   // F5 — Buku Besar: pilih akun → mutasi + saldo berjalan render (uji 9a).
   resetErrors();
   await gotoRoute("/app/keuangan/buku-besar");

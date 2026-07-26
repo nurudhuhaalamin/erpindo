@@ -25,6 +25,11 @@ import {
   PageHeading,
   Select,
   Spinner,
+  Table,
+  Td,
+  Th,
+  Thead,
+  Tr,
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
@@ -45,8 +50,6 @@ function Amount({ value }: { value: number }) {
   return <span className="tabular-nums">{value === 0 ? "—" : formatIDR(value)}</span>;
 }
 
-const th = "pb-2 pr-4 text-left font-medium text-slate-500 dark:text-slate-400";
-const td = "border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60";
 
 // ---------------------------------------------------------------------------
 // Bagan Akun (COA)
@@ -155,80 +158,76 @@ export function AccountsPage() {
           {query.isLoading ? (
             <Spinner />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800">
-                    <th className={th}>{u("kode")}</th>
-                    <th className={th}>{u("nama")}</th>
-                    <th className={th}>{u("tipe")}</th>
-                    <th className={th}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(query.data?.accounts ?? [])
-                    .filter((a) => !a.isArchived)
-                    .map((a) => (
-                      <tr key={a.id}>
-                        <td className={`${td} font-mono text-xs`}>{a.code}</td>
-                        <td className={td}>
-                          {renamingId === a.id ? (
-                            <div className="flex items-center gap-2">
-                              <Input
-                                aria-label={`${u("namaBaruAkun")} ${a.code}`}
-                                className="h-8 max-w-xs"
-                                value={renameValue}
-                                onChange={(e) => setRenameValue(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") saveRename(a.id);
-                                  if (e.key === "Escape") setRenamingId(null);
-                                }}
-                                autoFocus
-                              />
-                              <Button
-                                className="h-8"
-                                onClick={() => saveRename(a.id)}
-                                disabled={rename.isPending}
-                              >
-                                {rename.isPending ? <Spinner /> : null} {u("simpan")}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                className="h-8"
-                                onClick={() => setRenamingId(null)}
-                              >
-                                {u("batal")}
-                              </Button>
-                            </div>
-                          ) : (
-                            a.name
-                          )}
-                        </td>
-                        <td className={td}>
-                          <Badge>{u(ACCOUNT_TYPE_KEY[a.type]!)}</Badge>
-                        </td>
-                        <td className={`${td} text-right`}>
-                          <span className="inline-flex items-center gap-2">
-                            {a.isSystem ? <Badge tone="brand">sistem</Badge> : null}
-                            {isAdmin && renamingId !== a.id ? (
-                              <Button
-                                variant="ghost"
-                                className="h-8"
-                                onClick={() => {
-                                  setRenamingId(a.id);
-                                  setRenameValue(a.name);
-                                }}
-                              >
-                                {u("ubahNama")}
-                              </Button>
-                            ) : null}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <Thead>
+                <tr>
+                  <Th>{u("kode")}</Th>
+                  <Th>{u("nama")}</Th>
+                  <Th>{u("tipe")}</Th>
+                  <Th></Th>
+                </tr>
+              </Thead>
+              <tbody>
+                {(query.data?.accounts ?? [])
+                  .filter((a) => !a.isArchived)
+                  .map((a) => (
+                    <Tr key={a.id}>
+                      {/* Kode akun: mono, tapi BUKAN `numeric` — ini pengenal,
+                          bukan nilai, jadi tidak boleh dirata-kanankan. */}
+                      <Td className="font-mono text-xs">{a.code}</Td>
+                      <Td>
+                        {renamingId === a.id ? (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              aria-label={`${u("namaBaruAkun")} ${a.code}`}
+                              className="max-w-xs"
+                              value={renameValue}
+                              onChange={(e) => setRenameValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") saveRename(a.id);
+                                if (e.key === "Escape") setRenamingId(null);
+                              }}
+                              autoFocus
+                            />
+                            <Button
+                              size="xs"
+                              onClick={() => saveRename(a.id)}
+                              disabled={rename.isPending}
+                            >
+                              {rename.isPending ? <Spinner /> : null} {u("simpan")}
+                            </Button>
+                            <Button variant="ghost" size="xs" onClick={() => setRenamingId(null)}>
+                              {u("batal")}
+                            </Button>
+                          </div>
+                        ) : (
+                          a.name
+                        )}
+                      </Td>
+                      <Td>
+                        <Badge>{u(ACCOUNT_TYPE_KEY[a.type]!)}</Badge>
+                      </Td>
+                      <Td className="text-right">
+                        <span className="inline-flex items-center gap-2">
+                          {a.isSystem ? <Badge tone="brand">sistem</Badge> : null}
+                          {isAdmin && renamingId !== a.id ? (
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              onClick={() => {
+                                setRenamingId(a.id);
+                                setRenameValue(a.name);
+                              }}
+                            >
+                              {u("ubahNama")}
+                            </Button>
+                          ) : null}
+                        </span>
+                      </Td>
+                    </Tr>
+                  ))}
+              </tbody>
+            </Table>
           )}
         </CardBody>
       </Card>
@@ -706,24 +705,25 @@ export function JournalPage() {
                       </button>
                     ) : null}
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <tbody>
-                        {e.lines.map((l) => (
-                          <tr key={l.id}>
-                            <td className="py-1 pr-4 font-mono text-xs">{l.accountCode}</td>
-                            <td className="py-1 pr-4">{l.accountName}</td>
-                            <td className="py-1 pr-4 text-right">
-                              <Amount value={l.debit} />
-                            </td>
-                            <td className="py-1 text-right">
-                              <Amount value={l.credit} />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  {/* Baris jurnal: tanpa `Thead` (judul kolomnya ada di kartu
+                      induk) dan tanpa garis antarbaris — ini blok debit/kredit
+                      satu jurnal, bukan daftar yang perlu dipisah-pisah. */}
+                  <Table>
+                    <tbody>
+                      {e.lines.map((l) => (
+                        <tr key={l.id}>
+                          <Td className="py-1 font-mono text-xs">{l.accountCode}</Td>
+                          <Td className="py-1">{l.accountName}</Td>
+                          <Td numeric className="py-1">
+                            <Amount value={l.debit} />
+                          </Td>
+                          <Td numeric className="py-1">
+                            <Amount value={l.credit} />
+                          </Td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
                 </div>
               ))}
               {(entriesQuery.data?.total ?? 0) > (entriesQuery.data?.entries.length ?? 0) ? (
@@ -867,38 +867,36 @@ export function LedgerPage() {
                   {loadingOlder ? u("memuat") : u("muatLebihLama")}
                 </Button>
               ) : null}
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-800">
-                      <th className={th}>{u("noJurnal")}</th>
-                      <th className={th}>{u("tanggal")}</th>
-                      <th className={th}>{u("keterangan")}</th>
-                      <th className={`${th} text-right`}>{u("debit")}</th>
-                      <th className={`${th} text-right`}>{u("kredit")}</th>
-                      <th className={`${th} text-right`}>{u("saldo")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allEntries.map((r, i) => (
-                      <tr key={i}>
-                        <td className={`${td} font-mono text-xs`}>{r.entryNo}</td>
-                        <td className={td}>{r.entryDate}</td>
-                        <td className={td}>{r.description ?? "—"}</td>
-                        <td className={`${td} text-right`}>
-                          <Amount value={r.debit} />
-                        </td>
-                        <td className={`${td} text-right`}>
-                          <Amount value={r.credit} />
-                        </td>
-                        <td className={`${td} text-right font-medium tabular-nums`}>
-                          {formatIDR(r.balance)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <Table>
+                <Thead>
+                  <tr>
+                    <Th>{u("noJurnal")}</Th>
+                    <Th>{u("tanggal")}</Th>
+                    <Th>{u("keterangan")}</Th>
+                    <Th numeric>{u("debit")}</Th>
+                    <Th numeric>{u("kredit")}</Th>
+                    <Th numeric>{u("saldo")}</Th>
+                  </tr>
+                </Thead>
+                <tbody>
+                  {allEntries.map((r, i) => (
+                    <Tr key={i}>
+                      <Td className="font-mono text-xs">{r.entryNo}</Td>
+                      <Td>{r.entryDate}</Td>
+                      <Td>{r.description ?? "—"}</Td>
+                      <Td numeric>
+                        <Amount value={r.debit} />
+                      </Td>
+                      <Td numeric>
+                        <Amount value={r.credit} />
+                      </Td>
+                      <Td numeric className="font-medium">
+                        {formatIDR(r.balance)}
+                      </Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </Table>
               <p className="text-sm">
                 {u("saldoAkhir")}{" "}
                 <strong className="tabular-nums">{formatIDR(ledgerQuery.data.balance)}</strong>
@@ -964,43 +962,35 @@ export function TrialBalancePage() {
           ) : (query.data?.rows.length ?? 0) === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">{u("belumAdaTransaksi")}</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800">
-                    <th className={th}>{u("kode")}</th>
-                    <th className={th}>{u("akun")}</th>
-                    <th className={`${th} text-right`}>{u("debit")}</th>
-                    <th className={`${th} text-right`}>{u("kredit")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {query.data!.rows.map((r) => (
-                    <tr key={r.accountId}>
-                      <td className={`${td} font-mono text-xs`}>{r.code}</td>
-                      <td className={td}>{r.name}</td>
-                      <td className={`${td} text-right`}>
-                        <Amount value={r.debit} />
-                      </td>
-                      <td className={`${td} text-right`}>
-                        <Amount value={r.credit} />
-                      </td>
-                    </tr>
-                  ))}
-                  <tr className="font-semibold">
-                    <td className="py-2.5 pr-4" colSpan={2}>
-                      {u("total")}
-                    </td>
-                    <td className="py-2.5 pr-4 text-right tabular-nums">
-                      {formatIDR(query.data!.totalDebit)}
-                    </td>
-                    <td className="py-2.5 text-right tabular-nums">
-                      {formatIDR(query.data!.totalCredit)}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <Thead>
+                <tr>
+                  <Th>{u("kode")}</Th>
+                  <Th>{u("akun")}</Th>
+                  <Th numeric>{u("debit")}</Th>
+                  <Th numeric>{u("kredit")}</Th>
+                </tr>
+              </Thead>
+              <tbody>
+                {query.data!.rows.map((r) => (
+                  <Tr key={r.accountId}>
+                    <Td className="font-mono text-xs">{r.code}</Td>
+                    <Td>{r.name}</Td>
+                    <Td numeric>
+                      <Amount value={r.debit} />
+                    </Td>
+                    <Td numeric>
+                      <Amount value={r.credit} />
+                    </Td>
+                  </Tr>
+                ))}
+                <Tr className="font-semibold">
+                  <Td colSpan={2}>{u("total")}</Td>
+                  <Td numeric>{formatIDR(query.data!.totalDebit)}</Td>
+                  <Td numeric>{formatIDR(query.data!.totalCredit)}</Td>
+                </Tr>
+              </tbody>
+            </Table>
           )}
         </CardBody>
       </Card>
