@@ -1296,6 +1296,55 @@ try {
     `→ ${tabelHp ? `kepalaTersembunyi=${tabelHp.kepalaTersembunyi} sel=${tabelHp.selBlok} meluber=${tabelHp.meluber} label=${tabelHp.labelTampak}` : "tidak ada <table>"}`,
   );
 
+  // F32 — Fase 18p: baris BER-`colSpan` ikut menumpuk dengan benar.
+  //
+  // F28 memakai tabel Stok, yang seluruh barisnya seragam. Bentuk yang benar-
+  // benar bisa pecah adalah baris total ber-`colSpan` — pada mode kartu setiap
+  // sel jadi blok dan `colSpan` kehilangan artinya, sehingga baris total mudah
+  // meluber atau tampil tanpa konteks. Tabel routing manufaktur memuat persis
+  // bentuk itu, dan `F26` tidak akan menyadarinya bila luberannya terjadi di
+  // dalam wadah tabel, bukan di dokumen — pelajaran yang sama yang melahirkan
+  // F28.
+  //
+  // Catatan: pada titik ini suite berada di sesi demo (viewer, lihat F15), jadi
+  // kolom aksi memang tidak dirender. Cek ini sengaja menyasar bentuk yang
+  // benar-benar dilihat pengunjung demo, bukan bentuk yang hanya ada bagi admin.
+  await gotoRoute("/app/manufaktur", 900);
+  // Tabel routing baru muncul setelah satu perintah produksi dipilih.
+  await page.locator("#rt-prod").selectOption({ index: 1 });
+  await page.waitForTimeout(1200);
+  const routingHp = await page.evaluate(() => {
+    const sel = document.querySelector("table td[colspan]");
+    if (!sel) return null;
+    const baris = sel.closest("tr");
+    const tabel = baris.closest("table");
+    const kartu = baris.getBoundingClientRect();
+    return {
+      // Kartu baris tidak boleh melewati tepi kanan layar.
+      dalamLayar: kartu.right <= window.innerWidth + 2,
+      // Tabel induk tidak menggulir mendatar di dalam dirinya sendiri.
+      tabelMeluber: tabel.scrollWidth > tabel.clientWidth + 2,
+      // Baris memang sedang dalam mode kartu (bukan sekadar kebetulan muat).
+      barisBlok: getComputedStyle(baris).display === "block",
+      // Sel ber-`colSpan` pun ikut jadi blok, bukan tetap sel tabel selebar
+      // beberapa kolom yang tak ada lagi.
+      selFleks: getComputedStyle(sel).display === "flex",
+      kanan: Math.round(kartu.right),
+      layar: window.innerWidth,
+    };
+  });
+  check(
+    "F32 layar 390px: baris total ber-colSpan (routing manufaktur) menumpuk rapi jadi kartu",
+    Boolean(
+      routingHp &&
+        routingHp.dalamLayar &&
+        !routingHp.tabelMeluber &&
+        routingHp.barisBlok === true &&
+        routingHp.selFleks === true,
+    ),
+    `→ ${routingHp ? `kanan=${routingHp.kanan} layar=${routingHp.layar} tabelMeluber=${routingHp.tabelMeluber} blok=${routingHp.barisBlok} sel=${routingHp.selFleks}` : "tidak ada sel ber-colSpan"}`,
+  );
+
   // Drawer navigasi adalah SATU-SATUNYA jalan ke menu di layar kecil (sidebar
   // desktop `hidden md:flex`). Kalau ia rusak, aplikasi praktis tak bisa
   // dipakai di HP — dan tak satu pun cek lama akan menyadarinya.
@@ -1325,6 +1374,7 @@ try {
     for (const [rute, nama] of [
       ["/app", "hp-dasbor"],
       ["/app/stok", "hp-stok"],
+      ["/app/manufaktur", "hp-manufaktur"],
     ]) {
       await gotoRoute(rute, 900);
       await page.screenshot({ path: path.join(process.env.UI_SIM_SHOT, `${nama}.png`) });
