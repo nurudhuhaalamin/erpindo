@@ -4,10 +4,27 @@
 // ---------------------------------------------------------------------------
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ArrowDownToLine, ArrowUpFromLine, Boxes, LineChart, MessageCircle, Receipt, Check, ShoppingCart, SlidersHorizontal, Sparkles, Target, TrendingUp, Users, Wallet, type LucideIcon } from "lucide-react";
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Boxes,
+  LineChart,
+  MessageCircle,
+  Receipt,
+  Check,
+  ShoppingCart,
+  SlidersHorizontal,
+  Sparkles,
+  Target,
+  TrendingUp,
+  Users,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { api, ApiRequestError, formatDate, formatIDR } from "../api/client";
 import { useLang } from "../i18n";
+import { useUi, type UiKey } from "../i18n/ui";
 import { Alert, Button, Card, CardBody, CardHeader, Skeleton, useToast } from "../components/ui";
 import { useWorkspace } from "./app";
 import { AUDIT_ACTION_LABELS } from "./settings";
@@ -18,8 +35,10 @@ import { AUDIT_ACTION_LABELS } from "./settings";
 
 /** Angka ringkas untuk tick sumbu: 1500000 → "1,5 jt", 250000 → "250 rb". */
 function compactNumber(n: number): string {
-  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} M`;
-  if (n >= 1_000_000) return `${(n / 1_000_000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} jt`;
+  if (n >= 1_000_000_000)
+    return `${(n / 1_000_000_000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} M`;
+  if (n >= 1_000_000)
+    return `${(n / 1_000_000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} jt`;
   if (n >= 1_000) return `${(n / 1_000).toLocaleString("id-ID", { maximumFractionDigits: 0 })} rb`;
   return String(n);
 }
@@ -42,6 +61,7 @@ function niceCeil(n: number): number {
 const TREND_RANGES = [7, 30, 90] as const;
 
 function SalesTrendChart({ tenantId }: { tenantId: string }) {
+  const u = useUi();
   // Filter rentang 7/30/90 hari (Fase 12d) — API sudah menerima ?days= sejak lama.
   const [range, setRange] = useState<(typeof TREND_RANGES)[number]>(30);
   const query = useQuery({
@@ -80,10 +100,10 @@ function SalesTrendChart({ tenantId }: { tenantId: string }) {
   return (
     <Card>
       <CardHeader
-        title={`Penjualan ${range} hari terakhir`}
-        description="Total faktur penjualan per hari (dokumen dibatalkan tidak dihitung)."
+        title={`${u("penjualanHariTerakhir")} ${range} ${u("hariTerakhirSuffix")}`}
+        description={u("descGrafikHarian")}
         action={
-          <div className="flex gap-1" role="group" aria-label="Rentang grafik">
+          <div className="flex gap-1" role="group" aria-label={u("rentangGrafik")}>
             {TREND_RANGES.map((r) => (
               <button
                 key={r}
@@ -95,7 +115,7 @@ function SalesTrendChart({ tenantId }: { tenantId: string }) {
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                 }`}
               >
-                {r} hari
+                {r} {u("hariSuffix")}
               </button>
             ))}
           </div>
@@ -108,10 +128,16 @@ function SalesTrendChart({ tenantId }: { tenantId: string }) {
           <div className="relative">
             {days.every((d) => d.total === 0) ? (
               <p className="absolute inset-0 z-10 flex items-center justify-center px-6 text-center text-sm text-slate-400 dark:text-slate-500">
-                Belum ada penjualan {range} hari terakhir — mulai dari faktur pertama Anda di menu Penjualan.
+                {u("belumAdaPenjualanRentang")} {range} {u("hariTerakhirSuffix")}{" "}
+                {u("descMulaiDariFaktur")}
               </p>
             ) : null}
-            <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Grafik penjualan harian ${range} hari`}>
+            <svg
+              viewBox={`0 0 ${W} ${H}`}
+              className="w-full"
+              role="img"
+              aria-label={`${u("grafikPenjualanHarian")} ${range} ${u("hariSuffix")}`}
+            >
               {ticks.map((t) => (
                 <g key={t}>
                   <line
@@ -135,7 +161,7 @@ function SalesTrendChart({ tenantId }: { tenantId: string }) {
               ))}
               {days.map((d, i) => {
                 const cx = PAD_L + i * slot + slot / 2;
-                const barH = Math.max(d.total > 0 ? 2 : 0, ((d.total / yMax) * plotH));
+                const barH = Math.max(d.total > 0 ? 2 : 0, (d.total / yMax) * plotH);
                 const top = PAD_T + plotH - barH;
                 return (
                   <g key={d.date}>
@@ -204,21 +230,24 @@ function SalesTrendChart({ tenantId }: { tenantId: string }) {
 
 /** Widget faktur lewat jatuh tempo — diambil dari mesin notifikasi. */
 function DueInvoicesWidget({ tenantId }: { tenantId: string }) {
+  const u = useUi();
   const query = useQuery({
     queryKey: ["notifications", tenantId],
     queryFn: () => api.notifications(tenantId),
   });
-  const overdue = (query.data?.notifications ?? []).filter((n) => n.type === "overdue_invoice").slice(0, 5);
+  const overdue = (query.data?.notifications ?? [])
+    .filter((n) => n.type === "overdue_invoice")
+    .slice(0, 5);
 
   return (
     <Card>
-      <CardHeader title="Faktur lewat jatuh tempo" description="Tagih segera agar arus kas tetap sehat." />
+      <CardHeader title={u("fakturLewatJatuhTempo")} description={u("descTagihSegera")} />
       <CardBody>
         {query.isLoading ? (
           <Skeleton className="h-24 w-full" />
         ) : overdue.length === 0 ? (
           <p className="py-4 text-center text-sm text-slate-500 dark:text-slate-400">
-            Tidak ada faktur yang lewat jatuh tempo. 👍
+            {u("tidakAdaJatuhTempo")}
           </p>
         ) : (
           <ul className="space-y-2.5">
@@ -228,13 +257,19 @@ function DueInvoicesWidget({ tenantId }: { tenantId: string }) {
                   <span className="block font-medium text-slate-800 group-hover:text-brand-700 dark:text-slate-100 dark:group-hover:text-brand-300">
                     {n.title.replace("Faktur ", "").replace(" lewat jatuh tempo", "")}
                   </span>
-                  <span className="block text-xs text-slate-500 dark:text-slate-400">{n.detail}</span>
+                  <span className="block text-xs text-slate-500 dark:text-slate-400">
+                    {n.detail}
+                  </span>
                 </Link>
                 {n.waText && (
                   <button
                     type="button"
                     onClick={() =>
-                      window.open(`https://wa.me/?text=${encodeURIComponent(n.waText!)}`, "_blank", "noopener")
+                      window.open(
+                        `https://wa.me/?text=${encodeURIComponent(n.waText!)}`,
+                        "_blank",
+                        "noopener"
+                      )
                     }
                     className="inline-flex shrink-0 items-center gap-1 rounded-md border border-emerald-300 px-2 py-1 text-xs font-medium text-emerald-700 transition hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-900/30"
                     title="Kirim pengingat via WhatsApp"
@@ -253,6 +288,7 @@ function DueInvoicesWidget({ tenantId }: { tenantId: string }) {
 
 /** Widget deteksi anomali beban (Fase 15c) — akun beban yang melonjak bulan ini. */
 function AnomaliesWidget({ tenantId }: { tenantId: string }) {
+  const u = useUi();
   const query = useQuery({
     queryKey: ["anomalies", tenantId],
     queryFn: () => api.anomalies(tenantId),
@@ -260,13 +296,13 @@ function AnomaliesWidget({ tenantId }: { tenantId: string }) {
   const items = query.data?.anomalies ?? [];
   return (
     <Card>
-      <CardHeader title="Beban perlu diperiksa" description="Beban bulan ini yang melonjak jauh dari kebiasaan." />
+      <CardHeader title={u("bebanPerluDiperiksa")} description={u("descBebanMelonjak")} />
       <CardBody>
         {query.isLoading ? (
           <Skeleton className="h-24 w-full" />
         ) : items.length === 0 ? (
           <p className="py-4 text-center text-sm text-slate-500 dark:text-slate-400">
-            Tidak ada beban yang mencurigakan. 👍
+            {u("tidakAdaBebanMencurigakan")}
           </p>
         ) : (
           <ul className="space-y-2.5">
@@ -275,11 +311,13 @@ function AnomaliesWidget({ tenantId }: { tenantId: string }) {
                 <span className="block font-medium text-slate-800 dark:text-slate-100">
                   {a.name}{" "}
                   <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-                    {a.ratio.toFixed(1)}× biasanya
+                    {a.ratio.toFixed(1)}
+                    {u("kaliBiasanya")}
                   </span>
                 </span>
                 <span className="block text-xs text-slate-500 dark:text-slate-400">
-                  Bulan ini {formatIDR(a.current)} vs biasanya {formatIDR(a.baseline)} (+{formatIDR(a.delta)})
+                  {u("bulanIni")} {formatIDR(a.current)} {u("vsBiasanya")} {formatIDR(a.baseline)}{" "}
+                  (+{formatIDR(a.delta)})
                 </span>
               </li>
             ))}
@@ -292,6 +330,7 @@ function AnomaliesWidget({ tenantId }: { tenantId: string }) {
 
 /** Feed aktivitas terakhir (Owner) — cuplikan audit log. */
 function ActivityFeed({ tenantId }: { tenantId: string }) {
+  const u = useUi();
   const query = useQuery({
     queryKey: ["audit-logs", tenantId],
     queryFn: () => api.auditLogs(tenantId),
@@ -299,24 +338,35 @@ function ActivityFeed({ tenantId }: { tenantId: string }) {
   const logs = (query.data?.logs ?? []).slice(0, 6);
   return (
     <Card>
-      <CardHeader title="Aktivitas terakhir" description="Siapa melakukan apa — cuplikan riwayat audit." />
+      <CardHeader title={u("aktivitasTerakhir")} description={u("descAktivitasTerakhir")} />
       <CardBody>
         {query.isLoading ? (
           <Skeleton className="h-24 w-full" />
         ) : logs.length === 0 ? (
-          <p className="py-4 text-center text-sm text-slate-500 dark:text-slate-400">Belum ada aktivitas.</p>
+          <p className="py-4 text-center text-sm text-slate-500 dark:text-slate-400">
+            {u("belumAdaAktivitas")}
+          </p>
         ) : (
           <ul className="space-y-2.5">
             {logs.map((l) => (
               <li key={l.id} className="flex items-baseline gap-2 text-sm">
-                <span className="size-1.5 shrink-0 translate-y-[-2px] rounded-full bg-brand-500" aria-hidden />
+                <span
+                  className="size-1.5 shrink-0 translate-y-[-2px] rounded-full bg-brand-500"
+                  aria-hidden
+                />
                 <span className="min-w-0">
                   <span className="font-medium text-slate-800 dark:text-slate-100">
                     {AUDIT_ACTION_LABELS[l.action] ?? l.action}
                   </span>
                   <span className="text-xs text-slate-500 dark:text-slate-400">
                     {" "}
-                    — {l.userName ?? "sistem"} · {new Date(l.createdAt).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    — {l.userName ?? "sistem"} ·{" "}
+                    {new Date(l.createdAt).toLocaleString("id-ID", {
+                      day: "numeric",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </span>
                 </span>
               </li>
@@ -330,7 +380,11 @@ function ActivityFeed({ tenantId }: { tenantId: string }) {
 
 /** Checklist onboarding: dihitung dari data nyata, hilang otomatis saat lengkap. */
 function OnboardingChecklist({ tenantId }: { tenantId: string }) {
-  const settings = useQuery({ queryKey: ["settings", tenantId], queryFn: () => api.settings(tenantId) });
+  const u = useUi();
+  const settings = useQuery({
+    queryKey: ["settings", tenantId],
+    queryFn: () => api.settings(tenantId),
+  });
   const products = useQuery({
     queryKey: ["products", tenantId, "", 1],
     queryFn: () => api.listItems(tenantId, "products", { limit: 1 }),
@@ -343,17 +397,34 @@ function OnboardingChecklist({ tenantId }: { tenantId: string }) {
     queryKey: ["invoices", tenantId, "", 1],
     queryFn: () => api.invoices(tenantId, { limit: 1 }),
   });
-  const members = useQuery({ queryKey: ["members", tenantId], queryFn: () => api.members(tenantId) });
+  const members = useQuery({
+    queryKey: ["members", tenantId],
+    queryFn: () => api.members(tenantId),
+  });
 
-  if (settings.isLoading || products.isLoading || contacts.isLoading || invoices.isLoading || members.isLoading) {
+  if (
+    settings.isLoading ||
+    products.isLoading ||
+    contacts.isLoading ||
+    invoices.isLoading ||
+    members.isLoading
+  ) {
     return null;
   }
   const steps: { label: string; done: boolean; to: string }[] = [
-    { label: "Lengkapi profil perusahaan (alamat & NPWP)", done: Boolean(settings.data?.settings.address), to: "/app/pengaturan" },
-    { label: "Tambah produk pertama", done: (products.data?.total ?? 0) > 0, to: "/app/master/produk" },
-    { label: "Tambah pelanggan / pemasok", done: (contacts.data?.total ?? 0) > 0, to: "/app/master/kontak" },
-    { label: "Posting faktur pertama", done: (invoices.data?.total ?? 0) > 0, to: "/app/penjualan" },
-    { label: "Undang anggota tim", done: (members.data?.members.length ?? 0) > 1, to: "/app/pengaturan" },
+    {
+      label: u("langkahProfil"),
+      done: Boolean(settings.data?.settings.address),
+      to: "/app/pengaturan",
+    },
+    { label: u("langkahProduk"), done: (products.data?.total ?? 0) > 0, to: "/app/master/produk" },
+    { label: u("langkahKontak"), done: (contacts.data?.total ?? 0) > 0, to: "/app/master/kontak" },
+    { label: u("langkahFaktur"), done: (invoices.data?.total ?? 0) > 0, to: "/app/penjualan" },
+    {
+      label: u("langkahTim"),
+      done: (members.data?.members.length ?? 0) > 1,
+      to: "/app/pengaturan",
+    },
   ];
   const doneCount = steps.filter((s) => s.done).length;
   if (doneCount === steps.length) return null;
@@ -361,11 +432,14 @@ function OnboardingChecklist({ tenantId }: { tenantId: string }) {
   return (
     <Card>
       <CardHeader
-        title={`Mulai cepat — ${doneCount}/${steps.length} selesai`}
-        description="Lima langkah agar pembukuan Anda langsung berjalan."
+        title={`${u("mulaiCepatJudul")} — ${doneCount}/${steps.length} ${u("selesaiKata")}`}
+        description={u("descLimaLangkah")}
         action={
-          <Link to="/app/mulai" className="text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">
-            Buka pandu cepat →
+          <Link
+            to="/app/mulai"
+            className="text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
+          >
+            {u("bukaPanduCepat")}
           </Link>
         }
       />
@@ -414,6 +488,7 @@ function OnboardingChecklist({ tenantId }: { tenantId: string }) {
  * grafik harian: batang membulat dari baseline, grid hairline, tick bulat.
  */
 function MonthlyTrendChart({ tenantId }: { tenantId: string }) {
+  const u = useUi();
   const query = useQuery({
     queryKey: ["sales-monthly", tenantId],
     queryFn: () => api.salesMonthly(tenantId, 6),
@@ -447,13 +522,16 @@ function MonthlyTrendChart({ tenantId }: { tenantId: string }) {
   const ticks = [0, yMax / 2, yMax];
   const monthLabel = (m: string) => {
     const [yy, mm] = m.split("-").map(Number);
-    return new Date(Date.UTC(yy!, mm! - 1, 1)).toLocaleDateString("id-ID", { month: "short", year: "2-digit" });
+    return new Date(Date.UTC(yy!, mm! - 1, 1)).toLocaleDateString("id-ID", {
+      month: "short",
+      year: "2-digit",
+    });
   };
   const hovered = hover !== null ? months[hover] : null;
 
   return (
     <Card>
-      <CardHeader title="Tren penjualan bulanan" description="Total omzet faktur per bulan, 6 bulan terakhir." />
+      <CardHeader title={u("trenPenjualanBulanan")} description={u("descTrenBulanan")} />
       <CardBody>
         {query.isLoading ? (
           <Skeleton className="h-48 w-full" />
@@ -461,14 +539,32 @@ function MonthlyTrendChart({ tenantId }: { tenantId: string }) {
           <div className="relative">
             {months.every((m) => m.total === 0) ? (
               <p className="absolute inset-0 z-10 flex items-center justify-center px-6 text-center text-sm text-slate-400 dark:text-slate-500">
-                Belum ada omzet 6 bulan terakhir — grafik terisi otomatis begitu ada faktur penjualan.
+                {u("descBelumAdaOmzet")}
               </p>
             ) : null}
-            <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Grafik omzet bulanan 6 bulan">
+            <svg
+              viewBox={`0 0 ${W} ${H}`}
+              className="w-full"
+              role="img"
+              aria-label={u("grafikOmzetBulanan")}
+            >
               {ticks.map((t) => (
                 <g key={t}>
-                  <line x1={PAD_L} x2={W - 6} y1={y(t)} y2={y(t)} className="stroke-slate-200 dark:stroke-slate-800" strokeWidth={1} />
-                  <text x={PAD_L - 6} y={y(t) + 3.5} textAnchor="end" className="fill-slate-400 dark:fill-slate-500" fontSize={10}>
+                  <line
+                    x1={PAD_L}
+                    x2={W - 6}
+                    y1={y(t)}
+                    y2={y(t)}
+                    className="stroke-slate-200 dark:stroke-slate-800"
+                    strokeWidth={1}
+                  />
+                  <text
+                    x={PAD_L - 6}
+                    y={y(t) + 3.5}
+                    textAnchor="end"
+                    className="fill-slate-400 dark:fill-slate-500"
+                    fontSize={10}
+                  >
                     {compactNumber(t)}
                   </text>
                 </g>
@@ -486,7 +582,11 @@ function MonthlyTrendChart({ tenantId }: { tenantId: string }) {
                         width={barW}
                         height={barH}
                         rx={4}
-                        className={hover === i ? "fill-brand-500 dark:fill-brand-300" : "fill-brand-600 dark:fill-brand-400"}
+                        className={
+                          hover === i
+                            ? "fill-brand-500 dark:fill-brand-300"
+                            : "fill-brand-600 dark:fill-brand-400"
+                        }
                       />
                     ) : null}
                     <rect
@@ -498,7 +598,13 @@ function MonthlyTrendChart({ tenantId }: { tenantId: string }) {
                       onPointerEnter={() => setHover(i)}
                       onPointerLeave={() => setHover(null)}
                     />
-                    <text x={cx} y={H - 6} textAnchor="middle" className="fill-slate-400 dark:fill-slate-500" fontSize={10}>
+                    <text
+                      x={cx}
+                      y={H - 6}
+                      textAnchor="middle"
+                      className="fill-slate-400 dark:fill-slate-500"
+                      fontSize={10}
+                    >
                       {monthLabel(m.month)}
                     </text>
                   </g>
@@ -508,10 +614,17 @@ function MonthlyTrendChart({ tenantId }: { tenantId: string }) {
             {hovered ? (
               <div
                 className="pointer-events-none absolute -top-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-md dark:border-slate-700 dark:bg-slate-900"
-                style={{ left: `${Math.min(92, Math.max(2, ((PAD_L + (hover ?? 0) * slot + slot / 2) / W) * 100))}%`, transform: "translateX(-50%)" }}
+                style={{
+                  left: `${Math.min(92, Math.max(2, ((PAD_L + (hover ?? 0) * slot + slot / 2) / W) * 100))}%`,
+                  transform: "translateX(-50%)",
+                }}
               >
-                <span className="block font-semibold tabular-nums text-slate-900 dark:text-slate-100">{formatIDR(hovered.total)}</span>
-                <span className="block text-slate-500 dark:text-slate-400">{monthLabel(hovered.month)} · {hovered.count} faktur</span>
+                <span className="block font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                  {formatIDR(hovered.total)}
+                </span>
+                <span className="block text-slate-500 dark:text-slate-400">
+                  {monthLabel(hovered.month)} · {hovered.count} faktur
+                </span>
               </div>
             ) : null}
           </div>
@@ -523,6 +636,7 @@ function MonthlyTrendChart({ tenantId }: { tenantId: string }) {
 
 /** Widget laporan terjadwal (Fase 7h): snapshot rekap bulanan yang disusun Cron. */
 function ScheduledReportsWidget({ tenantId, canRun }: { tenantId: string; canRun: boolean }) {
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const query = useQuery({
@@ -546,18 +660,21 @@ function ScheduledReportsWidget({ tenantId, canRun }: { tenantId: string; canRun
 
   const monthName = (p: string) => {
     const [yy, mm] = p.split("-").map(Number);
-    return new Date(Date.UTC(yy!, mm! - 1, 1)).toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+    return new Date(Date.UTC(yy!, mm! - 1, 1)).toLocaleDateString("id-ID", {
+      month: "long",
+      year: "numeric",
+    });
   };
 
   return (
     <Card>
       <CardHeader
-        title="Laporan terjadwal"
-        description="Rekap penjualan bulanan yang disusun otomatis tiap awal bulan."
+        title={u("laporanTerjadwal")}
+        description={u("descLaporanTerjadwal")}
         action={
           canRun ? (
             <Button variant="secondary" onClick={() => run.mutate()} disabled={run.isPending}>
-              {run.isPending ? "Menyusun…" : "Susun bulan lalu"}
+              {run.isPending ? u("menyusun") : u("susunBulanLalu")}
             </Button>
           ) : undefined
         }
@@ -567,16 +684,20 @@ function ScheduledReportsWidget({ tenantId, canRun }: { tenantId: string; canRun
           <Skeleton className="h-24 w-full" />
         ) : snapshots.length === 0 ? (
           <p className="py-4 text-center text-sm text-slate-500 dark:text-slate-400">
-            Belum ada rekap. Cron menyusun rekap bulan lalu tiap awal bulan{canRun ? ", atau susun manual di atas." : "."}
+            {u("descBelumAdaRekap")}
+            {canRun ? u("descSusunManual") : "."}
           </p>
         ) : (
           <ul className="space-y-2.5">
             {snapshots.slice(0, 5).map((s) => (
               <li key={s.id} className="flex items-baseline justify-between gap-3 text-sm">
                 <span className="min-w-0">
-                  <span className="font-medium text-slate-800 dark:text-slate-100">{monthName(s.period)}</span>
+                  <span className="font-medium text-slate-800 dark:text-slate-100">
+                    {monthName(s.period)}
+                  </span>
                   <span className="block text-xs text-slate-500 dark:text-slate-400">
-                    {s.summary.invoiceCount} faktur{s.summary.topProduct ? ` · terlaris: ${s.summary.topProduct}` : ""}
+                    {s.summary.invoiceCount} faktur
+                    {s.summary.topProduct ? ` · terlaris: ${s.summary.topProduct}` : ""}
                   </span>
                 </span>
                 <span className="shrink-0 font-semibold tabular-nums text-slate-900 dark:text-slate-100">
@@ -597,6 +718,7 @@ function ScheduledReportsWidget({ tenantId, canRun }: { tenantId: string; canRun
  * menampilkan teks redup — tidak pernah error state (pola asisten.tsx).
  */
 function AiWeeklySummaryWidget({ tenantId }: { tenantId: string }) {
+  const u = useUi();
   const query = useQuery({
     queryKey: ["ai-weekly-summary", tenantId],
     queryFn: () => api.aiWeeklySummary(tenantId),
@@ -604,13 +726,14 @@ function AiWeeklySummaryWidget({ tenantId }: { tenantId: string }) {
     staleTime: 60 * 60 * 1000, // server sudah meng-cache per minggu; jangan refetch agresif
   });
   const unavailable =
-    query.isError && (!(query.error instanceof ApiRequestError) || [503, 408, 429, 0].includes(query.error.status));
+    query.isError &&
+    (!(query.error instanceof ApiRequestError) || [503, 408, 429, 0].includes(query.error.status));
 
   return (
     <Card>
       <CardHeader
-        title="Ringkasan mingguan AI"
-        description="Narasi singkat kinerja minggu ini vs minggu lalu — dihitung dari buku Anda."
+        title={u("ringkasanMingguanAi")}
+        description={u("descRingkasanAi")}
         action={<Sparkles className="size-4 text-brand-500" aria-hidden />}
       />
       <CardBody>
@@ -618,18 +741,21 @@ function AiWeeklySummaryWidget({ tenantId }: { tenantId: string }) {
           <Skeleton className="h-16 w-full" />
         ) : query.isSuccess ? (
           <>
-            <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-200">{query.data.summary}</p>
+            <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+              {query.data.summary}
+            </p>
             <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-              Dibuat {formatDate(query.data.generatedAt.slice(0, 10))} · diperbarui otomatis tiap minggu.
+              {u("dibuatPada")} {formatDate(query.data.generatedAt.slice(0, 10))}{" "}
+              {u("descDiperbaruiMingguan")}
             </p>
           </>
         ) : unavailable ? (
           <p className="py-2 text-sm text-slate-400 dark:text-slate-500">
-            Fitur AI belum tersedia di lingkungan ini — fitur lain tetap berjalan normal.
+            {u("descAiTakTersedia")}
           </p>
         ) : (
           <p className="py-2 text-sm text-slate-400 dark:text-slate-500">
-            Ringkasan belum bisa dimuat. {(query.error as Error)?.message ?? ""}
+            {u("descRingkasanGagal")} {(query.error as Error)?.message ?? ""}
           </p>
         )}
       </CardBody>
@@ -638,16 +764,18 @@ function AiWeeklySummaryWidget({ tenantId }: { tenantId: string }) {
 }
 
 /** Widget dashboard yang bisa disembunyikan/ditampilkan (Fase 7h). */
+// Konstanta tingkat modul menyimpan KUNCI kamus, bukan teks (aturan tetap
+// sejak Fase 16j — ini kejadian kedelapan).
 const DASHBOARD_WIDGETS = [
-  { key: "kpi", label: "Ringkasan angka (KPI)" },
-  { key: "aiRingkasan", label: "Ringkasan mingguan AI" },
-  { key: "trenHarian", label: "Grafik penjualan 30 hari" },
-  { key: "trenBulanan", label: "Grafik tren bulanan" },
-  { key: "jatuhTempo", label: "Faktur jatuh tempo" },
-  { key: "anomali", label: "Beban perlu diperiksa" },
-  { key: "aktivitas", label: "Aktivitas / mulai dari sini" },
-  { key: "laporanTerjadwal", label: "Laporan terjadwal" },
-] as const;
+  { key: "kpi", label: "widgetKpi" },
+  { key: "aiRingkasan", label: "ringkasanMingguanAi" },
+  { key: "trenHarian", label: "widgetTrenHarian" },
+  { key: "trenBulanan", label: "widgetTrenBulanan" },
+  { key: "jatuhTempo", label: "widgetJatuhTempo" },
+  { key: "anomali", label: "bebanPerluDiperiksa" },
+  { key: "aktivitas", label: "widgetAktivitas" },
+  { key: "laporanTerjadwal", label: "laporanTerjadwal" },
+] as const satisfies readonly { key: string; label: UiKey }[];
 type WidgetKey = (typeof DASHBOARD_WIDGETS)[number]["key"];
 
 /** Preferensi widget dashboard per tenant, disimpan di localStorage. */
@@ -690,6 +818,7 @@ function greeting(lang: "id" | "en"): string {
 }
 
 export function DashboardPage() {
+  const u = useUi();
   const { me, tenant } = useWorkspace();
   const lang = useLang();
   const isAdmin = tenant.role !== "viewer";
@@ -705,20 +834,33 @@ export function DashboardPage() {
     queryKey: ["notifications", tenant.tenantId],
     queryFn: () => api.notifications(tenant.tenantId),
   });
-  const overdueCount = (notifQuery.data?.notifications ?? []).filter((n) => n.type === "overdue_invoice").length;
+  const overdueCount = (notifQuery.data?.notifications ?? []).filter(
+    (n) => n.type === "overdue_invoice"
+  ).length;
 
   const fmt = formatIDR;
 
   // Delta % vs bulan lalu; untuk laba, basis pembagi memakai nilai absolut agar
   // perbandingan tetap bermakna saat bulan lalu rugi.
   const pctDelta = (cur: number | undefined, prev: number | undefined) =>
-    cur !== undefined && prev !== undefined && prev !== 0 ? Math.round(((cur - prev) / Math.abs(prev)) * 100) : null;
+    cur !== undefined && prev !== undefined && prev !== 0
+      ? Math.round(((cur - prev) / Math.abs(prev)) * 100)
+      : null;
   const salesDelta = pctDelta(dash.data?.salesThisMonth, dash.data?.salesLastMonth);
   const profitDelta = pctDelta(dash.data?.profitThisMonth, dash.data?.profitLastMonth);
 
   // Tiap kartu KPI kini tautan ke laporan sumbernya (Fase 12d).
   const en = lang === "en";
-  const stats: { label: string; value?: number; hint?: string; delta?: number | null; icon: LucideIcon; chip: string; currency?: boolean; to: string }[] = [
+  const stats: {
+    label: string;
+    value?: number;
+    hint?: string;
+    delta?: number | null;
+    icon: LucideIcon;
+    chip: string;
+    currency?: boolean;
+    to: string;
+  }[] = [
     {
       label: en ? "Cash & Bank" : "Kas & Bank",
       value: dash.data?.cashAndBank,
@@ -729,7 +871,9 @@ export function DashboardPage() {
     {
       label: en ? "Sales This Month" : "Penjualan Bulan Ini",
       value: dash.data?.salesThisMonth,
-      hint: dash.data ? `${dash.data.salesCountThisMonth} ${en ? "invoices" : "faktur"}` : undefined,
+      hint: dash.data
+        ? `${dash.data.salesCountThisMonth} ${en ? "invoices" : "faktur"}`
+        : undefined,
       delta: salesDelta,
       icon: LineChart,
       chip: "bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-300",
@@ -775,19 +919,38 @@ export function DashboardPage() {
   ];
 
   const quickLinks: { to: string; icon: LucideIcon; text: string; label: string }[] = [
-    { to: "/app/pembelian", icon: ShoppingCart, label: "Pembelian", text: "Catat pembelian untuk mengisi stok" },
-    { to: "/app/penjualan", icon: Receipt, label: "Penjualan", text: "Buat faktur — jurnal & stok otomatis" },
-    { to: "/app/keuangan/laba-rugi", icon: LineChart, label: "Laba Rugi", text: "Lihat laba rugi & neraca kapan saja" },
-    { to: "/app/pengaturan", icon: Users, label: "Pengaturan", text: "Undang tim dengan peran berbeda" },
+    {
+      to: "/app/pembelian",
+      icon: ShoppingCart,
+      label: u("pembelianJudul"),
+      text: u("tautanPembelian"),
+    },
+    { to: "/app/penjualan", icon: Receipt, label: u("menuPenjualan"), text: u("tautanPenjualan") },
+    {
+      to: "/app/keuangan/laba-rugi",
+      icon: LineChart,
+      label: u("labaRugiJudul"),
+      text: u("tautanLabaRugi"),
+    },
+    {
+      to: "/app/pengaturan",
+      icon: Users,
+      label: u("pengaturanJudul"),
+      text: u("tautanPengaturan"),
+    },
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">{greeting(lang)}, {me.user.name.split(" ")[0]}</h1>
+          <h1 className="text-2xl font-semibold">
+            {greeting(lang)}, {me.user.name.split(" ")[0]}
+          </h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            {en ? "Overview of " : "Ringkasan "}<span className="font-medium">{tenant.tenantName}</span>{en ? " today." : " hari ini."}
+            {en ? "Overview of " : "Ringkasan "}
+            <span className="font-medium">{tenant.tenantName}</span>
+            {en ? " today." : " hari ini."}
             {overdueCount > 0 ? (
               <>
                 {" "}
@@ -807,7 +970,7 @@ export function DashboardPage() {
 
       {customizing ? (
         <Card>
-          <CardHeader title="Sesuaikan dashboard" description="Pilih widget yang ingin Anda tampilkan. Tersimpan di perangkat ini." />
+          <CardHeader title={u("sesuaikanDashboard")} description={u("descSesuaikanDashboard")} />
           <CardBody>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {DASHBOARD_WIDGETS.map((w) => {
@@ -833,8 +996,14 @@ export function DashboardPage() {
                     >
                       <Check className="size-3.5" />
                     </span>
-                    <span className={on ? "text-slate-800 dark:text-slate-100" : "text-slate-500 dark:text-slate-400"}>
-                      {w.label}
+                    <span
+                      className={
+                        on
+                          ? "text-slate-800 dark:text-slate-100"
+                          : "text-slate-500 dark:text-slate-400"
+                      }
+                    >
+                      {u(w.label)}
                     </span>
                   </button>
                 );
@@ -848,54 +1017,74 @@ export function DashboardPage() {
 
       {dash.isError ? (
         <Alert tone="error">
-          Gagal memuat ringkasan dashboard.{" "}
-          <button type="button" className="font-medium underline" onClick={() => void dash.refetch()}>
-            Coba lagi
+          {u("gagalMuatRingkasan")}{" "}
+          <button
+            type="button"
+            className="font-medium underline"
+            onClick={() => void dash.refetch()}
+          >
+            {u("cobaLagi")}
           </button>
         </Alert>
       ) : null}
 
       {widgets.isVisible("kpi") ? (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {stats.map((stat) => (
-          <Link
-            key={stat.label}
-            to={stat.to}
-            aria-label={`${stat.label} — buka laporan sumber`}
-            className="group block rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
-          >
-          <Card hover className="h-full">
-            <CardBody>
-              <div className="flex items-start justify-between gap-2">
-                <div className="text-sm text-slate-500 group-hover:text-brand-700 dark:text-slate-400 dark:group-hover:text-brand-300">{stat.label}</div>
-                <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${stat.chip}`}>
-                  <stat.icon className="size-4" aria-hidden />
-                </span>
-              </div>
-              {dash.isLoading ? (
-                <Skeleton className="mt-2 h-6 w-28" />
-              ) : (
-                // Tenant baru melihat "Rp 0" nyata, bukan shimmer abu-abu (Fase 10a).
-                <div className="mt-1 text-xl font-semibold">
-                  {stat.currency === false ? (stat.value ?? 0).toLocaleString("id-ID") : fmt(stat.value ?? 0)}
-                </div>
-              )}
-              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs">
-                {stat.hint ? <span className="text-slate-400 dark:text-slate-500">{stat.hint}</span> : null}
-                {stat.delta !== undefined && stat.delta !== null ? (
-                  <span className={stat.delta >= 0 ? "font-medium text-emerald-600 dark:text-emerald-400" : "font-medium text-red-600 dark:text-red-400"}>
-                    {stat.delta >= 0 ? "▲" : "▼"} {Math.abs(stat.delta)}% vs bulan lalu
-                  </span>
-                ) : null}
-              </div>
-            </CardBody>
-          </Card>
-          </Link>
-        ))}
-      </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {stats.map((stat) => (
+            <Link
+              key={stat.label}
+              to={stat.to}
+              aria-label={`${stat.label} — ${u("bukaLaporanSumber")}`}
+              className="group block rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
+            >
+              <Card hover className="h-full">
+                <CardBody>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="text-sm text-slate-500 group-hover:text-brand-700 dark:text-slate-400 dark:group-hover:text-brand-300">
+                      {stat.label}
+                    </div>
+                    <span
+                      className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${stat.chip}`}
+                    >
+                      <stat.icon className="size-4" aria-hidden />
+                    </span>
+                  </div>
+                  {dash.isLoading ? (
+                    <Skeleton className="mt-2 h-6 w-28" />
+                  ) : (
+                    // Tenant baru melihat "Rp 0" nyata, bukan shimmer abu-abu (Fase 10a).
+                    <div className="mt-1 text-xl font-semibold">
+                      {stat.currency === false
+                        ? (stat.value ?? 0).toLocaleString("id-ID")
+                        : fmt(stat.value ?? 0)}
+                    </div>
+                  )}
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs">
+                    {stat.hint ? (
+                      <span className="text-slate-400 dark:text-slate-500">{stat.hint}</span>
+                    ) : null}
+                    {stat.delta !== undefined && stat.delta !== null ? (
+                      <span
+                        className={
+                          stat.delta >= 0
+                            ? "font-medium text-emerald-600 dark:text-emerald-400"
+                            : "font-medium text-red-600 dark:text-red-400"
+                        }
+                      >
+                        {stat.delta >= 0 ? "▲" : "▼"} {Math.abs(stat.delta)}% {u("vsBulanLalu")}
+                      </span>
+                    ) : null}
+                  </div>
+                </CardBody>
+              </Card>
+            </Link>
+          ))}
+        </div>
       ) : null}
 
-      {widgets.isVisible("aiRingkasan") ? <AiWeeklySummaryWidget tenantId={tenant.tenantId} /> : null}
+      {widgets.isVisible("aiRingkasan") ? (
+        <AiWeeklySummaryWidget tenantId={tenant.tenantId} />
+      ) : null}
       {widgets.isVisible("trenHarian") ? <SalesTrendChart tenantId={tenant.tenantId} /> : null}
       {widgets.isVisible("trenBulanan") ? <MonthlyTrendChart tenantId={tenant.tenantId} /> : null}
       {widgets.isVisible("laporanTerjadwal") ? (
@@ -904,42 +1093,46 @@ export function DashboardPage() {
       {widgets.isVisible("anomali") ? <AnomaliesWidget tenantId={tenant.tenantId} /> : null}
 
       {widgets.isVisible("jatuhTempo") || widgets.isVisible("aktivitas") ? (
-      <div className="grid gap-6 lg:grid-cols-2">
-        {widgets.isVisible("jatuhTempo") ? <DueInvoicesWidget tenantId={tenant.tenantId} /> : null}
-        {widgets.isVisible("aktivitas") ? (
-          tenant.role === "owner" ? (
-            <ActivityFeed tenantId={tenant.tenantId} />
-          ) : (
-            <Card>
-              <CardHeader title="Mulai dari sini" description="Alur kerja harian yang umum." />
-              <CardBody>
-                <div className="grid gap-3">
-                  {quickLinks.map((q) => (
-                    <Link
-                      key={q.to}
-                      to={q.to}
-                      className="group flex items-center gap-3 rounded-xl border border-slate-200 p-3 transition-colors hover:border-brand-300 hover:bg-brand-50/50 dark:border-slate-800 dark:hover:border-brand-800 dark:hover:bg-brand-950/30"
-                    >
-                      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition-colors group-hover:bg-brand-100 group-hover:text-brand-700 dark:bg-slate-800 dark:text-slate-300 dark:group-hover:bg-brand-900/60 dark:group-hover:text-brand-300">
-                        <q.icon className="size-4" aria-hidden />
-                      </span>
-                      <span>
-                        <span className="block text-sm font-medium">{q.label}</span>
-                        <span className="block text-xs text-slate-500 dark:text-slate-400">{q.text}</span>
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              </CardBody>
-            </Card>
-          )
-        ) : null}
-      </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {widgets.isVisible("jatuhTempo") ? (
+            <DueInvoicesWidget tenantId={tenant.tenantId} />
+          ) : null}
+          {widgets.isVisible("aktivitas") ? (
+            tenant.role === "owner" ? (
+              <ActivityFeed tenantId={tenant.tenantId} />
+            ) : (
+              <Card>
+                <CardHeader title={u("mulaiDariSini")} description={u("descAlurHarian")} />
+                <CardBody>
+                  <div className="grid gap-3">
+                    {quickLinks.map((q) => (
+                      <Link
+                        key={q.to}
+                        to={q.to}
+                        className="group flex items-center gap-3 rounded-xl border border-slate-200 p-3 transition-colors hover:border-brand-300 hover:bg-brand-50/50 dark:border-slate-800 dark:hover:border-brand-800 dark:hover:bg-brand-950/30"
+                      >
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition-colors group-hover:bg-brand-100 group-hover:text-brand-700 dark:bg-slate-800 dark:text-slate-300 dark:group-hover:bg-brand-900/60 dark:group-hover:text-brand-300">
+                          <q.icon className="size-4" aria-hidden />
+                        </span>
+                        <span>
+                          <span className="block text-sm font-medium">{q.label}</span>
+                          <span className="block text-xs text-slate-500 dark:text-slate-400">
+                            {q.text}
+                          </span>
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </CardBody>
+              </Card>
+            )
+          ) : null}
+        </div>
       ) : null}
 
       {tenant.role === "owner" ? (
         <Card>
-          <CardHeader title="Mulai dari sini" description="Alur kerja harian yang umum." />
+          <CardHeader title={u("mulaiDariSini")} description={u("descAlurHarian")} />
           <CardBody>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {quickLinks.map((q) => (
@@ -953,7 +1146,9 @@ export function DashboardPage() {
                   </span>
                   <span>
                     <span className="block text-sm font-medium">{q.label}</span>
-                    <span className="block text-xs text-slate-500 dark:text-slate-400">{q.text}</span>
+                    <span className="block text-xs text-slate-500 dark:text-slate-400">
+                      {q.text}
+                    </span>
                   </span>
                 </Link>
               ))}

@@ -396,6 +396,24 @@ try {
     adaAssetKpi && adaAssetList && tanpaAsetId,
     `→ kpi=${adaAssetKpi} daftar=${adaAssetList} tanpaID=${tanpaAsetId}`,
   );
+  // Fase 16u — isi dasbor. Rute /app (layar pertama setelah masuk). Kartu
+  // "Faktur lewat jatuh tempo" dan "Beban perlu diperiksa" selalu dirender
+  // (widget bawaan aktif), sedangkan "Mulai dari sini" hanya untuk peran
+  // owner — sesi ui-sim memang owner, tapi asersinya tetap dibuat longgar
+  // dengan menerima salah satu penanda agar tidak rapuh terhadap peran.
+  await gotoRoute("/app", 900);
+  const dashEn = await page.innerText("body");
+  const adaDashEn =
+    dashEn.includes("Overdue invoices") || dashEn.includes("Expenses worth checking");
+  const tanpaDashId =
+    !dashEn.includes("Faktur lewat jatuh tempo") &&
+    !dashEn.includes("Beban perlu diperiksa") &&
+    !dashEn.includes("Alur kerja harian");
+  check(
+    "F0y isi dasbor ikut EN: kartu jatuh tempo / beban, tanpa teks Indonesia",
+    adaDashEn && tanpaDashId,
+    `→ kartu=${adaDashEn} tanpaID=${tanpaDashId}`,
+  );
   // Fase 16t — peta label dari packages/shared. Rute diverifikasi ke main.tsx:
   // /app/keuangan/akun. Jenis akun berasal dari ACCOUNT_TYPE_LABELS di paket
   // bersama yang tetap berbahasa Indonesia; cek ini memastikan pemetaan sisi

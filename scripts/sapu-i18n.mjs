@@ -122,10 +122,18 @@ for (const file of process.argv.slice(2)) {
     ...rentang("downloadCsv", "BERKAS"),
   ];
 
-  // Ternary dwibahasa yang memang sah: lang === "en" ? "…" : "…"
+  // Ternary dwibahasa yang memang sah. Dua bentuk dipakai di repo ini:
+  //   lang === "en" ? "…" : "…"
+  //   en ? "…" : "…"          (setelah `const en = lang === "en"`)
+  // Sisi Indonesianya memang harus ada, jadi jangan dihitung utang.
   const zonaSah = [];
-  for (const m of src.matchAll(/lang\s*===\s*"en"\s*\?/g)) {
-    const akhir = src.indexOf("\n", src.indexOf(":", m.index + m[0].length));
+  const punyaAliasEn = /\bconst\s+en\s*=\s*lang\s*===\s*"en"/.test(src);
+  const polaTernary = punyaAliasEn
+    ? /(?:lang\s*===\s*"en"|\ben)\s*\?/g
+    : /lang\s*===\s*"en"\s*\?/g;
+  for (const m of src.matchAll(polaTernary)) {
+    const titikDua = src.indexOf(":", m.index + m[0].length);
+    const akhir = src.indexOf("\n", titikDua < 0 ? m.index : titikDua);
     zonaSah.push({ a: m.index, b: akhir < 0 ? src.length : akhir });
   }
 
