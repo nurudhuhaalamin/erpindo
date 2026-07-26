@@ -229,24 +229,10 @@ export function Alert({
  * supaya kolom rupiah benar-benar berbaris — hal yang paling terasa di
  * aplikasi akuntansi.
  */
-export function Table({
-  className,
-  minWidth,
-  children,
-}: {
-  className?: string;
-  /** Lebar minimum sebelum tabel menggulir mendatar, mis. `"40rem"`. */
-  minWidth?: string;
-  children: ReactNode;
-}) {
+export function Table({ className, children }: { className?: string; children: ReactNode }) {
   return (
-    <div className="overflow-x-auto">
-      <table
-        className={cx("w-full text-sm", className)}
-        style={minWidth ? { minWidth } : undefined}
-      >
-        {children}
-      </table>
+    <div className="md:overflow-x-auto">
+      <table className={cx("w-full text-sm max-md:block", className)}>{children}</table>
     </div>
   );
 }
@@ -261,7 +247,7 @@ export function Table({
  */
 export function Thead({ children }: { children: ReactNode }) {
   return (
-    <thead className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-400">
+    <thead className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500 max-md:hidden dark:border-slate-800 dark:text-slate-400">
       {children}
     </thead>
   );
@@ -270,7 +256,12 @@ export function Thead({ children }: { children: ReactNode }) {
 export function Tr({ className, children }: { className?: string; children: ReactNode }) {
   return (
     <tr
-      className={cx("border-b border-slate-100 last:border-0 dark:border-slate-800/70", className)}
+      className={cx(
+        "border-b border-slate-100 last:border-0 dark:border-slate-800/70",
+        // Layar kecil: tiap baris jadi KARTU bertumpuk, bukan digulir mendatar.
+        "max-md:mb-2 max-md:block max-md:rounded-lg max-md:border max-md:border-slate-200 max-md:p-3 max-md:last:mb-0 max-md:last:border dark:max-md:border-slate-800",
+        className
+      )}
     >
       {children}
     </tr>
@@ -293,12 +284,38 @@ export function Th({
 export function Td({
   numeric = false,
   className,
+  label,
   children,
   ...props
-}: React.TdHTMLAttributes<HTMLTableCellElement> & { numeric?: boolean }) {
+}: React.TdHTMLAttributes<HTMLTableCellElement> & {
+  numeric?: boolean;
+  /**
+   * Judul kolom, ditampilkan HANYA di layar kecil (saat baris menumpuk jadi
+   * kartu dan `<thead>` disembunyikan). Isinya sengaja diminta ulang dari
+   * pemanggil, bukan disimpulkan otomatis dari `<Th>`: menyimpulkannya berarti
+   * menebak-nebak pasangan kolom, dan diam-diam salah begitu ada `colSpan`.
+   *
+   * Sel tanpa `label` (mis. kolom aksi) tetap muncul, hanya tanpa judul.
+   */
+  label?: ReactNode;
+}) {
   return (
-    <td className={cx("px-3 py-2.5", numeric && "num text-right", className)} {...props}>
-      {children}
+    <td
+      className={cx(
+        "px-3 py-2.5",
+        numeric && "num text-right",
+        // Layar kecil: label di kiri, nilai di kanan, dalam satu baris.
+        "max-md:flex max-md:items-baseline max-md:justify-between max-md:gap-4 max-md:px-0 max-md:py-1 max-md:text-left",
+        className
+      )}
+      {...props}
+    >
+      {label ? (
+        <span className="hidden shrink-0 text-xs font-medium text-slate-500 max-md:inline dark:text-slate-400">
+          {label}
+        </span>
+      ) : null}
+      <span className={cx("max-md:min-w-0", numeric && "max-md:num")}>{children}</span>
     </td>
   );
 }

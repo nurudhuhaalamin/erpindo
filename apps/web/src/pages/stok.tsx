@@ -89,10 +89,11 @@ function StockCard({
                 const refKey = REF_TYPE_LABELS[r.refType];
                 return (
                   <Tr key={i}>
-                    <Td>{formatDate(r.date)}</Td>
-                    <Td>{refKey ? u(refKey) : r.refType}</Td>
+                    <Td label={u("waktu")}>{formatDate(r.date)}</Td>
+                    <Td label={u("jenis")}>{refKey ? u(refKey) : r.refType}</Td>
                     <Td
                       numeric
+                      label={u("masukKeluar")}
                       className={
                         r.qty >= 0
                           ? "text-emerald-700 dark:text-emerald-400"
@@ -101,8 +102,8 @@ function StockCard({
                     >
                       {r.qty >= 0 ? `+${r.qty}` : r.qty}
                     </Td>
-                    <Td numeric>{formatIDR(r.unitCost)}</Td>
-                    <Td numeric className="font-medium">
+                    <Td numeric label={u("biayaSatuan")}>{formatIDR(r.unitCost)}</Td>
+                    <Td numeric label={u("saldo")} className="font-medium">
                       {r.balance}
                     </Td>
                   </Tr>
@@ -358,11 +359,11 @@ function LotsCard() {
             <tbody>
               {lots.map((l) => (
                 <Tr key={l.id}>
-                  <Td className="font-mono text-xs">{l.sku}</Td>
-                  <Td>{l.productName}</Td>
-                  <Td>{l.warehouseName}</Td>
-                  <Td>{l.lotNo ?? "—"}</Td>
-                  <Td>
+                  <Td label="SKU" className="font-mono text-xs">{l.sku}</Td>
+                  <Td label={u("produk")}>{l.productName}</Td>
+                  <Td label={u("gudang")}>{l.warehouseName}</Td>
+                  <Td label="Lot">{l.lotNo ?? "—"}</Td>
+                  <Td label={u("kedaluwarsa")}>
                     {l.expiryDate ? (
                       <span className="inline-flex items-center gap-2">
                         {formatDate(l.expiryDate)}
@@ -376,7 +377,7 @@ function LotsCard() {
                       "—"
                     )}
                   </Td>
-                  <Td numeric>{l.qty}</Td>
+                  <Td numeric label="Qty">{l.qty}</Td>
                 </Tr>
               ))}
             </tbody>
@@ -445,18 +446,18 @@ function ReorderCard() {
           <tbody>
             {suggestions.map((s) => (
               <Tr key={s.productId}>
-                <Td className="font-mono text-xs">{s.sku}</Td>
-                <Td>{s.name}</Td>
+                <Td label="SKU" className="font-mono text-xs">{s.sku}</Td>
+                <Td label={u("produk")}>{s.name}</Td>
                 {/* Kolom ini berisi lencana, bukan angka telanjang — pakai
                     `text-right` saja, tanpa `numeric`, supaya lencananya tidak
                     ikut dipaksa font mono. */}
-                <Td className="text-right">
+                <Td label={u("stok")} className="text-right">
                   <Badge tone={s.qty <= 0 ? "red" : "amber"}>
                     {s.qty} {s.unit}
                   </Badge>
                 </Td>
-                <Td numeric>{s.minStock}</Td>
-                <Td numeric className="font-medium">
+                <Td numeric label={u("minimum")}>{s.minStock}</Td>
+                <Td numeric label={u("usulanBeli")} className="font-medium">
                   {s.suggestedQty} {s.unit}
                 </Td>
               </Tr>
@@ -574,14 +575,14 @@ export function StockPage() {
               <tbody>
                 {levels.map((l) => (
                   <Tr key={`${l.productId}-${l.warehouseId}`}>
-                    <Td className="font-mono text-xs">{l.sku}</Td>
-                    <Td>{l.productName}</Td>
-                    <Td>{l.warehouseName}</Td>
-                    <Td numeric>
+                    <Td label="SKU" className="font-mono text-xs">{l.sku}</Td>
+                    <Td label={u("produk")}>{l.productName}</Td>
+                    <Td label={u("gudang")}>{l.warehouseName}</Td>
+                    <Td numeric label="Qty">
                       {l.qty} {l.unit}
                     </Td>
-                    <Td numeric>{formatIDR(l.avgCost)}</Td>
-                    <Td numeric className="font-medium">
+                    <Td numeric label={u("biayaRataRata")}>{formatIDR(l.avgCost)}</Td>
+                    <Td numeric label={u("nilai")} className="font-medium">
                       {formatIDR(l.value)}
                     </Td>
                     <Td className="text-right">
