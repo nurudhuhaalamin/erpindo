@@ -1,7 +1,6 @@
 import {
   LEAD_ACTIVITY_LABELS,
   LEAD_ACTIVITY_TYPES,
-  LEAD_STAGE_LABELS,
   LEAD_STAGES,
   type ApiLead,
   type ApiQuotation,
@@ -9,7 +8,7 @@ import {
   type LeadStage,
 } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useUi } from "../i18n/ui";
+import { useUi, type UiKey } from "../i18n/ui";
 import { ArrowRight, Check, FileText, Send, UserPlus, Users, X } from "lucide-react";
 import { useState } from "react";
 import { api, formatIDR } from "../api/client";
@@ -109,7 +108,7 @@ export function LeadsPage() {
             <CardBody className="py-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                  {LEAD_STAGE_LABELS[f.stage]}
+                  {u(LEAD_STAGE_KEY[f.stage])}
                 </span>
                 <Badge tone={STAGE_TONE[f.stage]}>{f.count}</Badge>
               </div>
@@ -121,10 +120,7 @@ export function LeadsPage() {
 
       {isAdmin ? (
         <Card>
-          <CardHeader
-            title={u("leadBaru")}
-            description={u("descLeadAktif")}
-          />
+          <CardHeader title={u("leadBaru")} description={u("descLeadAktif")} />
           <CardBody className="space-y-4">
             {error ? <Alert tone="error">{error}</Alert> : null}
             <div className="grid gap-3 sm:grid-cols-3">
@@ -226,6 +222,7 @@ export function LeadsPage() {
  * tersedia sebagai jalur alternatif (termasuk untuk layar sentuh).
  */
 function KanbanBoard({ leads, isAdmin }: { leads: ApiLead[]; isAdmin: boolean }) {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -273,7 +270,7 @@ function KanbanBoard({ leads, isAdmin }: { leads: ApiLead[]; isAdmin: boolean })
             >
               <div className="mb-2 flex items-center justify-between px-1">
                 <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  {LEAD_STAGE_LABELS[stage]}
+                  {u(LEAD_STAGE_KEY[stage])}
                 </span>
                 <Badge tone={STAGE_TONE[stage]}>{inStage.length}</Badge>
               </div>
@@ -298,7 +295,7 @@ function KanbanBoard({ leads, isAdmin }: { leads: ApiLead[]; isAdmin: boolean })
                 ))}
                 {inStage.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-slate-200 p-2 text-center text-xs text-slate-400 dark:border-slate-700">
-                    kosong
+                    {u("kolomKosong")}
                   </div>
                 ) : null}
               </div>
@@ -322,10 +319,7 @@ function SourceReportCard({ tenantId }: { tenantId: string }) {
 
   return (
     <Card>
-      <CardHeader
-        title={u("konversiPerSumber")}
-        description={u("descKonversiSumber")}
-      />
+      <CardHeader title={u("konversiPerSumber")} description={u("descKonversiSumber")} />
       <CardBody>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[480px] text-sm">
@@ -421,8 +415,8 @@ function LeadRow({ lead, isAdmin }: { lead: ApiLead; isAdmin: boolean }) {
     <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="font-medium">{lead.name}</span>
-        <Badge tone={STAGE_TONE[lead.stage]}>{LEAD_STAGE_LABELS[lead.stage]}</Badge>
-        {lead.convertedContactId ? <Badge tone="green">jadi pelanggan</Badge> : null}
+        <Badge tone={STAGE_TONE[lead.stage]}>{u(LEAD_STAGE_KEY[lead.stage])}</Badge>
+        {lead.convertedContactId ? <Badge tone="green">{u("jadiPelanggan")}</Badge> : null}
         {lead.estValue > 0 ? (
           <span className="text-sm text-slate-500 tabular-nums dark:text-slate-400">
             {formatIDR(lead.estValue)}
@@ -454,7 +448,7 @@ function LeadRow({ lead, isAdmin }: { lead: ApiLead; isAdmin: boolean }) {
                 >
                   {LEAD_STAGES.map((s) => (
                     <option key={s} value={s}>
-                      {LEAD_STAGE_LABELS[s]}
+                      {u(LEAD_STAGE_KEY[s])}
                     </option>
                   ))}
                 </Select>
@@ -559,12 +553,28 @@ const QUOTE_TONE: Record<ApiQuotation["status"], "neutral" | "brand" | "green" |
   rejected: "red",
   converted: "green",
 };
-const QUOTE_LABEL: Record<ApiQuotation["status"], string> = {
-  draft: "draf",
-  sent: "terkirim",
-  accepted: "diterima",
-  rejected: "ditolak",
-  converted: "jadi faktur",
+// Konstanta tingkat modul menyimpan KUNCI kamus (aturan tetap sejak 16j).
+const QUOTE_LABEL: Record<ApiQuotation["status"], UiKey> = {
+  draft: "statusDraf",
+  sent: "statusTerkirim",
+  accepted: "statusDiterima",
+  rejected: "statusDitolak",
+  converted: "statusJadiFaktur",
+};
+
+/**
+ * LEAD_STAGE_LABELS di packages/shared berbahasa Indonesia dan TIDAK boleh
+ * bergantung pada kamus web (arah ketergantungan terbalik: shared tidak tahu
+ * apa-apa tentang apps/web). Karena itu web memetakan tahap → kunci kamusnya
+ * sendiri; label di shared tetap dipakai pihak lain apa adanya.
+ */
+const LEAD_STAGE_KEY: Record<LeadStage, UiKey> = {
+  new: "tahapBaru",
+  contacted: "tahapDihubungi",
+  qualified: "tahapTerkualifikasi",
+  proposal: "tahapPenawaran",
+  won: "tahapMenang",
+  lost: "tahapKalah",
 };
 
 export function QuotationsPage() {
@@ -643,10 +653,7 @@ export function QuotationsPage() {
 
       {isAdmin ? (
         <Card>
-          <CardHeader
-            title={u("penawaranBaru")}
-            description={u("descPenawaranBaru")}
-          />
+          <CardHeader title={u("penawaranBaru")} description={u("descPenawaranBaru")} />
           <CardBody className="space-y-4">
             {error ? <Alert tone="error">{error}</Alert> : null}
             <div className="grid gap-3 sm:grid-cols-4">
@@ -657,7 +664,7 @@ export function QuotationsPage() {
                   value={contactId}
                   onChange={(e) => setContactId(e.target.value)}
                 >
-                  <option value="">— pilih —</option>
+                  <option value="">{u("pilihOpsi")}</option>
                   {contacts.map((k) => (
                     <option key={k.id} value={k.id}>
                       {k.name}
@@ -704,11 +711,11 @@ export function QuotationsPage() {
                   className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_6rem_10rem_10rem_2.5rem] sm:items-center"
                 >
                   <Select
-                    aria-label={`Produk baris ${i + 1}`}
+                    aria-label={`${u("produkBaris")} ${i + 1}`}
                     value={line.productId}
                     onChange={(e) => pickProduct(i, e.target.value)}
                   >
-                    <option value="">— pilih produk —</option>
+                    <option value="">{u("pilihProdukOpsi")}</option>
                     {products.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.sku} · {p.name}
@@ -736,7 +743,7 @@ export function QuotationsPage() {
                   <Button
                     type="button"
                     variant="ghost"
-                    aria-label={`Hapus baris ${i + 1}`}
+                    aria-label={`${u("hapusBaris")} ${i + 1}`}
                     onClick={() =>
                       setLines((ls) => (ls.length > 1 ? ls.filter((_, idx) => idx !== i) : ls))
                     }
@@ -753,7 +760,7 @@ export function QuotationsPage() {
                 variant="secondary"
                 onClick={() => setLines((ls) => [...ls, emptyLine()])}
               >
-                + Tambah barang
+                + {u("tambahBarang")}
               </Button>
               <div className="text-sm">
                 {u("subtotal")} <strong className="tabular-nums">{formatIDR(subtotal)}</strong>

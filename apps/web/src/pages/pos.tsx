@@ -125,7 +125,8 @@ function RecapCard({ tenantId }: { tenantId: string }) {
             <div className="grid gap-6 md:grid-cols-3">
               <div>
                 <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Per jam ({recap.salesCount} transaksi · {formatIDR(recap.salesTotal)})
+                  {u("perJam")} ({recap.salesCount} {u("transaksiSatuan")} ·{" "}
+                  {formatIDR(recap.salesTotal)})
                 </div>
                 <ul className="space-y-1 text-sm">
                   {recap.byHour.map((h) => (
@@ -211,10 +212,7 @@ function RefundPanel({ tenantId, onDone }: { tenantId: string; onDone: () => voi
   const receipts = receiptsQuery.data?.receipts ?? [];
   return (
     <Card>
-      <CardHeader
-        title={u("strukRefund")}
-        description={u("descStrukRefund")}
-      />
+      <CardHeader title={u("strukRefund")} description={u("descStrukRefund")} />
       <CardBody className="space-y-2">
         <Input
           placeholder={u("cariNomorStruk")}
@@ -236,7 +234,9 @@ function RefundPanel({ tenantId, onDone }: { tenantId: string; onDone: () => voi
                 <span className="text-slate-500 dark:text-slate-400">{r.invoiceDate}</span>
                 <span className="tabular-nums font-medium">{formatIDR(r.total)}</span>
                 {r.returnedAmount > 0 ? (
-                  <Badge tone="amber">refund {formatIDR(r.returnedAmount)}</Badge>
+                  <Badge tone="amber">
+                    {u("refundKecil")} {formatIDR(r.returnedAmount)}
+                  </Badge>
                 ) : null}
                 <Button
                   variant="ghost"
@@ -246,7 +246,7 @@ function RefundPanel({ tenantId, onDone }: { tenantId: string; onDone: () => voi
                     setQtyMap({});
                   }}
                 >
-                  {activeId === r.id ? "Tutup" : "Refund"}
+                  {activeId === r.id ? u("tutupAksi") : u("refundAksi")}
                 </Button>
               </div>
               {activeId === r.id ? (
@@ -256,13 +256,13 @@ function RefundPanel({ tenantId, onDone }: { tenantId: string; onDone: () => voi
                       <span className="min-w-0 flex-1 truncate">
                         {l.productName}{" "}
                         <span className="text-xs text-slate-400">
-                          (sisa {l.qtyReturnable} dari {l.qty})
+                          ({u("sisaDari")} {l.qtyReturnable} / {l.qty})
                         </span>
                       </span>
                       {/* w-full bawaan Input dikalahkan pembungkus berlebar tetap. */}
                       <span className="w-20 shrink-0">
                         <Input
-                          aria-label={`Qty refund ${l.productName}`}
+                          aria-label={`${u("qtyRefund")} ${l.productName}`}
                           type="number"
                           min={0}
                           max={l.qtyReturnable}
@@ -439,7 +439,7 @@ export function PosPage() {
     setCart(
       h.cart.map((c) => ({
         productId: c.productId,
-        name: names.get(c.productId) ?? "Produk",
+        name: names.get(c.productId) ?? u("produkFallback"),
         unitPrice: c.unitPrice,
         qty: c.qty,
         discountPct: c.discountPct ?? 0,
@@ -553,10 +553,7 @@ export function PosPage() {
       <div className="mx-auto max-w-md space-y-6">
         <h1 className="text-2xl font-semibold">{h.title}</h1>
         <Card>
-          <CardHeader
-            title={u("bukaShift")}
-            description={u("descBukaShift")}
-          />
+          <CardHeader title={u("bukaShift")} description={u("descBukaShift")} />
           <CardBody className="space-y-4">
             <div>
               <Label htmlFor="pos-wh">{u("gudang")}</Label>
@@ -600,7 +597,7 @@ export function PosPage() {
           <h1 className="text-2xl font-semibold">{h.title}</h1>
           <Badge tone="brand">{shift.shiftNo}</Badge>
           <span className="text-sm text-slate-500 dark:text-slate-400">
-            {shift.salesCount} transaksi · {formatIDR(shift.cashSalesTotal)}
+            {shift.salesCount} {u("transaksiSatuan")} · {formatIDR(shift.cashSalesTotal)}
           </span>
         </div>
         <div className="flex gap-2">
@@ -629,7 +626,8 @@ export function PosPage() {
               />
             </div>
             <div className="text-sm text-slate-500 dark:text-slate-400">
-              {u("seharusnya")} <strong className="tabular-nums">{formatIDR(shift.expectedCash)}</strong>
+              {u("seharusnya")}{" "}
+              <strong className="tabular-nums">{formatIDR(shift.expectedCash)}</strong>
             </div>
             <Button
               variant="danger"
@@ -795,7 +793,7 @@ export function PosPage() {
               <div className="flex items-baseline justify-between text-sm">
                 {remaining > 0 ? (
                   <span className="text-amber-600 dark:text-amber-400">
-                    Sisa: {formatIDR(remaining)}
+                    {u("sisaLabel")} {formatIDR(remaining)}
                   </span>
                 ) : (
                   <span className="text-emerald-600 dark:text-emerald-400">{u("lunas")}</span>
@@ -820,7 +818,7 @@ export function PosPage() {
             {/* Tahan transaksi */}
             <div className="flex items-center gap-2 border-t border-slate-200 pt-3 dark:border-slate-800">
               <Input
-                aria-label="Nama tahan"
+                aria-label={u("namaTahanAria")}
                 placeholder={u("namaTahanOpsional")}
                 className="flex-1"
                 value={holdLabel}
