@@ -856,6 +856,32 @@ const UI: Record<string, Dual> = {
     id: "bisa digaji ulang. Slip lama tetap tersimpan dengan tanda",
     en: "can be run again. Old payslips stay on record marked",
   },
+  // Kasir & CRM — pelunasan utang 16g/16h (Fase 16s)
+  perJam: { id: "Per jam", en: "Per hour" },
+  transaksiSatuan: { id: "transaksi", en: "transactions" },
+  refundKecil: { id: "refund", en: "refund" },
+  refundAksi: { id: "Refund", en: "Refund" },
+  tutupAksi: { id: "Tutup", en: "Close" },
+  qtyRefund: { id: "Qty refund", en: "Refund qty" },
+  sisaDari: { id: "sisa", en: "left of" },
+  produkFallback: { id: "Produk", en: "Product" },
+  sisaLabel: { id: "Sisa:", en: "Remaining:" },
+  namaTahanAria: { id: "Nama tahan", en: "Hold name" },
+  jadiPelanggan: { id: "jadi pelanggan", en: "converted to customer" },
+  produkBaris: { id: "Produk baris", en: "Product line" },
+  // Tahap lead — LEAD_STAGE_LABELS ada di packages/shared (berbahasa Indonesia
+  // dan tidak boleh bergantung pada kamus web), jadi web memetakannya sendiri.
+  tahapBaru: { id: "Baru", en: "New" },
+  tahapDihubungi: { id: "Dihubungi", en: "Contacted" },
+  tahapTerkualifikasi: { id: "Terkualifikasi", en: "Qualified" },
+  tahapPenawaran: { id: "Penawaran", en: "Proposal" },
+  tahapMenang: { id: "Menang", en: "Won" },
+  tahapKalah: { id: "Kalah", en: "Lost" },
+  statusDraf: { id: "draf", en: "draft" },
+  statusTerkirim: { id: "terkirim", en: "sent" },
+  statusDiterima: { id: "diterima", en: "accepted" },
+  statusDitolak: { id: "ditolak", en: "rejected" },
+  statusJadiFaktur: { id: "jadi faktur", en: "invoiced" },
 };
 
 export type UiKey = keyof typeof UI;

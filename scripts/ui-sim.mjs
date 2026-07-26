@@ -396,6 +396,21 @@ try {
     adaAssetKpi && adaAssetList && tanpaAsetId,
     `→ kpi=${adaAssetKpi} daftar=${adaAssetList} tanpaID=${tanpaAsetId}`,
   );
+  // Fase 16s — pelunasan utang 16h. Rute diverifikasi ke main.tsx:
+  // /app/crm/leads (TIDAK ada /app/crm telanjang — pelajaran Fase 16h).
+  // Tahap lead berasal dari LEAD_STAGE_LABELS di packages/shared yang tetap
+  // berbahasa Indonesia; web memetakannya sendiri ke kamus, jadi cek ini
+  // memastikan pemetaan itu benar-benar terpasang.
+  await gotoRoute("/app/crm/leads", 900);
+  const crmSisaEn = await page.innerText("body");
+  const adaTahapEn = crmSisaEn.includes("Qualified") && crmSisaEn.includes("Contacted");
+  const tanpaTahapId =
+    !crmSisaEn.includes("Terkualifikasi") && !crmSisaEn.includes("Dihubungi");
+  check(
+    "F0w tahap lead CRM ikut EN meski labelnya dari packages/shared",
+    adaTahapEn && tanpaTahapId,
+    `→ tahapEN=${adaTahapEn} tanpaID=${tanpaTahapId}`,
+  );
   // Fase 16r — pelunasan utang 16i. Rute diverifikasi ke main.tsx:
   // /app/hr/penggajian. Halaman BERTAB — hanya tab aktif yang dirender, jadi
   // asersinya terbatas pada tab bawaan (Karyawan) + pengumuman pajak yang
