@@ -12,6 +12,11 @@ import {
   PageHeading,
   Select,
   Spinner,
+  Table,
+  Td,
+  Th,
+  Thead,
+  Tr,
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
@@ -195,36 +200,36 @@ export function KasBankPage() {
                   Belum ada mutasi pada akun ini.
                 </p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[560px] text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                        <th className="py-2 pr-3 font-medium">Tanggal</th>
-                        <th className="py-2 pr-3 font-medium">Keterangan</th>
-                        <th className="py-2 pr-3 text-right font-medium">Masuk</th>
-                        <th className="py-2 pr-3 text-right font-medium">Keluar</th>
-                        <th className="py-2 text-right font-medium">Saldo</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ledgerQuery.data!.entries.slice(-50).map((e, i) => (
-                        <tr key={i} className="border-b border-slate-100 dark:border-slate-800">
-                          <td className="py-2 pr-3 whitespace-nowrap">{formatDate(e.entryDate)}</td>
-                          <td className="py-2 pr-3">{e.description ?? e.entryNo}</td>
-                          <td className="py-2 pr-3 text-right tabular-nums">
-                            {e.debit ? formatIDR(e.debit) : "—"}
-                          </td>
-                          <td className="py-2 pr-3 text-right tabular-nums">
-                            {e.credit ? formatIDR(e.credit) : "—"}
-                          </td>
-                          <td className="py-2 text-right font-medium tabular-nums">
-                            {formatIDR(e.balance)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <Table>
+                  <Thead>
+                    <tr>
+                      <Th>Tanggal</Th>
+                      <Th>Keterangan</Th>
+                      <Th numeric>Masuk</Th>
+                      <Th numeric>Keluar</Th>
+                      <Th numeric>Saldo</Th>
+                    </tr>
+                  </Thead>
+                  <tbody>
+                    {ledgerQuery.data!.entries.slice(-50).map((e, i) => (
+                      <Tr key={i}>
+                        <Td label="Tanggal" className="whitespace-nowrap">
+                          {formatDate(e.entryDate)}
+                        </Td>
+                        <Td label="Keterangan">{e.description ?? e.entryNo}</Td>
+                        <Td numeric label="Masuk">
+                          {e.debit ? formatIDR(e.debit) : "—"}
+                        </Td>
+                        <Td numeric label="Keluar">
+                          {e.credit ? formatIDR(e.credit) : "—"}
+                        </Td>
+                        <Td numeric label="Saldo" className="font-medium">
+                          {formatIDR(e.balance)}
+                        </Td>
+                      </Tr>
+                    ))}
+                  </tbody>
+                </Table>
               )}
             </CardBody>
           </Card>
@@ -271,32 +276,30 @@ export function KasBankPage() {
                       dari {recon.summary.total} baris mutasi
                     </span>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[640px] text-sm">
-                      <thead>
-                        <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                          <th className="py-2 pr-3 font-medium">Tanggal</th>
-                          <th className="py-2 pr-3 font-medium">Keterangan bank</th>
-                          <th className="py-2 pr-3 text-right font-medium">Jumlah</th>
-                          <th className="py-2 font-medium">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {recon.items.map((item) => (
-                          <tr
-                            key={item.id}
-                            className="border-b border-slate-100 align-top dark:border-slate-800"
+                  <Table>
+                    <Thead>
+                      <tr>
+                        <Th>Tanggal</Th>
+                        <Th>Keterangan bank</Th>
+                        <Th numeric>Jumlah</Th>
+                        <Th>Status</Th>
+                      </tr>
+                    </Thead>
+                    <tbody>
+                      {recon.items.map((item) => (
+                        <Tr key={item.id} className="align-top">
+                          <Td label="Tanggal" className="whitespace-nowrap">
+                            {formatDate(item.stmtDate)}
+                          </Td>
+                          <Td label="Keterangan bank">{item.description}</Td>
+                          <Td
+                            numeric
+                            label="Jumlah"
+                            className={item.amount < 0 ? "text-red-600 dark:text-red-400" : ""}
                           >
-                            <td className="py-2 pr-3 whitespace-nowrap">
-                              {formatDate(item.stmtDate)}
-                            </td>
-                            <td className="py-2 pr-3">{item.description}</td>
-                            <td
-                              className={`py-2 pr-3 text-right tabular-nums ${item.amount < 0 ? "text-red-600 dark:text-red-400" : ""}`}
-                            >
-                              {formatIDR(item.amount)}
-                            </td>
-                            <td className="py-2">
+                            {formatIDR(item.amount)}
+                          </Td>
+                          <Td label="Status">
                               {item.matchedJournalLineId ? (
                                 <span className="inline-flex flex-wrap items-center gap-2">
                                   <Badge tone="green">cocok · {item.matchedEntryNo}</Badge>
@@ -329,7 +332,7 @@ export function KasBankPage() {
                                   </Select>
                                   <Button
                                     variant="ghost"
-                                    className="h-8"
+                                    size="xs"
                                     disabled={!matchPick[item.id] || matchMutation.isPending}
                                     onClick={() =>
                                       matchMutation.mutate({
@@ -343,13 +346,12 @@ export function KasBankPage() {
                                 </span>
                               ) : (
                                 <Badge tone="amber">belum cocok</Badge>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                            )}
+                          </Td>
+                        </Tr>
+                      ))}
+                    </tbody>
+                  </Table>
                 </>
               ) : recon ? (
                 <p className="text-sm text-slate-500 dark:text-slate-400">
