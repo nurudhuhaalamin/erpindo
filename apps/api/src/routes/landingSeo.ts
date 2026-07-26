@@ -1,5 +1,5 @@
 import { PLAN_LIMITS } from "@erpindo/shared";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import type { AppEnv, Env } from "../env";
 
 /**
@@ -79,14 +79,50 @@ ${faqHtml}
 </div></noscript>`;
 }
 
-export const landingSeoRoutes = new Hono<AppEnv>().get("/", async (c) => {
+/**
+ * Ringkasan modul untuk halaman `/fitur` (Fase 18f) — versi teks untuk crawler.
+ * Sengaja diringkas, BUKAN menyalin seluruh isi halaman: <noscript> ada untuk
+ * memberi crawler inti maknanya, dan menyalin ratusan baris ke shell HTML akan
+ * memperbesar setiap muat halaman bagi pengunjung yang JS-nya normal.
+ */
+const MODUL_RINGKAS: [nama: string, isi: string][] = [
+  ["Akuntansi & Jurnal", "Setiap transaksi otomatis membuat jurnal double-entry saat disimpan. Bagan akun standar Indonesia sudah terpasang, jurnal tidak pernah dihapus (koreksi lewat jurnal pembalik), dan tutup buku mengunci angka final."],
+  ["Faktur & Pembayaran", "Sekali posting menyelesaikan jurnal, stok, dan piutang. PPN 0/11/12% dan diskon per baris otomatis, termasuk DPP nilai lain 11/12 sesuai PMK 131/2024."],
+  ["Kasir (POS)", "Sesi shift kas dengan selisih otomatis terjurnal, pembayaran non-tunai multi-tender (QRIS/kartu/e-wallet), dan tetap berjualan saat internet putus lewat PWA."],
+  ["Stok & Gudang", "Multi-gudang dengan HPP rata-rata bergerak dihitung ulang di setiap transaksi, lot & kedaluwarsa FEFO, ambang stok minimum, dan stok opname sebagai jurnal penyesuaian."],
+  ["Gaji & PPh 21", "PPh 21 metode TER terbaru dan BPJS dihitung otomatis, slip gaji & formulir 1721-A1 siap cetak, beban gaji langsung terjurnal."],
+  ["Pajak & e-Faktur", "PPN keluaran/masukan terkumpul otomatis dari faktur, ekspor XML siap impor Coretax DJP, plus PPh Final UMKM dan PPh 23."],
+  ["Laporan Keuangan", "Laba Rugi, Neraca, Arus Kas, Buku Besar, dan Umur Piutang/Hutang dibaca langsung dari jurnal kapan pun, bisa per dimensi/cost center, ekspor Excel."],
+  ["Multi-perusahaan & Konsolidasi", "Beberapa perusahaan dari satu akun, laporan konsolidasi lintas perusahaan, dan faktur multi mata uang dengan selisih kurs saat pelunasan."],
+  ["Keamanan & Kepemilikan Data", "Satu database terpisah per perusahaan, peran & hak akses per modul, 2FA, pembatasan IP, audit log, dan unduh seluruh data sebagai ZIP CSV kapan pun."],
+];
+
+function noscriptFitur(base: string): string {
+  const isi = MODUL_RINGKAS.map(([n, t]) => `<h2>${n}</h2><p>${t}</p>`).join("");
+  return `<noscript><div>
+<h1>Fitur ERPindo — penjelasan tiap modul</h1>
+<p>Penjelasan tiap modul ERPindo: masalah yang dipecahkan, cara kerjanya di dalam aplikasi, dan hasil yang didapat. Akuntansi double-entry, faktur & PPN, kasir POS, stok & gudang, gaji & PPh 21, pajak & e-Faktur, laporan keuangan, multi-perusahaan, serta keamanan data.</p>
+${isi}
+<p><a href="${base}/daftar">Coba gratis</a> · <a href="${base}/">Beranda</a> · <a href="${base}/panduan">Panduan</a></p>
+</div></noscript>`;
+}
+
+/** Menyisipkan canonical + JSON-LD + <noscript> ke shell SPA hasil build. */
+async function sajikan(c: Context<AppEnv>, jalur: string, noscript: (base: string) => string) {
   const base = origin(c.env, c.req.url);
   // Ambil shell SPA yang sudah dibangun dari ASSETS lalu sisipkan SEO.
   const res = await c.env.ASSETS.fetch(new Request(`${base}/index.html`));
   if (!res.ok) return c.env.ASSETS.fetch(c.req.raw); // fallback: layani apa adanya
   let html = await res.text();
-  const canonical = `<link rel="canonical" href="${base}/" />`;
+  const canonical = `<link rel="canonical" href="${base}${jalur}" />`;
   html = html.replace("</head>", `${canonical}\n${jsonLd(base)}\n</head>`);
-  html = html.replace("</body>", `${noscriptBlock(base)}\n</body>`);
+  html = html.replace("</body>", `${noscript(base)}\n</body>`);
   return c.html(html);
-});
+}
+
+export const landingSeoRoutes = new Hono<AppEnv>()
+  .get("/", (c) => sajikan(c, "/", noscriptBlock))
+  // `/fitur` (Fase 18f) mendapat perlakuan SEO yang sama dengan halaman depan —
+  // termasuk terdaftar di `run_worker_first` pada wrangler.jsonc dan di
+  // sitemap.xml. Tanpa ketiganya, halaman ini hanya SPA kosong bagi crawler.
+  .get("/fitur", (c) => sajikan(c, "/fitur", noscriptFitur));

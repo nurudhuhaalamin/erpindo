@@ -25,7 +25,7 @@ import {
  */
 
 const NAV_LINKS: [string, { id: string; en: string }][] = [
-  ["#fitur", { id: "Fitur", en: "Features" }],
+  ["/fitur", { id: "Fitur", en: "Features" }],
   ["#harga", { id: "Harga", en: "Pricing" }],
   ["/panduan", { id: "Panduan", en: "Guide" }],
   ["#faq", { id: "FAQ", en: "FAQ" }],
@@ -334,9 +334,12 @@ function FeaturesGrid() {
             <p className="text-sm font-semibold text-brand-800 dark:text-brand-200">
               {L(lang, "Semua modul termasuk di setiap paket.", "Every module is included in every plan.")}
             </p>
-            <Link to="/daftar" className="mt-2 text-sm font-semibold text-brand-700 hover:underline dark:text-brand-300">
-              {L(lang, "Coba semua gratis →", "Try everything free →")}
-            </Link>
+            <a
+              href="/fitur"
+              className="mt-2 text-sm font-semibold text-brand-700 hover:underline dark:text-brand-300"
+            >
+              {L(lang, "Lihat penjelasan tiap modul →", "See what each module does →")}
+            </a>
           </div>
         </div>
       </div>
@@ -757,7 +760,7 @@ function Footer() {
           <p className="mt-1 text-xs">{L(lang, "Integrate. Automate. Grow. — ERP untuk UMKM Indonesia.", "Integrate. Automate. Grow. — ERP for Indonesian SMEs.")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <a href="#fitur" className="hover:text-slate-900 dark:hover:text-white">{L(lang, "Fitur", "Features")}</a>
+          <a href="/fitur" className="hover:text-slate-900 dark:hover:text-white">{L(lang, "Fitur", "Features")}</a>
           <a href="#harga" className="hover:text-slate-900 dark:hover:text-white">{L(lang, "Harga", "Pricing")}</a>
           <a href="/panduan" className="hover:text-slate-900 dark:hover:text-white">{L(lang, "Panduan", "Guide")}</a>
           {/* Blog dilayani server-side (SEO) — navigasi keras, bukan rute SPA. */}

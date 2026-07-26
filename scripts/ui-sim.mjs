@@ -1174,6 +1174,25 @@ try {
     `→ ${gambarHero ? `${gambarHero.w}x${gambarHero.h}` : "tidak ada <img>"}`,
   );
 
+  // F29 — Fase 18f: halaman /fitur (penjelasan mendalam per modul).
+  // Diperiksa dari SISI PENGUNJUNG: benar-benar bisa dicapai lewat tautan di
+  // landing (bukan hanya lewat URL yang diketik), memuat modul-modul kunci,
+  // dan bebas galat. Menguji lewat tautan penting karena rute yang ada tetapi
+  // tak tertaut dari mana pun sama saja tidak ada bagi pengunjung.
+  await page.locator('a[href="/fitur"]').first().click();
+  await page.waitForURL("**/fitur", { timeout: 15_000 });
+  await page.waitForTimeout(900);
+  const fiturText = await page.innerText("body");
+  const modulKunci = ["Akuntansi & Jurnal", "Kasir (POS)", "Stok & Gudang", "Gaji & PPh 21", "Pajak & e-Faktur"];
+  const hilang = modulKunci.filter((m) => !fiturText.includes(m));
+  check(
+    "F29 halaman /fitur terjangkau dari landing & memuat modul-modul kunci",
+    hilang.length === 0 && fiturText.includes("Bagaimana ERPindo mengerjakannya"),
+    `→ modul hilang: ${hilang.join(", ") || "tidak ada"}`,
+  );
+  check("F29 halaman /fitur bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
+  await gotoRoute("/", 700);
+
   // Multibahasa (Fase 13d): toggle EN → hero & harga berbahasa Inggris, lalu kembali ID.
   await page.getByRole("button", { name: "EN", exact: true }).first().click();
   await page.waitForTimeout(300);
@@ -1351,6 +1370,8 @@ try {
     for (const [rute, nama, penuh] of [
       ["/", "landing-atas", false],
       ["/", "landing-penuh", true],
+      ["/fitur", "fitur", false],
+      ["/fitur", "fitur-penuh", true],
       // Halaman masuk dilihat SETELAH sesi dibuang; kalau masih ada sesi,
       // /masuk mengalihkan ke /app dan tangkapannya jadi salah halaman.
       ["/masuk", "masuk", false],

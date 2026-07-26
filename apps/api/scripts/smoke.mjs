@@ -4662,6 +4662,28 @@ try {
   );
   check("SEO landing: canonical + noscript konten untuk crawler tanpa JS", landingHtml.includes('rel="canonical"') && landingHtml.includes("<noscript>"), `→ ${landingHtml.includes("<noscript>")}`);
 
+  // Fase 18f — /fitur mendapat perlakuan SEO yang sama dengan halaman depan.
+  // Diperiksa terpisah karena tiga hal harus benar SEKALIGUS supaya halaman ini
+  // berguna bagi mesin pencari: terdaftar di `run_worker_first` (kalau tidak,
+  // Worker tak pernah dipanggil dan yang tersaji hanya SPA kosong), canonical
+  // menunjuk ke dirinya sendiri (bukan ke "/"), dan isinya benar-benar ada di
+  // <noscript>.
+  const fitur = await fetch(`${BASE}/fitur`);
+  const fiturHtml = await fitur.text();
+  check(
+    "SEO /fitur: canonical ke /fitur + noscript berisi modul (bukan salinan landing)",
+    fitur.status === 200 &&
+      fiturHtml.includes('rel="canonical" href="') &&
+      /rel="canonical" href="[^"]*\/fitur"/.test(fiturHtml) &&
+      fiturHtml.includes("<noscript>") &&
+      fiturHtml.includes("Fitur ERPindo") &&
+      fiturHtml.includes("Kasir (POS)"),
+    `→ status=${fitur.status} canonicalFitur=${/rel="canonical" href="[^"]*\/fitur"/.test(fiturHtml)}`,
+  );
+  const peta = await fetch(`${BASE}/sitemap.xml`);
+  const petaXml = await peta.text();
+  check("SEO /fitur terdaftar di sitemap.xml", petaXml.includes("/fitur</loc>"), `→ ${peta.status}`);
+
   // --- Logout -----------------------------------------------------------------
   console.log("15. Logout");
   const out = await owner("POST", "/api/auth/logout");

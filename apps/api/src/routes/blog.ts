@@ -166,6 +166,7 @@ ${renderMarkdown(post.body_md)}
     ).all<{ slug: string; updated_at: string }>();
     const urls = [
       `<url><loc>${base}/</loc></url>`,
+      `<url><loc>${base}/fitur</loc></url>`,
       `<url><loc>${base}/panduan</loc></url>`,
       `<url><loc>${base}/blog</loc></url>`,
       ...results.map(

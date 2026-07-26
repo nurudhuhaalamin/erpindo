@@ -52,6 +52,11 @@ const rootRoute = createRootRoute({ component: () => <Outlet /> });
 
 const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/", component: LandingPage }),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/fitur",
+    component: lazyRouteComponent(() => import("./pages/fitur"), "FiturPage"),
+  }),
   createRoute({ getParentRoute: () => rootRoute, path: "/daftar", component: RegisterPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/masuk", component: LoginPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/verifikasi", component: VerifyPage }),
