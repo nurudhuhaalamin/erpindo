@@ -174,6 +174,21 @@ try {
   console.log("0. Login & pindah workspace");
   resetErrors();
   await gotoRoute("/masuk", 300);
+  // F23 — Fase 17f. Ketiga selektor di bawah adalah GERBANG seluruh suite:
+  // setiap cek F0–F22 melewati form ini lebih dulu. Diperiksa eksplisit SEBELUM
+  // dipakai supaya kegagalannya menyebut sendiri sebabnya — tanpa cek ini,
+  // `page.fill("#email")` hanya melempar timeout yang tidak menjelaskan apa pun
+  // padahal penyebabnya perombakan `auth.tsx`.
+  const gerbang = {
+    email: await page.locator("#email").count(),
+    password: await page.locator("#password").count(),
+    submit: await page.locator("button[type=submit]").count(),
+  };
+  check(
+    "F23 kontrak halaman masuk utuh (#email, #password, button[type=submit])",
+    gerbang.email === 1 && gerbang.password === 1 && gerbang.submit >= 1,
+    `→ email=${gerbang.email} password=${gerbang.password} submit=${gerbang.submit}`,
+  );
   await page.fill("#email", EMAIL);
   await page.fill("#password", PASSWORD);
   await page.click("button[type=submit]");
@@ -1149,11 +1164,15 @@ try {
     await halaman.screenshot({ path: path.join(dir, "palet.png"), fullPage: false });
     // Landing terakhir — palet hanya ada di dalam shell aplikasi, jadi urutannya
     // tidak boleh dibalik.
-    for (const [nama, penuh] of [
-      ["landing-atas", false],
-      ["landing-penuh", true],
+    for (const [rute, nama, penuh] of [
+      ["/", "landing-atas", false],
+      ["/", "landing-penuh", true],
+      // Halaman masuk dilihat SETELAH sesi dibuang; kalau masih ada sesi,
+      // /masuk mengalihkan ke /app dan tangkapannya jadi salah halaman.
+      ["/masuk", "masuk", false],
     ]) {
-      await halaman.goto(`${BASE}/`, { waitUntil: "networkidle" });
+      if (rute === "/masuk") await ctx.clearCookies();
+      await halaman.goto(`${BASE}${rute}`, { waitUntil: "networkidle" });
       await halaman.waitForTimeout(1200);
       await halaman.screenshot({ path: path.join(dir, `${nama}.png`), fullPage: penuh });
     }
