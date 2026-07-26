@@ -1,9 +1,9 @@
 /**
- * Anti-FOUC tema (Fase 17a).
+ * Anti-FOUC tema (Fase 17a; bawaan dibalik ke TERANG pada Fase 18a).
  *
- * Dimuat SINKRON di <head> sebelum CSS dipakai, supaya pemakai tema gelap
- * tidak melihat kilatan putih di setiap muat halaman (sebelum fase ini tidak
- * ada penjaga semacam ini sama sekali).
+ * Dimuat SINKRON di <head> sebelum CSS dipakai, supaya pemakai yang memilih
+ * tema gelap tidak melihat kilatan putih di setiap muat halaman (sebelum
+ * Fase 17a tidak ada penjaga semacam ini sama sekali).
  *
  * Sengaja berkas terpisah, BUKAN skrip inline: CSP aplikasi memakai
  * `script-src 'self'` (dikeraskan pada Fase 10h). Skrip inline akan ditolak
@@ -17,12 +17,15 @@
  */
 (function () {
   var el = document.documentElement;
-  var gelap = true; // gelap-dulu: tanpa preferensi tersimpan, tampil gelap
+  // Terang-dulu (Fase 18a): tanpa preferensi tersimpan, aplikasi tampil putih.
+  // Preferensi pengguna yang sudah tersimpan TETAP dihormati — yang berubah
+  // hanya nilai bawaannya, bukan perilaku tombol ganti tema.
+  var gelap = false;
   try {
     var t = localStorage.getItem("erpindo-theme");
     if (t) gelap = t === "dark";
   } catch (e) {
-    /* mode privat / storage diblokir — pakai bawaan gelap */
+    /* mode privat / storage diblokir — pakai bawaan terang */
   }
   el.classList.toggle("dark", gelap);
   el.style.colorScheme = gelap ? "dark" : "light";
