@@ -73,6 +73,7 @@ import {
   useDarkMode,
 } from "../components/ui";
 import { Asisten } from "../components/asisten";
+import { PaletPerintah } from "../components/palet";
 import { AUTO_TOUR_IDS, tourForPath } from "../tours";
 
 // ---------------------------------------------------------------------------
@@ -426,6 +427,7 @@ export function AppShell() {
 
   // Efisiensi navigasi (Fase 9c): pencarian menu + seksi lipat persisten.
   const [navQuery, setNavQuery] = useState("");
+  const [paletOpen, setPaletOpen] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<string[]>(getCollapsedSections);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const toggleSection = (name: string) => {
@@ -460,6 +462,24 @@ export function AppShell() {
     window.addEventListener(SIMPLE_MODE_EVENT, onChange);
     return () => window.removeEventListener(SIMPLE_MODE_EVENT, onChange);
   }, []);
+
+  // Palet perintah ⌘K / Ctrl+K (Fase 17c). Diabaikan saat fokus sedang di
+  // kolom isian supaya tidak merebut pintasan pengetikan pengguna.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== "k" || !(e.metaKey || e.ctrlKey)) return;
+      const el = document.activeElement;
+      const mengetik =
+        el instanceof HTMLInputElement ||
+        el instanceof HTMLTextAreaElement ||
+        el instanceof HTMLSelectElement;
+      if (mengetik && !paletOpen) return;
+      e.preventDefault();
+      setPaletOpen((o) => !o);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [paletOpen]);
 
   // Drawer mobile: tutup dengan Escape + kunci scroll body saat terbuka.
   useEffect(() => {
@@ -541,7 +561,7 @@ export function AppShell() {
         className:
           "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-100",
       }}
-      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors"
+      className="flex items-center gap-2 rounded px-2.5 py-1.5 text-[13px] transition-colors"
       onClick={() => setMenuOpen(false)}
     >
       <item.icon className="size-4 shrink-0" aria-hidden />
@@ -550,7 +570,7 @@ export function AppShell() {
   );
 
   const nav = (
-    <nav className="flex flex-col gap-0.5 p-3">
+    <nav className="flex flex-col gap-px p-2">
       <div className="relative mb-1">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" aria-hidden />
         <input
@@ -561,7 +581,7 @@ export function AppShell() {
           }}
           placeholder={lang === "en" ? "Search menu…" : "Cari menu…"}
           aria-label="Cari menu"
-          className="w-full rounded-lg border border-slate-200 bg-transparent py-1.5 pl-8 pr-2 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-brand-400 dark:border-slate-700 dark:text-slate-200 dark:focus:border-brand-500"
+          className="h-8 w-full rounded border border-slate-200 bg-transparent pl-8 pr-2 text-[13px] text-slate-700 outline-none placeholder:text-slate-400 focus:border-brand-400 dark:border-slate-700 dark:text-slate-200 dark:focus:border-brand-500"
         />
       </div>
       {navGroups.map((group) => {
@@ -574,7 +594,7 @@ export function AppShell() {
                 type="button"
                 onClick={() => toggleSection(group.section!)}
                 aria-expanded={!isCollapsed}
-                className="mb-1 mt-4 flex w-full items-center justify-between px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                className="mb-0.5 mt-3 flex w-full items-center justify-between px-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
               >
                 {lang === "en" ? (SECTION_EN[group.section!] ?? group.section) : group.section}
                 <ChevronDown className={`size-3.5 transition-transform ${isCollapsed ? "-rotate-90" : ""}`} aria-hidden />
@@ -589,7 +609,7 @@ export function AppShell() {
       ) : null}
       <Link
         to="/app/panduan"
-        className="mt-4 flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-100"
+        className="mt-3 flex items-center gap-2 rounded px-2.5 py-1.5 text-[13px] text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-100"
       >
         <CircleHelp className="size-4 shrink-0" aria-hidden />
         {lang === "en" ? "Guide" : "Panduan"}
@@ -602,11 +622,11 @@ export function AppShell() {
 
   const workspacePicker =
     me.memberships.length > 1 ? (
-      <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-slate-100 px-2 py-1.5 dark:bg-white/5">
+      <div className="mt-2 flex items-center gap-1.5 rounded bg-slate-100 px-2 py-1 dark:bg-white/5">
         <Building2 className="size-4 shrink-0 text-slate-400" aria-hidden />
         <select
           aria-label="Pilih perusahaan"
-          className="w-full bg-transparent text-sm text-slate-700 outline-none dark:text-slate-200 [&>option]:text-slate-900"
+          className="w-full bg-transparent text-[13px] text-slate-700 outline-none dark:text-slate-200 [&>option]:text-slate-900"
           value={tenant.tenantId}
           onChange={(e) => {
             localStorage.setItem("erpindo-tenant", e.target.value);
@@ -630,15 +650,15 @@ export function AppShell() {
   // Isi sidebar dipakai bersama desktop (aside) & mobile (drawer) agar tak duplikat.
   const sidebarContent = (
     <>
-      <div className="border-b border-slate-200 px-4 py-4 dark:border-white/10">
+      <div className="border-b border-slate-200 px-3 py-2.5 dark:border-white/10">
         <div className="flex items-center gap-2">
-          <BrandWordmark className="h-10" />
+          <BrandWordmark className="h-8" />
         </div>
         {workspacePicker}
       </div>
       <div className="flex-1 overflow-y-auto">{nav}</div>
-      <div className="border-t border-slate-200 p-3 dark:border-white/10">
-        <div className="flex items-center gap-2.5 px-1">
+      <div className="border-t border-slate-200 p-2 dark:border-white/10">
+        <div className="flex items-center gap-2 px-1">
           <Avatar name={me.user.name} />
           <div className="min-w-0">
             <div className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{me.user.name}</div>
@@ -652,14 +672,19 @@ export function AppShell() {
   return (
     <WorkspaceContext.Provider value={{ me, tenant }}>
       <div className="flex min-h-full">
-        {/* Sidebar desktop — theme-aware (putih di terang, gelap di gelap) */}
-        <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-white md:flex dark:border-white/10 dark:bg-slate-950">
+        {/* Sidebar desktop — theme-aware (putih di terang, gelap di gelap).
+            Fase 17c: `sticky top-0 h-dvh self-start` supaya menu ikut diam saat
+            halaman panjang digulir. `self-start` wajib: tanpa itu aside meregang
+            setinggi konten (stretch bawaan flex) dan `sticky` tak punya ruang
+            gerak, jadi terlihat seolah tidak berfungsi. */}
+        <aside className="sticky top-0 hidden h-dvh w-56 shrink-0 flex-col self-start border-r border-slate-200 bg-white md:flex dark:border-white/10 dark:bg-slate-950">
           {sidebarContent}
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          {/* Topbar */}
-          <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
+          {/* Topbar — Fase 17c: melekat di atas (dulu ikut mengalir, sehingga
+              pada tabel panjang tombol tema/keluar hilang dari jangkauan). */}
+          <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-slate-200 bg-surface px-3 dark:border-slate-800">
             <div className="flex items-center gap-3 md:hidden">
               <button
                 onClick={() => setMenuOpen((o) => !o)}
@@ -675,6 +700,17 @@ export function AppShell() {
               <Badge tone="brand">{tenant.role}</Badge>
             </div>
             <div className="flex items-center gap-2">
+              {/* Pemicu palet — SENGAJA di topbar, bukan di dalam <nav>:
+                  sebelas asersi ui-sim menghitung `aside nav a/button`. */}
+              <button
+                onClick={() => setPaletOpen(true)}
+                className="hidden items-center gap-2 rounded border border-slate-300 px-2 py-1 text-xs text-slate-500 transition-colors hover:border-slate-400 hover:text-slate-700 md:flex dark:border-slate-700 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:text-slate-200"
+                aria-label={lang === "en" ? "Open command palette" : "Buka palet perintah"}
+                title={lang === "en" ? "Jump to a page (Ctrl+K)" : "Lompat ke halaman (Ctrl+K)"}
+              >
+                <Search className="size-3.5" aria-hidden />
+                <kbd className="font-mono text-[10px] tracking-tight">Ctrl K</kbd>
+              </button>
               <NotificationBell tenantId={tenant.tenantId} />
               <TourLauncher />
               <HelpLink />
@@ -689,7 +725,7 @@ export function AppShell() {
               <span className="hidden sm:block">
                 <Avatar name={me.user.name} />
               </span>
-              <Button variant="secondary" className="h-9" onClick={() => logout.mutate()}>
+              <Button variant="secondary" onClick={() => logout.mutate()}>
                 <LogOut className="size-4" aria-hidden /> Keluar
               </Button>
             </div>
@@ -754,12 +790,34 @@ export function AppShell() {
             })()
           ) : null}
 
-          <main className="flex-1 p-4 sm:p-6">
+          <main className="flex-1 p-3 sm:p-4">
             <Outlet />
           </main>
         </div>
       </div>
       <Asisten tenantId={tenant.tenantId} isAdmin={tenant.role !== "viewer"} />
+
+      {/* Palet perintah — dipasang di AKAR shell, di luar <aside>/<nav>.
+          Daftar isinya memakai navItems yang sudah tersaring izin peran &
+          Mode Sederhana, dan labelnya sudah diterjemahkan lewat navLabel(). */}
+      <PaletPerintah
+        open={paletOpen}
+        onClose={() => setPaletOpen(false)}
+        items={navItems.map((item) => ({
+          to: item.to,
+          label: navLabel(item),
+          section: item.section
+            ? lang === "en"
+              ? (SECTION_EN[item.section] ?? item.section)
+              : item.section
+            : undefined,
+          icon: item.icon,
+        }))}
+        onPilih={(to) => {
+          setPaletOpen(false);
+          void navigate({ to });
+        }}
+      />
     </WorkspaceContext.Provider>
   );
 }

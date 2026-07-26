@@ -50,6 +50,37 @@ const isID = (s) => {
   return RE_ID.test(t);
 };
 
+/**
+ * Pecah isi template literal menjadi potongan STATIS saja, membuang tiap
+ * `${…}` (dengan pencocokan kurung, supaya interpolasi bersarang ikut terbuang).
+ *
+ * Ditambahkan Fase 17c. Sebelumnya isi template diuji utuh, jadi className
+ * berkondisi seperti
+ *   `flex gap-2 ${aktif ? "bg-brand-600" : "text-slate-400"}`
+ * lolos dari saringan Tailwind — saringan itu menuntut SELURUH string hanya
+ * berisi karakter kelas, sementara `$`, `{`, `?`, dan tanda kutip di dalam
+ * interpolasi membuatnya gagal, lalu string itu dilaporkan sebagai utang teks.
+ * Positif palsu ini akan muncul di hampir tiap berkas yang dirombak pada Fase
+ * 17, jadi sekarang tiap potongan statis dinilai sendiri-sendiri.
+ */
+const potonganStatis = (body) => {
+  const out = [];
+  let buf = "";
+  for (let i = 0; i < body.length; i++) {
+    if (body[i] === "$" && body[i + 1] === "{") {
+      out.push(buf);
+      buf = "";
+      let d = 0;
+      for (i += 1; i < body.length; i++) {
+        if (body[i] === "{") d++;
+        else if (body[i] === "}" && --d === 0) break;
+      }
+    } else buf += body[i];
+  }
+  out.push(buf);
+  return out;
+};
+
 // buang komentar + sisi id: dari pasangan Dual, ganti dengan spasi agar
 // nomor baris tetap benar
 const bersihkan = (src) =>
@@ -150,7 +181,8 @@ for (const file of process.argv.slice(2)) {
   for (const m of src.matchAll(/(?:^|[^\w])"((?:[^"\\]|\\.)*)"/gm))
     if (isID(m[1])) add(jenisDari(m.index, m.index + m[0].length), m[1], m.index);
   for (const m of src.matchAll(/`((?:[^`\\]|\\.)*)`/gs))
-    if (isID(m[1])) add(jenisDari(m.index, m.index + m[0].length), m[1], m.index);
+    for (const seg of potonganStatis(m[1]))
+      if (isID(seg)) add(jenisDari(m.index, m.index + m[0].length), seg, m.index);
   for (const m of src.matchAll(/[>}]([^<>{}]+)[<{]/gs))
     if (isID(m[1])) add(jenisDari(m.index, m.index + m[0].length), m[1], m.index);
 
