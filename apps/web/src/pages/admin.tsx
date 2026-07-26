@@ -24,6 +24,11 @@ import {
   PageHeading,
   Select,
   Spinner,
+  Table,
+  Td,
+  Th,
+  Thead,
+  Tr,
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
@@ -145,37 +150,34 @@ function OverviewTab() {
           description="20 perusahaan terakhir beserta email pemiliknya."
         />
         <CardBody>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                  <th className="pb-2 pr-4 font-medium">Perusahaan</th>
-                  <th className="pb-2 pr-4 font-medium">Pemilik</th>
-                  <th className="pb-2 pr-4 font-medium">Status</th>
-                  <th className="pb-2 pr-4 font-medium">Paket</th>
-                  <th className="pb-2 font-medium">Daftar</th>
-                </tr>
-              </thead>
-              <tbody>
-                {d.recentSignups.map((t) => (
-                  <tr
-                    key={t.id}
-                    className="border-b border-slate-100 last:border-0 dark:border-slate-800/60"
-                  >
-                    <td className="py-2 pr-4 font-medium">{t.name}</td>
-                    <td className="py-2 pr-4">{t.ownerEmail ?? "—"}</td>
-                    <td className="py-2 pr-4">
-                      <Badge tone={STATUS_TONE[t.status] ?? "neutral"}>{t.status}</Badge>
-                    </td>
-                    <td className="py-2 pr-4">{PLAN_LABELS[t.plan as Plan] ?? t.plan}</td>
-                    <td className="py-2 text-slate-500 dark:text-slate-400">
-                      {formatDate(t.createdAt.slice(0, 10))}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <Thead>
+              <tr>
+                <Th>Perusahaan</Th>
+                <Th>Pemilik</Th>
+                <Th>Status</Th>
+                <Th>Paket</Th>
+                <Th>Daftar</Th>
+              </tr>
+            </Thead>
+            <tbody>
+              {d.recentSignups.map((t) => (
+                <Tr key={t.id}>
+                  <Td label="Perusahaan" className="font-medium">
+                    {t.name}
+                  </Td>
+                  <Td label="Pemilik">{t.ownerEmail ?? "—"}</Td>
+                  <Td label="Status">
+                    <Badge tone={STATUS_TONE[t.status] ?? "neutral"}>{t.status}</Badge>
+                  </Td>
+                  <Td label="Paket">{PLAN_LABELS[t.plan as Plan] ?? t.plan}</Td>
+                  <Td label="Daftar" className="text-slate-500 dark:text-slate-400">
+                    {formatDate(t.createdAt.slice(0, 10))}
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
         </CardBody>
       </Card>
     </div>
@@ -222,46 +224,43 @@ function TenantsTab() {
         {query.isLoading ? (
           <Spinner />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                  <th className="pb-2 pr-4 font-medium">Perusahaan</th>
-                  <th className="pb-2 pr-4 font-medium">Pemilik</th>
-                  <th className="pb-2 pr-4 font-medium">Status</th>
-                  <th className="pb-2 pr-4 font-medium">Paket</th>
-                  <th className="pb-2 pr-4 font-medium">Anggota</th>
-                  <th className="pb-2 pr-4 font-medium">Trial berakhir</th>
-                  <th className="pb-2 font-medium">Daftar</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(query.data?.tenants ?? []).map((t) => (
-                  <tr
-                    key={t.id}
-                    className="border-b border-slate-100 last:border-0 dark:border-slate-800/60"
-                  >
-                    <td className="py-2 pr-4">
-                      <div className="font-medium">{t.name}</div>
-                      <div className="text-xs text-slate-400">{t.slug}</div>
-                    </td>
-                    <td className="py-2 pr-4">{t.ownerEmail ?? "—"}</td>
-                    <td className="py-2 pr-4">
-                      <Badge tone={STATUS_TONE[t.status] ?? "neutral"}>{t.status}</Badge>
-                    </td>
-                    <td className="py-2 pr-4">{PLAN_LABELS[t.plan as Plan] ?? t.plan}</td>
-                    <td className="py-2 pr-4 tabular-nums">{t.members}</td>
-                    <td className="py-2 pr-4 text-slate-500 dark:text-slate-400">
-                      {t.trialEndsAt ? formatDate(t.trialEndsAt.slice(0, 10)) : "—"}
-                    </td>
-                    <td className="py-2 text-slate-500 dark:text-slate-400">
-                      {formatDate(t.createdAt.slice(0, 10))}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <Thead>
+              <tr>
+                <Th>Perusahaan</Th>
+                <Th>Pemilik</Th>
+                <Th>Status</Th>
+                <Th>Paket</Th>
+                <Th numeric>Anggota</Th>
+                <Th>Trial berakhir</Th>
+                <Th>Daftar</Th>
+              </tr>
+            </Thead>
+            <tbody>
+              {(query.data?.tenants ?? []).map((t) => (
+                <Tr key={t.id}>
+                  <Td label="Perusahaan">
+                    <div className="font-medium">{t.name}</div>
+                    <div className="text-xs text-slate-400">{t.slug}</div>
+                  </Td>
+                  <Td label="Pemilik">{t.ownerEmail ?? "—"}</Td>
+                  <Td label="Status">
+                    <Badge tone={STATUS_TONE[t.status] ?? "neutral"}>{t.status}</Badge>
+                  </Td>
+                  <Td label="Paket">{PLAN_LABELS[t.plan as Plan] ?? t.plan}</Td>
+                  <Td numeric label="Anggota">
+                    {t.members}
+                  </Td>
+                  <Td label="Trial berakhir" className="text-slate-500 dark:text-slate-400">
+                    {t.trialEndsAt ? formatDate(t.trialEndsAt.slice(0, 10)) : "—"}
+                  </Td>
+                  <Td label="Daftar" className="text-slate-500 dark:text-slate-400">
+                    {formatDate(t.createdAt.slice(0, 10))}
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
         )}
       </CardBody>
     </Card>
@@ -392,32 +391,30 @@ function InfraTab() {
               {d.behind.length > 0 ? (
                 <div>
                   <h3 className="mb-2 text-sm font-semibold">Perusahaan tertinggal</h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                          <th className="pb-2 pr-4 font-medium">Perusahaan</th>
-                          <th className="pb-2 font-medium">Versi skema</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {d.behind.map((t) => (
-                          <tr
-                            key={t.id}
-                            className="border-b border-slate-100 last:border-0 dark:border-slate-800/60"
-                          >
-                            <td className="py-2 pr-4">
-                              <div className="font-medium">{t.name}</div>
-                              <div className="text-xs text-slate-400">{t.slug}</div>
-                            </td>
-                            <td className="py-2 tabular-nums">
-                              v{t.schemaVersion} → v{d.schemaVersion}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <Table>
+                    <Thead>
+                      <tr>
+                        <Th>Perusahaan</Th>
+                        <Th>Versi skema</Th>
+                      </tr>
+                    </Thead>
+                    <tbody>
+                      {d.behind.map((t) => (
+                        <Tr key={t.id}>
+                          <Td label="Perusahaan">
+                            <div className="font-medium">{t.name}</div>
+                            <div className="text-xs text-slate-400">{t.slug}</div>
+                          </Td>
+                          {/* Bukan `numeric`: isinya "v12 → v38", sebuah
+                              perpindahan versi, bukan nilai yang perlu
+                              dirata-kanankan terhadap kolom lain. */}
+                          <Td label="Versi skema" className="num">
+                            v{t.schemaVersion} → v{d.schemaVersion}
+                          </Td>
+                        </Tr>
+                      ))}
+                    </tbody>
+                  </Table>
                 </div>
               ) : null}
             </>
