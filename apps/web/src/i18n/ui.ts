@@ -74,7 +74,10 @@ const UI: Record<string, Dual> = {
   mulaiCepat: { id: "Mulai cepat: contoh data usaha", en: "Quick start: sample business data" },
   isiNomorSeri: { id: "Masukkan nomor seri unit", en: "Enter the unit serial number" },
   nolTanpaPeringatan: { id: "0 = tanpa peringatan", en: "0 = no alert" },
-  opsionalPindaiKasir: { id: "opsional — untuk pindai di kasir", en: "optional — for scanning at the till" },
+  opsionalPindaiKasir: {
+    id: "opsional — untuk pindai di kasir",
+    en: "optional — for scanning at the till",
+  },
   // Transaksi (Penjualan/Pembelian) — Fase 16c
   hargaSatuan: { id: "Harga satuan", en: "Unit price" },
   disc: { id: "Disc %", en: "Disc %" },
@@ -88,7 +91,10 @@ const UI: Record<string, Dual> = {
   sudahDibayar: { id: "Sudah dibayar", en: "Paid" },
   sudahDiretur: { id: "Sudah diretur", en: "Returned" },
   retur: { id: "Retur", en: "Return" },
-  returIsiQty: { id: "Retur barang — isi qty yang dikembalikan:", en: "Return goods — enter the quantity returned:" },
+  returIsiQty: {
+    id: "Retur barang — isi qty yang dikembalikan:",
+    en: "Return goods — enter the quantity returned:",
+  },
   dibatalkan: { id: "DIBATALKAN", en: "VOIDED" },
   dihapus: { id: "DIHAPUS", en: "DELETED" },
   hapusPembayaranIni: { id: "Hapus pembayaran ini?", en: "Delete this payment?" },
@@ -120,9 +126,15 @@ const UI: Record<string, Dual> = {
   levelStokPerGudang: { id: "Level stok per gudang", en: "Stock levels per warehouse" },
   lotKedaluwarsa: { id: "Lot & kedaluwarsa", en: "Lot & expiry" },
   penyesuaianStok: { id: "Penyesuaian stok (opname)", en: "Stock adjustment (stock take)" },
-  riwayatMutasi: { id: "Riwayat mutasi dengan saldo berjalan.", en: "Movement history with a running balance." },
+  riwayatMutasi: {
+    id: "Riwayat mutasi dengan saldo berjalan.",
+    en: "Movement history with a running balance.",
+  },
   transferAntarGudang: { id: "Transfer antar gudang", en: "Inter-warehouse transfer" },
-  usulanPembelianOtomatis: { id: "Usulan pembelian otomatis", en: "Automatic purchase suggestions" },
+  usulanPembelianOtomatis: {
+    id: "Usulan pembelian otomatis",
+    en: "Automatic purchase suggestions",
+  },
   // Laporan — Fase 16e
   faktur: { id: "Faktur", en: "Invoice" },
   nomor: { id: "Nomor", en: "Number" },
@@ -147,14 +159,23 @@ const UI: Record<string, Dual> = {
   rataRataPerFaktur: { id: "Rata-rata per faktur", en: "Average per invoice" },
   totalPenjualan: { id: "Total penjualan", en: "Total sales" },
   totalKeseluruhan: { id: "Total keseluruhan", en: "Grand total" },
-  bandingkanPeriode: { id: "Bandingkan dengan periode sebelumnya", en: "Compare with the previous period" },
+  bandingkanPeriode: {
+    id: "Bandingkan dengan periode sebelumnya",
+    en: "Compare with the previous period",
+  },
   perPelanggan: { id: "Per pelanggan", en: "By customer" },
   perProduk: { id: "Per produk", en: "By product" },
   eksporExcel: { id: "Ekspor Excel", en: "Export Excel" },
   belumAdaPenjualan: { id: "Belum ada penjualan", en: "No sales yet" },
   tidakAda: { id: "Tidak ada.", en: "None." },
-  tidakAdaFakturPpn: { id: "Tidak ada faktur ber-PPN pada periode ini.", en: "No VAT invoices in this period." },
-  tidakAdaFakturRentang: { id: "Tidak ada faktur pada rentang tanggal ini.", en: "No invoices in this date range." },
+  tidakAdaFakturPpn: {
+    id: "Tidak ada faktur ber-PPN pada periode ini.",
+    en: "No VAT invoices in this period.",
+  },
+  tidakAdaFakturRentang: {
+    id: "Tidak ada faktur pada rentang tanggal ini.",
+    en: "No invoices in this date range.",
+  },
   // Keuangan / jurnal — Fase 16f
   akun: { id: "Akun", en: "Account" },
   namaAkun: { id: "Nama akun", en: "Account name" },
@@ -239,7 +260,10 @@ const UI: Record<string, Dual> = {
   klikProdukTambah: { id: "Klik produk untuk menambahkan.", en: "Click a product to add it." },
   belumAdaPenjualanPos: { id: "Belum ada penjualan POS hari ini.", en: "No POS sales today." },
   belumAdaStrukPos: { id: "Belum ada struk POS.", en: "No POS receipts yet." },
-  kasirHanyaAdmin: { id: "Halaman kasir hanya untuk Owner/Admin.", en: "The cashier page is for Owner/Admin only." },
+  kasirHanyaAdmin: {
+    id: "Halaman kasir hanya untuk Owner/Admin.",
+    en: "The cashier page is for Owner/Admin only.",
+  },
   terimaKasih: { id: "Terima kasih 🙏", en: "Thank you 🙏" },
   descBukaShift: {
     id: "Mulai sesi kasir dengan mencatat kas awal di laci.",
@@ -355,7 +379,10 @@ const UI: Record<string, Dual> = {
   selesai: { id: "Selesai", en: "End" },
   belumAdaDepartemen: { id: "Belum ada departemen.", en: "No departments yet." },
   belumAdaKasbon: { id: "Belum ada kasbon.", en: "No employee loans yet." },
-  belumAdaKomponen: { id: "Belum ada komponen untuk periode ini.", en: "No components for this period." },
+  belumAdaKomponen: {
+    id: "Belum ada komponen untuk periode ini.",
+    en: "No components for this period.",
+  },
   belumAdaCuti: { id: "Belum ada pengajuan cuti/izin.", en: "No leave requests yet." },
   belumAdaKaryawan: { id: "Belum ada karyawan", en: "No employees yet" },
   belumAdaPenggajian: { id: "Belum ada penggajian", en: "No payroll runs yet" },
@@ -370,7 +397,10 @@ const UI: Record<string, Dual> = {
   cutiIzin: { id: "Cuti & izin", en: "Leave & absence" },
   strukturOrganisasi: { id: "Struktur organisasi", en: "Org structure" },
   yaBatalkanPenggajian: { id: "Ya, batalkan penggajian", en: "Yes, void payroll" },
-  contohBonus: { id: "mis. Bonus kinerja / Lembur / Potongan absen", en: "e.g. Performance bonus / Overtime / Absence deduction" },
+  contohBonus: {
+    id: "mis. Bonus kinerja / Lembur / Potongan absen",
+    en: "e.g. Performance bonus / Overtime / Absence deduction",
+  },
   contohKasbon: { id: "mis. Kasbon renovasi rumah", en: "e.g. Home renovation loan" },
   contohKodeDept: { id: "mis. OPS", en: "e.g. OPS" },
   contohNamaDept: { id: "mis. Operasional", en: "e.g. Operations" },
@@ -444,13 +474,22 @@ const UI: Record<string, Dual> = {
   estimasiBiayaTk: { id: "Estimasi biaya tenaga kerja", en: "Estimated labour cost" },
   labaSetelahTk: { id: "Laba setelah tenaga kerja", en: "Profit after labour" },
   realisasiBiaya: { id: "Realisasi biaya (jurnal ber-tag)", en: "Actual cost (tagged entries)" },
-  pendapatanBiayaTag: { id: "Pendapatan & biaya (dari jurnal ber-tag)", en: "Income & cost (from tagged entries)" },
-  rabAnggaranVsRealisasi: { id: "RAB — anggaran biaya vs realisasi", en: "Budget — planned vs actual cost" },
+  pendapatanBiayaTag: {
+    id: "Pendapatan & biaya (dari jurnal ber-tag)",
+    en: "Income & cost (from tagged entries)",
+  },
+  rabAnggaranVsRealisasi: {
+    id: "RAB — anggaran biaya vs realisasi",
+    en: "Budget — planned vs actual cost",
+  },
   timesheetJamKerja: { id: "Timesheet — jam kerja", en: "Timesheet — hours worked" },
   belumAdaRab: { id: "Belum ada RAB.", en: "No budget lines yet." },
   belumAdaTermin: { id: "Belum ada termin.", en: "No milestones yet." },
   belumAdaJam: { id: "Belum ada catatan jam.", en: "No hours logged yet." },
-  belumAdaTugasTenggat: { id: "Tidak ada tugas terbuka dengan tenggat.", en: "No open tasks with a deadline." },
+  belumAdaTugasTenggat: {
+    id: "Tidak ada tugas terbuka dengan tenggat.",
+    en: "No open tasks with a deadline.",
+  },
   belumAdaTransaksiProyek: {
     id: "Belum ada transaksi ditandai ke proyek ini.",
     en: "No transactions tagged to this project yet.",
@@ -836,7 +875,10 @@ const UI: Record<string, Dual> = {
   sisaKecil: { id: "sisa", en: "left" },
   jurnalKecil: { id: "jurnal", en: "entry" },
   periodeLabel: { id: "Periode", en: "Period" },
-  bonusLemburPotongan: { id: "Bonus, lembur & potongan — periode", en: "Bonus, overtime & deductions — period" },
+  bonusLemburPotongan: {
+    id: "Bonus, lembur & potongan — periode",
+    en: "Bonus, overtime & deductions — period",
+  },
   aktifDari: { id: "aktif dari", en: "active of" },
   karyawanSatuan: { id: "karyawan", en: "employees" },
   batalkanPenggajianTanya: { id: "Batalkan penggajian", en: "Void payroll run" },
@@ -906,6 +948,142 @@ const UI: Record<string, Dual> = {
   umur31_60: { id: "31–60 hari", en: "31–60 days" },
   umur61_90: { id: "61–90 hari", en: "61–90 days" },
   umur90plus: { id: "> 90 hari", en: "> 90 days" },
+  // Dasbor — Fase 16u
+  penjualanHariTerakhir: { id: "Penjualan", en: "Sales" },
+  hariTerakhirSuffix: { id: "hari terakhir", en: "days" },
+  hariSuffix: { id: "hari", en: "days" },
+  rentangGrafik: { id: "Rentang grafik", en: "Chart range" },
+  belumAdaPenjualanRentang: { id: "Belum ada penjualan", en: "No sales in the last" },
+  grafikPenjualanHarian: { id: "Grafik penjualan harian", en: "Daily sales chart" },
+  grafikOmzetBulanan: { id: "Grafik omzet bulanan 6 bulan", en: "Six-month revenue chart" },
+  fakturLewatJatuhTempo: { id: "Faktur lewat jatuh tempo", en: "Overdue invoices" },
+  tidakAdaJatuhTempo: {
+    id: "Tidak ada faktur yang lewat jatuh tempo. 👍",
+    en: "No overdue invoices. 👍",
+  },
+  bebanPerluDiperiksa: { id: "Beban perlu diperiksa", en: "Expenses worth checking" },
+  tidakAdaBebanMencurigakan: {
+    id: "Tidak ada beban yang mencurigakan. 👍",
+    en: "No unusual expenses. 👍",
+  },
+  kaliBiasanya: { id: "× biasanya", en: "× usual" },
+  bulanIni: { id: "Bulan ini", en: "This month" },
+  vsBiasanya: { id: "vs biasanya", en: "vs usual" },
+  aktivitasTerakhir: { id: "Aktivitas terakhir", en: "Recent activity" },
+  trenPenjualanBulanan: { id: "Tren penjualan bulanan", en: "Monthly sales trend" },
+  laporanTerjadwal: { id: "Laporan terjadwal", en: "Scheduled reports" },
+  menyusun: { id: "Menyusun…", en: "Building…" },
+  susunBulanLalu: { id: "Susun bulan lalu", en: "Build last month" },
+  ringkasanMingguanAi: { id: "Ringkasan mingguan AI", en: "AI weekly summary" },
+  dibuatPada: { id: "Dibuat", en: "Generated" },
+  bukaPanduCepat: { id: "Buka pandu cepat →", en: "Open quick guide →" },
+  mulaiCepatJudul: { id: "Mulai cepat", en: "Quick start" },
+  selesaiKata: { id: "selesai", en: "done" },
+  // Langkah onboarding
+  langkahProfil: {
+    id: "Lengkapi profil perusahaan (alamat & NPWP)",
+    en: "Complete the company profile (address & NPWP)",
+  },
+  langkahProduk: { id: "Tambah produk pertama", en: "Add your first product" },
+  langkahKontak: { id: "Tambah pelanggan / pemasok", en: "Add a customer / supplier" },
+  langkahFaktur: { id: "Posting faktur pertama", en: "Post your first invoice" },
+  langkahTim: { id: "Undang anggota tim", en: "Invite a team member" },
+  // Tautan cepat
+  tautanPembelian: {
+    id: "Catat pembelian untuk mengisi stok",
+    en: "Record a purchase to stock up",
+  },
+  tautanPenjualan: {
+    id: "Buat faktur — jurnal & stok otomatis",
+    en: "Create an invoice — entries & stock handled for you",
+  },
+  tautanLabaRugi: {
+    id: "Lihat laba rugi & neraca kapan saja",
+    en: "View profit & loss and the balance sheet any time",
+  },
+  tautanPengaturan: { id: "Undang tim dengan peran berbeda", en: "Invite your team with roles" },
+  labaRugiJudul: { id: "Laba Rugi", en: "Profit & Loss" },
+  pengaturanJudul: { id: "Pengaturan", en: "Settings" },
+  // Deskripsi kartu
+  descGrafikHarian: {
+    id: "Total faktur penjualan per hari (dokumen dibatalkan tidak dihitung).",
+    en: "Total sales invoices per day (voided documents are excluded).",
+  },
+  descMulaiDariFaktur: {
+    id: "— mulai dari faktur pertama Anda di menu Penjualan.",
+    en: "— start with your first invoice from the Sales menu.",
+  },
+  descTagihSegera: {
+    id: "Tagih segera agar arus kas tetap sehat.",
+    en: "Collect promptly to keep cash flow healthy.",
+  },
+  descBebanMelonjak: {
+    id: "Beban bulan ini yang melonjak jauh dari kebiasaan.",
+    en: "This month's expenses that jumped well above the usual.",
+  },
+  descAktivitasTerakhir: {
+    id: "Siapa melakukan apa — cuplikan riwayat audit.",
+    en: "Who did what — a slice of the audit trail.",
+  },
+  descLimaLangkah: {
+    id: "Lima langkah agar pembukuan Anda langsung berjalan.",
+    en: "Five steps to get your books running right away.",
+  },
+  descTrenBulanan: {
+    id: "Total omzet faktur per bulan, 6 bulan terakhir.",
+    en: "Total invoiced revenue per month, last six months.",
+  },
+  descBelumAdaOmzet: {
+    id: "Belum ada omzet 6 bulan terakhir — grafik terisi otomatis begitu ada faktur penjualan.",
+    en: "No revenue in the last six months — the chart fills in as soon as sales invoices exist.",
+  },
+  descLaporanTerjadwal: {
+    id: "Rekap penjualan bulanan yang disusun otomatis tiap awal bulan.",
+    en: "A monthly sales recap built automatically at the start of each month.",
+  },
+  descBelumAdaRekap: {
+    id: "Belum ada rekap. Cron menyusun rekap bulan lalu tiap awal bulan",
+    en: "No recap yet. Cron builds last month's recap at the start of each month",
+  },
+  descSusunManual: { id: ", atau susun manual di atas.", en: ", or build it manually above." },
+  descRingkasanAi: {
+    id: "Narasi singkat kinerja minggu ini vs minggu lalu — dihitung dari buku Anda.",
+    en: "A short narrative of this week versus last — computed from your books.",
+  },
+  descDiperbaruiMingguan: {
+    id: "· diperbarui otomatis tiap minggu.",
+    en: "· refreshed automatically each week.",
+  },
+  descAiTakTersedia: {
+    id: "Fitur AI belum tersedia di lingkungan ini — fitur lain tetap berjalan normal.",
+    en: "AI is not available in this environment — everything else works as normal.",
+  },
+  descRingkasanGagal: {
+    id: "Ringkasan belum bisa dimuat.",
+    en: "The summary could not be loaded.",
+  },
+  // Nama widget (konstanta tingkat modul → UiKey)
+  widgetKpi: { id: "Ringkasan angka (KPI)", en: "Key numbers (KPI)" },
+  widgetTrenHarian: { id: "Grafik penjualan 30 hari", en: "30-day sales chart" },
+  widgetTrenBulanan: { id: "Grafik tren bulanan", en: "Monthly trend chart" },
+  widgetJatuhTempo: { id: "Faktur jatuh tempo", en: "Overdue invoices" },
+  widgetAktivitas: { id: "Aktivitas / mulai dari sini", en: "Activity / start here" },
+  sesuaikanDashboard: { id: "Sesuaikan dashboard", en: "Customise dashboard" },
+  descSesuaikanDashboard: {
+    id: "Pilih widget yang ingin Anda tampilkan. Tersimpan di perangkat ini.",
+    en: "Pick the widgets you want to see. Saved on this device.",
+  },
+  gagalMuatRingkasan: {
+    id: "Gagal memuat ringkasan dashboard.",
+    en: "Could not load the dashboard summary.",
+  },
+  cobaLagi: { id: "Coba lagi", en: "Try again" },
+  bukaLaporanSumber: { id: "buka laporan sumber", en: "open source report" },
+  vsBulanLalu: { id: "vs bulan lalu", en: "vs last month" },
+  mulaiDariSini: { id: "Mulai dari sini", en: "Start here" },
+  descAlurHarian: { id: "Alur kerja harian yang umum.", en: "Common day-to-day workflows." },
+  menuPenjualan: { id: "Penjualan", en: "Sales" },
+  menuPembelian: { id: "Pembelian", en: "Purchases" },
 };
 
 export type UiKey = keyof typeof UI;
