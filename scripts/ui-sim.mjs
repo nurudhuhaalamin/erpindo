@@ -396,6 +396,21 @@ try {
     adaAssetKpi && adaAssetList && tanpaAsetId,
     `→ kpi=${adaAssetKpi} daftar=${adaAssetList} tanpaID=${tanpaAsetId}`,
   );
+  // Fase 16r — pelunasan utang 16i. Rute diverifikasi ke main.tsx:
+  // /app/hr/penggajian. Halaman BERTAB — hanya tab aktif yang dirender, jadi
+  // asersinya terbatas pada tab bawaan (Karyawan) + pengumuman pajak yang
+  // selalu tampil di atas tab (pelajaran Fase 16i).
+  await gotoRoute("/app/hr/penggajian", 900);
+  const gajiSisaEn = await page.innerText("body");
+  const adaGajiSisaEn =
+    gajiSisaEn.includes("rates follow the 2024 rules") && gajiSisaEn.includes("active of");
+  const tanpaGajiSisaId =
+    !gajiSisaEn.includes("mengikuti ketentuan 2024") && !gajiSisaEn.includes("aktif dari");
+  check(
+    "F0v sisa teks Penggajian ikut EN: catatan pajak & ringkasan karyawan, tanpa teks Indonesia",
+    adaGajiSisaEn && tanpaGajiSisaId,
+    `→ catatan=${adaGajiSisaEn} tanpaID=${tanpaGajiSisaId}`,
+  );
   // Fase 16q — pelunasan utang 16d. Rute diverifikasi ke main.tsx: /app/stok.
   // Kartu transfer & level stok selalu tampil untuk admin.
   await gotoRoute("/app/stok", 900);

@@ -6,7 +6,7 @@ import {
   type LeaveType,
 } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useUi } from "../i18n/ui";
+import { useUi, type UiKey } from "../i18n/ui";
 import { CalendarDays, HandCoins, UserPlus, Users } from "lucide-react";
 import { useState } from "react";
 import { api, formatIDR } from "../api/client";
@@ -143,9 +143,7 @@ export function PayrollPage() {
       </div>
 
       <Alert tone="info">
-        <strong>{u("catatanPajak")}</strong> tarif TER (PPh 21) & BPJS mengikuti ketentuan 2024.
-        Peraturan dapat berubah — verifikasi angka dengan konsultan/peraturan terbaru sebelum
-        penggajian resmi.
+        <strong>{u("catatanPajak")}</strong> {u("descCatatanPajakPayroll")}
       </Alert>
 
       <Tabs
@@ -166,7 +164,7 @@ export function PayrollPage() {
         <Card>
           <CardHeader
             title={u("karyawan")}
-            description={`${activeCount} aktif dari ${employees.length} karyawan`}
+            description={`${activeCount} ${u("aktifDari")} ${employees.length} ${u("karyawanSatuan")}`}
           />
           <CardBody className="space-y-4">
             {isAdmin ? (
@@ -319,12 +317,14 @@ export function PayrollPage() {
                         <td className="py-2 pr-3 text-right tabular-nums">
                           {formatIDR(e.allowances)}
                         </td>
-                        <td className="py-2 pr-3 text-right tabular-nums">{e.leaveBalance} hari</td>
+                        <td className="py-2 pr-3 text-right tabular-nums">
+                          {e.leaveBalance} {u("hariSatuan")}
+                        </td>
                         <td className="py-2 pr-3">
                           {e.isActive ? (
-                            <Badge tone="green">aktif</Badge>
+                            <Badge tone="green">{u("aktifKecil")}</Badge>
                           ) : (
-                            <Badge tone="neutral">nonaktif</Badge>
+                            <Badge tone="neutral">{u("nonaktif")}</Badge>
                           )}
                           {isAdmin ? (
                             <button
@@ -507,10 +507,7 @@ function DepartmentsCard({ tenantId, isAdmin }: { tenantId: string; isAdmin: boo
 
   return (
     <Card>
-      <CardHeader
-        title={u("departemen")}
-        description={u("descDepartemen")}
-      />
+      <CardHeader title={u("departemen")} description={u("descDepartemen")} />
       <CardBody className="space-y-4">
         {isAdmin ? (
           <div className="grid gap-3 sm:grid-cols-4">
@@ -561,7 +558,9 @@ function DepartmentsCard({ tenantId, isAdmin }: { tenantId: string; isAdmin: boo
         {query.isLoading ? (
           <Spinner />
         ) : departments.length === 0 ? (
-          <p className="py-2 text-sm text-slate-500 dark:text-slate-400">{u("belumAdaDepartemen")}</p>
+          <p className="py-2 text-sm text-slate-500 dark:text-slate-400">
+            {u("belumAdaDepartemen")}
+          </p>
         ) : (
           <ul className="divide-y divide-slate-100 dark:divide-slate-800/60">
             {departments.map((d) => (
@@ -574,7 +573,7 @@ function DepartmentsCard({ tenantId, isAdmin }: { tenantId: string; isAdmin: boo
                   {d.parentName ? (
                     <span className="text-xs text-slate-500 dark:text-slate-400">
                       {" "}
-                      · di bawah {d.parentName}
+                      · {u("diBawah")} {d.parentName}
                     </span>
                   ) : null}
                 </span>
@@ -637,17 +636,12 @@ function OrgChartCard({ tenantId }: { tenantId: string }) {
 
   return (
     <Card>
-      <CardHeader
-        title={u("strukturOrganisasi")}
-        description={u("descStrukturOrganisasi")}
-      />
+      <CardHeader title={u("strukturOrganisasi")} description={u("descStrukturOrganisasi")} />
       <CardBody>
         {query.isLoading ? (
           <Spinner />
         ) : tree.length === 0 && unassigned.length === 0 ? (
-          <p className="py-2 text-sm text-slate-500 dark:text-slate-400">
-            Belum ada struktur — tambahkan departemen lalu tempatkan karyawan.
-          </p>
+          <p className="py-2 text-sm text-slate-500 dark:text-slate-400">{u("belumAdaStruktur")}</p>
         ) : (
           <div className="space-y-3">
             <ul>{tree.map((n) => renderNode(n, 0))}</ul>
@@ -722,10 +716,7 @@ function AdjustmentsCard({
 
   return (
     <Card>
-      <CardHeader
-        title={`Bonus, lembur & potongan — periode ${period}`}
-        description={u("descKomponen")}
-      />
+      <CardHeader title={`${u("bonusLemburPotongan")} ${period}`} description={u("descKomponen")} />
       <CardBody className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
@@ -901,10 +892,7 @@ function LoansCard({
 
   return (
     <Card>
-      <CardHeader
-        title={u("kasbonPinjaman")}
-        description={u("descKasbon")}
-      />
+      <CardHeader title={u("kasbonPinjaman")} description={u("descKasbon")} />
       <CardBody className="space-y-4">
         {isAdmin ? (
           <>
@@ -1014,7 +1002,9 @@ function LoansCard({
                     <td className="py-2 pr-3">
                       {l.name}
                       {l.journalNo ? (
-                        <span className="ml-1 text-xs text-slate-400">· jurnal {l.journalNo}</span>
+                        <span className="ml-1 text-xs text-slate-400">
+                          · {u("jurnalKecil")} {l.journalNo}
+                        </span>
                       ) : null}
                     </td>
                     <td className="py-2 pr-3 text-right tabular-nums">{formatIDR(l.principal)}</td>
@@ -1042,17 +1032,20 @@ function LoansCard({
   );
 }
 
-const LEAVE_LABEL: Record<LeaveType, string> = {
-  annual: "Cuti tahunan",
-  sick: "Sakit",
-  permit: "Izin",
+// Konstanta tingkat modul tidak boleh memanggil hook, jadi yang disimpan
+// adalah KUNCI kamus — diterjemahkan saat render (aturan tetap sejak 16j).
+// Ketiga kuncinya sudah dibuat pada Fase 16i, hanya belum tersambung.
+const LEAVE_LABEL: Record<LeaveType, UiKey> = {
+  annual: "cutiTahunan",
+  sick: "sakit",
+  permit: "izin",
 };
 const LEAVE_STATUS_TONE = { pending: "amber", approved: "green", rejected: "red" } as const;
-const LEAVE_STATUS_LABEL = {
-  pending: "menunggu",
-  approved: "disetujui",
-  rejected: "ditolak",
-} as const;
+const LEAVE_STATUS_LABEL: Record<"pending" | "approved" | "rejected", UiKey> = {
+  pending: "menungguKecil",
+  approved: "disetujuiKecil",
+  rejected: "ditolakKecil",
+};
 
 /** Cuti & izin: pengajuan + persetujuan; cuti tahunan yang disetujui memotong saldo cuti. */
 function LeaveCard({
@@ -1097,7 +1090,7 @@ function LeaveCard({
     onSuccess: (res) => {
       toast(
         "success",
-        `Pengajuan ${LEAVE_LABEL[form.type].toLowerCase()} ${res.days} hari dicatat — menunggu persetujuan.`
+        `Pengajuan ${u(LEAVE_LABEL[form.type]).toLowerCase()} ${res.days} hari dicatat — menunggu persetujuan.`
       );
       setForm({ ...form, note: "" });
       invalidate();
@@ -1120,10 +1113,7 @@ function LeaveCard({
 
   return (
     <Card>
-      <CardHeader
-        title={u("cutiIzin")}
-        description={u("descCutiIzin")}
-      />
+      <CardHeader title={u("cutiIzin")} description={u("descCutiIzin")} />
       <CardBody className="space-y-4">
         {isAdmin ? (
           <>
@@ -1137,7 +1127,7 @@ function LeaveCard({
                 >
                   {activeEmployees.map((e) => (
                     <option key={e.id} value={e.id}>
-                      {e.name} (sisa {e.leaveBalance})
+                      {e.name} ({u("sisaKecil")} {e.leaveBalance})
                     </option>
                   ))}
                 </Select>
@@ -1205,12 +1195,12 @@ function LeaveCard({
                 className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800"
               >
                 <span className="font-medium">{r.employeeName}</span>
-                <span>{LEAVE_LABEL[r.type]}</span>
+                <span>{u(LEAVE_LABEL[r.type])}</span>
                 <span className="text-slate-500 dark:text-slate-400">
                   {r.startDate} s.d. {r.endDate} ({r.days} hari)
                 </span>
                 {r.note ? <span className="text-xs text-slate-400">“{r.note}”</span> : null}
-                <Badge tone={LEAVE_STATUS_TONE[r.status]}>{LEAVE_STATUS_LABEL[r.status]}</Badge>
+                <Badge tone={LEAVE_STATUS_TONE[r.status]}>{u(LEAVE_STATUS_LABEL[r.status])}</Badge>
                 {isAdmin && r.status === "pending" ? (
                   <span className="ml-auto flex gap-2">
                     <Button
@@ -1275,11 +1265,15 @@ function RunRow({
     <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="font-mono text-sm">{run.runNo}</span>
-        <span className="font-medium">Periode {run.period}</span>
+        <span className="font-medium">
+          {u("periodeLabel")} {run.period}
+        </span>
         {isVoided ? (
           <Badge tone="red">DIBATALKAN{run.voidJournalNo ? ` · ${run.voidJournalNo}` : ""}</Badge>
         ) : run.journalNo ? (
-          <Badge tone="brand">jurnal {run.journalNo}</Badge>
+          <Badge tone="brand">
+            {u("jurnalKecil")} {run.journalNo}
+          </Badge>
         ) : null}
         <span className="text-xs text-slate-400">{run.payslips.length} karyawan</span>
         <span className="ml-auto text-sm">
@@ -1302,12 +1296,11 @@ function RunRow({
 
       <ConfirmDialog
         open={voidOpen}
-        title={`Batalkan penggajian ${run.runNo}?`}
+        title={`${u("batalkanPenggajianTanya")} ${run.runNo}?`}
         description={
           <>
-            Jurnal beban gaji akan dibalik, saldo kasbon karyawan dipulihkan, dan komponen ad-hoc
-            dilepas agar bisa dipakai lagi. Periode {run.period} bisa digaji ulang. Slip lama tetap
-            tersimpan dengan tanda <strong>{u("dibatalkan")}</strong>.
+            {u("descBatalkanPenggajian1")} {run.period} {u("descBatalkanPenggajian2")}{" "}
+            <strong>{u("dibatalkan")}</strong>.
           </>
         }
         confirmLabel={u("yaBatalkanPenggajian")}
