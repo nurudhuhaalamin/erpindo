@@ -44,27 +44,36 @@ export function cx(...classes: (string | false | undefined)[]): string {
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
-// Fase 17b — gaya "alat padat": warna datar, tanpa gradien, tanpa bayangan.
-// Pemisah antar-permukaan adalah GARIS, bukan kedalaman.
+// Fase 18b — gaya "bersih & lapang": warna datar (tanpa gradien), ditambah
+// bayangan sangat tipis pada tombol utama supaya terasa bisa ditekan. Tombol
+// sekunder memakai garis lembut, bukan garis tegas.
 const buttonVariants: Record<ButtonVariant, string> = {
   primary:
-    "bg-brand-600 text-white hover:bg-brand-500 focus-visible:ring-brand-500 disabled:bg-brand-600/50",
+    "bg-brand-600 text-white shadow-sm hover:bg-brand-700 focus-visible:ring-brand-600 disabled:bg-brand-600/50",
   secondary:
-    "border border-slate-300 bg-surface text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800",
-  ghost: "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
-  danger: "bg-red-600 text-white hover:bg-red-500 focus-visible:ring-red-500",
+    "border border-slate-200 bg-surface text-slate-800 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800",
+  ghost: "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800",
+  danger: "bg-red-600 text-white shadow-sm hover:bg-red-700 focus-visible:ring-red-600",
 };
 
 /**
- * Skala rapat. Bawaan turun dari `h-10` ke `h-8` karena itulah tinggi yang
- * sebenarnya diinginkan kode selama ini: 76 pemanggil menulis `h-8`, 15 menulis
- * `h-9`, 5 menulis `h-7` — dan semuanya diabaikan sebelum `cx()` diperbaiki.
+ * Skala lapang (Fase 18b) — dinaikkan satu tingkat dari skala rapat 17b.
+ *
+ * `md` (bawaan) `h-8` → **`h-9`**, dan `lg` `h-10` → **`h-11`** supaya tombol
+ * ajakan utama di landing punya bobot yang pantas.
+ *
+ * `sm` sengaja dinaikkan ke `h-8` — itu tinggi minimum yang masih nyaman
+ * disentuh; `xs` (`h-7`) hanya untuk tombol di dalam sel tabel, tempat ruang
+ * memang sempit dan aksinya sekunder.
+ *
+ * Catatan: sejak `cx()` memakai `twMerge` (17b), penimpaan `className="h-…"`
+ * dari pemanggil benar-benar berlaku. Sebelum itu 96 dari 98 penimpaan mati.
  */
 const buttonSizes = {
-  xs: "h-6 px-2 text-xs",
-  sm: "h-7 px-2.5 text-xs",
-  md: "h-8 px-3 text-sm",
-  lg: "h-10 px-5 text-sm",
+  xs: "h-7 px-2.5 text-xs",
+  sm: "h-8 px-3 text-sm",
+  md: "h-9 px-4 text-sm",
+  lg: "h-11 px-6 text-[15px]",
 } as const;
 
 export function Button({
@@ -79,7 +88,7 @@ export function Button({
   return (
     <button
       className={cx(
-        "inline-flex items-center justify-center gap-1.5 rounded font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60 dark:ring-offset-slate-950",
+        "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:ring-offset-slate-950",
         buttonSizes[size],
         buttonVariants[variant],
         className
@@ -94,7 +103,7 @@ export function Button({
 export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) {
   return (
     <label
-      className={cx("mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400", className)}
+      className={cx("mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300", className)}
       {...props}
     />
   );
@@ -104,7 +113,7 @@ export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInp
   return (
     <input
       className={cx(
-        "h-8 w-full rounded border border-slate-300 bg-surface px-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/25 dark:border-slate-700 dark:text-slate-100",
+        "h-9 w-full rounded-lg border border-slate-300 bg-surface px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/25 dark:border-slate-700 dark:text-slate-100",
         className
       )}
       {...props}
@@ -116,7 +125,7 @@ export function Select({ className, ...props }: React.SelectHTMLAttributes<HTMLS
   return (
     <select
       className={cx(
-        "h-8 w-full rounded border border-slate-300 bg-surface px-2.5 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/25 dark:border-slate-700 dark:text-slate-100",
+        "h-9 w-full rounded-lg border border-slate-300 bg-surface px-3 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/25 dark:border-slate-700 dark:text-slate-100",
         className
       )}
       {...props}
@@ -144,8 +153,11 @@ export function Card({
   return (
     <div
       className={cx(
-        "rounded-card border border-slate-200 bg-surface dark:border-slate-800",
-        hover && "transition-colors hover:border-brand-400 dark:hover:border-brand-600",
+        // Fase 18b: bayangan halus dari token --shadow-card (18a) dipakai lagi.
+        // Kartu kembali terasa melayang tipis di atas kertas, bukan sekadar
+        // dibatasi garis seperti pada gaya padat 17b.
+        "rounded-card border border-slate-200 bg-surface shadow-card dark:border-slate-800",
+        hover && "transition-shadow hover:shadow-md",
         className
       )}
     >
@@ -165,11 +177,11 @@ export function CardHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-3 py-2.5 dark:border-slate-800">
+    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-4 py-3.5 sm:px-5 dark:border-slate-800">
       <div>
-        <h2 className="text-sm font-semibold">{title}</h2>
+        <h2 className="text-base font-semibold">{title}</h2>
         {description ? (
-          <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{description}</p>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>
         ) : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
@@ -178,7 +190,7 @@ export function CardHeader({
 }
 
 export function CardBody({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cx("px-3 py-3", className)}>{children}</div>;
+  return <div className={cx("px-4 py-4 sm:px-5", className)}>{children}</div>;
 }
 
 // --- Alert ----------------------------------------------------------------------
@@ -202,7 +214,7 @@ export function Alert({
     error:
       "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200",
   };
-  return <div className={cx("rounded border px-3 py-2 text-sm", tones[tone])}>{children}</div>;
+  return <div className={cx("rounded-lg border px-3.5 py-2.5 text-sm", tones[tone])}>{children}</div>;
 }
 
 // --- Tabel ----------------------------------------------------------------------
@@ -239,9 +251,17 @@ export function Table({
   );
 }
 
+/**
+ * Kepala tabel — TANPA `uppercase` (Fase 18b).
+ *
+ * `text-transform` ikut mengubah nilai `innerText`, sehingga judul kolom yang
+ * dibaca asersi ui-sim akan terbaca dalam huruf besar semua dan asersinya
+ * gagal. Itu persis bug yang memecah F15 pada Fase 17d — mahal dicari karena
+ * kodenya terlihat benar dan hanya CSS yang berubah.
+ */
 export function Thead({ children }: { children: ReactNode }) {
   return (
-    <thead className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-400">
+    <thead className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-400">
       {children}
     </thead>
   );
@@ -264,7 +284,7 @@ export function Th({
   ...props
 }: React.ThHTMLAttributes<HTMLTableCellElement> & { numeric?: boolean }) {
   return (
-    <th className={cx("px-2 py-1.5 font-medium", numeric && "text-right", className)} {...props}>
+    <th className={cx("px-3 py-2.5 font-medium", numeric && "text-right", className)} {...props}>
       {children}
     </th>
   );
@@ -277,7 +297,7 @@ export function Td({
   ...props
 }: React.TdHTMLAttributes<HTMLTableCellElement> & { numeric?: boolean }) {
   return (
-    <td className={cx("px-2 py-1.5", numeric && "num text-right", className)} {...props}>
+    <td className={cx("px-3 py-2.5", numeric && "num text-right", className)} {...props}>
       {children}
     </td>
   );
@@ -310,7 +330,7 @@ export function Badge({
   return (
     <span
       className={cx(
-        "inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium",
+        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
         tones[tone]
       )}
     >

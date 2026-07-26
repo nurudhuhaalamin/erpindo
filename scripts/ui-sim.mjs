@@ -536,6 +536,34 @@ try {
     ),
     `→ ${selNumerik ? `font=${selNumerik.font.slice(0, 40)} nums=${selNumerik.angka} align=${selNumerik.align}` : "tidak ada td.num"}`,
   );
+
+  // F30 — Fase 18b. Penjaga permanen atas pelajaran termahal Fase 17d:
+  // `text-transform: uppercase` ikut mengubah nilai `innerText`, sehingga judul
+  // kolom yang dibaca asersi terbaca huruf besar semua dan asersinya gagal —
+  // padahal kodenya terlihat benar dan hanya CSS yang berubah. Aturannya kini
+  // tertulis di komponen `Thead`; cek ini yang menjaganya tetap begitu.
+  //
+  // F31 — bukti bahwa pelonggaran 18b benar-benar sampai ke DOM. Memeriksa
+  // KELAS saja tidak cukup: sampai Fase 17b, 96 dari 98 penimpaan tinggi tombol
+  // ada di DOM tetapi kalah oleh urutan CSS. Yang diukur di sini tinggi nyata.
+  const gaya = await page.evaluate(() => {
+    const th = document.querySelector("thead th");
+    const btn = document.querySelector("button.h-9");
+    return {
+      transform: th ? getComputedStyle(th).textTransform : null,
+      tinggiTombol: btn ? Math.round(btn.getBoundingClientRect().height) : null,
+    };
+  });
+  check(
+    "F30 kepala tabel tidak memakai text-transform (penjaga innerText, pelajaran 17d)",
+    gaya.transform === "none",
+    `→ text-transform=${gaya.transform ?? "tidak ada <th>"}`,
+  );
+  check(
+    "F31 tombol bawaan ter-render setinggi 36px (h-9 lapang, bukan h-8 padat)",
+    gaya.tinggiTombol === 36,
+    `→ ${gaya.tinggiTombol ?? "tidak ada tombol h-9"}px`,
+  );
   // Fase 16p — pelunasan utang 16j. Rute diverifikasi ke main.tsx: /app/proyek.
   // Tombol buat proyek selalu tampil untuk admin; lencana status hanya muncul
   // bila ada proyek, jadi asersinya hanya menuntut tombolnya.
