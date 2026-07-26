@@ -72,10 +72,38 @@ tautan navigasinya mengarah.
 | --- | --- |
 | `pnpm typecheck` | 4/4 paket lolos |
 | `pnpm lint` | bersih |
-| `pnpm test` | 244 unit test lolos (tetap) |
+| `pnpm test` | 244 unit test lolos (tetap) — **lihat koreksi di bawah** |
 | `pnpm build` | ok |
 | `pnpm smoke` | **863** cek lolos (naik dari 861) |
 | `node scripts/ui-sim.mjs` | **231** cek lolos (naik dari 229) |
+
+### Koreksi: unit test sempat MERAH dan saya melewatkannya
+
+Dorongan pertama fase ini **gagal di CI** pada `apps/api`:
+
+```
+penjaga RBAC per-registrasi rute > semua endpoint non-publik memakai requireAuth
+expected [ 'landingSeo.ts GET "/fitur"' ] to deeply equal []
+```
+
+Dua hal salah, dan keduanya perlu dicatat:
+
+**1. Rutenya memang belum didaftarkan.** `apps/api/test/rbac-guard.test.ts`
+menelusuri seluruh registrasi rute dan menuntut setiap endpoint tanpa
+`requireAuth` **dinyatakan publik secara eksplisit** di `PUBLIC_ALLOWLIST`.
+`/fitur` memang publik — halaman pemasaran, tidak memuat data tenant sama
+sekali — tetapi harus ditulis, bukan diasumsikan. Penjaga ini bekerja persis
+seperti seharusnya: rute publik baru tidak boleh lolos diam-diam.
+
+**2. Saya sempat mengira gerbangnya hijau.** Verifikasi lokal dijalankan
+dengan `pnpm test | grep -E "Tests +[0-9]+ passed"` — dan pola itu **hanya
+cocok pada format lolos-semua**. Saat `apps/api` gagal, ringkasannya berbunyi
+`1 failed | 131 passed`, tidak cocok pola, jadi barisnya **hilang dari keluaran
+alih-alih muncul sebagai kegagalan**. Ketiadaan terbaca seperti keberhasilan.
+
+Pelajaran yang sama bentuknya dengan yang berulang di Fase 17: **penyaring
+keluaran bisa menyembunyikan kegagalan.** Yang menentukan adalah **status
+keluar** perintahnya, bukan baris yang berhasil ditangkap `grep`.
 
 Cek baru:
 

@@ -45,6 +45,10 @@ const PUBLIC_ALLOWLIST = new Set([
   'apiDocs.ts GET "/api-docs"',
   // SEO landing SSR (Fase 14d) — menyisipkan JSON-LD ke shell SPA publik.
   'landingSeo.ts GET "/"',
+  // Halaman /fitur (Fase 18f) — halaman pemasaran publik, perlakuan SEO sama
+  // persis dengan "/" di atas: menyisipkan canonical + JSON-LD + <noscript> ke
+  // shell SPA. Tidak memuat data tenant apa pun.
+  'landingSeo.ts GET "/fitur"',
 ]);
 
 /** Endpoint ber-requireAuth yang memang tanpa role gate: ber-scope user
