@@ -41,6 +41,29 @@ Pemisahan itu membuat isinya bisa diuji tanpa DOM. Ditambahkan
 `expect(html).not.toContain('{u("')` — uji itu **gagal** pada kode di `main`
 sebelum perbaikan ini.
 
+## Kelas bugnya disapu menyeluruh, lalu dipasang ke alat
+
+Menemukan satu bug tidak sama dengan menutup kelasnya. Seluruh
+`apps/web/src/**` disapu untuk bentuk yang sama — `{u("kunci")}` di dalam
+template literal — dan hasilnya: **struk POS adalah satu-satunya kejadian**.
+Sisanya memakai bentuk yang sah, `${u("kunci")}`.
+
+Perbedaan keduanya cuma satu karakter `$`, dan itulah yang membuatnya berbahaya:
+keduanya terbaca "sudah diterjemahkan" saat ditinjau sekilas.
+
+Karena itu pemeriksaannya dipasang ke `scripts/sapu-i18n.mjs`, dengan **exit
+code 1** — berbeda dari utang teks biasa yang hanya dilaporkan. Utang adalah
+pekerjaan yang belum selesai; ini bug yang sudah tayang ke pemakai, jadi
+perlakuannya berbeda.
+
+```
+⚠️  pos.tsx:73  {u("subtotal")} di dalam template literal —
+    keluar harfiah, seharusnya ${u("subtotal")}
+```
+
+Diuji dua arah: berkas contoh dengan bentuk salah membuat skrip keluar dengan
+kode 1, sementara bentuk `${u("…")}` di baris sebelahnya tidak dilaporkan.
+
 ## Peta label `packages/shared`
 
 Ada **25 peta label** bertipe `Record<…, string>` di `packages/shared`.

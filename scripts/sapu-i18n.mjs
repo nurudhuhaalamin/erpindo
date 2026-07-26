@@ -60,10 +60,36 @@ const bersihkan = (src) =>
       m.slice(0, m.length - tail.length).replace(/[^\n]/g, " ") + tail,
     );
 
+/**
+ * Kelas bug tersendiri (ditemukan Fase 16t): `{u("kunci")}` yang berada di
+ * dalam TEMPLATE LITERAL. Di sana ia bukan JSX — teksnya keluar harfiah, jadi
+ * pemakai melihat tulisan `{u("subtotal")}`. Bentuk yang sah adalah
+ * `${u("subtotal")}` (interpolasi). Bug ini tak terlihat mata dan tak
+ * terjangkau asersi innerText, jadi harus dijaga di sini.
+ */
+function panggilanHarfiah(src) {
+  const out = [];
+  for (const m of src.matchAll(/`(?:[^`\\]|\\.)*`/gs)) {
+    for (const t of m[0].matchAll(/(?<!\$)\{u\("([^"]+)"\)\}/g)) {
+      out.push({ baris: src.slice(0, m.index + t.index).split("\n").length, kunci: t[1] });
+    }
+  }
+  return out;
+}
+
 let totalLayar = 0;
+let totalHarfiah = 0;
 for (const file of process.argv.slice(2)) {
   const asli = readFileSync(file, "utf8");
   const src = bersihkan(asli);
+
+  for (const h of panggilanHarfiah(src)) {
+    totalHarfiah++;
+    console.log(
+      `  ⚠️  ${file}:${h.baris}  {u("${h.kunci}")} di dalam template literal — ` +
+        `keluar harfiah, seharusnya \${u("${h.kunci}")}`,
+    );
+  }
   const hits = new Map();
   const add = (jenis, teks, idx) => {
     const baris = src.slice(0, idx).split("\n").length;
@@ -128,3 +154,7 @@ for (const file of process.argv.slice(2)) {
   for (const r of layar) console.log(`  ${String(r.baris).padStart(4)}  ${JSON.stringify(r.teks.slice(0, 95))}`);
 }
 console.log(`\nTOTAL utang teks layar: ${totalLayar}`);
+if (totalHarfiah > 0) {
+  console.log(`TOTAL panggilan u() harfiah (BUG, bukan sekadar utang): ${totalHarfiah}`);
+  process.exitCode = 1;
+}
