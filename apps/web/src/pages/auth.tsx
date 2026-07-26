@@ -10,7 +10,9 @@ const AUTH_BENEFITS = [
   "Pembukuan double-entry otomatis dari faktur, kasir, sampai penggajian",
   "Siap pajak Indonesia: PPN 11/12%, PPh 21 TER, dan ekspor e-Faktur",
   "Database terpisah untuk tiap perusahaan — data Anda benar-benar terisolasi",
-  "890+ uji otomatis menjaga setiap rilis; angka pembukuan selalu seimbang",
+  // Angka diperbarui Fase 17f: klaim "890+" sudah lama tertinggal. Hitungan
+  // nyata per hari ini = 861 smoke + 244 unit test + 220 cek simulasi UI.
+  "1.300+ uji otomatis menjaga setiap rilis; angka pembukuan selalu seimbang",
 ];
 
 /** Pesan hasil alur Google (?google=… di URL, diset callback server). */
@@ -38,7 +40,7 @@ function GoogleButton() {
       </div>
       <a
         href="/api/auth/google"
-        className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 text-sm font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+        className="flex h-8 w-full items-center justify-center gap-2 rounded border border-slate-300 text-[13px] font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
       >
         <svg viewBox="0 0 24 24" className="size-4" aria-hidden>
           <path fill="#4285F4" d="M23.5 12.27c0-.85-.08-1.66-.22-2.45H12v4.64h6.45a5.52 5.52 0 0 1-2.39 3.62v3h3.87c2.26-2.09 3.57-5.17 3.57-8.81Z" />
@@ -53,43 +55,61 @@ function GoogleButton() {
 }
 
 /**
- * Layout auth belah dua ala SaaS modern: panel kiri gradient brand berisi
- * nilai jual (desktop), form di kanan. Di layar kecil hanya form yang tampil.
+ * Layout auth belah dua — dirombak Fase 17f.
+ *
+ * Panel kirinya dulu bergradien tiga-warna (`from-brand-700 via-brand-800
+ * to-brand-950`), pola yang sama persis dengan ribuan halaman masuk SaaS.
+ * Sekarang: bidang pekat datar + kisi garis tipis yang sama seperti hero
+ * landing, sehingga halaman masuk terasa satu keluarga dengan aplikasinya.
+ *
+ * KONTRAK UJI — jangan diubah tanpa memperbarui `scripts/ui-sim.mjs`:
+ * `#email`, `#password`, dan `button[type=submit]` adalah GERBANG seluruh
+ * suite. Setiap cek F0–F22 melewati form ini lebih dulu; mengganti id atau
+ * mengubah tombol kirim mematikan 200-an asersi sekaligus.
  */
 function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: ReactNode; children: ReactNode }) {
   return (
     <div className="flex min-h-full">
-      <aside className="hidden w-[44%] flex-col justify-between bg-gradient-to-br from-brand-700 via-brand-800 to-brand-950 p-10 text-white lg:flex">
-        <Link to="/" className="text-2xl">
-          <BrandWordmark className="h-10" />
+      <aside className="relative hidden w-[42%] flex-col justify-between overflow-hidden border-r border-slate-800 bg-slate-950 p-8 text-slate-100 lg:flex">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.07]"
+          style={{
+            backgroundImage:
+              "linear-gradient(to right, currentColor 1px, transparent 1px), linear-gradient(to bottom, currentColor 1px, transparent 1px)",
+            backgroundSize: "48px 48px",
+          }}
+          aria-hidden
+        />
+        <Link to="/" className="relative">
+          <BrandWordmark className="h-8" />
         </Link>
-        <div>
-          <h2 className="max-w-md text-2xl font-semibold leading-snug">
+        <div className="relative">
+          <h2 className="max-w-md text-xl font-semibold leading-snug">
             Satu aplikasi untuk seluruh operasional UMKM Anda.
           </h2>
-          <ul className="mt-6 space-y-3.5">
+          <ul className="mt-5 divide-y divide-white/10 border-y border-white/10">
             {AUTH_BENEFITS.map((b) => (
-              <li key={b} className="flex items-start gap-2.5 text-sm text-brand-50/90">
-                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-brand-300" aria-hidden />
+              <li key={b} className="flex items-start gap-2 py-2.5 text-[13px] leading-relaxed text-slate-300">
+                <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-brand-400" aria-hidden />
                 {b}
               </li>
             ))}
           </ul>
         </div>
-        <p className="text-xs text-brand-200/70">
+        <p className="relative font-mono text-[11px] text-slate-500">
           Gratis {TRIAL_DAYS} hari · tanpa kartu kredit · berhenti kapan saja
         </p>
       </aside>
 
       <div className="flex flex-1 flex-col items-center justify-center px-4 py-10">
-        <Link to="/" className="mb-6 lg:hidden">
-          <BrandWordmark className="h-9" />
+        <Link to="/" className="mb-5 lg:hidden">
+          <BrandWordmark className="h-7" />
         </Link>
-        <Card className="w-full max-w-md">
-          <CardBody className="py-6">
-            <h1 className="text-xl font-semibold">{title}</h1>
-            {subtitle ? <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p> : null}
-            <div className="mt-5">{children}</div>
+        <Card className="w-full max-w-sm">
+          <CardBody className="py-5">
+            <h1 className="text-lg font-semibold">{title}</h1>
+            {subtitle ? <p className="mt-1 text-[13px] text-slate-500 dark:text-slate-400">{subtitle}</p> : null}
+            <div className="mt-4">{children}</div>
           </CardBody>
         </Card>
       </div>
@@ -120,7 +140,7 @@ function GoogleCompanyStep() {
           e.preventDefault();
           mutation.mutate(String(new FormData(e.currentTarget).get("companyName") ?? ""));
         }}
-        className="space-y-4"
+        className="space-y-3"
       >
         {mutation.isError ? (
           <Alert tone="error">
@@ -187,7 +207,7 @@ export function RegisterPage() {
         </>
       }
     >
-      <form onSubmit={onSubmit} className="space-y-4" noValidate>
+      <form onSubmit={onSubmit} className="space-y-3" noValidate>
         {mutation.isError && !(mutation.error instanceof ApiRequestError && mutation.error.issues) ? (
           <Alert tone="error">{(mutation.error as Error).message}</Alert>
         ) : null}
@@ -256,7 +276,7 @@ export function LoginPage() {
         </>
       }
     >
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form onSubmit={onSubmit} className="space-y-3">
         {googleMsg && !mutation.isError ? <Alert tone="error">{googleMsg}</Alert> : null}
         {mutation.isError ? <Alert tone="error">{(mutation.error as Error).message}</Alert> : null}
         <div>
@@ -285,7 +305,7 @@ export function LoginPage() {
           {mutation.isPending ? <Spinner /> : null} Masuk
         </Button>
         <GoogleButton />
-        <p className="text-center text-sm">
+        <p className="text-center text-[13px]">
           <Link to="/lupa-password" className="text-slate-500 hover:underline dark:text-slate-400">
             Lupa password?
           </Link>
@@ -320,7 +340,7 @@ export function VerifyPage() {
           <Spinner />
         </div>
       ) : state === "ok" ? (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <Alert tone="success">Email Anda berhasil diverifikasi. Selamat menggunakan erpindo!</Alert>
           <Link to="/app">
             <Button className="w-full">Buka Dashboard</Button>
@@ -346,7 +366,7 @@ export function ForgotPasswordPage() {
       {mutation.isSuccess ? (
         <Alert tone="success">Bila email terdaftar, tautan reset password sudah dikirim. Periksa kotak masuk Anda.</Alert>
       ) : (
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form onSubmit={onSubmit} className="space-y-3">
           <div>
             <Label htmlFor="email">Email</Label>
             <Input id="email" name="email" type="email" required />
@@ -375,7 +395,7 @@ export function ResetPasswordPage() {
 
   return (
     <AuthLayout title="Atur ulang password">
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form onSubmit={onSubmit} className="space-y-3">
         {mutation.isError ? <Alert tone="error">{(mutation.error as Error).message}</Alert> : null}
         <div>
           <Label htmlFor="password">Password baru</Label>
@@ -399,7 +419,7 @@ export function InvitePage() {
 
   return (
     <AuthLayout title="Undangan tim" subtitle="Anda diundang bergabung ke sebuah perusahaan di erpindo.">
-      <div className="space-y-4">
+      <div className="space-y-3">
         {mutation.isError ? (
           <Alert tone="error">
             {(mutation.error as Error).message}{" "}
