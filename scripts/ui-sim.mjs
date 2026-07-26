@@ -1069,6 +1069,21 @@ try {
     `→ ${selModul} sel`,
   );
 
+  // F22 — Fase 17e. Gambar produk di landing adalah aset ter-commit yang
+  // dihasilkan skrip terpisah (`screenshots.mjs`). Skrip itu diam-diam rusak
+  // sejak Fase 13b, jadi gambarnya tertinggal belasan fase tanpa ada yang
+  // berbunyi. Cek ini tidak bisa tahu gambarnya BASI, tapi bisa memastikan
+  // berkasnya benar-benar ada dan termuat — kegagalan paling kasarnya.
+  const gambarHero = await page.evaluate(() => {
+    const img = document.querySelector('img[src*="hero-dashboard"]');
+    return img ? { w: img.naturalWidth, h: img.naturalHeight } : null;
+  });
+  check(
+    "F22 gambar produk hero landing termuat (bukan 404/rusak)",
+    Boolean(gambarHero && gambarHero.w > 800 && gambarHero.h > 400),
+    `→ ${gambarHero ? `${gambarHero.w}x${gambarHero.h}` : "tidak ada <img>"}`,
+  );
+
   // Multibahasa (Fase 13d): toggle EN → hero & harga berbahasa Inggris, lalu kembali ID.
   await page.getByRole("button", { name: "EN", exact: true }).first().click();
   await page.waitForTimeout(300);

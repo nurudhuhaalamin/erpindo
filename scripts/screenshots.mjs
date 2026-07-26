@@ -33,7 +33,8 @@ const MANIFESTS = {
   landing: {
     outDir: "apps/web/public/landing",
     viewport: { width: 1440, height: 900 },
-    theme: "light",
+    // Fase 17e: aplikasi & landing kini gelap-dulu sejak 17a.
+    theme: "dark",
     quality: 80,
     shots: [
       { route: "/app", name: "hero-dashboard", width: 1400, waitMs: 1600 },
@@ -47,7 +48,8 @@ const MANIFESTS = {
   panduan: {
     outDir: "apps/web/public/panduan",
     viewport: { width: 1280, height: 800 },
-    theme: "light",
+    // Fase 17e: aplikasi & landing kini gelap-dulu sejak 17a.
+    theme: "dark",
     quality: 78,
     shots: [
       { route: "/app", name: "mulai-1", width: 1280, waitMs: 1500 },
@@ -230,7 +232,16 @@ makeDevConfig();
 console.log(`Menyiapkan wrangler dev di :${PORT} (persist ${persistDir})...`);
 const dev = spawn(
   "pnpm",
-  ["exec", "wrangler", "dev", "-c", "../../wrangler.dev.jsonc", "--port", String(PORT), "--persist-to", persistDir, "--show-interactive-dev-session=false"],
+  [
+    "exec", "wrangler", "dev", "-c", "../../wrangler.dev.jsonc",
+    "--port", String(PORT), "--persist-to", persistDir, "--show-interactive-dev-session=false",
+    // Akun seed comped → kebal pagar "satu perusahaan trial per akun" (Fase 13b),
+    // sehingga seed-demo bisa membuat PT Demo Sejahtera sebagai perusahaan kedua.
+    // TANPA baris ini seluruh skrip ini gagal saat seeding — dan memang begitulah
+    // keadaannya sejak Fase 13b: tangkapan layar terakhir berasal dari Fase 10a.
+    // `ui-sim.mjs` sudah punya baris yang sama; skrip ini terlewat.
+    "--var", `COMPED_EMAILS:${EMAIL}`,
+  ],
   { cwd: path.join(ROOT, "apps/api"), stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, CI: "1" } },
 );
 dev.stdout.on("data", () => {});
@@ -279,6 +290,19 @@ try {
   const ctx = await browser.newContext({
     viewport: { width: viewports[0].width, height: viewports[0].height },
     deviceScaleFactor: manifest.viewports ? 1 : 2,
+    // locale id-ID (Fase 17e): tanpa ini Chromium default en-US dan seluruh
+    // aplikasi ter-render BAHASA INGGRIS — gambar produk berbahasa Inggris di
+    // halaman jualan berbahasa Indonesia. `ui-sim.mjs` sudah menyetel ini.
+    locale: "id-ID",
+  });
+  // Tur dasbor (Fase 10f) muncul otomatis sekali untuk pengguna baru dan
+  // MENUTUPI kartu KPI tepat di tengah tangkapan hero. Tandai "sudah dilihat".
+  await ctx.addInitScript(() => {
+    try {
+      localStorage.setItem("erpindo-tour:dashboard", "1");
+    } catch {
+      /* abaikan */
+    }
   });
   const page = await ctx.newPage();
 
