@@ -87,3 +87,11 @@ jobs:
       - name: ESLint
         run: pnpm lint
 
+      # Fase 16t: menjaga kelas bug `{u("kunci")}` di dalam template literal —
+      # di sana ia bukan JSX, jadi teksnya keluar harfiah ke layar/kertas
+      # (struk POS sempat tercetak dengan tulisan `{u("subtotal")}`). Skrip
+      # keluar dengan kode 1 HANYA untuk bug ini; sisa utang terjemahan cuma
+      # dilaporkan dan tidak menggagalkan CI.
+      - name: Penjaga i18n (panggilan u() harfiah)
+        run: node scripts/sapu-i18n.mjs "apps/web/src/pages/"*.tsx "apps/web/src/components/"*.tsx > /dev/null
+

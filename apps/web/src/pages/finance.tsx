@@ -1,12 +1,12 @@
 import {
-  ACCOUNT_TYPE_LABELS,
   ACCOUNT_TYPES,
   createAccountSchema,
+  type AccountType,
   type ApiAccount,
   type ApiJournalTemplate,
 } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useUi } from "../i18n/ui";
+import { useUi, type UiKey } from "../i18n/ui";
 import { Search } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, downloadXlsx, formatDate, formatIDR } from "../api/client";
@@ -28,6 +28,18 @@ import {
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
+
+// Peta label ACCOUNT_TYPE_LABELS tinggal di packages/shared dan tetap
+// berbahasa Indonesia (apps/api ikut memakai paket itu, jadi shared tidak
+// boleh bergantung pada kamus web). Pemetaan ke kunci kamus dilakukan di
+// sisi web — Fase 16t.
+const ACCOUNT_TYPE_KEY: Record<AccountType, UiKey> = {
+  asset: "aset",
+  liability: "kewajiban",
+  equity: "ekuitas",
+  income: "pendapatan",
+  expense: "beban",
+};
 
 function Amount({ value }: { value: number }) {
   return <span className="tabular-nums">{value === 0 ? "—" : formatIDR(value)}</span>;
@@ -103,10 +115,7 @@ export function AccountsPage() {
 
       {isAdmin ? (
         <Card>
-          <CardHeader
-            title={u("tambahAkun")}
-            description={u("akunTemplateOtomatis")}
-          />
+          <CardHeader title={u("tambahAkun")} description={u("akunTemplateOtomatis")} />
           <CardBody>
             <form
               onSubmit={onSubmit}
@@ -128,7 +137,7 @@ export function AccountsPage() {
                 <Select id="acc-type" name="type" defaultValue="asset">
                   {ACCOUNT_TYPES.map((t) => (
                     <option key={t} value={t}>
-                      {ACCOUNT_TYPE_LABELS[t]}
+                      {u(ACCOUNT_TYPE_KEY[t]!)}
                     </option>
                   ))}
                 </Select>
@@ -196,7 +205,7 @@ export function AccountsPage() {
                           )}
                         </td>
                         <td className={td}>
-                          <Badge>{ACCOUNT_TYPE_LABELS[a.type]}</Badge>
+                          <Badge>{u(ACCOUNT_TYPE_KEY[a.type]!)}</Badge>
                         </td>
                         <td className={`${td} text-right`}>
                           <span className="inline-flex items-center gap-2">
@@ -420,10 +429,7 @@ export function JournalPage() {
 
       {isAdmin ? (
         <Card>
-          <CardHeader
-            title={u("jurnalManualBaru")}
-            description={u("descJurnalManual")}
-          />
+          <CardHeader title={u("jurnalManualBaru")} description={u("descJurnalManual")} />
           <CardBody className="space-y-4">
             {error ? <Alert tone="error">{error}</Alert> : null}
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -552,8 +558,7 @@ export function JournalPage() {
               </Button>
               <div className="text-sm">
                 {u("debit")} <strong className="tabular-nums">{formatIDR(totalDebit)}</strong> ·{" "}
-                {u("kredit")}{" "}
-                <strong className="tabular-nums">{formatIDR(totalCredit)}</strong>{" "}
+                {u("kredit")} <strong className="tabular-nums">{formatIDR(totalCredit)}</strong>{" "}
                 {balanced ? (
                   <Badge tone="brand">{u("seimbangSingkat")}</Badge>
                 ) : (
@@ -755,9 +760,7 @@ export function JournalPage() {
               {u("descBalikTerkunci2")}
             </>
           ) : (
-            <>
-              {u("descBalikBiasa")}
-            </>
+            <>{u("descBalikBiasa")}</>
           )
         }
         confirmLabel={reverseToday ? u("balikPerHariIni") : u("yaBalikJurnal")}
@@ -1039,10 +1042,7 @@ function TemplatesCard({
 
   return (
     <Card>
-      <CardHeader
-        title={u("templateJurnal")}
-        description={u("descTemplateJurnal")}
-      />
+      <CardHeader title={u("templateJurnal")} description={u("descTemplateJurnal")} />
       <CardBody className="space-y-3">
         {templates.map((t) => (
           <div key={t.id} className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
@@ -1051,8 +1051,7 @@ function TemplatesCard({
                 <span className="font-medium">{t.name}</span>
                 {t.schedule === "monthly" ? (
                   <Badge tone="brand">
-                    {u("bulananBerikutnya")}{" "}
-                    {t.nextRunDate ? formatDate(t.nextRunDate) : "—"}
+                    {u("bulananBerikutnya")} {t.nextRunDate ? formatDate(t.nextRunDate) : "—"}
                   </Badge>
                 ) : (
                   <Badge>{u("manualLabel")}</Badge>

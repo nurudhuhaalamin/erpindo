@@ -1,5 +1,4 @@
 import {
-  LEAD_ACTIVITY_LABELS,
   LEAD_ACTIVITY_TYPES,
   LEAD_STAGES,
   type ApiLead,
@@ -28,6 +27,18 @@ import {
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
+
+// Peta label LEAD_ACTIVITY_LABELS tinggal di packages/shared dan tetap
+// berbahasa Indonesia (apps/api ikut memakai paket itu, jadi shared tidak
+// boleh bergantung pada kamus web). Pemetaan ke kunci kamus dilakukan di
+// sisi web — Fase 16t.
+const LEAD_ACTIVITY_KEY: Record<LeadActivityType, UiKey> = {
+  call: "aktivitasTelepon",
+  email: "aktivitasEmail",
+  meeting: "aktivitasPertemuan",
+  whatsapp: "aktivitasWhatsapp",
+  note: "aktivitasCatatan",
+};
 
 const STAGE_TONE: Record<LeadStage, "neutral" | "brand" | "amber" | "green" | "red"> = {
   new: "neutral",
@@ -481,7 +492,7 @@ function LeadRow({ lead, isAdmin }: { lead: ApiLead; isAdmin: boolean }) {
                   >
                     {LEAD_ACTIVITY_TYPES.map((t) => (
                       <option key={t} value={t}>
-                        {LEAD_ACTIVITY_LABELS[t]}
+                        {u(LEAD_ACTIVITY_KEY[t])}
                       </option>
                     ))}
                   </Select>
@@ -519,7 +530,7 @@ function LeadRow({ lead, isAdmin }: { lead: ApiLead; isAdmin: boolean }) {
               <ul className="space-y-1.5">
                 {activitiesQuery.data!.activities.map((a) => (
                   <li key={a.id} className="flex flex-wrap gap-2 text-sm">
-                    <Badge tone="neutral">{LEAD_ACTIVITY_LABELS[a.type]}</Badge>
+                    <Badge tone="neutral">{u(LEAD_ACTIVITY_KEY[a.type])}</Badge>
                     <span className="text-slate-400">{a.activityDate}</span>
                     <span>{a.note}</span>
                     {a.dueAt ? (

@@ -1,5 +1,10 @@
-import { AGING_BUCKETS, AGING_BUCKET_LABELS, type ApiReportLine } from "@erpindo/shared";
-import { useUi } from "../i18n/ui";
+import {
+  AGING_BUCKETS,
+  AGING_BUCKET_LABELS,
+  type AgingBucket,
+  type ApiReportLine,
+} from "@erpindo/shared";
+import { useUi, type UiKey } from "../i18n/ui";
 import { useHeading } from "../i18n/pageHeadings";
 import { useQuery } from "@tanstack/react-query";
 import { Download, Inbox } from "lucide-react";
@@ -20,6 +25,18 @@ import {
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
+
+// Peta label AGING_BUCKET_LABELS tinggal di packages/shared dan tetap
+// berbahasa Indonesia (apps/api ikut memakai paket itu, jadi shared tidak
+// boleh bergantung pada kamus web). Pemetaan ke kunci kamus dilakukan di
+// sisi web — Fase 16t.
+const AGING_BUCKET_KEY: Record<AgingBucket, UiKey> = {
+  current: "umurBelumJatuhTempo",
+  d1_30: "umur1_30",
+  d31_60: "umur31_60",
+  d61_90: "umur61_90",
+  d90_plus: "umur90plus",
+};
 
 export function ExportButton({
   onClick,
@@ -219,8 +236,7 @@ export function IncomeStatementPage() {
               {compare && prevQuery.data ? (
                 <div className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800">
                   <div className="mb-2 font-medium">
-                    {u("periodeSebelumnya")} ({formatDate(prev.from)} –{" "}
-                    {formatDate(prev.to)})
+                    {u("periodeSebelumnya")} ({formatDate(prev.from)} – {formatDate(prev.to)})
                   </div>
                   {[
                     [u("pendapatan"), query.data.totalIncome, prevQuery.data.totalIncome],
@@ -431,7 +447,7 @@ export function AgingPage() {
                     <th className={th}>{u("kontakKolom")}</th>
                     {AGING_BUCKETS.map((b) => (
                       <th key={b} className={`${th} text-right`}>
-                        {AGING_BUCKET_LABELS[b]}
+                        {u(AGING_BUCKET_KEY[b]!)}
                       </th>
                     ))}
                     <th className={`${th} text-right`}>{u("total")}</th>
@@ -569,9 +585,7 @@ export function EfakturPage() {
           {query.isLoading ? (
             <Spinner />
           ) : (query.data?.rows.length ?? 0) === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              {u("tidakAdaFakturPpn")}
-            </p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{u("tidakAdaFakturPpn")}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-sm">
@@ -602,8 +616,7 @@ export function EfakturPage() {
                   ))}
                   <tr className="font-semibold">
                     <td className="py-2 pr-4" colSpan={4}>
-                      {u("total")} ({query.data!.rows.length}{" "}
-                      {u("faktur").toLowerCase()})
+                      {u("total")} ({query.data!.rows.length} {u("faktur").toLowerCase()})
                     </td>
                     <td className="py-2 pr-4 text-right tabular-nums">
                       {formatIDR(query.data!.totalDpp)}
@@ -787,7 +800,9 @@ export function SalesReportPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Card>
               <CardBody>
-                <div className="text-sm text-slate-500 dark:text-slate-400">{u("totalPenjualan")}</div>
+                <div className="text-sm text-slate-500 dark:text-slate-400">
+                  {u("totalPenjualan")}
+                </div>
                 <div className="mt-1 text-xl font-semibold tabular-nums">
                   {formatIDR(data.totalRevenue)}
                 </div>
@@ -795,7 +810,9 @@ export function SalesReportPage() {
             </Card>
             <Card>
               <CardBody>
-                <div className="text-sm text-slate-500 dark:text-slate-400">{u("jumlahFaktur")}</div>
+                <div className="text-sm text-slate-500 dark:text-slate-400">
+                  {u("jumlahFaktur")}
+                </div>
                 <div className="mt-1 text-xl font-semibold tabular-nums">
                   {data.invoiceCount.toLocaleString("id-ID")}
                 </div>

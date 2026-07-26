@@ -1,10 +1,9 @@
 import {
-  POS_PAYMENT_METHOD_LABELS,
   POS_PAYMENT_METHODS,
   type PosPaymentMethod,
 } from "@erpindo/shared";
 import { useHeading } from "../i18n/pageHeadings";
-import { useUi } from "../i18n/ui";
+import { useUi, type UiKey } from "../i18n/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { api, formatIDR } from "../api/client";
@@ -24,6 +23,17 @@ import {
 import { useWorkspace } from "./app";
 import { useDebounced } from "./commerce";
 
+// Peta label POS_PAYMENT_METHOD_LABELS tinggal di packages/shared dan tetap
+// berbahasa Indonesia (apps/api ikut memakai paket itu, jadi shared tidak
+// boleh bergantung pada kamus web). Pemetaan ke kunci kamus dilakukan di
+// sisi web — Fase 16t.
+const POS_METHOD_KEY: Record<PosPaymentMethod, UiKey> = {
+  tunai: "bayarTunai",
+  qris: "bayarQris",
+  kartu: "bayarKartu",
+  ewallet: "bayarEwallet",
+};
+
 type ProductRow = { id: string; sku: string; name: string; unit: string; sell_price: number };
 type WarehouseRow = { id: string; name: string };
 type CartItem = {
@@ -40,7 +50,7 @@ function itemAmount(i: CartItem): number {
 }
 
 /** Struk sederhana dicetak lewat jendela print browser (kompatibel printer thermal). */
-function printReceipt(opts: {
+export function buildReceiptHtml(opts: {
   companyName: string;
   logoDataUrl?: string;
   invoiceNo: string;
@@ -51,6 +61,13 @@ function printReceipt(opts: {
   total: number;
   cashReceived: number;
   change: number;
+  /**
+   * Label struk dilewatkan dari komponen pemanggil. printReceipt bukan
+   * komponen React — ia menyusun STRING HTML, sehingga `{u("…")}` di dalam
+   * template literal hanya menjadi teks harfiah, bukan pemanggilan fungsi
+   * (bug Fase 16g, ditemukan & diperbaiki Fase 16t).
+   */
+  label: { subtotal: string; tunai: string; kembalian: string; terimaKasih: string };
 }) {
   const rows = opts.items
     .map(
@@ -58,9 +75,7 @@ function printReceipt(opts: {
         `<tr><td>${i.name} x${i.qty}${i.discountPct > 0 ? ` (-${i.discountPct}%)` : ""}</td><td style="text-align:right">${itemAmount(i).toLocaleString("id-ID")}</td></tr>`
     )
     .join("");
-  const w = window.open("", "_blank", "width=300,height=600");
-  if (!w) return;
-  w.document.write(`<!doctype html><html><head><title>${opts.invoiceNo}</title><style>
+  return `<!doctype html><html><head><title>${opts.invoiceNo}</title><style>
     body{font-family:monospace;font-size:12px;width:260px;margin:0 auto;padding:8px}
     table{width:100%;border-collapse:collapse} td{padding:1px 0}
     .c{text-align:center} .b{font-weight:bold} hr{border:none;border-top:1px dashed #000}
@@ -70,15 +85,23 @@ function printReceipt(opts: {
     <div class="c">${opts.invoiceNo} · ${new Date().toLocaleString("id-ID")}</div>
     <hr/><table>${rows}</table><hr/>
     <table>
-      <tr><td>{u("subtotal")}</td><td style="text-align:right">${opts.subtotal.toLocaleString("id-ID")}</td></tr>
+      <tr><td>${opts.label.subtotal}</td><td style="text-align:right">${opts.subtotal.toLocaleString("id-ID")}</td></tr>
       ${opts.taxAmount > 0 ? `<tr><td>PPN ${opts.taxRate}%</td><td style="text-align:right">${opts.taxAmount.toLocaleString("id-ID")}</td></tr>` : ""}
       <tr class="b"><td>TOTAL</td><td style="text-align:right">${opts.total.toLocaleString("id-ID")}</td></tr>
-      <tr><td>{u("tunai")}</td><td style="text-align:right">${opts.cashReceived.toLocaleString("id-ID")}</td></tr>
-      <tr><td>{u("kembalian")}</td><td style="text-align:right">${opts.change.toLocaleString("id-ID")}</td></tr>
+      <tr><td>${opts.label.tunai}</td><td style="text-align:right">${opts.cashReceived.toLocaleString("id-ID")}</td></tr>
+      <tr><td>${opts.label.kembalian}</td><td style="text-align:right">${opts.change.toLocaleString("id-ID")}</td></tr>
     </table><hr/>
-    <div class="c">{u("terimaKasih")}</div>
+    <div class="c">${opts.label.terimaKasih}</div>
     <script>window.print();</script>
-  </body></html>`);
+  </body></html>`;
+}
+
+/** Membuka jendela cetak dan menuliskan struk. Dipisah dari penyusun HTML di
+ *  atas supaya isinya bisa diuji tanpa DOM. */
+function printReceipt(opts: Parameters<typeof buildReceiptHtml>[0]) {
+  const w = window.open("", "_blank", "width=300,height=600");
+  if (!w) return;
+  w.document.write(buildReceiptHtml(opts));
   w.document.close();
 }
 
@@ -162,7 +185,7 @@ function RecapCard({ tenantId }: { tenantId: string }) {
                   {recap.byMethod.map((m) => (
                     <li key={m.method} className="flex justify-between">
                       <span className="text-slate-500 dark:text-slate-400">
-                        {POS_PAYMENT_METHOD_LABELS[m.method as PosPaymentMethod] ?? m.method}
+                        {u(POS_METHOD_KEY[m.method as PosPaymentMethod]) ?? m.method}
                       </span>
                       <span className="tabular-nums">{formatIDR(m.amount)}</span>
                     </li>
@@ -389,6 +412,12 @@ export function PosPage() {
           .filter((t) => t.method === "tunai")
           .reduce((s, t) => s + (Number(t.amount) || 0), 0),
         change: res.change,
+        label: {
+          subtotal: u("subtotal"),
+          tunai: u("tunai"),
+          kembalian: u("kembalian"),
+          terimaKasih: u("terimaKasih"),
+        },
       });
       setCart([]);
       setTenders([]);
@@ -741,17 +770,17 @@ export function PosPage() {
                     disabled={cart.length === 0}
                     className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium hover:border-brand-400 hover:bg-brand-50 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-brand-950/30"
                   >
-                    + {POS_PAYMENT_METHOD_LABELS[m]}
+                    + {u(POS_METHOD_KEY[m])}
                   </button>
                 ))}
               </div>
               {tenders.map((t, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <span className="w-20 text-xs text-slate-500 dark:text-slate-400">
-                    {POS_PAYMENT_METHOD_LABELS[t.method]}
+                    {u(POS_METHOD_KEY[t.method])}
                   </span>
                   <Input
-                    aria-label={`Nominal ${POS_PAYMENT_METHOD_LABELS[t.method]}`}
+                    aria-label={`Nominal ${u(POS_METHOD_KEY[t.method])}`}
                     type="number"
                     min={0}
                     className="flex-1"

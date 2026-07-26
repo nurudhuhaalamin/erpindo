@@ -396,6 +396,21 @@ try {
     adaAssetKpi && adaAssetList && tanpaAsetId,
     `→ kpi=${adaAssetKpi} daftar=${adaAssetList} tanpaID=${tanpaAsetId}`,
   );
+  // Fase 16t — peta label dari packages/shared. Rute diverifikasi ke main.tsx:
+  // /app/keuangan/akun. Jenis akun berasal dari ACCOUNT_TYPE_LABELS di paket
+  // bersama yang tetap berbahasa Indonesia; cek ini memastikan pemetaan sisi
+  // web benar-benar terpasang. Penanda negatifnya memakai "Kewajiban" dan
+  // "Ekuitas" — dua kata yang TIDAK muncul sebagai nama akun bawaan (pelajaran
+  // Fase 16e: penanda negatif harus murni teks UI, bukan data pengguna).
+  await gotoRoute("/app/keuangan/akun", 900);
+  const akunEn = await page.innerText("body");
+  const adaJenisEn = akunEn.includes("Liabilities") && akunEn.includes("Equity");
+  const tanpaJenisId = !akunEn.includes("Kewajiban") && !akunEn.includes("Ekuitas");
+  check(
+    "F0x jenis akun ikut EN meski labelnya dari packages/shared",
+    adaJenisEn && tanpaJenisId,
+    `→ jenisEN=${adaJenisEn} tanpaID=${tanpaJenisId}`,
+  );
   // Fase 16s — pelunasan utang 16h. Rute diverifikasi ke main.tsx:
   // /app/crm/leads (TIDAK ada /app/crm telanjang — pelajaran Fase 16h).
   // Tahap lead berasal dari LEAD_STAGE_LABELS di packages/shared yang tetap
