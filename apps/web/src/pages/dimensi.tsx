@@ -15,12 +15,15 @@ import {
   PageHeading,
   Select,
   Spinner,
+  Table,
+  Td,
+  Th,
+  Thead,
+  Tr,
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
 
-const th = "pb-2 pr-4 text-left font-medium text-slate-500 dark:text-slate-400";
-const td = "border-b border-slate-100 py-2 pr-4 dark:border-slate-800/60";
 const today = () => new Date().toISOString().slice(0, 10);
 const monthStart = () => new Date().toISOString().slice(0, 7) + "-01";
 
@@ -116,33 +119,33 @@ function CostCenterCard() {
         ) : items.length === 0 ? (
           <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada cost center.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800">
-                  <th className={th}>Kode</th>
-                  <th className={th}>Nama</th>
-                  <th className={th}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((cc) => (
-                  <tr key={cc.id}>
-                    <td className={`${td} font-mono text-xs`}>{cc.code}</td>
-                    <td className={td}>{cc.name}</td>
-                    <td className={`${td} text-right`}>
-                      <button
-                        className="text-xs text-red-600 hover:underline dark:text-red-400"
-                        onClick={() => setToArchive({ id: cc.id, name: cc.name })}
-                      >
-                        Arsipkan
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <Thead>
+              <tr>
+                <Th>Kode</Th>
+                <Th>Nama</Th>
+                <Th></Th>
+              </tr>
+            </Thead>
+            <tbody>
+              {items.map((cc) => (
+                <Tr key={cc.id}>
+                  <Td label="Kode" className="font-mono text-xs">
+                    {cc.code}
+                  </Td>
+                  <Td label="Nama">{cc.name}</Td>
+                  <Td className="text-right">
+                    <button
+                      className="text-xs text-red-600 hover:underline dark:text-red-400"
+                      onClick={() => setToArchive({ id: cc.id, name: cc.name })}
+                    >
+                      Arsipkan
+                    </button>
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
         )}
         <ConfirmDialog
           open={toArchive !== null}
@@ -219,37 +222,41 @@ function DimensionReportCard() {
             Belum ada transaksi pendapatan/beban pada periode ini.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800">
-                  <th className={th}>Dimensi</th>
-                  <th className={`${th} text-right`}>Pendapatan</th>
-                  <th className={`${th} text-right`}>Beban</th>
-                  <th className={`${th} text-right`}>Laba/Rugi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.costCenterId ?? "none"}>
-                    <td className={td}>
-                      {r.costCenterId ? (
-                        <span className="font-mono text-xs text-slate-400">{r.code}</span>
-                      ) : null}{" "}
-                      {r.name}
-                    </td>
-                    <td className={`${td} text-right tabular-nums`}>{formatIDR(r.income)}</td>
-                    <td className={`${td} text-right tabular-nums`}>{formatIDR(r.expense)}</td>
-                    <td
-                      className={`${td} text-right font-medium tabular-nums ${r.net < 0 ? "text-red-600 dark:text-red-400" : ""}`}
-                    >
-                      {formatIDR(r.net)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <Thead>
+              <tr>
+                <Th>Dimensi</Th>
+                <Th numeric>Pendapatan</Th>
+                <Th numeric>Beban</Th>
+                <Th numeric>Laba/Rugi</Th>
+              </tr>
+            </Thead>
+            <tbody>
+              {rows.map((r) => (
+                <Tr key={r.costCenterId ?? "none"}>
+                  <Td label="Dimensi">
+                    {r.costCenterId ? (
+                      <span className="font-mono text-xs text-slate-400">{r.code}</span>
+                    ) : null}{" "}
+                    {r.name}
+                  </Td>
+                  <Td numeric label="Pendapatan">
+                    {formatIDR(r.income)}
+                  </Td>
+                  <Td numeric label="Beban">
+                    {formatIDR(r.expense)}
+                  </Td>
+                  <Td
+                    numeric
+                    label="Laba/Rugi"
+                    className={`font-medium ${r.net < 0 ? "text-red-600 dark:text-red-400" : ""}`}
+                  >
+                    {formatIDR(r.net)}
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
         )}
       </CardBody>
     </Card>

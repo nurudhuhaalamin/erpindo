@@ -16,6 +16,11 @@ import {
   Label,
   Select,
   Spinner,
+  Table,
+  Td,
+  Th,
+  Thead,
+  Tr,
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
@@ -293,49 +298,44 @@ export function MaintenancePage() {
               description="Buat jadwal servis berkala per aset."
             />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                    <th className="pb-2 pr-4 font-medium">Aset</th>
-                    <th className="pb-2 pr-4 font-medium">Servis</th>
-                    <th className="pb-2 pr-4 font-medium">Interval</th>
-                    <th className="pb-2 pr-4 font-medium">Jatuh tempo berikut</th>
-                    <th className="pb-2 pr-4 font-medium">Status</th>
-                    {isAdmin ? <th className="pb-2 font-medium">Aksi</th> : null}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(schedulesQuery.data?.schedules ?? []).map((s: ApiMaintenanceSchedule) => (
-                    <tr
-                      key={s.id}
-                      className="border-b border-slate-100 last:border-0 dark:border-slate-800/60"
-                    >
-                      <td className="py-2.5 pr-4">{s.assetName}</td>
-                      <td className="py-2.5 pr-4">{s.name}</td>
-                      <td className="py-2.5 pr-4">{s.intervalMonths} bln</td>
-                      <td className="py-2.5 pr-4 tabular-nums">{formatDate(s.nextDueDate)}</td>
-                      <td className="py-2.5 pr-4">
-                        <Badge tone={s.active ? "green" : "neutral"}>
-                          {s.active ? "aktif" : "jeda"}
-                        </Badge>
-                      </td>
-                      {isAdmin ? (
-                        <td className="py-2.5">
-                          <Button
-                            variant="secondary"
-                            className="h-8"
-                            onClick={() => toggleSchedule.mutate({ id: s.id, active: !s.active })}
-                          >
-                            {s.active ? "Jeda" : "Aktifkan"}
-                          </Button>
-                        </td>
-                      ) : null}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <Thead>
+                <tr>
+                  <Th>Aset</Th>
+                  <Th>Servis</Th>
+                  <Th>Interval</Th>
+                  <Th>Jatuh tempo berikut</Th>
+                  <Th>Status</Th>
+                  {isAdmin ? <Th>Aksi</Th> : null}
+                </tr>
+              </Thead>
+              <tbody>
+                {(schedulesQuery.data?.schedules ?? []).map((s: ApiMaintenanceSchedule) => (
+                  <Tr key={s.id}>
+                    <Td label="Aset">{s.assetName}</Td>
+                    <Td label="Servis">{s.name}</Td>
+                    <Td label="Interval">{s.intervalMonths} bln</Td>
+                    <Td label="Jatuh tempo berikut">{formatDate(s.nextDueDate)}</Td>
+                    <Td label="Status">
+                      <Badge tone={s.active ? "green" : "neutral"}>
+                        {s.active ? "aktif" : "jeda"}
+                      </Badge>
+                    </Td>
+                    {isAdmin ? (
+                      <Td label="Aksi">
+                        <Button
+                          variant="secondary"
+                          size="xs"
+                          onClick={() => toggleSchedule.mutate({ id: s.id, active: !s.active })}
+                        >
+                          {s.active ? "Jeda" : "Aktifkan"}
+                        </Button>
+                      </Td>
+                    ) : null}
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
           )}
         </CardBody>
       </Card>
@@ -355,40 +355,38 @@ export function MaintenancePage() {
               description="Work order servis akan muncul di sini."
             />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                    <th className="pb-2 pr-4 font-medium">No.</th>
-                    <th className="pb-2 pr-4 font-medium">Aset / Pekerjaan</th>
-                    <th className="pb-2 pr-4 font-medium">Rencana</th>
-                    <th className="pb-2 pr-4 text-right font-medium">Biaya</th>
-                    <th className="pb-2 pr-4 font-medium">Status</th>
-                    {isAdmin ? <th className="pb-2 font-medium">Aksi</th> : null}
-                  </tr>
-                </thead>
-                <tbody>
-                  {workOrders.map((w: ApiWorkOrder) => (
-                    <tr
-                      key={w.id}
-                      className="border-b border-slate-100 last:border-0 dark:border-slate-800/60 align-top"
-                    >
-                      <td className="py-2.5 pr-4 font-mono text-xs">{w.orderNo}</td>
-                      <td className="py-2.5 pr-4">
-                        {w.title}
-                        <span className="block text-xs text-slate-400">{w.assetName}</span>
-                      </td>
-                      <td className="py-2.5 pr-4 tabular-nums">{formatDate(w.scheduledDate)}</td>
-                      <td className="py-2.5 pr-4 text-right tabular-nums">
-                        {w.status === "done" ? formatIDR(w.cost) : "—"}
-                      </td>
-                      <td className="py-2.5 pr-4">
-                        <Badge tone={w.status === "done" ? "green" : "amber"}>
-                          {w.status === "done" ? "selesai" : "terbuka"}
-                        </Badge>
-                      </td>
-                      {isAdmin ? (
-                        <td className="py-2.5">
+            <Table>
+              <Thead>
+                <tr>
+                  <Th>No.</Th>
+                  <Th>Aset / Pekerjaan</Th>
+                  <Th>Rencana</Th>
+                  <Th numeric>Biaya</Th>
+                  <Th>Status</Th>
+                  {isAdmin ? <Th>Aksi</Th> : null}
+                </tr>
+              </Thead>
+              <tbody>
+                {workOrders.map((w: ApiWorkOrder) => (
+                  <Tr key={w.id} className="align-top">
+                    <Td label="No." className="font-mono text-xs">
+                      {w.orderNo}
+                    </Td>
+                    <Td label="Aset / Pekerjaan">
+                      {w.title}
+                      <span className="block text-xs text-slate-400">{w.assetName}</span>
+                    </Td>
+                    <Td label="Rencana">{formatDate(w.scheduledDate)}</Td>
+                    <Td numeric label="Biaya">
+                      {w.status === "done" ? formatIDR(w.cost) : "—"}
+                    </Td>
+                    <Td label="Status">
+                      <Badge tone={w.status === "done" ? "green" : "amber"}>
+                        {w.status === "done" ? "selesai" : "terbuka"}
+                      </Badge>
+                    </Td>
+                    {isAdmin ? (
+                      <Td label="Aksi">
                           {w.status === "open" ? (
                             doneFor === w.id ? (
                               <div className="flex flex-col gap-2">
@@ -424,7 +422,7 @@ export function MaintenancePage() {
                                 />
                                 <div className="flex gap-2">
                                   <Button
-                                    className="h-8"
+                                    size="xs"
                                     onClick={() => complete.mutate(w.id)}
                                     disabled={
                                       complete.isPending || (Number(doneCost) > 0 && !doneAccount)
@@ -434,7 +432,7 @@ export function MaintenancePage() {
                                   </Button>
                                   <Button
                                     variant="secondary"
-                                    className="h-8"
+                                    size="xs"
                                     onClick={() => setDoneFor(null)}
                                   >
                                     Batal
@@ -444,7 +442,7 @@ export function MaintenancePage() {
                             ) : (
                               <Button
                                 variant="secondary"
-                                className="h-8"
+                                size="xs"
                                 onClick={() => {
                                   setDoneFor(w.id);
                                   setDoneDate(today());
@@ -456,16 +454,15 @@ export function MaintenancePage() {
                                 Selesaikan
                               </Button>
                             )
-                          ) : (
-                            <span className="text-xs text-slate-400">{w.completedDate}</span>
-                          )}
-                        </td>
-                      ) : null}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">{w.completedDate}</span>
+                        )}
+                      </Td>
+                    ) : null}
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
           )}
         </CardBody>
       </Card>
