@@ -16,11 +16,15 @@ import {
   PageHeading,
   Select,
   Spinner,
+  Table,
+  Td,
+  Th,
+  Thead,
+  Tr,
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
 
-const th = "pb-2 pr-4 text-left font-medium text-slate-500 dark:text-slate-400";
 
 type ProductRow = {
   id: string;
@@ -68,51 +72,44 @@ function StockCard({
         {query.isLoading ? (
           <Spinner />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                  <th className="pb-2 pr-4 font-medium">{u("waktu")}</th>
-                  <th className="pb-2 pr-4 font-medium">{u("jenis")}</th>
-                  <th className="pb-2 pr-4 text-right font-medium">{u("masukKeluar")}</th>
-                  <th className="pb-2 pr-4 text-right font-medium">{u("biayaSatuan")}</th>
-                  <th className="pb-2 text-right font-medium">{u("saldo")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {query.data?.rows.map((r, i) => {
-                  // refType datang dari server; bila jenisnya belum dikenal
-                  // kamus, tampilkan apa adanya daripada kunci mentah.
-                  const refKey = REF_TYPE_LABELS[r.refType];
-                  return (
-                    <tr key={i}>
-                      <td className="border-b border-slate-100 py-2 pr-4 dark:border-slate-800/60">
-                        {formatDate(r.date)}
-                      </td>
-                      <td className="border-b border-slate-100 py-2 pr-4 dark:border-slate-800/60">
-                        {refKey ? u(refKey) : r.refType}
-                      </td>
-                      <td
-                        className={`border-b border-slate-100 py-2 pr-4 text-right tabular-nums dark:border-slate-800/60 ${
-                          r.qty >= 0
-                            ? "text-emerald-700 dark:text-emerald-400"
-                            : "text-red-700 dark:text-red-400"
-                        }`}
-                      >
-                        {r.qty >= 0 ? `+${r.qty}` : r.qty}
-                      </td>
-                      <td className="border-b border-slate-100 py-2 pr-4 text-right tabular-nums dark:border-slate-800/60">
-                        {formatIDR(r.unitCost)}
-                      </td>
-                      <td className="border-b border-slate-100 py-2 text-right font-medium tabular-nums dark:border-slate-800/60">
-                        {r.balance}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <Thead>
+              <tr>
+                <Th>{u("waktu")}</Th>
+                <Th>{u("jenis")}</Th>
+                <Th numeric>{u("masukKeluar")}</Th>
+                <Th numeric>{u("biayaSatuan")}</Th>
+                <Th numeric>{u("saldo")}</Th>
+              </tr>
+            </Thead>
+            <tbody>
+              {query.data?.rows.map((r, i) => {
+                // refType datang dari server; bila jenisnya belum dikenal
+                // kamus, tampilkan apa adanya daripada kunci mentah.
+                const refKey = REF_TYPE_LABELS[r.refType];
+                return (
+                  <Tr key={i}>
+                    <Td>{formatDate(r.date)}</Td>
+                    <Td>{refKey ? u(refKey) : r.refType}</Td>
+                    <Td
+                      numeric
+                      className={
+                        r.qty >= 0
+                          ? "text-emerald-700 dark:text-emerald-400"
+                          : "text-red-700 dark:text-red-400"
+                      }
+                    >
+                      {r.qty >= 0 ? `+${r.qty}` : r.qty}
+                    </Td>
+                    <Td numeric>{formatIDR(r.unitCost)}</Td>
+                    <Td numeric className="font-medium">
+                      {r.balance}
+                    </Td>
+                  </Tr>
+                );
+              })}
+            </tbody>
+          </Table>
         )}
       </CardBody>
     </Card>
@@ -346,34 +343,26 @@ function LotsCard() {
             {query.data!.expiringSoon} {u("peringatanLotKedaluwarsa")}
           </Alert>
         ) : null}
-        <div className="mt-3 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800">
-                <th className={th}>SKU</th>
-                <th className={th}>{u("produk")}</th>
-                <th className={th}>{u("gudang")}</th>
-                <th className={th}>Lot</th>
-                <th className={th}>{u("kedaluwarsa")}</th>
-                <th className={`${th} text-right`}>Qty</th>
+        <div className="mt-3">
+          <Table>
+            <Thead>
+              <tr>
+                <Th>SKU</Th>
+                <Th>{u("produk")}</Th>
+                <Th>{u("gudang")}</Th>
+                <Th>Lot</Th>
+                <Th>{u("kedaluwarsa")}</Th>
+                <Th numeric>Qty</Th>
               </tr>
-            </thead>
+            </Thead>
             <tbody>
               {lots.map((l) => (
-                <tr key={l.id}>
-                  <td className="border-b border-slate-100 py-2.5 pr-4 font-mono text-xs dark:border-slate-800/60">
-                    {l.sku}
-                  </td>
-                  <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">
-                    {l.productName}
-                  </td>
-                  <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">
-                    {l.warehouseName}
-                  </td>
-                  <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">
-                    {l.lotNo ?? "—"}
-                  </td>
-                  <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">
+                <Tr key={l.id}>
+                  <Td className="font-mono text-xs">{l.sku}</Td>
+                  <Td>{l.productName}</Td>
+                  <Td>{l.warehouseName}</Td>
+                  <Td>{l.lotNo ?? "—"}</Td>
+                  <Td>
                     {l.expiryDate ? (
                       <span className="inline-flex items-center gap-2">
                         {formatDate(l.expiryDate)}
@@ -386,14 +375,12 @@ function LotsCard() {
                     ) : (
                       "—"
                     )}
-                  </td>
-                  <td className="border-b border-slate-100 py-2.5 text-right tabular-nums dark:border-slate-800/60">
-                    {l.qty}
-                  </td>
-                </tr>
+                  </Td>
+                  <Td numeric>{l.qty}</Td>
+                </Tr>
               ))}
             </tbody>
-          </table>
+          </Table>
         </div>
       </CardBody>
     </Card>
@@ -445,42 +432,37 @@ function ReorderCard() {
         }
       />
       <CardBody>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800">
-                <th className={th}>SKU</th>
-                <th className={th}>{u("produk")}</th>
-                <th className={`${th} text-right`}>{u("stok")}</th>
-                <th className={`${th} text-right`}>{u("minimum")}</th>
-                <th className={`${th} text-right`}>{u("usulanBeli")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {suggestions.map((s) => (
-                <tr key={s.productId}>
-                  <td className="border-b border-slate-100 py-2.5 pr-4 font-mono text-xs dark:border-slate-800/60">
-                    {s.sku}
-                  </td>
-                  <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">
-                    {s.name}
-                  </td>
-                  <td className="border-b border-slate-100 py-2.5 pr-4 text-right tabular-nums dark:border-slate-800/60">
-                    <Badge tone={s.qty <= 0 ? "red" : "amber"}>
-                      {s.qty} {s.unit}
-                    </Badge>
-                  </td>
-                  <td className="border-b border-slate-100 py-2.5 pr-4 text-right tabular-nums dark:border-slate-800/60">
-                    {s.minStock}
-                  </td>
-                  <td className="border-b border-slate-100 py-2.5 pr-4 text-right font-medium tabular-nums dark:border-slate-800/60">
-                    {s.suggestedQty} {s.unit}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table>
+          <Thead>
+            <tr>
+              <Th>SKU</Th>
+              <Th>{u("produk")}</Th>
+              <Th numeric>{u("stok")}</Th>
+              <Th numeric>{u("minimum")}</Th>
+              <Th numeric>{u("usulanBeli")}</Th>
+            </tr>
+          </Thead>
+          <tbody>
+            {suggestions.map((s) => (
+              <Tr key={s.productId}>
+                <Td className="font-mono text-xs">{s.sku}</Td>
+                <Td>{s.name}</Td>
+                {/* Kolom ini berisi lencana, bukan angka telanjang — pakai
+                    `text-right` saja, tanpa `numeric`, supaya lencananya tidak
+                    ikut dipaksa font mono. */}
+                <Td className="text-right">
+                  <Badge tone={s.qty <= 0 ? "red" : "amber"}>
+                    {s.qty} {s.unit}
+                  </Badge>
+                </Td>
+                <Td numeric>{s.minStock}</Td>
+                <Td numeric className="font-medium">
+                  {s.suggestedQty} {s.unit}
+                </Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Table>
       </CardBody>
     </Card>
   );
@@ -577,71 +559,61 @@ export function StockPage() {
               {u("tidakAdaProdukStokKurang")} {lowLimit}.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800">
-                    <th className={th}>SKU</th>
-                    <th className={th}>{u("produk")}</th>
-                    <th className={th}>{u("gudang")}</th>
-                    <th className={`${th} text-right`}>Qty</th>
-                    <th className={`${th} text-right`}>{u("biayaRataRata")}</th>
-                    <th className={`${th} text-right`}>{u("nilai")}</th>
-                    <th className={th}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {levels.map((l) => (
-                    <tr key={`${l.productId}-${l.warehouseId}`}>
-                      <td className="border-b border-slate-100 py-2.5 pr-4 font-mono text-xs dark:border-slate-800/60">
-                        {l.sku}
-                      </td>
-                      <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">
-                        {l.productName}
-                      </td>
-                      <td className="border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60">
-                        {l.warehouseName}
-                      </td>
-                      <td className="border-b border-slate-100 py-2.5 pr-4 text-right tabular-nums dark:border-slate-800/60">
-                        {l.qty} {l.unit}
-                      </td>
-                      <td className="border-b border-slate-100 py-2.5 pr-4 text-right tabular-nums dark:border-slate-800/60">
-                        {formatIDR(l.avgCost)}
-                      </td>
-                      <td className="border-b border-slate-100 py-2.5 text-right font-medium tabular-nums dark:border-slate-800/60">
-                        {formatIDR(l.value)}
-                      </td>
-                      <td className="border-b border-slate-100 py-2.5 text-right dark:border-slate-800/60">
-                        <Button
-                          variant="ghost"
-                          className="h-8"
-                          onClick={() =>
-                            setSelected({
-                              productId: l.productId,
-                              warehouseId: l.warehouseId,
-                              title: `${l.productName} @ ${l.warehouseName}`,
-                            })
-                          }
-                        >
-                          {u("kartu")}
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                  <tr className="font-semibold">
-                    <td className="py-2.5 pr-4" colSpan={5}>
-                      {lowOnly ? u("totalNilaiTerfilter") : u("totalNilaiPersediaan")}
-                    </td>
-                    <td className="py-2.5 text-right tabular-nums">
-                      {formatIDR(
-                        lowOnly ? levels.reduce((s, l) => s + l.value, 0) : query.data!.totalValue
-                      )}
-                    </td>
-                    <td></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <Thead>
+                <tr>
+                  <Th>SKU</Th>
+                  <Th>{u("produk")}</Th>
+                  <Th>{u("gudang")}</Th>
+                  <Th numeric>Qty</Th>
+                  <Th numeric>{u("biayaRataRata")}</Th>
+                  <Th numeric>{u("nilai")}</Th>
+                  <Th></Th>
+                </tr>
+              </Thead>
+              <tbody>
+                {levels.map((l) => (
+                  <Tr key={`${l.productId}-${l.warehouseId}`}>
+                    <Td className="font-mono text-xs">{l.sku}</Td>
+                    <Td>{l.productName}</Td>
+                    <Td>{l.warehouseName}</Td>
+                    <Td numeric>
+                      {l.qty} {l.unit}
+                    </Td>
+                    <Td numeric>{formatIDR(l.avgCost)}</Td>
+                    <Td numeric className="font-medium">
+                      {formatIDR(l.value)}
+                    </Td>
+                    <Td className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        onClick={() =>
+                          setSelected({
+                            productId: l.productId,
+                            warehouseId: l.warehouseId,
+                            title: `${l.productName} @ ${l.warehouseName}`,
+                          })
+                        }
+                      >
+                        {u("kartu")}
+                      </Button>
+                    </Td>
+                  </Tr>
+                ))}
+                {/* Baris total: `Tr` memberi garis bawah pada baris terakhir
+                    kecuali `last:border-0`, dan baris ini memang yang terakhir. */}
+                <Tr className="font-semibold">
+                  <Td colSpan={5}>{lowOnly ? u("totalNilaiTerfilter") : u("totalNilaiPersediaan")}</Td>
+                  <Td numeric>
+                    {formatIDR(
+                      lowOnly ? levels.reduce((s, l) => s + l.value, 0) : query.data!.totalValue
+                    )}
+                  </Td>
+                  <Td></Td>
+                </Tr>
+              </tbody>
+            </Table>
           )}
         </CardBody>
       </Card>

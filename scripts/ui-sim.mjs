@@ -513,6 +513,28 @@ try {
     adaStokSisaEn && tanpaStokSisaId,
     `→ penjelasan=${adaStokSisaEn} tanpaID=${tanpaStokSisaId}`,
   );
+
+  // F24 — Fase 17g. Halaman Stok kini memakai komponen `Table`, dan `Td numeric`
+  // menempelkan utilitas `num` (mono + tabular-nums) dari 17a. Yang diperiksa di
+  // sini adalah HASIL RENDER-nya, bukan sekadar kelasnya menempel: utilitas itu
+  // bisa saja ada di DOM tetapi kalah oleh aturan CSS lain — persis jebakan yang
+  // menyembunyikan bug penimpaan kelas selama belasan fase (lihat Fase 17b).
+  const selNumerik = await page.evaluate(() => {
+    const td = document.querySelector("td.num");
+    if (!td) return null;
+    const cs = getComputedStyle(td);
+    return { font: cs.fontFamily, angka: cs.fontVariantNumeric, align: cs.textAlign };
+  });
+  check(
+    "F24 kolom angka Stok benar-benar ter-render mono + tabular-nums",
+    Boolean(
+      selNumerik &&
+        /mono/i.test(selNumerik.font) &&
+        selNumerik.angka.includes("tabular-nums") &&
+        selNumerik.align === "right",
+    ),
+    `→ ${selNumerik ? `font=${selNumerik.font.slice(0, 40)} nums=${selNumerik.angka} align=${selNumerik.align}` : "tidak ada td.num"}`,
+  );
   // Fase 16p — pelunasan utang 16j. Rute diverifikasi ke main.tsx: /app/proyek.
   // Tombol buat proyek selalu tampil untuk admin; lencana status hanya muncul
   // bila ada proyek, jadi asersinya hanya menuntut tombolnya.
@@ -1153,6 +1175,7 @@ try {
       ["/app", "dasbor", false],
       ["/app/master/produk", "produk", false],
       ["/app/keuangan/jurnal", "jurnal", false],
+      ["/app/stok", "stok", false],
     ]) {
       await halaman.goto(`${BASE}${rute}`, { waitUntil: "networkidle" });
       await halaman.waitForTimeout(1200);
