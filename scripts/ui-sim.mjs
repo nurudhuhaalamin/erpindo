@@ -17,7 +17,7 @@
  */
 
 import { spawn } from "node:child_process";
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -832,6 +832,69 @@ try {
   check("F14 membuka lipatan memulihkan menu", (await navLinks()) === allLinks);
   check("F14 navigasi bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
 
+  // F20b/F20c — Fase 17c: palet perintah ⌘K.
+  //
+  // F20c dijalankan LEBIH DULU dan sengaja memakai `allLinks` di atas sebagai
+  // pembanding: palet WAJIB tidak menambah satu pun `<a>`/`<button>` ke dalam
+  // `<nav>`. Sebelas asersi F13/F14 menghitung `aside nav a:visible` dan
+  // `aside nav button:visible`; kalau kelak palet dipindahkan ke dalam sidebar,
+  // kesebelasnya pecah sekaligus tanpa pesan yang menjelaskan sebabnya. Cek ini
+  // ada supaya kegagalannya menyebut sendiri penyebabnya.
+  resetErrors();
+  const navSebelumPalet = await navLinks();
+  const tombolNavSebelum = await page.locator("aside nav button:visible").count();
+  await page.keyboard.press("Control+k");
+  await page.waitForTimeout(400);
+  const paletDialog = page.locator('[role="dialog"][aria-modal="true"]').filter({ has: page.locator('input[aria-label="Cari halaman"]') });
+  check("F20b Ctrl+K membuka palet perintah", (await paletDialog.count()) === 1);
+  check(
+    "F20c palet tidak menambah tautan/tombol ke dalam <nav>",
+    (await navLinks()) === navSebelumPalet &&
+      (await page.locator("aside nav button:visible").count()) === tombolNavSebelum,
+    `→ nav ${navSebelumPalet}→${await navLinks()}, tombol ${tombolNavSebelum}→${await page.locator("aside nav button:visible").count()}`,
+  );
+  // Regresi bug yang ketahuan dari tangkapan layar Fase 17c: dengan
+  // `onMouseEnter`, membuka palet sementara kursor kebetulan diam di atas area
+  // daftar akan memindahkan sorotan ke baris di bawah kursor — Enter lalu
+  // membawa pengguna ke halaman yang tidak ia pilih. Karena itu kursor SENGAJA
+  // ditaruh di tengah area daftar dulu, baru palet dibuka lewat papan ketik.
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+  await page.mouse.move(680, 470);
+  await page.keyboard.press("Control+k");
+  await page.waitForTimeout(400);
+  const barisPalet = paletDialog.locator("li button");
+  check(
+    "F20b membuka palet menyorot baris pertama walau kursor diam di atas daftar",
+    (await barisPalet.first().getAttribute("data-aktif")) === "1" &&
+      (await barisPalet.nth(1).getAttribute("data-aktif")) === null,
+  );
+
+  // Ketik lalu Enter — menguji penyaringan DAN navigasi dalam satu jalur.
+  await page.locator('input[aria-label="Cari halaman"]').fill("kontak");
+  await page.waitForTimeout(300);
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(900);
+  check("F20b Enter di palet menavigasi ke menu terpilih", page.url().includes("/app/master/kontak"), `→ ${page.url()}`);
+  check("F20b palet tertutup setelah navigasi", (await paletDialog.count()) === 0);
+  // Pemicu di topbar — jalur yang bisa ditemukan pengguna tanpa tahu pintasan.
+  await page.getByRole("button", { name: "Buka palet perintah" }).click();
+  await page.waitForTimeout(400);
+  check("F20b tombol topbar juga membuka palet", (await paletDialog.count()) === 1);
+  // Escape harus menutup tanpa berpindah halaman. Keadaan "terbuka" dimasukkan
+  // ke dalam asersi dengan sengaja: kalau paletnya tak pernah terbuka, asersi
+  // "sudah tertutup + URL tetap" akan lolos secara hampa.
+  const urlSebelumEsc = page.url();
+  const terbukaSebelumEsc = (await paletDialog.count()) === 1;
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+  check(
+    "F20b Escape menutup palet tanpa berpindah halaman",
+    terbukaSebelumEsc && (await paletDialog.count()) === 0 && page.url() === urlSebelumEsc,
+    `→ terbuka=${terbukaSebelumEsc}`,
+  );
+  check("F20b palet bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
+
   // F16 — Fase 10c: balik jurnal via UI, panel pembayaran dokumen, panel
   // Struk & Refund POS.
   resetErrors();
@@ -1029,6 +1092,35 @@ try {
   check("F15 masuk demo tanpa daftar → banner 'Mode demo' tampil", demoBody.includes("Mode demo"));
   check("F15 sesi demo berada di PT Demo Sejahtera", demoBody.includes("PT Demo Sejahtera"));
   check("F15 mode demo bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
+
+  // Tangkapan layar opsional (Fase 17c) — BUKAN cek, tidak menambah hitungan.
+  // Perombakan desain Fase 17 perlu diperiksa mata, bukan hanya oleh asersi:
+  // asersi bisa lolos sementara tata letaknya kacau. Set `UI_SIM_SHOT=<dir>`
+  // untuk merekam beberapa halaman kunci pada akhir jalannya suite.
+  // Sengaja memakai suite ini karena di sinilah sesi sudah masuk dan datanya
+  // sudah tersemai penuh — set `audit` di screenshots.mjs menyemai ulang dan
+  // tertahan batas "satu perusahaan trial per akun".
+  if (process.env.UI_SIM_SHOT) {
+    const dir = process.env.UI_SIM_SHOT;
+    mkdirSync(dir, { recursive: true });
+    // Memakai `page` yang sudah ada, BUKAN ctx.newPage(): penjaga di atas
+    // (`ctx.on("page", …)`) menutup setiap halaman selain `page`.
+    const halaman = page;
+    for (const [rute, nama] of [
+      ["/app", "dasbor"],
+      ["/app/master/produk", "produk"],
+      ["/app/keuangan/jurnal", "jurnal"],
+    ]) {
+      await halaman.goto(`${BASE}${rute}`, { waitUntil: "networkidle" });
+      await halaman.waitForTimeout(1200);
+      await halaman.screenshot({ path: path.join(dir, `${nama}.png`), fullPage: false });
+    }
+    // Palet perintah terbuka — rasa "alat pro" yang jadi inti fase ini.
+    await halaman.keyboard.press("Control+k");
+    await halaman.waitForTimeout(500);
+    await halaman.screenshot({ path: path.join(dir, "palet.png"), fullPage: false });
+    console.log(`\nTangkapan layar ditulis ke ${dir}`);
+  }
 
   await ctx.close();
   await browser.close();
