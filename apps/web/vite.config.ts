@@ -18,12 +18,12 @@ export default defineConfig({
         lang: "id",
         start_url: "/app",
         display: "standalone",
-        // Fase 17a — gelap-dulu. Ketiga nilai warna merek (di sini,
-        // index.html meta theme-color, dan --color-slate-950 di styles.css)
-        // dulu tidak saling tertaut; kini disamakan ke latar gelap yang sama
-        // supaya splash PWA tidak berkedip putih sebelum aplikasi tampil.
-        background_color: "#0a0e16",
-        theme_color: "#0a0e16",
+        // Fase 18a — terang-dulu. Ketiga nilai warna (di sini, meta
+        // theme-color di index.html, dan --color-slate-50 di styles.css) tidak
+        // saling tertaut secara otomatis, jadi harus disamakan manual supaya
+        // splash PWA tidak berkedip warna lain sebelum aplikasi tampil.
+        background_color: "#fafafa",
+        theme_color: "#ffffff",
         icons: [
           { src: "/pwa-192.png", sizes: "192x192", type: "image/png" },
           { src: "/pwa-512.png", sizes: "512x512", type: "image/png" },

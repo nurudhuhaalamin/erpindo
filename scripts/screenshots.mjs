@@ -33,8 +33,8 @@ const MANIFESTS = {
   landing: {
     outDir: "apps/web/public/landing",
     viewport: { width: 1440, height: 900 },
-    // Fase 17e: aplikasi & landing kini gelap-dulu sejak 17a.
-    theme: "dark",
+    // Fase 18a: arah desain dibalik — aplikasi & landing kini TERANG-dulu.
+    theme: "light",
     quality: 80,
     shots: [
       { route: "/app", name: "hero-dashboard", width: 1400, waitMs: 1600 },
@@ -48,8 +48,8 @@ const MANIFESTS = {
   panduan: {
     outDir: "apps/web/public/panduan",
     viewport: { width: 1280, height: 800 },
-    // Fase 17e: aplikasi & landing kini gelap-dulu sejak 17a.
-    theme: "dark",
+    // Fase 18a: arah desain dibalik — aplikasi & landing kini TERANG-dulu.
+    theme: "light",
     quality: 78,
     shots: [
       { route: "/app", name: "mulai-1", width: 1280, waitMs: 1500 },

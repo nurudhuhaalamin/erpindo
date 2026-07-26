@@ -195,26 +195,27 @@ try {
   await page.waitForURL("**/app", { timeout: 30_000 });
   check("login via form → diarahkan ke /app", page.url().endsWith("/app"));
 
-  // Fase 17a — gelap-dulu. Konteks ui-sim TIDAK menyetel preferensi tema, jadi
-  // ini menguji perilaku bawaan: skrip anti-FOUC di index.html harus sudah
-  // memasang kelas `.dark` + color-scheme SEBELUM React jalan. Sekaligus
-  // memastikan latar benar-benar gelap (bukan hanya kelasnya terpasang).
-  // `data-theme-init` HANYA dipasang oleh public/theme-init.js. Tanpa penanda
-  // itu, asersi ini akan lolos secara hampa dari efek React yang berjalan
-  // belakangan — padahal justru anti-FOUC-nya yang sedang diuji.
+  // F20a — Fase 18a: arahnya DIBALIK dari gelap-dulu (17a) menjadi TERANG-dulu.
+  // Ceknya tidak dihapus, hanya diputar: yang diuji tetap hal yang sama, yaitu
+  // apakah skrip anti-FOUC memasang tema SEBELUM React jalan.
+  //
+  // Konteks ui-sim TIDAK menyetel preferensi tema, jadi ini menguji perilaku
+  // bawaan. `data-theme-init` HANYA dipasang oleh public/theme-init.js — tanpa
+  // penanda itu asersi ini akan lolos secara hampa dari efek React yang
+  // berjalan belakangan, padahal justru anti-FOUC-nya yang sedang diuji.
   const temaAwal = await page.evaluate(() => ({
     init: document.documentElement.dataset.themeInit ?? "",
     dark: document.documentElement.classList.contains("dark"),
     scheme: document.documentElement.style.colorScheme,
     bg: getComputedStyle(document.body).backgroundColor,
   }));
-  const rgbGelap = (s) => {
+  const rgbTerang = (s) => {
     const m = s.match(/\d+/g);
-    return m ? Number(m[0]) + Number(m[1]) + Number(m[2]) < 160 : false;
+    return m ? Number(m[0]) + Number(m[1]) + Number(m[2]) > 600 : false;
   };
   check(
-    "F20a anti-FOUC memasang tema gelap-dulu sebelum React (data-theme-init + latar gelap)",
-    temaAwal.init === "dark" && temaAwal.dark && temaAwal.scheme === "dark" && rgbGelap(temaAwal.bg),
+    "F20a anti-FOUC memasang tema terang-dulu sebelum React (data-theme-init + latar terang)",
+    temaAwal.init === "light" && !temaAwal.dark && temaAwal.scheme === "light" && rgbTerang(temaAwal.bg),
     `→ init=${temaAwal.init || "(tidak jalan)"} dark=${temaAwal.dark} scheme=${temaAwal.scheme} bg=${temaAwal.bg}`,
   );
   // Dashboard tenant BARU (Fase 10a): perusahaan pertama (Kopi Nusantara) belum
