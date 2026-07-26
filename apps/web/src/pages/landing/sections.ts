@@ -22,11 +22,14 @@ import type { Dual } from "../../i18n";
  * dwibahasa `{ id, en }` (Fase 14f); komponen memilih via `pick(x, lang)`.
  */
 
+// Angka "800+" dikoreksi pada Fase 18e — sudah lama tertinggal. Hitungan nyata
+// per hari ini: 861 smoke + 244 unit test + 229 cek simulasi UI = 1.334.
+// Dibulatkan ke bawah supaya klaimnya tetap benar meski suite bertambah/berkurang.
 export const TRUST_POINTS: { value: Dual; label: Dual }[] = [
-  { value: { id: "800+", en: "800+" }, label: { id: "uji otomatis menjaga tiap rilis", en: "automated tests guard every release" } },
-  { value: { id: "1 database / perusahaan", en: "1 database / company" }, label: { id: "data Anda benar-benar terisolasi", en: "your data is truly isolated" } },
-  { value: { id: "PPh 21 TER · Coretax", en: "PPh 21 TER · Coretax" }, label: { id: "standar pajak Indonesia 2026", en: "Indonesian tax standards 2026" } },
-  { value: { id: "PWA offline", en: "Offline PWA" }, label: { id: "tetap jalan saat internet putus", en: "keeps working when the internet drops" } },
+  { value: { id: "1.300+", en: "1,300+" }, label: { id: "uji otomatis dijalankan tiap kali kode berubah", en: "automated tests run on every code change" } },
+  { value: { id: "1 database / perusahaan", en: "1 database / company" }, label: { id: "data Anda tidak bercampur dengan siapa pun", en: "your data never mixes with anyone else's" } },
+  { value: { id: "PPh 21 TER · Coretax", en: "PPh 21 TER · Coretax" }, label: { id: "mengikuti aturan pajak Indonesia terbaru", en: "follows the latest Indonesian tax rules" } },
+  { value: { id: "Jalan tanpa internet", en: "Works offline" }, label: { id: "kasir tetap melayani saat koneksi putus", en: "the cashier keeps serving when the line drops" } },
 ];
 
 export type ShowcaseItem = {
