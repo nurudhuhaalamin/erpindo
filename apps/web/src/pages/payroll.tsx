@@ -23,6 +23,11 @@ import {
   Label,
   PageHeading,
   Select,
+  Table,
+  Td,
+  Th,
+  Thead,
+  Tr,
   Spinner,
   Tabs,
   useToast,
@@ -279,77 +284,75 @@ export function PayrollPage() {
                 description={u("descBelumAdaKaryawan")}
               />
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                      <th className="pb-2 pr-3 font-medium">{u("nama")}</th>
-                      <th className="pb-2 pr-3 font-medium">{u("jabatan")}</th>
-                      <th className="pb-2 pr-3 font-medium">{u("departemenAtasan")}</th>
-                      <th className="pb-2 pr-3 font-medium">PTKP</th>
-                      <th className="pb-2 pr-3 text-right font-medium">{u("gajiPokok")}</th>
-                      <th className="pb-2 pr-3 text-right font-medium">{u("tunjangan")}</th>
-                      <th className="pb-2 pr-3 text-right font-medium">{u("sisaCuti")}</th>
-                      <th className="pb-2 pr-3 font-medium">{u("status")}</th>
-                      <th className="pb-2 font-medium">1721-A1</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {employees.map((e) => (
-                      <tr
-                        key={e.id}
-                        className="border-b border-slate-100 last:border-0 dark:border-slate-800/60"
+              <Table>
+                <Thead>
+                  <tr>
+                    <Th>{u("nama")}</Th>
+                    <Th>{u("jabatan")}</Th>
+                    <Th>{u("departemenAtasan")}</Th>
+                    <Th>PTKP</Th>
+                    <Th numeric>{u("gajiPokok")}</Th>
+                    <Th numeric>{u("tunjangan")}</Th>
+                    <Th numeric>{u("sisaCuti")}</Th>
+                    <Th>{u("status")}</Th>
+                    <Th>1721-A1</Th>
+                  </tr>
+                </Thead>
+                <tbody>
+                  {employees.map((e) => (
+                    <Tr key={e.id}>
+                      <Td label={u("nama")}>{e.name}</Td>
+                      <Td label={u("jabatan")} className="text-slate-500 dark:text-slate-400">
+                        {e.position ?? "—"}
+                      </Td>
+                      <Td
+                        label={u("departemenAtasan")}
+                        className="text-slate-500 dark:text-slate-400"
                       >
-                        <td className="py-2 pr-3">{e.name}</td>
-                        <td className="py-2 pr-3 text-slate-500 dark:text-slate-400">
-                          {e.position ?? "—"}
-                        </td>
-                        <td className="py-2 pr-3 text-slate-500 dark:text-slate-400">
-                          {e.departmentName ?? "—"}
-                          {e.managerName ? (
-                            <span className="block text-xs">↳ {e.managerName}</span>
-                          ) : null}
-                        </td>
-                        <td className="py-2 pr-3">{e.ptkpStatus}</td>
-                        <td className="py-2 pr-3 text-right tabular-nums">
-                          {formatIDR(e.baseSalary)}
-                        </td>
-                        <td className="py-2 pr-3 text-right tabular-nums">
-                          {formatIDR(e.allowances)}
-                        </td>
-                        <td className="py-2 pr-3 text-right tabular-nums">
-                          {e.leaveBalance} {u("hariSatuan")}
-                        </td>
-                        <td className="py-2 pr-3">
-                          {e.isActive ? (
-                            <Badge tone="green">{u("aktifKecil")}</Badge>
-                          ) : (
-                            <Badge tone="neutral">{u("nonaktif")}</Badge>
-                          )}
-                          {isAdmin ? (
-                            <button
-                              onClick={() => toggleActive.mutate(e)}
-                              className="ml-2 text-xs text-brand-700 hover:underline dark:text-brand-400"
-                            >
-                              {e.isActive ? "nonaktifkan" : "aktifkan"}
-                            </button>
-                          ) : null}
-                        </td>
-                        <td className="py-2">
-                          <a
-                            href={`/cetak/1721a1?tenant=${tenant.tenantId}&employee=${e.id}&year=${new Date().getFullYear()}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs text-brand-700 hover:underline dark:text-brand-400"
+                        {e.departmentName ?? "—"}
+                        {e.managerName ? (
+                          <span className="block text-xs">↳ {e.managerName}</span>
+                        ) : null}
+                      </Td>
+                      <Td label="PTKP">{e.ptkpStatus}</Td>
+                      <Td numeric label={u("gajiPokok")}>
+                        {formatIDR(e.baseSalary)}
+                      </Td>
+                      <Td numeric label={u("tunjangan")}>
+                        {formatIDR(e.allowances)}
+                      </Td>
+                      <Td numeric label={u("sisaCuti")}>
+                        {e.leaveBalance} {u("hariSatuan")}
+                      </Td>
+                      <Td label={u("status")}>
+                        {e.isActive ? (
+                          <Badge tone="green">{u("aktifKecil")}</Badge>
+                        ) : (
+                          <Badge tone="neutral">{u("nonaktif")}</Badge>
+                        )}
+                        {isAdmin ? (
+                          <button
+                            onClick={() => toggleActive.mutate(e)}
+                            className="ml-2 text-xs text-brand-700 hover:underline dark:text-brand-400"
                           >
-                            {u("cetak")}
-                          </a>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                            {e.isActive ? "nonaktifkan" : "aktifkan"}
+                          </button>
+                        ) : null}
+                      </Td>
+                      <Td label="1721-A1">
+                        <a
+                          href={`/cetak/1721a1?tenant=${tenant.tenantId}&employee=${e.id}&year=${new Date().getFullYear()}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-brand-700 hover:underline dark:text-brand-400"
+                        >
+                          {u("cetak")}
+                        </a>
+                      </Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </Table>
             )}
           </CardBody>
         </Card>
@@ -779,49 +782,46 @@ function AdjustmentsCard({
         </div>
 
         {adjustments.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                  <th className="pb-2 pr-3 font-medium">{u("karyawan")}</th>
-                  <th className="pb-2 pr-3 font-medium">{u("komponen")}</th>
-                  <th className="pb-2 pr-3 text-right font-medium">{u("nominal")}</th>
-                  <th className="pb-2 font-medium">{u("status")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {adjustments.map((a) => (
-                  <tr
-                    key={a.id}
-                    className="border-b border-slate-100 last:border-0 dark:border-slate-800/60"
+          <Table>
+            <Thead>
+              <tr>
+                <Th>{u("karyawan")}</Th>
+                <Th>{u("komponen")}</Th>
+                <Th numeric>{u("nominal")}</Th>
+                <Th>{u("status")}</Th>
+              </tr>
+            </Thead>
+            <tbody>
+              {adjustments.map((a) => (
+                <Tr key={a.id}>
+                  <Td label={u("karyawan")}>{a.employeeName}</Td>
+                  <Td label={u("komponen")}>{a.name}</Td>
+                  <Td
+                    numeric
+                    label={u("nominal")}
+                    className={a.amount < 0 ? "text-red-600 dark:text-red-400" : ""}
                   >
-                    <td className="py-2 pr-3">{a.employeeName}</td>
-                    <td className="py-2 pr-3">{a.name}</td>
-                    <td
-                      className={`py-2 pr-3 text-right tabular-nums ${a.amount < 0 ? "text-red-600 dark:text-red-400" : ""}`}
-                    >
-                      {formatIDR(a.amount)}
-                    </td>
-                    <td className="py-2">
-                      {a.runId ? (
-                        <Badge tone="green">terpakai</Badge>
-                      ) : (
-                        <>
-                          <Badge tone="amber">menunggu run</Badge>
-                          <button
-                            onClick={() => remove.mutate(a.id)}
-                            className="ml-2 text-xs text-red-600 hover:underline dark:text-red-400"
-                          >
-                            hapus
-                          </button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    {formatIDR(a.amount)}
+                  </Td>
+                  <Td label={u("status")}>
+                    {a.runId ? (
+                      <Badge tone="green">terpakai</Badge>
+                    ) : (
+                      <>
+                        <Badge tone="amber">menunggu run</Badge>
+                        <button
+                          onClick={() => remove.mutate(a.id)}
+                          className="ml-2 text-xs text-red-600 hover:underline dark:text-red-400"
+                        >
+                          hapus
+                        </button>
+                      </>
+                    )}
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
         ) : (
           <p className="text-sm text-slate-400">{u("belumAdaKomponen")}</p>
         )}
@@ -980,52 +980,49 @@ function LoansCard({
         ) : loans.length === 0 ? (
           <p className="text-sm text-slate-400">{u("belumAdaKasbon")}</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                  <th className="pb-2 pr-3 font-medium">{u("karyawan")}</th>
-                  <th className="pb-2 pr-3 font-medium">{u("keterangan")}</th>
-                  <th className="pb-2 pr-3 text-right font-medium">{u("pokok")}</th>
-                  <th className="pb-2 pr-3 text-right font-medium">{u("cicilanBulan")}</th>
-                  <th className="pb-2 pr-3 text-right font-medium">{u("sisa")}</th>
-                  <th className="pb-2 font-medium">{u("status")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loans.map((l) => (
-                  <tr
-                    key={l.id}
-                    className="border-b border-slate-100 last:border-0 dark:border-slate-800/60"
-                  >
-                    <td className="py-2 pr-3">{l.employeeName}</td>
-                    <td className="py-2 pr-3">
-                      {l.name}
-                      {l.journalNo ? (
-                        <span className="ml-1 text-xs text-slate-400">
-                          · {u("jurnalKecil")} {l.journalNo}
-                        </span>
-                      ) : null}
-                    </td>
-                    <td className="py-2 pr-3 text-right tabular-nums">{formatIDR(l.principal)}</td>
-                    <td className="py-2 pr-3 text-right tabular-nums">
-                      {formatIDR(l.monthlyDeduction)}
-                    </td>
-                    <td className="py-2 pr-3 text-right font-medium tabular-nums">
-                      {formatIDR(l.balance)}
-                    </td>
-                    <td className="py-2">
-                      {l.status === "paid" ? (
-                        <Badge tone="green">lunas</Badge>
-                      ) : (
-                        <Badge tone="amber">berjalan</Badge>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <Thead>
+              <tr>
+                <Th>{u("karyawan")}</Th>
+                <Th>{u("keterangan")}</Th>
+                <Th numeric>{u("pokok")}</Th>
+                <Th numeric>{u("cicilanBulan")}</Th>
+                <Th numeric>{u("sisa")}</Th>
+                <Th>{u("status")}</Th>
+              </tr>
+            </Thead>
+            <tbody>
+              {loans.map((l) => (
+                <Tr key={l.id}>
+                  <Td label={u("karyawan")}>{l.employeeName}</Td>
+                  <Td label={u("keterangan")}>
+                    {l.name}
+                    {l.journalNo ? (
+                      <span className="ml-1 text-xs text-slate-400">
+                        · {u("jurnalKecil")} {l.journalNo}
+                      </span>
+                    ) : null}
+                  </Td>
+                  <Td numeric label={u("pokok")}>
+                    {formatIDR(l.principal)}
+                  </Td>
+                  <Td numeric label={u("cicilanBulan")}>
+                    {formatIDR(l.monthlyDeduction)}
+                  </Td>
+                  <Td numeric label={u("sisa")} className="font-medium">
+                    {formatIDR(l.balance)}
+                  </Td>
+                  <Td label={u("status")}>
+                    {l.status === "paid" ? (
+                      <Badge tone="green">lunas</Badge>
+                    ) : (
+                      <Badge tone="amber">berjalan</Badge>
+                    )}
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
         )}
       </CardBody>
     </Card>
@@ -1311,44 +1308,46 @@ function RunRow({
       />
 
       {open ? (
-        <div className="mt-3 overflow-x-auto rounded-lg bg-slate-50 p-3 dark:bg-slate-800/40">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                <th className="pb-1.5 pr-3 font-medium">{u("karyawan")}</th>
-                <th className="pb-1.5 pr-3 text-right font-medium">{u("bruto")}</th>
-                <th className="pb-1.5 pr-3 text-right font-medium">BPJS</th>
-                <th className="pb-1.5 pr-3 text-right font-medium">PPh 21 (TER)</th>
-                <th className="pb-1.5 pr-3 text-right font-medium">{u("netto")}</th>
-                <th className="pb-1.5 text-right font-medium">{u("slip")}</th>
+        <div className="mt-3 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/40">
+          <Table>
+            <Thead>
+              <tr>
+                <Th>{u("karyawan")}</Th>
+                <Th numeric>{u("bruto")}</Th>
+                <Th numeric>BPJS</Th>
+                <Th numeric>PPh 21 (TER)</Th>
+                <Th numeric>{u("netto")}</Th>
+                <Th numeric>{u("slip")}</Th>
               </tr>
-            </thead>
+            </Thead>
             <tbody>
               {run.payslips.map((p) => (
-                <tr
-                  key={p.id}
-                  className="border-b border-slate-100 last:border-0 dark:border-slate-800/60"
-                >
-                  <td className="py-1.5 pr-3">
+                <Tr key={p.id}>
+                  <Td label={u("karyawan")}>
                     {p.employeeName}
                     {p.position ? (
                       <span className="text-xs text-slate-400"> · {p.position}</span>
                     ) : null}
-                  </td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums">{formatIDR(p.gross)}</td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums">
+                  </Td>
+                  <Td numeric label={u("bruto")}>
+                    {formatIDR(p.gross)}
+                  </Td>
+                  <Td numeric label="BPJS">
                     {formatIDR(p.bpjsHealthEmployee + p.bpjsJhtEmployee + p.bpjsJpEmployee)}
-                  </td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums">
-                    {formatIDR(p.pph21)}{" "}
+                  </Td>
+                  {/* Bukan `numeric`: selain nominal, sel ini memuat keterangan
+                      kategori/tarif TER — memaksanya mono membuat keterangan itu
+                      ikut jadi mono dan sulit dibaca. */}
+                  <Td label="PPh 21 (TER)" className="text-right">
+                    <span className="num">{formatIDR(p.pph21)}</span>{" "}
                     <span className="text-xs text-slate-400">
                       ({p.terCategory}/{p.terRate}%)
                     </span>
-                  </td>
-                  <td className="py-1.5 pr-3 text-right font-medium tabular-nums">
+                  </Td>
+                  <Td numeric label={u("netto")} className="font-medium">
                     {formatIDR(p.net)}
-                  </td>
-                  <td className="py-1.5 text-right">
+                  </Td>
+                  <Td label={u("slip")} className="text-right">
                     <a
                       href={`/cetak/slip-gaji?tenant=${tenantId}&run=${run.id}&employee=${p.employeeId}`}
                       target="_blank"
@@ -1357,11 +1356,11 @@ function RunRow({
                     >
                       {u("cetak")}
                     </a>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
             </tbody>
-          </table>
+          </Table>
         </div>
       ) : null}
     </div>
