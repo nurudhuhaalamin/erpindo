@@ -495,26 +495,46 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
 // --- Dark mode ----------------------------------------------------------------------
 
+/**
+ * Tema gelap/terang.
+ *
+ * Fase 17a mengubah dua hal:
+ *  1. **Gelap-dulu** — tanpa preferensi tersimpan, aplikasi tampil gelap.
+ *     Nilai awal dibaca dari kelas `.dark` yang sudah dipasang skrip anti-FOUC
+ *     di `index.html`, jadi state React dan DOM tidak pernah berselisih saat
+ *     muat pertama.
+ *  2. **Tanpa efek samping saat render** — versi lama memanggil
+ *     `document.documentElement.classList.toggle(...)` langsung di badan hook.
+ *     Itu tidak aman untuk React 19 (render bisa diulang/dibuang), jadi
+ *     dipindah ke `useEffect`.
+ *
+ * Hook ini dipanggil di tiga tempat terpisah (shell aplikasi, landing,
+ * panduan) tanpa context bersama; sinkronisasinya lewat `localStorage` + kelas
+ * pada `documentElement`, dan efek di bawah menjaga keduanya tetap sejalan.
+ */
 export function useDarkMode() {
   const [dark, setDark] = useState(() => {
-    if (typeof window === "undefined") return false;
-    const stored = localStorage.getItem("erpindo-theme");
-    if (stored) return stored === "dark";
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+    if (typeof document === "undefined") return true;
+    return document.documentElement.classList.contains("dark");
   });
 
   const toggle = useCallback(() => {
     setDark((d) => {
       const next = !d;
-      localStorage.setItem("erpindo-theme", next ? "dark" : "light");
-      document.documentElement.classList.toggle("dark", next);
+      try {
+        localStorage.setItem("erpindo-theme", next ? "dark" : "light");
+      } catch {
+        /* mode privat / kuota penuh — tema tetap berlaku untuk sesi ini */
+      }
       return next;
     });
   }, []);
 
-  if (typeof document !== "undefined") {
+  useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
-  }
+    document.documentElement.style.colorScheme = dark ? "dark" : "light";
+  }, [dark]);
+
   return { dark, toggle };
 }
 

@@ -179,6 +179,29 @@ try {
   await page.click("button[type=submit]");
   await page.waitForURL("**/app", { timeout: 30_000 });
   check("login via form → diarahkan ke /app", page.url().endsWith("/app"));
+
+  // Fase 17a — gelap-dulu. Konteks ui-sim TIDAK menyetel preferensi tema, jadi
+  // ini menguji perilaku bawaan: skrip anti-FOUC di index.html harus sudah
+  // memasang kelas `.dark` + color-scheme SEBELUM React jalan. Sekaligus
+  // memastikan latar benar-benar gelap (bukan hanya kelasnya terpasang).
+  // `data-theme-init` HANYA dipasang oleh public/theme-init.js. Tanpa penanda
+  // itu, asersi ini akan lolos secara hampa dari efek React yang berjalan
+  // belakangan — padahal justru anti-FOUC-nya yang sedang diuji.
+  const temaAwal = await page.evaluate(() => ({
+    init: document.documentElement.dataset.themeInit ?? "",
+    dark: document.documentElement.classList.contains("dark"),
+    scheme: document.documentElement.style.colorScheme,
+    bg: getComputedStyle(document.body).backgroundColor,
+  }));
+  const rgbGelap = (s) => {
+    const m = s.match(/\d+/g);
+    return m ? Number(m[0]) + Number(m[1]) + Number(m[2]) < 160 : false;
+  };
+  check(
+    "F20a anti-FOUC memasang tema gelap-dulu sebelum React (data-theme-init + latar gelap)",
+    temaAwal.init === "dark" && temaAwal.dark && temaAwal.scheme === "dark" && rgbGelap(temaAwal.bg),
+    `→ init=${temaAwal.init || "(tidak jalan)"} dark=${temaAwal.dark} scheme=${temaAwal.scheme} bg=${temaAwal.bg}`,
+  );
   // Dashboard tenant BARU (Fase 10a): perusahaan pertama (Kopi Nusantara) belum
   // punya transaksi — kartu KPI harus menampilkan "Rp 0" nyata, bukan shimmer.
   await page.waitForTimeout(1200);
