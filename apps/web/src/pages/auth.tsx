@@ -70,9 +70,13 @@ function GoogleButton() {
 function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: ReactNode; children: ReactNode }) {
   return (
     <div className="flex min-h-full">
-      <aside className="relative hidden w-[42%] flex-col justify-between overflow-hidden border-r border-slate-800 bg-slate-950 p-8 text-slate-100 lg:flex">
+      {/* Fase 18g: panel kiri tidak lagi bidang pekat. Pada arah terang-lapang,
+          slab hitam di sebelah form putih terbaca seperti dua halaman berbeda
+          yang ditempel — dan chip putih di balik logo jadi menonjol lagi.
+          Diganti bidang bernuansa merek yang lembut. */}
+      <aside className="relative hidden w-[42%] flex-col justify-between overflow-hidden border-r border-slate-200 bg-brand-50 p-10 text-slate-900 lg:flex dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100">
         <div
-          className="pointer-events-none absolute inset-0 opacity-[0.07]"
+          className="pointer-events-none absolute inset-0 text-brand-600 opacity-[0.10] dark:text-slate-100 dark:opacity-[0.07]"
           style={{
             backgroundImage:
               "linear-gradient(to right, currentColor 1px, transparent 1px), linear-gradient(to bottom, currentColor 1px, transparent 1px)",
@@ -84,19 +88,19 @@ function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: R
           <BrandWordmark className="h-8" />
         </Link>
         <div className="relative">
-          <h2 className="max-w-md text-xl font-semibold leading-snug">
+          <h2 className="max-w-md text-2xl font-semibold leading-snug">
             Satu aplikasi untuk seluruh operasional UMKM Anda.
           </h2>
-          <ul className="mt-5 divide-y divide-white/10 border-y border-white/10">
+          <ul className="mt-6 divide-y divide-brand-200/70 border-y border-brand-200/70 dark:divide-white/10 dark:border-white/10">
             {AUTH_BENEFITS.map((b) => (
-              <li key={b} className="flex items-start gap-2 py-2.5 text-[13px] leading-relaxed text-slate-300">
-                <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-brand-400" aria-hidden />
+              <li key={b} className="flex items-start gap-2.5 py-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-brand-600 dark:text-brand-400" aria-hidden />
                 {b}
               </li>
             ))}
           </ul>
         </div>
-        <p className="relative font-mono text-[11px] text-slate-500">
+        <p className="relative text-xs text-slate-500 dark:text-slate-400">
           Gratis {TRIAL_DAYS} hari · tanpa kartu kredit · berhenti kapan saja
         </p>
       </aside>
@@ -105,11 +109,11 @@ function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: R
         <Link to="/" className="mb-5 lg:hidden">
           <BrandWordmark className="h-7" />
         </Link>
-        <Card className="w-full max-w-sm">
-          <CardBody className="py-5">
-            <h1 className="text-lg font-semibold">{title}</h1>
-            {subtitle ? <p className="mt-1 text-[13px] text-slate-500 dark:text-slate-400">{subtitle}</p> : null}
-            <div className="mt-4">{children}</div>
+        <Card className="w-full max-w-md">
+          <CardBody className="py-6">
+            <h1 className="text-xl font-semibold">{title}</h1>
+            {subtitle ? <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p> : null}
+            <div className="mt-5">{children}</div>
           </CardBody>
         </Card>
       </div>
