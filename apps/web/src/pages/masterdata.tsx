@@ -27,6 +27,11 @@ import {
   PageHeading,
   Select,
   Spinner,
+  Table,
+  Td,
+  Th,
+  Thead,
+  Tr,
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
@@ -42,8 +47,6 @@ const INDUSTRY_KEY: Record<IndustryKey, UiKey> = {
   grosir: "industriGrosir",
 };
 
-const th = "pb-2 pr-4 text-left font-medium text-slate-500 dark:text-slate-400";
-const td = "border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60";
 
 /**
  * Tombol impor CSV: pilih file → parse di browser → petakan kolom → kirim batch
@@ -683,55 +686,67 @@ export function ProductsPage() {
               description={q ? u("cobaKataKunciLain") : u("descBelumAdaProduk")}
             />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800">
-                    <th className={th}>SKU</th>
-                    <th className={th}>{u("nama")}</th>
-                    <th className={th}>{u("satuan")}</th>
-                    <th className={`${th} text-right`}>{u("hargaJual")}</th>
-                    <th className={`${th} text-right`}>{u("hargaBeli")}</th>
-                    <th className={`${th} hidden sm:table-cell`}>{u("barcodeLabel")}</th>
-                    <th className={th}>{u("label")}</th>
-                    {isAdmin ? <th className={th}></th> : null}
+            <div>
+              <Table>
+                <Thead>
+                  <tr>
+                    <Th>SKU</Th>
+                    <Th>{u("nama")}</Th>
+                    <Th>{u("satuan")}</Th>
+                    <Th numeric>{u("hargaJual")}</Th>
+                    <Th numeric>{u("hargaBeli")}</Th>
+                    <Th className="hidden sm:table-cell">{u("barcodeLabel")}</Th>
+                    <Th>{u("label")}</Th>
+                    {isAdmin ? <Th></Th> : null}
                   </tr>
-                </thead>
+                </Thead>
                 <tbody>
                   {((query.data?.items ?? []) as ProductRow[]).map((p) => (
-                    <tr key={p.id}>
-                      <td className={`${td} font-mono text-xs`}>{p.sku}</td>
-                      <td className={td}>
+                    <Tr key={p.id}>
+                      <Td label="SKU" className="font-mono text-xs">
+                        {p.sku}
+                      </Td>
+                      <Td label={u("nama")}>
                         {p.name}
                         {p.uom_secondary && p.uom_factor > 1 ? (
                           <span className="ml-1 text-xs text-slate-400">
                             · 1 {p.uom_secondary} = {p.uom_factor} {p.unit}
                           </span>
                         ) : null}
-                      </td>
-                      <td className={td}>{p.unit}</td>
-                      <td className={`${td} text-right tabular-nums`}>{formatIDR(p.sell_price)}</td>
-                      <td className={`${td} text-right tabular-nums`}>{formatIDR(p.buy_price)}</td>
-                      <td className={`${td} hidden font-mono text-xs sm:table-cell`}>
+                      </Td>
+                      <Td label={u("satuan")}>{p.unit}</Td>
+                      <Td numeric label={u("hargaJual")}>
+                        {formatIDR(p.sell_price)}
+                      </Td>
+                      <Td numeric label={u("hargaBeli")}>
+                        {formatIDR(p.buy_price)}
+                      </Td>
+                      {/* Barcode disembunyikan di layar sempit LEWAT `sm:`, jadi
+                          di mode kartu ia memang tidak ikut tampil — dan itu
+                          disengaja: kartu produk sudah panjang. */}
+                      <Td
+                        label={u("barcodeLabel")}
+                        className="hidden font-mono text-xs sm:table-cell"
+                      >
                         {p.barcode || "—"}
-                      </td>
-                      <td className={`${td} space-x-1`}>
+                      </Td>
+                      <Td label={u("label")} className="space-x-1">
                         {p.track_expiry ? <Badge tone="amber">FEFO</Badge> : null}
                         {p.track_serial ? <Badge tone="brand">{u("seri")}</Badge> : null}
                         {!p.track_expiry && !p.track_serial ? "—" : null}
-                      </td>
+                      </Td>
                       {isAdmin ? (
-                        <td className={`${td} text-right`}>
+                        <Td className="text-right">
                           <RowActions
                             onEdit={() => setEditing(p)}
                             onArchive={() => setToArchive(p)}
                           />
-                        </td>
+                        </Td>
                       ) : null}
-                    </tr>
+                    </Tr>
                   ))}
                 </tbody>
-              </table>
+              </Table>
               <LoadMore
                 shown={query.data?.items.length ?? 0}
                 total={query.data?.total ?? 0}
@@ -953,38 +968,38 @@ export function ContactsPage() {
               description={q ? u("cobaKataKunciLain") : u("descBelumAdaKontak")}
             />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800">
-                    <th className={th}>{u("nama")}</th>
-                    <th className={th}>{u("jenis")}</th>
-                    <th className={th}>{u("email")}</th>
-                    <th className={th}>{u("telepon")}</th>
-                    {isAdmin ? <th className={th}></th> : null}
+            <div>
+              <Table>
+                <Thead>
+                  <tr>
+                    <Th>{u("nama")}</Th>
+                    <Th>{u("jenis")}</Th>
+                    <Th>{u("email")}</Th>
+                    <Th>{u("telepon")}</Th>
+                    {isAdmin ? <Th></Th> : null}
                   </tr>
-                </thead>
+                </Thead>
                 <tbody>
                   {((query.data?.items ?? []) as ContactRow[]).map((k) => (
-                    <tr key={k.id}>
-                      <td className={td}>{k.name}</td>
-                      <td className={td}>
+                    <Tr key={k.id}>
+                      <Td label={u("nama")}>{k.name}</Td>
+                      <Td label={u("jenis")}>
                         <Badge>{u(CONTACT_TYPE_LABELS[k.type])}</Badge>
-                      </td>
-                      <td className={td}>{k.email ?? "—"}</td>
-                      <td className={td}>{k.phone ?? "—"}</td>
+                      </Td>
+                      <Td label={u("email")}>{k.email ?? "—"}</Td>
+                      <Td label={u("telepon")}>{k.phone ?? "—"}</Td>
                       {isAdmin ? (
-                        <td className={`${td} text-right`}>
+                        <Td className="text-right">
                           <RowActions
                             onEdit={() => setEditing(k)}
                             onArchive={() => setToArchive(k)}
                           />
-                        </td>
+                        </Td>
                       ) : null}
-                    </tr>
+                    </Tr>
                   ))}
                 </tbody>
-              </table>
+              </Table>
               <LoadMore
                 shown={query.data?.items.length ?? 0}
                 total={query.data?.total ?? 0}
@@ -1132,34 +1147,36 @@ export function WarehousesPage() {
               description={q ? u("cobaKataKunciLain") : u("descBelumAdaGudang")}
             />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800">
-                    <th className={th}>{u("kode")}</th>
-                    <th className={th}>{u("nama")}</th>
-                    <th className={th}>{u("alamat")}</th>
-                    {isAdmin ? <th className={th}></th> : null}
+            <div>
+              <Table>
+                <Thead>
+                  <tr>
+                    <Th>{u("kode")}</Th>
+                    <Th>{u("nama")}</Th>
+                    <Th>{u("alamat")}</Th>
+                    {isAdmin ? <Th></Th> : null}
                   </tr>
-                </thead>
+                </Thead>
                 <tbody>
                   {((query.data?.items ?? []) as WarehouseRow[]).map((w) => (
-                    <tr key={w.id}>
-                      <td className={`${td} font-mono text-xs`}>{w.code}</td>
-                      <td className={td}>{w.name}</td>
-                      <td className={td}>{w.address ?? "—"}</td>
+                    <Tr key={w.id}>
+                      <Td label={u("kode")} className="font-mono text-xs">
+                        {w.code}
+                      </Td>
+                      <Td label={u("nama")}>{w.name}</Td>
+                      <Td label={u("alamat")}>{w.address ?? "—"}</Td>
                       {isAdmin ? (
-                        <td className={`${td} text-right`}>
+                        <Td className="text-right">
                           <RowActions
                             onEdit={() => setEditing(w)}
                             onArchive={() => setToArchive(w)}
                           />
-                        </td>
+                        </Td>
                       ) : null}
-                    </tr>
+                    </Tr>
                   ))}
                 </tbody>
-              </table>
+              </Table>
               <LoadMore
                 shown={query.data?.items.length ?? 0}
                 total={query.data?.total ?? 0}
