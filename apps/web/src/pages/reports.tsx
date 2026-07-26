@@ -22,6 +22,11 @@ import {
   PageHeading,
   Select,
   Spinner,
+  Table,
+  Td,
+  Th,
+  Thead,
+  Tr,
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
@@ -74,25 +79,29 @@ function ReportSection({
       <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
         {title}
       </h3>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <tbody>
-            {lines.map((l) => (
-              <tr key={l.accountId}>
-                <td className="py-1 pr-4 font-mono text-xs">{l.code}</td>
-                <td className="py-1 pr-4">{l.name}</td>
-                <td className="py-1 text-right tabular-nums">{formatIDR(l.amount)}</td>
-              </tr>
-            ))}
-            <tr className="border-t border-slate-200 font-semibold dark:border-slate-800">
-              <td className="py-1.5 pr-4" colSpan={2}>
-                Total {title}
-              </td>
-              <td className="py-1.5 text-right tabular-nums">{formatIDR(total)}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <Table>
+        <tbody>
+          {lines.map((l) => (
+            <Tr key={l.accountId}>
+              <Td label="Kode" className="py-1 font-mono text-xs">
+                {l.code}
+              </Td>
+              <Td label="Akun" className="py-1">
+                {l.name}
+              </Td>
+              <Td numeric label="Jumlah" className="py-1">
+                {formatIDR(l.amount)}
+              </Td>
+            </Tr>
+          ))}
+          <Tr className="border-t border-slate-200 font-semibold dark:border-slate-800">
+            <Td colSpan={2}>Total {title}</Td>
+            <Td numeric label={`Total ${title}`}>
+              {formatIDR(total)}
+            </Td>
+          </Tr>
+        </tbody>
+      </Table>
     </div>
   );
 }
@@ -394,8 +403,6 @@ export function AgingPage() {
     queryFn: () => api.aging(tenant.tenantId, kind),
   });
 
-  const th = "pb-2 pr-4 text-left font-medium text-slate-500 dark:text-slate-400";
-  const td = "border-b border-slate-100 py-2.5 pr-4 dark:border-slate-800/60";
 
   return (
     <div className="space-y-6">
@@ -440,44 +447,40 @@ export function AgingPage() {
                 : u("tidakAdaHutangBelumLunas")}
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800">
-                    <th className={th}>{u("kontakKolom")}</th>
-                    {AGING_BUCKETS.map((b) => (
-                      <th key={b} className={`${th} text-right`}>
-                        {u(AGING_BUCKET_KEY[b]!)}
-                      </th>
-                    ))}
-                    <th className={`${th} text-right`}>{u("total")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {query.data!.rows.map((r) => (
-                    <tr key={r.contactId}>
-                      <td className={td}>{r.contactName}</td>
-                      {AGING_BUCKETS.map((b) => (
-                        <td key={b} className={`${td} text-right tabular-nums`}>
-                          {r.buckets[b] === 0 ? "—" : formatIDR(r.buckets[b])}
-                        </td>
-                      ))}
-                      <td className={`${td} text-right font-medium tabular-nums`}>
-                        {formatIDR(r.total)}
-                      </td>
-                    </tr>
+            <Table>
+              <Thead>
+                <tr>
+                  <Th>{u("kontakKolom")}</Th>
+                  {AGING_BUCKETS.map((b) => (
+                    <Th key={b} numeric>
+                      {u(AGING_BUCKET_KEY[b]!)}
+                    </Th>
                   ))}
-                  <tr className="font-semibold">
-                    <td className="py-2.5 pr-4" colSpan={AGING_BUCKETS.length + 1}>
-                      {u("totalKeseluruhan")}
-                    </td>
-                    <td className="py-2.5 text-right tabular-nums">
-                      {formatIDR(query.data!.grandTotal)}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                  <Th numeric>{u("total")}</Th>
+                </tr>
+              </Thead>
+              <tbody>
+                {query.data!.rows.map((r) => (
+                  <Tr key={r.contactId}>
+                    <Td label={u("kontakKolom")}>{r.contactName}</Td>
+                    {AGING_BUCKETS.map((b) => (
+                      <Td key={b} numeric label={u(AGING_BUCKET_KEY[b]!)}>
+                        {r.buckets[b] === 0 ? "—" : formatIDR(r.buckets[b])}
+                      </Td>
+                    ))}
+                    <Td numeric label={u("total")} className="font-medium">
+                      {formatIDR(r.total)}
+                    </Td>
+                  </Tr>
+                ))}
+                <Tr className="font-semibold">
+                  <Td colSpan={AGING_BUCKETS.length + 1}>{u("totalKeseluruhan")}</Td>
+                  <Td numeric label={u("totalKeseluruhan")}>
+                    {formatIDR(query.data!.grandTotal)}
+                  </Td>
+                </Tr>
+              </tbody>
+            </Table>
           )}
         </CardBody>
       </Card>
@@ -516,8 +519,6 @@ export function EfakturPage() {
     }
   }
 
-  const th = "pb-2 pr-4 text-left font-medium text-slate-500 dark:text-slate-400";
-  const td = "border-b border-slate-100 py-2 pr-4 dark:border-slate-800/60";
 
   return (
     <div className="space-y-6">
@@ -587,50 +588,56 @@ export function EfakturPage() {
           ) : (query.data?.rows.length ?? 0) === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">{u("tidakAdaFakturPpn")}</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800">
-                    <th className={th}>{u("nomor")}</th>
-                    <th className={th}>{u("tanggal")}</th>
-                    <th className={th}>NPWP</th>
-                    <th className={th}>{u("pembeli")}</th>
-                    <th className={`${th} text-right`}>DPP</th>
-                    <th className={`${th} text-right`}>PPN</th>
-                    <th className={`${th} text-right`}>{u("total")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {query.data!.rows.map((r) => (
-                    <tr key={r.invoiceNo}>
-                      <td className={`${td} font-mono text-xs`}>{r.invoiceNo}</td>
-                      <td className={`${td} tabular-nums`}>{formatDate(r.invoiceDate)}</td>
-                      <td className={`${td} font-mono text-xs`}>
-                        {r.buyerNpwp ?? "000000000000000"}
-                      </td>
-                      <td className={td}>{r.buyerName}</td>
-                      <td className={`${td} text-right tabular-nums`}>{formatIDR(r.dpp)}</td>
-                      <td className={`${td} text-right tabular-nums`}>{formatIDR(r.ppn)}</td>
-                      <td className={`${td} text-right tabular-nums`}>{formatIDR(r.total)}</td>
-                    </tr>
-                  ))}
-                  <tr className="font-semibold">
-                    <td className="py-2 pr-4" colSpan={4}>
-                      {u("total")} ({query.data!.rows.length} {u("faktur").toLowerCase()})
-                    </td>
-                    <td className="py-2 pr-4 text-right tabular-nums">
-                      {formatIDR(query.data!.totalDpp)}
-                    </td>
-                    <td className="py-2 pr-4 text-right tabular-nums">
-                      {formatIDR(query.data!.totalPpn)}
-                    </td>
-                    <td className="py-2 text-right tabular-nums">
-                      {formatIDR(query.data!.totalDpp + query.data!.totalPpn)}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <Thead>
+                <tr>
+                  <Th>{u("nomor")}</Th>
+                  <Th>{u("tanggal")}</Th>
+                  <Th>NPWP</Th>
+                  <Th>{u("pembeli")}</Th>
+                  <Th numeric>DPP</Th>
+                  <Th numeric>PPN</Th>
+                  <Th numeric>{u("total")}</Th>
+                </tr>
+              </Thead>
+              <tbody>
+                {query.data!.rows.map((r) => (
+                  <Tr key={r.invoiceNo}>
+                    <Td label={u("nomor")} className="font-mono text-xs">
+                      {r.invoiceNo}
+                    </Td>
+                    <Td label={u("tanggal")}>{formatDate(r.invoiceDate)}</Td>
+                    <Td label="NPWP" className="font-mono text-xs">
+                      {r.buyerNpwp ?? "000000000000000"}
+                    </Td>
+                    <Td label={u("pembeli")}>{r.buyerName}</Td>
+                    <Td numeric label="DPP">
+                      {formatIDR(r.dpp)}
+                    </Td>
+                    <Td numeric label="PPN">
+                      {formatIDR(r.ppn)}
+                    </Td>
+                    <Td numeric label={u("total")}>
+                      {formatIDR(r.total)}
+                    </Td>
+                  </Tr>
+                ))}
+                <Tr className="font-semibold">
+                  <Td colSpan={4}>
+                    {u("total")} ({query.data!.rows.length} {u("faktur").toLowerCase()})
+                  </Td>
+                  <Td numeric label="DPP">
+                    {formatIDR(query.data!.totalDpp)}
+                  </Td>
+                  <Td numeric label="PPN">
+                    {formatIDR(query.data!.totalPpn)}
+                  </Td>
+                  <Td numeric label={u("total")}>
+                    {formatIDR(query.data!.totalDpp + query.data!.totalPpn)}
+                  </Td>
+                </Tr>
+              </tbody>
+            </Table>
           )}
         </CardBody>
       </Card>
@@ -857,33 +864,32 @@ export function SalesReportPage() {
                   description={u("tidakAdaFakturRentang")}
                 />
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                        <th className="pb-2 pr-4 font-medium">SKU</th>
-                        <th className="pb-2 pr-4 font-medium">{u("produk")}</th>
-                        <th className="pb-2 pr-4 text-right font-medium">Qty</th>
-                        <th className="pb-2 text-right font-medium">{u("omzet")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.byProduct.map((r) => (
-                        <tr
-                          key={r.productId}
-                          className="border-b border-slate-100 last:border-0 dark:border-slate-800/60"
-                        >
-                          <td className="py-2 pr-4 font-mono text-xs">{r.sku}</td>
-                          <td className="py-2 pr-4">{r.name}</td>
-                          <td className="py-2 pr-4 text-right tabular-nums">
-                            {r.qty.toLocaleString("id-ID")}
-                          </td>
-                          <td className="py-2 text-right tabular-nums">{formatIDR(r.revenue)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <Table>
+                  <Thead>
+                    <tr>
+                      <Th>SKU</Th>
+                      <Th>{u("produk")}</Th>
+                      <Th numeric>Qty</Th>
+                      <Th numeric>{u("omzet")}</Th>
+                    </tr>
+                  </Thead>
+                  <tbody>
+                    {data.byProduct.map((r) => (
+                      <Tr key={r.productId}>
+                        <Td label="SKU" className="font-mono text-xs">
+                          {r.sku}
+                        </Td>
+                        <Td label={u("produk")}>{r.name}</Td>
+                        <Td numeric label="Qty">
+                          {r.qty.toLocaleString("id-ID")}
+                        </Td>
+                        <Td numeric label={u("omzet")}>
+                          {formatIDR(r.revenue)}
+                        </Td>
+                      </Tr>
+                    ))}
+                  </tbody>
+                </Table>
               )}
             </CardBody>
           </Card>
@@ -913,31 +919,28 @@ export function SalesReportPage() {
                   description={u("tidakAdaFakturRentang")}
                 />
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                        <th className="pb-2 pr-4 font-medium">{u("pelanggan")}</th>
-                        <th className="pb-2 pr-4 text-right font-medium">{u("faktur")}</th>
-                        <th className="pb-2 text-right font-medium">{u("omzet")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.byCustomer.map((r) => (
-                        <tr
-                          key={r.contactId}
-                          className="border-b border-slate-100 last:border-0 dark:border-slate-800/60"
-                        >
-                          <td className="py-2 pr-4">{r.name}</td>
-                          <td className="py-2 pr-4 text-right tabular-nums">
-                            {r.invoiceCount.toLocaleString("id-ID")}
-                          </td>
-                          <td className="py-2 text-right tabular-nums">{formatIDR(r.revenue)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <Table>
+                  <Thead>
+                    <tr>
+                      <Th>{u("pelanggan")}</Th>
+                      <Th numeric>{u("faktur")}</Th>
+                      <Th numeric>{u("omzet")}</Th>
+                    </tr>
+                  </Thead>
+                  <tbody>
+                    {data.byCustomer.map((r) => (
+                      <Tr key={r.contactId}>
+                        <Td label={u("pelanggan")}>{r.name}</Td>
+                        <Td numeric label={u("faktur")}>
+                          {r.invoiceCount.toLocaleString("id-ID")}
+                        </Td>
+                        <Td numeric label={u("omzet")}>
+                          {formatIDR(r.revenue)}
+                        </Td>
+                      </Tr>
+                    ))}
+                  </tbody>
+                </Table>
               )}
             </CardBody>
           </Card>
