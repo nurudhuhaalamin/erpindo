@@ -17,6 +17,11 @@ import {
   SearchSelect,
   Select,
   Spinner,
+  Table,
+  Td,
+  Th,
+  Thead,
+  Tr,
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
@@ -391,93 +396,90 @@ export function ManufacturingPage() {
               description="Perintah produksi akan muncul di sini."
             />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                    <th className="pb-2 pr-4 font-medium">No.</th>
-                    <th className="pb-2 pr-4 font-medium">Produk</th>
-                    <th className="pb-2 pr-4 text-right font-medium">Jumlah</th>
-                    <th className="pb-2 pr-4 text-right font-medium">Biaya total</th>
-                    <th className="pb-2 pr-4 font-medium">Status</th>
-                    <th className="pb-2 pr-4 font-medium">QC</th>
-                    {isAdmin ? <th className="pb-2 font-medium">Aksi</th> : null}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(ordersQuery.data?.orders ?? []).map((o: ApiProductionOrder) => (
-                    <tr
-                      key={o.id}
-                      className="border-b border-slate-100 last:border-0 dark:border-slate-800/60"
-                    >
-                      <td className="py-2.5 pr-4 font-mono text-xs">{o.orderNo}</td>
-                      <td className="py-2.5 pr-4">
-                        {o.productName}
-                        <span className="block text-xs text-slate-400">{o.warehouseName}</span>
-                      </td>
-                      <td className="py-2.5 pr-4 text-right tabular-nums">{o.qty}</td>
-                      <td className="py-2.5 pr-4 text-right tabular-nums">
-                        {o.status === "produced" ? formatIDR(o.totalCost) : "—"}
-                      </td>
-                      <td className="py-2.5 pr-4">
-                        <Badge tone={o.status === "produced" ? "green" : "neutral"}>
-                          {o.status === "produced" ? "selesai" : "draf"}
-                        </Badge>
-                      </td>
-                      <td className="py-2.5 pr-4">
-                        <Badge tone={QC_TONE[o.qcStatus]}>{QC_LABEL[o.qcStatus]}</Badge>
-                        {o.qcWarehouseName ? (
-                          <span className="block text-xs text-slate-400">
-                            → {o.qcWarehouseName}
-                          </span>
-                        ) : null}
-                      </td>
-                      {isAdmin ? (
-                        <td className="py-2.5">
-                          {o.status === "draft" ? (
+            <Table>
+              <Thead>
+                <tr>
+                  <Th>No.</Th>
+                  <Th>Produk</Th>
+                  <Th numeric>Jumlah</Th>
+                  <Th numeric>Biaya total</Th>
+                  <Th>Status</Th>
+                  <Th>QC</Th>
+                  {isAdmin ? <Th>Aksi</Th> : null}
+                </tr>
+              </Thead>
+              <tbody>
+                {(ordersQuery.data?.orders ?? []).map((o: ApiProductionOrder) => (
+                  <Tr key={o.id}>
+                    <Td label="No." className="font-mono text-xs">
+                      {o.orderNo}
+                    </Td>
+                    <Td label="Produk">
+                      {o.productName}
+                      <span className="block text-xs text-slate-400">{o.warehouseName}</span>
+                    </Td>
+                    <Td numeric label="Jumlah">
+                      {o.qty}
+                    </Td>
+                    <Td numeric label="Biaya total">
+                      {o.status === "produced" ? formatIDR(o.totalCost) : "—"}
+                    </Td>
+                    <Td label="Status">
+                      <Badge tone={o.status === "produced" ? "green" : "neutral"}>
+                        {o.status === "produced" ? "selesai" : "draf"}
+                      </Badge>
+                    </Td>
+                    <Td label="QC">
+                      <Badge tone={QC_TONE[o.qcStatus]}>{QC_LABEL[o.qcStatus]}</Badge>
+                      {o.qcWarehouseName ? (
+                        <span className="block text-xs text-slate-400">→ {o.qcWarehouseName}</span>
+                      ) : null}
+                    </Td>
+                    {isAdmin ? (
+                      <Td>
+                        {o.status === "draft" ? (
+                          <Button
+                            variant="secondary"
+                            size="xs"
+                            onClick={() => complete.mutate(o.id)}
+                            disabled={complete.isPending}
+                          >
+                            Produksi
+                          </Button>
+                        ) : o.qcStatus === "pending" ? (
+                          <div className="flex gap-2">
                             <Button
                               variant="secondary"
-                              className="h-8"
-                              onClick={() => complete.mutate(o.id)}
-                              disabled={complete.isPending}
+                              size="xs"
+                              onClick={() => qc.mutate({ id: o.id, result: "passed" })}
+                              disabled={qc.isPending}
                             >
-                              Produksi
+                              Luluskan
                             </Button>
-                          ) : o.qcStatus === "pending" ? (
-                            <div className="flex gap-2">
-                              <Button
-                                variant="secondary"
-                                className="h-8"
-                                onClick={() => qc.mutate({ id: o.id, result: "passed" })}
-                                disabled={qc.isPending}
-                              >
-                                Luluskan
-                              </Button>
-                              <Button
-                                variant="danger"
-                                className="h-8"
-                                onClick={() => {
-                                  if (!qcWarehouse) {
-                                    toast("error", "Pilih gudang karantina dulu.");
-                                    return;
-                                  }
-                                  qc.mutate({ id: o.id, result: "quarantined" });
-                                }}
-                                disabled={qc.isPending}
-                              >
-                                Karantina
-                              </Button>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-400">selesai</span>
-                          )}
-                        </td>
-                      ) : null}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                            <Button
+                              variant="danger"
+                              size="xs"
+                              onClick={() => {
+                                if (!qcWarehouse) {
+                                  toast("error", "Pilih gudang karantina dulu.");
+                                  return;
+                                }
+                                qc.mutate({ id: o.id, result: "quarantined" });
+                              }}
+                              disabled={qc.isPending}
+                            >
+                              Karantina
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">selesai</span>
+                        )}
+                      </Td>
+                    ) : null}
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
           )}
         </CardBody>
       </Card>
@@ -710,50 +712,47 @@ function RoutingCard({ orders, isAdmin }: { orders: ApiProductionOrder[]; isAdmi
                 Belum ada tahapan routing.
               </p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[640px] text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                      <th className="pb-2 pr-4 font-medium">#</th>
-                      <th className="pb-2 pr-4 font-medium">Tahap</th>
-                      <th className="pb-2 pr-4 font-medium">Work center</th>
-                      <th className="pb-2 pr-4 text-right font-medium">Standar</th>
-                      <th className="pb-2 pr-4 text-right font-medium">Aktual</th>
-                      <th className="pb-2 pr-4 font-medium">Status</th>
-                      {isAdmin ? <th className="pb-2 font-medium"></th> : null}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {steps.map((s) => (
-                      <RoutingRow
-                        key={s.id}
-                        step={s}
-                        isAdmin={isAdmin}
-                        onComplete={(actual) => complete.mutate({ stepId: s.id, actual })}
-                        busy={complete.isPending}
-                      />
-                    ))}
-                    <tr className="font-semibold">
-                      <td className="py-2 pr-4" colSpan={3}>
-                        Total (varian = aktual − standar)
-                      </td>
-                      <td className="py-2 pr-4 text-right tabular-nums">
-                        {formatIDR(routingQuery.data?.totalStandard ?? 0)}
-                      </td>
-                      <td className="py-2 pr-4 text-right tabular-nums">
-                        {formatIDR(routingQuery.data?.totalActual ?? 0)}
-                      </td>
-                      <td
-                        className={`py-2 pr-4 tabular-nums ${(routingQuery.data?.variance ?? 0) > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}
-                        colSpan={isAdmin ? 2 : 1}
-                      >
-                        {(routingQuery.data?.variance ?? 0) >= 0 ? "+" : ""}
-                        {formatIDR(routingQuery.data?.variance ?? 0)}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              <Table>
+                <Thead>
+                  <tr>
+                    <Th>#</Th>
+                    <Th>Tahap</Th>
+                    <Th>Work center</Th>
+                    <Th numeric>Standar</Th>
+                    <Th numeric>Aktual</Th>
+                    <Th>Status</Th>
+                    {isAdmin ? <Th /> : null}
+                  </tr>
+                </Thead>
+                <tbody>
+                  {steps.map((s) => (
+                    <RoutingRow
+                      key={s.id}
+                      step={s}
+                      isAdmin={isAdmin}
+                      onComplete={(actual) => complete.mutate({ stepId: s.id, actual })}
+                      busy={complete.isPending}
+                    />
+                  ))}
+                  <Tr className="font-semibold">
+                    <Td colSpan={3}>Total (varian = aktual − standar)</Td>
+                    <Td numeric label="Standar">
+                      {formatIDR(routingQuery.data?.totalStandard ?? 0)}
+                    </Td>
+                    <Td numeric label="Aktual">
+                      {formatIDR(routingQuery.data?.totalActual ?? 0)}
+                    </Td>
+                    <Td
+                      label="Varian"
+                      className={`num ${(routingQuery.data?.variance ?? 0) > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}
+                      colSpan={isAdmin ? 2 : 1}
+                    >
+                      {(routingQuery.data?.variance ?? 0) >= 0 ? "+" : ""}
+                      {formatIDR(routingQuery.data?.variance ?? 0)}
+                    </Td>
+                  </Tr>
+                </tbody>
+              </Table>
             )}
           </>
         ) : null}
@@ -775,23 +774,31 @@ function RoutingRow({
 }) {
   const [actual, setActual] = useState("");
   return (
-    <tr className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
-      <td className="py-2 pr-4 text-slate-400">{step.stepOrder}</td>
-      <td className="py-2 pr-4">{step.name}</td>
-      <td className="py-2 pr-4 text-slate-500">{step.workCenterName}</td>
-      <td className="py-2 pr-4 text-right tabular-nums">{formatIDR(step.standardCost)}</td>
-      <td className="py-2 pr-4 text-right tabular-nums">
+    // `align-top` supaya baris lain tidak ikut merenggang saat form penyelesaian
+    // (input + tombol) muncul di sel aksi — pola yang sama dengan work order 18o.
+    <Tr className="align-top">
+      <Td label="#" className="text-slate-400">
+        {step.stepOrder}
+      </Td>
+      <Td label="Tahap">{step.name}</Td>
+      <Td label="Work center" className="text-slate-500">
+        {step.workCenterName}
+      </Td>
+      <Td numeric label="Standar">
+        {formatIDR(step.standardCost)}
+      </Td>
+      <Td numeric label="Aktual">
         {step.actualCost !== null && step.actualCost !== undefined
           ? formatIDR(step.actualCost)
           : "—"}
-      </td>
-      <td className="py-2 pr-4">
+      </Td>
+      <Td label="Status">
         <Badge tone={step.status === "done" ? "green" : "amber"}>
           {step.status === "done" ? "selesai" : "WIP"}
         </Badge>
-      </td>
+      </Td>
       {isAdmin ? (
-        <td className="py-2">
+        <Td>
           {step.status === "pending" ? (
             <span className="flex items-center gap-1">
               <Input
@@ -800,10 +807,10 @@ function RoutingRow({
                 value={actual}
                 onChange={(e) => setActual(e.target.value)}
                 placeholder="aktual"
-                className="h-8 w-24"
+                className="w-24"
               />
               <Button
-                className="h-8"
+                size="xs"
                 onClick={() => onComplete(Number(actual) || 0)}
                 disabled={busy || !actual}
               >
@@ -811,8 +818,8 @@ function RoutingRow({
               </Button>
             </span>
           ) : null}
-        </td>
+        </Td>
       ) : null}
-    </tr>
+    </Tr>
   );
 }
