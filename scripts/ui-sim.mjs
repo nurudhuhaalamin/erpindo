@@ -1345,6 +1345,32 @@ try {
     `→ ${routingHp ? `kanan=${routingHp.kanan} layar=${routingHp.layar} tabelMeluber=${routingHp.tabelMeluber} blok=${routingHp.barisBlok} sel=${routingHp.selFleks}` : "tidak ada sel ber-colSpan"}`,
   );
 
+  // F33 — Fase 18q: kartu baris harus MEMENUHI LEBAR wadahnya.
+  //
+  // F28 memeriksa bentuk (kepala tersembunyi, sel jadi blok, ada label) tetapi
+  // tidak memeriksa LEBAR. Ternyata itu celah nyata: `<tbody>` yang masih
+  // `table-row-group` membungkus baris-blok dengan tabel anonim yang menciut ke
+  // lebar isinya, sehingga kartu berhenti di tengah kartu induknya. Cacatnya
+  // ada sejak 18d dan lolos seluruh asersi selama dua belas sub-fase, karena
+  // tabel-tabel yang dimigrasikan lebih dulu isinya kebetulan cukup lebar.
+  //
+  // Halaman Mata Uang dipakai justru karena tabelnya SEMPIT (3 kolom pendek) —
+  // di sinilah selisih lebar itu terlihat.
+  await gotoRoute("/app/keuangan/kurs", 900);
+  const lebarKartu = await page.evaluate(() => {
+    const baris = document.querySelector("table tbody tr");
+    if (!baris) return null;
+    const wadah = baris.closest("table").parentElement;
+    const b = baris.getBoundingClientRect();
+    const w = wadah.getBoundingClientRect();
+    return { baris: Math.round(b.width), wadah: Math.round(w.width) };
+  });
+  check(
+    "F33 layar 390px: kartu baris memenuhi lebar wadahnya (tbody ikut jadi blok)",
+    Boolean(lebarKartu && lebarKartu.baris >= lebarKartu.wadah - 2),
+    `→ ${lebarKartu ? `baris=${lebarKartu.baris} wadah=${lebarKartu.wadah}` : "tidak ada baris tabel"}`,
+  );
+
   // Drawer navigasi adalah SATU-SATUNYA jalan ke menu di layar kecil (sidebar
   // desktop `hidden md:flex`). Kalau ia rusak, aplikasi praktis tak bisa
   // dipakai di HP — dan tak satu pun cek lama akan menyadarinya.
