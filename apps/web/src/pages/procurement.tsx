@@ -23,7 +23,9 @@ import {
   Select,
   Spinner,
   useToast,
+  PageHeading,
 } from "../components/ui";
+import { useUi } from "../i18n/ui";
 import { useWorkspace } from "./app";
 
 type ProductRow = { id: string; name: string; buy_price: number };
@@ -78,10 +80,9 @@ export function ProcurementPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Pengadaan (Procurement)</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Alur pengadaan lengkap: permintaan barang → pesanan ke pemasok → penerimaan barang (otomatis jadi faktur pembelian & stok masuk).
-        </p>
+        {/* Fase 19f: judul + pengantar dipindah ke PAGE_HEADINGS, mengikuti
+            seluruh halaman modul lain (Fase 16a) alih-alih <h1> tulisan tangan. */}
+        <PageHeading k="pengadaan" />
       </div>
 
       <RequisitionCard tenantId={tenant.tenantId} products={products} requisitions={requisitions} isAdmin={isAdmin} loading={requisitionsQuery.isLoading} />
@@ -115,6 +116,7 @@ function RequisitionCard({
   isAdmin: boolean;
   loading: boolean;
 }) {
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [lines, setLines] = useState<{ productId: string; qty: string; note: string }[]>([{ productId: "", qty: "1", note: "" }]);
@@ -131,7 +133,7 @@ function RequisitionCard({
           .map((l) => ({ productId: l.productId, qty: Number(l.qty), ...(l.note.trim() ? { note: l.note.trim() } : {}) })),
       }),
     onSuccess: (res) => {
-      toast("success", `Permintaan ${res.reqNo} diajukan.`);
+      toast("success", `${u("toastPermintaanPrefix")} ${res.reqNo} ${u("toastDiajukan")}`);
       setLines([{ productId: "", qty: "1", note: "" }]);
       setNote("");
       invalidate();
@@ -141,7 +143,7 @@ function RequisitionCard({
   const decide = useMutation({
     mutationFn: (v: { id: string; status: "approved" | "rejected" }) => api.decideRequisition(tenantId, v.id, v.status),
     onSuccess: (_r, v) => {
-      toast("success", v.status === "approved" ? "Permintaan disetujui." : "Permintaan ditolak.");
+      toast("success", v.status === "approved" ? u("toastPermintaanDisetujui") : u("toastPermintaanDitolak"));
       invalidate();
     },
     onError: (err) => toast("error", (err as Error).message),
@@ -151,29 +153,29 @@ function RequisitionCard({
 
   return (
     <Card>
-      <CardHeader title="1. Permintaan pembelian (PR)" description="Ajukan daftar barang yang dibutuhkan — belum ada harga/pemasok. Perlu disetujui sebelum jadi pesanan." />
+      <CardHeader title={u("prJudul")} description={u("descPr")} />
       <CardBody className="space-y-4">
         {isAdmin ? (
           <div className="space-y-2 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
             {lines.map((line, i) => (
               <div key={i} className="flex flex-wrap items-center gap-2">
                 <Select
-                  aria-label="Produk"
+                  aria-label={u("produk")}
                   className="min-w-[10rem] flex-1"
                   value={line.productId}
                   onChange={(e) => setLines(lines.map((l, j) => (j === i ? { ...l, productId: e.target.value } : l)))}
                 >
-                  <option value="">— pilih produk —</option>
+                  <option value="">{u("pilihProdukOpsi")}</option>
                   {products.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
                     </option>
                   ))}
                 </Select>
-                <Input aria-label="Jumlah" type="number" min={1} className="w-20" value={line.qty} onChange={(e) => setLines(lines.map((l, j) => (j === i ? { ...l, qty: e.target.value } : l)))} />
-                <Input aria-label="Catatan baris" placeholder="Catatan (opsional)" className="min-w-[8rem] flex-1" value={line.note} onChange={(e) => setLines(lines.map((l, j) => (j === i ? { ...l, note: e.target.value } : l)))} />
+                <Input aria-label={u("qtyBarang")} type="number" min={1} className="w-20" value={line.qty} onChange={(e) => setLines(lines.map((l, j) => (j === i ? { ...l, qty: e.target.value } : l)))} />
+                <Input aria-label={u("catatanBaris")} placeholder={u("catatanOpsional")} className="min-w-[8rem] flex-1" value={line.note} onChange={(e) => setLines(lines.map((l, j) => (j === i ? { ...l, note: e.target.value } : l)))} />
                 {lines.length > 1 ? (
-                  <button type="button" aria-label="Hapus baris" className="inline-flex size-8 items-center justify-center rounded-lg text-slate-400 hover:text-red-600" onClick={() => setLines(lines.filter((_, j) => j !== i))}>
+                  <button type="button" aria-label={u("hapusBaris")} className="inline-flex size-8 items-center justify-center rounded-lg text-slate-400 hover:text-red-600" onClick={() => setLines(lines.filter((_, j) => j !== i))}>
                     <Trash2 className="size-4" aria-hidden />
                   </button>
                 ) : null}
@@ -181,11 +183,11 @@ function RequisitionCard({
             ))}
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="ghost" className="h-8" onClick={() => setLines([...lines, { productId: "", qty: "1", note: "" }])}>
-                <Plus className="size-4" aria-hidden /> Baris
+                <Plus className="size-4" aria-hidden /> {u("barisAksi")}
               </Button>
-              <Input aria-label="Catatan permintaan" placeholder="Catatan permintaan (opsional)" className="min-w-[10rem] flex-1" value={note} onChange={(e) => setNote(e.target.value)} />
+              <Input aria-label={u("catatanPermintaan")} placeholder={u("catatanPermintaanOpsional")} className="min-w-[10rem] flex-1" value={note} onChange={(e) => setNote(e.target.value)} />
               <Button onClick={() => create.mutate()} disabled={create.isPending || validLines.length === 0}>
-                {create.isPending ? <Spinner /> : <ClipboardList className="size-4" aria-hidden />} Ajukan
+                {create.isPending ? <Spinner /> : <ClipboardList className="size-4" aria-hidden />} {u("ajukan")}
               </Button>
             </div>
           </div>
@@ -194,7 +196,7 @@ function RequisitionCard({
         {loading ? (
           <Spinner />
         ) : requisitions.length === 0 ? (
-          <p className="text-sm text-slate-400">Belum ada permintaan pembelian.</p>
+          <p className="text-sm text-slate-400">{u("belumAdaPermintaan")}</p>
         ) : (
           <div className="space-y-2">
             {requisitions.map((r) => (
@@ -247,6 +249,7 @@ function PurchaseOrderCard({
   isAdmin: boolean;
   loading: boolean;
 }) {
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [head, setHead] = useState({ requisitionId: "", contactId: "", warehouseId: "", taxRate: "0", orderDate: today(), expectedDate: "" });
@@ -281,7 +284,7 @@ function PurchaseOrderCard({
         lines: lines.filter((l) => l.productId && Number(l.qty) > 0).map((l) => ({ productId: l.productId, qty: Number(l.qty), unitPrice: Number(l.unitPrice) || 0 })),
       }),
     onSuccess: (res) => {
-      toast("success", `Pesanan ${res.poNo} dibuat.`);
+      toast("success", `${u("toastPesananPrefix")} ${res.poNo} ${u("toastDibuat")}`);
       setHead({ requisitionId: "", contactId: "", warehouseId: "", taxRate: "0", orderDate: today(), expectedDate: "" });
       setLines([{ productId: "", qty: "1", unitPrice: "" }]);
       invalidate();
@@ -293,26 +296,26 @@ function PurchaseOrderCard({
 
   return (
     <Card>
-      <CardHeader title="2. Pesanan pembelian (PO)" description="Buat pesanan ke pemasok — pilih pemasok, gudang tujuan, harga per barang. Bisa menarik dari permintaan yang disetujui." />
+      <CardHeader title={u("poJudul")} description={u("descPo")} />
       <CardBody className="space-y-4">
         {isAdmin ? (
           <div className="space-y-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <div>
-                <Label htmlFor="po-req">Dari permintaan (opsional)</Label>
+                <Label htmlFor="po-req">{u("dariPermintaanOpsional")}</Label>
                 <Select id="po-req" value={head.requisitionId} onChange={(e) => pickRequisition(e.target.value)}>
                   <option value="">— tanpa permintaan —</option>
                   {approvedReqs.map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.reqNo} ({r.lines.length} barang)
+                      {r.reqNo} ({r.lines.length} {u("barangSuffix")}
                     </option>
                   ))}
                 </Select>
               </div>
               <div>
-                <Label htmlFor="po-supplier">Pemasok</Label>
+                <Label htmlFor="po-supplier">{u("pemasok")}</Label>
                 <Select id="po-supplier" value={head.contactId} onChange={(e) => setHead({ ...head, contactId: e.target.value })}>
-                  <option value="">— pilih pemasok —</option>
+                  <option value="">{u("pilihPemasokOpsi")}</option>
                   {suppliers.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name}
@@ -321,9 +324,9 @@ function PurchaseOrderCard({
                 </Select>
               </div>
               <div>
-                <Label htmlFor="po-wh">Gudang tujuan</Label>
+                <Label htmlFor="po-wh">{u("gudangTujuan")}</Label>
                 <Select id="po-wh" value={head.warehouseId} onChange={(e) => setHead({ ...head, warehouseId: e.target.value })}>
-                  <option value="">— pilih gudang —</option>
+                  <option value="">{u("pilihGudangOpsi")}</option>
                   {warehouses.map((w) => (
                     <option key={w.id} value={w.id}>
                       {w.name}
@@ -332,7 +335,7 @@ function PurchaseOrderCard({
                 </Select>
               </div>
               <div>
-                <Label htmlFor="po-date">Tanggal pesan</Label>
+                <Label htmlFor="po-date">{u("tanggalPesan")}</Label>
                 <Input id="po-date" type="date" value={head.orderDate} onChange={(e) => setHead({ ...head, orderDate: e.target.value })} />
               </div>
               <div>
@@ -354,18 +357,18 @@ function PurchaseOrderCard({
             <div className="space-y-2">
               {lines.map((line, i) => (
                 <div key={i} className="flex flex-wrap items-center gap-2">
-                  <Select aria-label="Produk" className="min-w-[10rem] flex-1" value={line.productId} onChange={(e) => setLines(lines.map((l, j) => (j === i ? { ...l, productId: e.target.value, unitPrice: l.unitPrice || String(products.find((p) => p.id === e.target.value)?.buy_price ?? 0) } : l)))}>
-                    <option value="">— pilih produk —</option>
+                  <Select aria-label={u("produk")} className="min-w-[10rem] flex-1" value={line.productId} onChange={(e) => setLines(lines.map((l, j) => (j === i ? { ...l, productId: e.target.value, unitPrice: l.unitPrice || String(products.find((p) => p.id === e.target.value)?.buy_price ?? 0) } : l)))}>
+                    <option value="">{u("pilihProdukOpsi")}</option>
                     {products.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name}
                       </option>
                     ))}
                   </Select>
-                  <Input aria-label="Jumlah" type="number" min={1} className="w-20" value={line.qty} onChange={(e) => setLines(lines.map((l, j) => (j === i ? { ...l, qty: e.target.value } : l)))} />
+                  <Input aria-label={u("qtyBarang")} type="number" min={1} className="w-20" value={line.qty} onChange={(e) => setLines(lines.map((l, j) => (j === i ? { ...l, qty: e.target.value } : l)))} />
                   <Input aria-label="Harga satuan" type="number" min={0} placeholder="Harga" className="w-32" value={line.unitPrice} onChange={(e) => setLines(lines.map((l, j) => (j === i ? { ...l, unitPrice: e.target.value } : l)))} />
                   {lines.length > 1 ? (
-                    <button type="button" aria-label="Hapus baris" className="inline-flex size-8 items-center justify-center rounded-lg text-slate-400 hover:text-red-600" onClick={() => setLines(lines.filter((_, j) => j !== i))}>
+                    <button type="button" aria-label={u("hapusBaris")} className="inline-flex size-8 items-center justify-center rounded-lg text-slate-400 hover:text-red-600" onClick={() => setLines(lines.filter((_, j) => j !== i))}>
                       <Trash2 className="size-4" aria-hidden />
                     </button>
                   ) : null}
@@ -376,7 +379,7 @@ function PurchaseOrderCard({
                   <Plus className="size-4" aria-hidden /> Baris
                 </Button>
                 <Button onClick={() => create.mutate()} disabled={create.isPending || !canSubmit}>
-                  {create.isPending ? <Spinner /> : <ShoppingBag className="size-4" aria-hidden />} Buat pesanan
+                  {create.isPending ? <Spinner /> : <ShoppingBag className="size-4" aria-hidden />} {u("buatPesanan")}
                 </Button>
               </div>
             </div>
@@ -386,7 +389,7 @@ function PurchaseOrderCard({
         {loading ? (
           <Spinner />
         ) : orders.length === 0 ? (
-          <EmptyState icon={<ShoppingBag className="size-6" aria-hidden />} title="Belum ada pesanan" description="Buat pesanan pembelian ke pemasok untuk mulai." />
+          <EmptyState icon={<ShoppingBag className="size-6" aria-hidden />} title={u("belumAdaPesanan")} description={u("descBelumAdaPesanan")} />
         ) : (
           <div className="space-y-2">
             {orders.map((o) => (
@@ -400,6 +403,7 @@ function PurchaseOrderCard({
 }
 
 function PurchaseOrderRow({ tenantId, order, isAdmin, onChange }: { tenantId: string; order: ApiPurchaseOrder; isAdmin: boolean; onChange: () => void }) {
+  const u = useUi();
   const toast = useToast();
   const [receiving, setReceiving] = useState(false);
   const [recv, setRecv] = useState<Record<string, string>>(() => Object.fromEntries(order.lines.map((l) => [l.id, String(l.qty)])));
@@ -408,7 +412,7 @@ function PurchaseOrderRow({ tenantId, order, isAdmin, onChange }: { tenantId: st
   const cancel = useMutation({
     mutationFn: () => api.cancelPurchaseOrder(tenantId, order.id),
     onSuccess: () => {
-      toast("success", "Pesanan dibatalkan.");
+      toast("success", u("toastPesananDibatalkan"));
       onChange();
     },
     onError: (err) => toast("error", (err as Error).message),
@@ -420,7 +424,7 @@ function PurchaseOrderRow({ tenantId, order, isAdmin, onChange }: { tenantId: st
         lines: order.lines.map((l) => ({ poLineId: l.id, qtyReceived: Number(recv[l.id]) || 0 })),
       }),
     onSuccess: (res) => {
-      toast("success", `Barang diterima — faktur ${res.purchaseNo} terbentuk (stok masuk).`);
+      toast("success", `${u("toastBarangDiterimaPrefix")} ${res.purchaseNo} ${u("toastTerbentukStokMasuk")}`);
       setReceiving(false);
       onChange();
     },
@@ -443,23 +447,23 @@ function PurchaseOrderRow({ tenantId, order, isAdmin, onChange }: { tenantId: st
         <div className="mt-2.5 border-t pt-2.5 dark:border-slate-700">
           {receiving ? (
             <div className="space-y-2">
-              <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Jumlah barang diterima:</div>
+              <div className="text-xs font-medium text-slate-500 dark:text-slate-400">{u("jumlahBarangDiterima")}</div>
               {order.lines.map((l) => (
                 <div key={l.id} className="flex items-center gap-2">
                   <span className="min-w-0 flex-1 truncate">{l.productName}</span>
-                  <span className="text-xs text-slate-400">dari {l.qty}</span>
-                  <Input aria-label={`Diterima ${l.productName}`} type="number" min={0} max={l.qty} className="w-24" value={recv[l.id] ?? ""} onChange={(e) => setRecv({ ...recv, [l.id]: e.target.value })} />
+                  <span className="text-xs text-slate-400">{u("pratinjauDari")} {l.qty}</span>
+                  <Input aria-label={`${u("barangDiterima")} ${l.productName}`} type="number" min={0} max={l.qty} className="w-24" value={recv[l.id] ?? ""} onChange={(e) => setRecv({ ...recv, [l.id]: e.target.value })} />
                 </div>
               ))}
               <div className="flex flex-wrap items-center gap-2">
-                <Label htmlFor={`rd-${order.id}`} className="text-xs">Tanggal terima</Label>
+                <Label htmlFor={`rd-${order.id}`} className="text-xs">{u("tanggalTerima")}</Label>
                 <Input id={`rd-${order.id}`} type="date" className="w-40" value={receiptDate} onChange={(e) => setReceiptDate(e.target.value)} />
                 <span className="ml-auto flex gap-2">
                   <Button variant="ghost" className="h-8" onClick={() => setReceiving(false)}>
-                    Batal
+                    {u("batal")}
                   </Button>
                   <Button className="h-8" onClick={() => receive.mutate()} disabled={receive.isPending}>
-                    {receive.isPending ? <Spinner /> : <PackageCheck className="size-4" aria-hidden />} Terima & buat faktur
+                    {receive.isPending ? <Spinner /> : <PackageCheck className="size-4" aria-hidden />} {u("terimaBuatFaktur")}
                   </Button>
                 </span>
               </div>
@@ -467,10 +471,10 @@ function PurchaseOrderRow({ tenantId, order, isAdmin, onChange }: { tenantId: st
           ) : (
             <div className="flex flex-wrap gap-2">
               <Button className="h-8" onClick={() => setReceiving(true)}>
-                <Truck className="size-4" aria-hidden /> Terima barang
+                <Truck className="size-4" aria-hidden /> {u("terimaBarang")}
               </Button>
               <Button variant="ghost" className="h-8" onClick={() => cancel.mutate()} disabled={cancel.isPending}>
-                Batalkan
+                {u("batalkanPesanan")}
               </Button>
             </div>
           )}
@@ -483,14 +487,15 @@ function PurchaseOrderRow({ tenantId, order, isAdmin, onChange }: { tenantId: st
 // --- Penerimaan barang (GRN) --------------------------------------------------
 
 function ReceiptsCard({ receipts, loading }: { receipts: { id: string; grnNo: string; poNo: string; receiptDate: string; purchaseNo: string | null; note: string | null }[]; loading: boolean }) {
+  const u = useUi();
   return (
     <Card>
-      <CardHeader title="3. Penerimaan barang (GRN)" description="Riwayat penerimaan — tiap penerimaan otomatis menjadi faktur pembelian & menambah stok." />
+      <CardHeader title={u("grnJudul")} description={u("descGrn")} />
       <CardBody>
         {loading ? (
           <Spinner />
         ) : receipts.length === 0 ? (
-          <p className="text-sm text-slate-400">Belum ada penerimaan barang.</p>
+          <p className="text-sm text-slate-400">{u("belumAdaPenerimaan")}</p>
         ) : (
           <div className="space-y-2">
             {receipts.map((r) => (

@@ -239,6 +239,13 @@ export const PAGE_HEADINGS = {
   umurHutang: {
     title: { id: "Umur Hutang", en: "Payables Aging" },
   },
+  pengadaan: {
+    title: { id: "Pengadaan (Procurement)", en: "Procurement" },
+    desc: {
+      id: "Alur pengadaan lengkap: permintaan barang → pesanan ke pemasok → penerimaan barang (otomatis jadi faktur pembelian & stok masuk).",
+      en: "The full procurement flow: purchase requisition → supplier order → goods receipt (which automatically becomes a purchase invoice and stock in).",
+    },
+  },
   helpdesk: {
     title: { id: "Helpdesk", en: "Helpdesk" },
     desc: {
