@@ -420,7 +420,7 @@ function Pph23Section({ isAdmin }: { isAdmin: boolean }) {
 
       <Card>
         <CardHeader
-          title="Bukti potong PPh 23"
+          title={u("pjBuktiPotongPph23")}
           action={
             records.length > 0 ? (
               <Button
@@ -488,7 +488,7 @@ function Pph23Section({ isAdmin }: { isAdmin: boolean }) {
                       {r.docNo}
                     </Td>
                     <Td label={u("tanggal")}>{formatDate(r.taxDate)}</Td>
-                    <Td label="Rekanan">{r.contactName}</Td>
+                    <Td label={u("pjRekanan")}>{r.contactName}</Td>
                     <Td label={u("objekPajak")}>
                       {PPH23_OBJECT_KEY[r.objectType as Pph23ObjectCode]
                         ? u(PPH23_OBJECT_KEY[r.objectType as Pph23ObjectCode])

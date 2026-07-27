@@ -2504,6 +2504,56 @@ export const UI = {
   pdTakDitemukan: { id: "Panduan tidak ditemukan.", en: "Guide not found." },
   pdKembaliKeDaftar: { id: "← Kembali ke daftar panduan", en: "← Back to the guide list" },
 
+  // — Manufaktur: teks tampilan yang duduk di atribut (Fase 19u) —
+  mfPerintahProduksi: { id: "Perintah produksi", en: "Production orders" },
+  mfRiwayatProduksi: { id: "Riwayat produksi", en: "Production history" },
+  mfWorkCenterJudul: { id: "Work center (pusat kerja)", en: "Work centers" },
+  mfStandar: { id: "Standar", en: "Standard" },
+  mfAktual: { id: "Aktual", en: "Actual" },
+  mfVarian: { id: "Varian", en: "Variance" },
+  // BUKAN `tahapBaru`/`tahapPenawaran` dsb — itu tahap pipeline CRM. Di sini
+  // "Tahap" berarti langkah routing produksi (pelajaran 16u sekali lagi).
+  mfTahap: { id: "Tahap", en: "Step" },
+  mfPhNamaWc: { id: "Pemotongan", en: "Cutting" },
+  mfPhTahap: { id: "Potong bahan", en: "Cut material" },
+
+  // — Dimensi & Pemeliharaan: teks tampilan di atribut (Fase 19u) —
+  dmCostCenter: { id: "Cost center / departemen", en: "Cost centres / departments" },
+  dmPhNamaDimensi: { id: "Cabang Bandung", en: "Bandung branch" },
+  dmDimensi: { id: "Dimensi", en: "Dimension" },
+  mtJadwalBerkala: { id: "Jadwal servis berkala", en: "Recurring service schedules" },
+  mtWorkOrderAdhoc: { id: "Work order ad-hoc", en: "Ad-hoc work orders" },
+  mtJadwalServis: { id: "Jadwal servis", en: "Service schedule" },
+  mtAksi: { id: "Aksi", en: "Action" },
+  mtRencana: { id: "Rencana", en: "Planned" },
+
+  // — Sisa teks tampilan di atribut (Fase 19u bagian 2) —
+  mlProfilPerusahaan: { id: "Profil perusahaan", en: "Company profile" },
+  mlPhAlamat: { id: "Jl. Merdeka No. 1, Jakarta", en: "1 Merdeka St, Jakarta" },
+  mlPhNamaProduk: { id: "Kopi Susu Gula Aren", en: "Palm Sugar Latte" },
+  mpImporPesanan: { id: "Impor pesanan", en: "Import orders" },
+  mpPesananTerimpor: { id: "Pesanan terimpor", en: "Imported orders" },
+  mpKanal: { id: "Kanal", en: "Channel" },
+  mpNoPesanan: { id: "No. Pesanan", en: "Order no." },
+  mpDiimpor: { id: "Diimpor", en: "Imported" },
+  mpDataCsv: { id: "Data CSV pesanan", en: "Order CSV data" },
+  adBagianAdmin: { id: "Bagian admin", en: "Admin sections" },
+  ktKontrakBaru: { id: "Kontrak baru", en: "New contract" },
+  hdTiketBaru: { id: "Tiket baru", en: "New ticket" },
+  hdPhBalasan: { id: "Tulis balasan…", en: "Write a reply…" },
+  dsKirimPengingatWa: { id: "Kirim pengingat via WhatsApp", en: "Send a reminder via WhatsApp" },
+  ftGantiTema: { id: "Ganti tema terang/gelap", en: "Switch between light and dark" },
+  pjBuktiPotongPph23: { id: "Bukti potong PPh 23", en: "PPh 23 withholding slips" },
+  pjRekanan: { id: "Rekanan", en: "Counterparty" },
+  cpTutupTur: { id: "Tutup tur", en: "Close the tour" },
+  cuPhNamaMataUang: { id: "Dolar Amerika", en: "US Dollar" },
+  fnPhNamaAkun: { id: "Piutang Karyawan", en: "Employee Receivables" },
+  mdPhNamaProduk: { id: "Kopi Arabika 1kg", en: "Arabica Coffee 1kg" },
+  apMenungguSaya: { id: "Menunggu persetujuan saya", en: "Awaiting my approval" },
+  apAjukan: { id: "Ajukan persetujuan", en: "Submit for approval" },
+  apRiwayat: { id: "Riwayat alur persetujuan", en: "Approval history" },
+  apAturan: { id: "Aturan persetujuan", en: "Approval rules" },
+
   // — Sisa pecahan toast yang luput karena dirakit di variabel, di LUAR
   //   panggilan toast() sehingga alat menggolongkannya LAYAR (Fase 19t). —
   cmRefundTunai: { id: ", refund tunai", en: ", cash refund" },

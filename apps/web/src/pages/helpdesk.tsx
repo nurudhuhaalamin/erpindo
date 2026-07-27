@@ -159,7 +159,7 @@ export function HelpdeskPage() {
 
       {isAdmin ? (
         <Card>
-          <CardHeader title="Tiket baru" />
+          <CardHeader title={u("hdTiketBaru")} />
           <CardBody className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-3">
               <div>
@@ -367,7 +367,7 @@ export function HelpdeskPage() {
                   <div className="space-y-2">
                     <textarea
                       rows={2}
-                      placeholder="Tulis balasan…"
+                      placeholder={u("hdPhBalasan")}
                       className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-900"
                       value={reply}
                       onChange={(e) => setReply(e.target.value)}

@@ -132,7 +132,7 @@ export function AccountsPage() {
               </div>
               <div className="flex-1">
                 <Label htmlFor="acc-name">{u("namaAkun")}</Label>
-                <Input id="acc-name" name="name" placeholder="Piutang Karyawan" required />
+                <Input id="acc-name" name="name" placeholder={u("fnPhNamaAkun")} required />
                 <FieldError messages={issues.name} />
               </div>
               <div className="sm:w-44">

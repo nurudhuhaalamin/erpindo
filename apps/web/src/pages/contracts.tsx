@@ -179,7 +179,7 @@ export function ContractsPage() {
       {isAdmin ? (
         <Card>
           <CardHeader
-            title="Kontrak baru"
+            title={u("ktKontrakBaru")}
             description={u("descKontrakBerulang")}
           />
           <CardBody className="space-y-4">
@@ -290,7 +290,7 @@ export function ContractsPage() {
                     aria-label={`Harga baris ${i + 1}`}
                     type="number"
                     min={0}
-                    placeholder="Harga satuan"
+                    placeholder={u("hargaSatuan")}
                     value={line.unitPrice}
                     onChange={(e) => setLine(i, { unitPrice: e.target.value })}
                   />

@@ -756,7 +756,7 @@ export function QuotationsPage() {
                     aria-label={`Harga baris ${i + 1}`}
                     type="number"
                     min={0}
-                    placeholder="Harga satuan"
+                    placeholder={u("hargaSatuan")}
                     value={line.unitPrice}
                     onChange={(e) => setLine(i, { unitPrice: e.target.value })}
                   />

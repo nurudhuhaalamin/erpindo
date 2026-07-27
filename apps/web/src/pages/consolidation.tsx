@@ -349,14 +349,14 @@ export function ConsolidationPage() {
           <Card>
             <CardBody className="space-y-6">
               <ConsolidatedTable
-                title="Pendapatan"
+                title={u("pendapatan")}
                 companies={incomeQuery.data.companies}
                 rows={incomeQuery.data.income}
                 perCompanyTotals={incomeQuery.data.totalIncomeByCompany}
                 totalLabel="Total Pendapatan"
               />
               <ConsolidatedTable
-                title="Beban"
+                title={u("beban")}
                 companies={incomeQuery.data.companies}
                 rows={incomeQuery.data.expense}
                 perCompanyTotals={incomeQuery.data.totalExpenseByCompany}
@@ -394,14 +394,14 @@ export function ConsolidationPage() {
               totalLabel={u("totalAset")}
             />
             <ConsolidatedTable
-              title="Kewajiban"
+              title={u("kewajiban")}
               companies={balanceQuery.data.companies}
               rows={balanceQuery.data.liabilities}
               perCompanyTotals={balanceQuery.data.totalLiabilitiesByCompany}
               totalLabel="Total Kewajiban"
             />
             <ConsolidatedTable
-              title="Ekuitas"
+              title={u("ekuitas")}
               companies={balanceQuery.data.companies}
               rows={balanceQuery.data.equity}
               perCompanyTotals={balanceQuery.data.totalEquityByCompany}

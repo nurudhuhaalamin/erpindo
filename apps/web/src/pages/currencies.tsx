@@ -84,7 +84,7 @@ export function CurrenciesPage() {
                 <Label htmlFor="cur-name">{u("nama")}</Label>
                 <Input
                   id="cur-name"
-                  placeholder="Dolar Amerika"
+                  placeholder={u("cuPhNamaMataUang")}
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />
