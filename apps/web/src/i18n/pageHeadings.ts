@@ -239,6 +239,13 @@ export const PAGE_HEADINGS = {
   umurHutang: {
     title: { id: "Umur Hutang", en: "Payables Aging" },
   },
+  pesananPenjualan: {
+    title: { id: "Pesanan Penjualan", en: "Sales Orders" },
+    desc: {
+      id: "Alur bertahap: pesanan (SO) → surat jalan (barang keluar) → faktur. Bisa terima uang muka sebelum faktur.",
+      en: "A staged flow: order (SO) → delivery note (goods out) → invoice. A down payment can be taken before invoicing.",
+    },
+  },
   pengadaan: {
     title: { id: "Pengadaan (Procurement)", en: "Procurement" },
     desc: {

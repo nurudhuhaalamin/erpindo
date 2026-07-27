@@ -722,6 +722,21 @@ try {
     `→ EN=${adaPgEn} tanpaID=${tanpaPgId}`,
   );
 
+  // F1g — Fase 19g: halaman Pesanan Penjualan. Rute: /app/pesanan-penjualan.
+  //
+  // Penandanya judul + pengantar halaman (kini dari PAGE_HEADINGS) dan judul
+  // kartu daftar — ketiganya dirender tanpa syarat data maupun peran.
+  await gotoRoute("/app/pesanan-penjualan", 900);
+  const soEn = await page.innerText("body");
+  const adaSoEn = soEn.includes("Sales Orders") && soEn.includes("Order list");
+  const tanpaSoId =
+    !soEn.includes("Alur bertahap: pesanan") && !soEn.includes("Daftar pesanan");
+  check(
+    "F1g isi halaman Pesanan Penjualan ikut EN: judul + daftar pesanan, tanpa teks Indonesia",
+    adaSoEn && tanpaSoId,
+    `→ EN=${adaSoEn} tanpaID=${tanpaSoId}`,
+  );
+
   // Fase 16n — pelunasan utang 16e. Rute diverifikasi ke main.tsx:
   // /app/keuangan/arus-kas dan /app/keuangan/neraca. Baris ringkasan arus kas
   // selalu tampil begitu data termuat (tak bergantung ada/tidaknya mutasi).
