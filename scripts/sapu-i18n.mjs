@@ -39,6 +39,20 @@ const KATA_ID = [
   "sini","beserta","status","pembayaran","pembayarannya","kata","kunci","lain","coba","anda",
 ];
 const RE_ID = new RegExp(`(^|[^a-z])(${KATA_ID.join("|")})([^a-z]|$)`, "i");
+/**
+ * Teks tampilan yang SAMA di kedua bahasa, jadi bukan utang meski berbentuk
+ * literal (Fase 19u). Daftar eksplisit, bukan tebakan pola: tiap butir sudah
+ * diputuskan satu per satu — istilah resmi Indonesia yang memang tidak
+ * diterjemahkan (aturan sejak Fase 16), singkatan lintas-bahasa, atau contoh
+ * kode. Menambah butir ke sini adalah keputusan sadar, dan itulah gunanya
+ * daftar: kalau suatu saat salah, kesalahannya terbaca di sini.
+ */
+const NETRAL = new Set([
+  "No.", "QC", "SKU", "DPP", "PPN", "PPh 21", "PPh 23", "PPh Final", "NPWP",
+  "TER", "PTKP", "HPP", "BEP", "BoM", "FEFO", "CRM", "POS", "e-Faktur",
+  "Work center", "WC-CUT", "CAB-BDG", "Email", "Password",
+]);
+
 const RE_TAILWIND = /(^|\s)(text|bg|border|flex|grid|gap|rounded|dark|hover|sm|md|lg|p[xytblr]?|m[xytblr]?|w|h)[-:]/;
 
 const isID = (s) => {
@@ -292,6 +306,7 @@ for (const file of process.argv.slice(2)) {
     // Buang yang jelas bukan kalimat tampilan: kode/slug (huruf kecil berstrip),
     // dan nilai satu kata berbahasa Inggris yang sama di kedua bahasa.
     if (/^[a-z0-9-]+$/.test(teks)) continue;
+    if (NETRAL.has(teks)) continue;
     if (jenisDari(m.index, m.index + m[0].length) !== "LAYAR") continue;
     add("ATRIBUT", `${m[1]}="${teks}"`, m.index);
   }

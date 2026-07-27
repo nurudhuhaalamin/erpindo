@@ -83,7 +83,7 @@ function CostCenterCard() {
   return (
     <Card>
       <CardHeader
-        title="Cost center / departemen"
+        title={u("dmCostCenter")}
         description={u("descCostCenter")}
       />
       <CardBody className="space-y-4">
@@ -109,7 +109,7 @@ function CostCenterCard() {
               id="cc-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Cabang Bandung"
+              placeholder={u("dmPhNamaDimensi")}
             />
           </div>
           <Button type="submit" disabled={create.isPending || !code.trim() || !name.trim()}>
@@ -132,7 +132,7 @@ function CostCenterCard() {
             <tbody>
               {items.map((cc) => (
                 <Tr key={cc.id}>
-                  <Td label="Kode" className="font-mono text-xs">
+                  <Td label={u("kode")} className="font-mono text-xs">
                     {cc.code}
                   </Td>
                   <Td label={u("nama")}>{cc.name}</Td>
@@ -157,7 +157,7 @@ function CostCenterCard() {
               ? `${toArchive.name} ${u("takLagiBisaDipilih")}`
               : undefined
           }
-          confirmLabel="Arsipkan"
+          confirmLabel={u("arsipkan")}
           danger
           busy={archive.isPending}
           onConfirm={() => toArchive && archive.mutate(toArchive.id)}
@@ -237,16 +237,16 @@ function DimensionReportCard() {
             <tbody>
               {rows.map((r) => (
                 <Tr key={r.costCenterId ?? "none"}>
-                  <Td label="Dimensi">
+                  <Td label={u("dmDimensi")}>
                     {r.costCenterId ? (
                       <span className="font-mono text-xs text-slate-400">{r.code}</span>
                     ) : null}{" "}
                     {r.name}
                   </Td>
-                  <Td numeric label="Pendapatan">
+                  <Td numeric label={u("pendapatan")}>
                     {formatIDR(r.income)}
                   </Td>
-                  <Td numeric label="Beban">
+                  <Td numeric label={u("beban")}>
                     {formatIDR(r.expense)}
                   </Td>
                   <Td

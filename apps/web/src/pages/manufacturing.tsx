@@ -274,7 +274,7 @@ export function ManufacturingPage() {
           {/* Perintah produksi */}
           <Card>
             <CardHeader
-              title="Perintah produksi"
+              title={u("mfPerintahProduksi")}
               description={u("descJalankanProduksi")}
             />
             <CardBody className="space-y-4">
@@ -373,7 +373,7 @@ export function ManufacturingPage() {
 
       {/* Daftar perintah produksi */}
       <Card>
-        <CardHeader title="Riwayat produksi" />
+        <CardHeader title={u("mfRiwayatProduksi")} />
         <CardBody className="space-y-4">
           {isAdmin ? (
             <div className="flex flex-wrap items-end gap-2">
@@ -534,7 +534,7 @@ function WorkCentersCard() {
   return (
     <Card>
       <CardHeader
-        title="Work center (pusat kerja)"
+        title={u("mfWorkCenterJudul")}
         description={u("descWorkCenter")}
       />
       <CardBody className="space-y-4">
@@ -560,7 +560,7 @@ function WorkCentersCard() {
               id="wc-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Pemotongan"
+              placeholder={u("mfPhNamaWc")}
             />
           </div>
           <div>
@@ -699,7 +699,7 @@ function RoutingCard({ orders, isAdmin }: { orders: ApiProductionOrder[]; isAdmi
                     id="rt-name"
                     value={stepName}
                     onChange={(e) => setStepName(e.target.value)}
-                    placeholder="Potong bahan"
+                    placeholder={u("mfPhTahap")}
                   />
                 </div>
                 <div>
@@ -747,14 +747,14 @@ function RoutingCard({ orders, isAdmin }: { orders: ApiProductionOrder[]; isAdmi
                   ))}
                   <Tr className="font-semibold">
                     <Td colSpan={3}>Total (varian = aktual − standar)</Td>
-                    <Td numeric label="Standar">
+                    <Td numeric label={u("mfStandar")}>
                       {formatIDR(routingQuery.data?.totalStandard ?? 0)}
                     </Td>
-                    <Td numeric label="Aktual">
+                    <Td numeric label={u("mfAktual")}>
                       {formatIDR(routingQuery.data?.totalActual ?? 0)}
                     </Td>
                     <Td
-                      label="Varian"
+                      label={u("mfVarian")}
                       className={`num ${(routingQuery.data?.variance ?? 0) > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}
                       colSpan={isAdmin ? 2 : 1}
                     >
@@ -792,14 +792,14 @@ function RoutingRow({
       <Td label="#" className="text-slate-400">
         {step.stepOrder}
       </Td>
-      <Td label="Tahap">{step.name}</Td>
+      <Td label={u("mfTahap")}>{step.name}</Td>
       <Td label="Work center" className="text-slate-500">
         {step.workCenterName}
       </Td>
-      <Td numeric label="Standar">
+      <Td numeric label={u("mfStandar")}>
         {formatIDR(step.standardCost)}
       </Td>
-      <Td numeric label="Aktual">
+      <Td numeric label={u("mfAktual")}>
         {step.actualCost !== null && step.actualCost !== undefined
           ? formatIDR(step.actualCost)
           : "—"}

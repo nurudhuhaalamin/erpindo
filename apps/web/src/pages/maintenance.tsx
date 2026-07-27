@@ -176,7 +176,7 @@ export function MaintenancePage() {
         <div className="grid gap-6 lg:grid-cols-2">
           <Card>
             <CardHeader
-              title="Jadwal servis berkala"
+              title={u("mtJadwalBerkala")}
               description={u("descJadwalServis")}
             />
             <CardBody className="space-y-4">
@@ -242,7 +242,7 @@ export function MaintenancePage() {
 
           <Card>
             <CardHeader
-              title="Work order ad-hoc"
+              title={u("mtWorkOrderAdhoc")}
               description={u("descWorkOrderLuarJadwal")}
             />
             <CardBody className="space-y-4">
@@ -289,7 +289,7 @@ export function MaintenancePage() {
       ) : null}
 
       <Card>
-        <CardHeader title="Jadwal servis" />
+        <CardHeader title={u("mtJadwalServis")} />
         <CardBody>
           {schedulesQuery.isLoading ? (
             <Spinner />
@@ -326,7 +326,7 @@ export function MaintenancePage() {
                       </Badge>
                     </Td>
                     {isAdmin ? (
-                      <Td label="Aksi">
+                      <Td label={u("mtAksi")}>
                         <Button
                           variant="secondary"
                           size="xs"
@@ -380,7 +380,7 @@ export function MaintenancePage() {
                       {w.title}
                       <span className="block text-xs text-slate-400">{w.assetName}</span>
                     </Td>
-                    <Td label="Rencana">{formatDate(w.scheduledDate)}</Td>
+                    <Td label={u("mtRencana")}>{formatDate(w.scheduledDate)}</Td>
                     <Td numeric label={u("biaya")}>
                       {w.status === "done" ? formatIDR(w.cost) : "—"}
                     </Td>
@@ -390,7 +390,7 @@ export function MaintenancePage() {
                       </Badge>
                     </Td>
                     {isAdmin ? (
-                      <Td label="Aksi">
+                      <Td label={u("mtAksi")}>
                           {w.status === "open" ? (
                             doneFor === w.id ? (
                               <div className="flex flex-col gap-2">

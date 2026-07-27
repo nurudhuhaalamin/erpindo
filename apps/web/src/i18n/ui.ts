@@ -2504,6 +2504,29 @@ export const UI = {
   pdTakDitemukan: { id: "Panduan tidak ditemukan.", en: "Guide not found." },
   pdKembaliKeDaftar: { id: "← Kembali ke daftar panduan", en: "← Back to the guide list" },
 
+  // — Manufaktur: teks tampilan yang duduk di atribut (Fase 19u) —
+  mfPerintahProduksi: { id: "Perintah produksi", en: "Production orders" },
+  mfRiwayatProduksi: { id: "Riwayat produksi", en: "Production history" },
+  mfWorkCenterJudul: { id: "Work center (pusat kerja)", en: "Work centers" },
+  mfStandar: { id: "Standar", en: "Standard" },
+  mfAktual: { id: "Aktual", en: "Actual" },
+  mfVarian: { id: "Varian", en: "Variance" },
+  // BUKAN `tahapBaru`/`tahapPenawaran` dsb — itu tahap pipeline CRM. Di sini
+  // "Tahap" berarti langkah routing produksi (pelajaran 16u sekali lagi).
+  mfTahap: { id: "Tahap", en: "Step" },
+  mfPhNamaWc: { id: "Pemotongan", en: "Cutting" },
+  mfPhTahap: { id: "Potong bahan", en: "Cut material" },
+
+  // — Dimensi & Pemeliharaan: teks tampilan di atribut (Fase 19u) —
+  dmCostCenter: { id: "Cost center / departemen", en: "Cost centres / departments" },
+  dmPhNamaDimensi: { id: "Cabang Bandung", en: "Bandung branch" },
+  dmDimensi: { id: "Dimensi", en: "Dimension" },
+  mtJadwalBerkala: { id: "Jadwal servis berkala", en: "Recurring service schedules" },
+  mtWorkOrderAdhoc: { id: "Work order ad-hoc", en: "Ad-hoc work orders" },
+  mtJadwalServis: { id: "Jadwal servis", en: "Service schedule" },
+  mtAksi: { id: "Aksi", en: "Action" },
+  mtRencana: { id: "Rencana", en: "Planned" },
+
   // — Sisa pecahan toast yang luput karena dirakit di variabel, di LUAR
   //   panggilan toast() sehingga alat menggolongkannya LAYAR (Fase 19t). —
   cmRefundTunai: { id: ", refund tunai", en: ", cash refund" },
