@@ -243,7 +243,27 @@ try {
   );
   // Dashboard tenant BARU (Fase 10a): perusahaan pertama (Kopi Nusantara) belum
   // punya transaksi — kartu KPI harus menampilkan "Rp 0" nyata, bukan shimmer.
-  await page.waitForTimeout(1200);
+  //
+  // Fase 19s: dulu `waitForTimeout(1200)` lalu langsung diasersi. Ambang itu
+  // cukup di mesin pengembang tetapi mulai merah di runner CI yang lebih
+  // lambat — dua cek ini gagal pada PR yang sama sekali tidak menyentuh
+  // dasbor. Sekarang KONDISINYA yang ditunggu, bukan waktunya. Kekuatan
+  // asersinya tidak berubah (tetap ≥3 "Rp 0" dan nol shimmer); yang hilang
+  // hanya ketergantungan pada kecepatan mesin. Bila memang macet, tunggu ini
+  // habis dan asersi di bawah tetap merah dengan diagnostik yang sama.
+  await page
+    .waitForFunction(
+      () => {
+        const t = document.body.innerText;
+        return (
+          t.includes("Kas & Bank") &&
+          (t.match(/Rp\s?0/g) ?? []).length >= 3 &&
+          document.querySelectorAll(".animate-pulse").length === 0
+        );
+      },
+      { timeout: 15_000 },
+    )
+    .catch(() => {});
   const freshBody = await page.innerText("body");
   check(
     "dashboard tenant baru menampilkan Rp 0 (bukan skeleton abu-abu)",
