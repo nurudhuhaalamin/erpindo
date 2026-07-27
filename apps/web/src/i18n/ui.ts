@@ -12,7 +12,21 @@ import { useLang, type Dual } from "./index";
  * PPh 21, BPJS) sengaja TIDAK diterjemahkan — sama seperti keputusan i18n
  * landing (Fase 14f) dan judul halaman (Fase 16a).
  */
-const UI: Record<string, Dual> = {
+/**
+ * Kamus istilah UI.
+ *
+ * Fase 19k: anotasi `Record<string, Dual>` DIHAPUS. Anotasi itu membuat
+ * `keyof typeof UI` melebar menjadi `string`, sehingga `UiKey` sama sekali
+ * tidak membatasi apa pun: `u("kunciYangTidakAda")` lolos kompilasi, dan
+ * seluruh penjaga `satisfies Record<…, UiKey>` yang ditambahkan sejak Fase 16u
+ * sebenarnya hampa. Akibatnya kunci yang salah tulis atau belum ditambahkan
+ * baru ketahuan saat dijalankan — `useUi` mengembalikan `String(key)`, jadi
+ * pemakai melihat nama kuncinya sendiri terpampang di layar.
+ *
+ * `satisfies Record<string, Dual>` memberi pemeriksaan bentuk yang sama tanpa
+ * melebarkan tipe kuncinya.
+ */
+const UI = {
   // Kolom & label umum
   nama: { id: "Nama", en: "Name" },
   kode: { id: "Kode", en: "Code" },
@@ -1682,7 +1696,50 @@ const UI: Record<string, Dual> = {
     id: "Catatan internal (tak terlihat pelanggan)",
     en: "Internal note (not visible to the customer)",
   },
-};
+  // Absensi (Fase 19k).
+  bulan: { id: "Bulan", en: "Month" },
+  catatKehadiran: { id: "Catat kehadiran", en: "Record attendance" },
+  descCatatKehadiran: {
+    id: "Satu catatan per karyawan per tanggal — mencatat ulang tanggal yang sama akan menimpa catatan sebelumnya.",
+    en: "One record per employee per date — re-recording the same date overwrites the previous entry.",
+  },
+  belumAdaKaryawanOpsi: { id: "— belum ada karyawan —", en: "— no employees yet —" },
+  jamMasuk: { id: "Jam masuk", en: "Clock in" },
+  jamKeluar: { id: "Jam keluar", en: "Clock out" },
+  rekapBulanan: { id: "Rekap bulanan", en: "Monthly recap" },
+  jumlahHariPerStatus: { id: "Jumlah hari per status untuk", en: "Days per status for" },
+  // `belumAdaKaryawan` sudah ada sejak Fase 16 — dipakai ulang.
+  descTambahKaryawanDulu: {
+    id: "Tambahkan karyawan di menu Penggajian terlebih dahulu.",
+    en: "Add employees under Payroll first.",
+  },
+  catatanKehadiran: { id: "Catatan kehadiran", en: "Attendance records" },
+  daftarCatatanPada: { id: "Daftar catatan pada", en: "Records for" },
+  terbaruDiAtas: { id: "(terbaru di atas).", en: "(newest first)." },
+  belumAdaCatatanBulanIni: {
+    id: "Belum ada catatan kehadiran pada bulan ini.",
+    en: "No attendance records this month.",
+  },
+  hapusKehadiran: { id: "Hapus kehadiran", en: "Delete attendance" },
+  konfirmHapusKehadiran: { id: "Hapus catatan kehadiran?", en: "Delete this attendance record?" },
+  catatanKata: { id: "Catatan", en: "Record" },
+  padaKata: { id: "pada", en: "on" },
+  akanDihapus: { id: "akan dihapus.", en: "will be deleted." },
+  sdKata: { id: "s.d.", en: "to" },
+  // Dua kunci di bawah TIDAK PERNAH ADA meski sudah dipakai — ketahuan hanya
+  // setelah `UiKey` diperbaiki di 19k. Sebelumnya `useUi` mengembalikan
+  // `String(key)`, jadi pemakai melihat tulisan "ppnLebihBayar" dan "laba"
+  // terpampang di layar.
+  ppnLebihBayar: { id: "PPN Lebih Bayar (kompensasi)", en: "VAT overpaid (carried forward)" },
+  laba: { id: "laba", en: "profit" },
+  // Status kehadiran — `sakit` & `izin` sudah ada sejak Fase 16.
+  hadirStatus: { id: "Hadir", en: "Present" },
+  alfaStatus: { id: "Alfa", en: "Absent" },
+  cutiStatus: { id: "Cuti", en: "Leave" },
+  toastKehadiranTercatat: { id: "Kehadiran tercatat.", en: "Attendance recorded." },
+  toastKehadiranDihapus: { id: "Catatan kehadiran dihapus.", en: "Attendance record deleted." },
+
+} satisfies Record<string, Dual>;
 
 export type UiKey = keyof typeof UI;
 

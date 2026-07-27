@@ -246,6 +246,13 @@ export const PAGE_HEADINGS = {
       en: "A staged flow: order (SO) → delivery note (goods out) → invoice. A down payment can be taken before invoicing.",
     },
   },
+  absensi: {
+    title: { id: "Absensi", en: "Attendance" },
+    desc: {
+      id: "Catat kehadiran harian karyawan dan lihat rekap bulanan per orang.",
+      en: "Record daily staff attendance and review the monthly recap per person.",
+    },
+  },
   persetujuan: {
     title: { id: "Persetujuan", en: "Approvals" },
     desc: {
