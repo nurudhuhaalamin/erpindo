@@ -669,6 +669,25 @@ try {
     `→ EN=${adaKbEn} tanpaID=${tanpaKbId}`,
   );
 
+  // F1d — Fase 19d: halaman Catat Transaksi. Rute diverifikasi ke main.tsx:
+  // /app/keuangan/catat.
+  //
+  // Penandanya dipilih dari yang dirender TANPA SYARAT: ketiga tombol mode dan
+  // judul kartu penjelasan selalu ada, tidak bergantung akun, kategori, atau
+  // peran. (Pelajaran F1c: penanda yang hanya muncul saat ada data akan merah
+  // walaupun terjemahannya benar.)
+  await gotoRoute("/app/keuangan/catat", 900);
+  const ctEn = await page.innerText("body");
+  const adaCtEn =
+    ctEn.includes("Money In") && ctEn.includes("Money Out") && ctEn.includes("How is this booked?");
+  const tanpaCtId =
+    !ctEn.includes("Uang Masuk") && !ctEn.includes("Bagaimana ini dibukukan?");
+  check(
+    "F1d isi halaman Catat Transaksi ikut EN: tombol mode + kartu penjelasan, tanpa teks Indonesia",
+    adaCtEn && tanpaCtId,
+    `→ EN=${adaCtEn} tanpaID=${tanpaCtId}`,
+  );
+
   // Fase 16n — pelunasan utang 16e. Rute diverifikasi ke main.tsx:
   // /app/keuangan/arus-kas dan /app/keuangan/neraca. Baris ringkasan arus kas
   // selalu tampil begitu data termuat (tak bergantung ada/tidaknya mutasi).

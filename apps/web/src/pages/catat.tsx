@@ -16,6 +16,7 @@ import {
   Spinner,
   useToast,
 } from "../components/ui";
+import { useUi, type UiKey } from "../i18n/ui";
 import { useWorkspace } from "./app";
 
 /**
@@ -27,28 +28,42 @@ import { useWorkspace } from "./app";
 
 type Mode = "masuk" | "keluar" | "pindah";
 
-/** Kategori awam → kode akun template COA. Kategori disembunyikan bila kode tak ada di COA tenant. */
-const CATEGORIES: Record<Exclude<Mode, "pindah">, { label: string; code: string }[]> = {
+/**
+ * Kategori awam → kode akun template COA. Kategori disembunyikan bila kode tak
+ * ada di COA tenant.
+ *
+ * Fase 19d: yang disimpan kini **kunci kamus**, bukan label berbahasa Indonesia.
+ * Sebelumnya labelnya merangkap dua peran — teks yang ditampilkan SEKALIGUS
+ * nilai `<option>` dan kunci pencarian (`categories.find(c => c.label ===
+ * category)`). Menerjemahkan labelnya begitu saja akan memutus pencarian itu
+ * setiap kali bahasa diganti: `category` masih menyimpan teks bahasa lama
+ * sementara daftarnya sudah berganti, sehingga kategori terpilih diam-diam
+ * hilang dan jurnalnya gagal terbentuk.
+ *
+ * `satisfies` dipakai supaya kunci yang salah tulis tertangkap saat kompilasi,
+ * bukan menjadi teks kosong saat dijalankan (pola Fase 16u).
+ */
+const CATEGORIES = {
   keluar: [
-    { label: "Bayar listrik, air & internet", code: "5-4000" },
-    { label: "Sewa tempat", code: "5-3000" },
-    { label: "Gaji karyawan", code: "5-2000" },
-    { label: "Perlengkapan & operasional", code: "5-4000" },
-    { label: "Bayar hutang usaha", code: "2-1000" },
-    { label: "Prive (ambil uang pribadi)", code: "3-1000" },
+    { key: "katListrikAir", code: "5-4000" },
+    { key: "katSewaTempat", code: "5-3000" },
+    { key: "katGajiKaryawan", code: "5-2000" },
+    { key: "katPerlengkapan", code: "5-4000" },
+    { key: "katBayarHutang", code: "2-1000" },
+    { key: "katPrive", code: "3-1000" },
   ],
   masuk: [
-    { label: "Setoran modal", code: "3-1000" },
-    { label: "Pendapatan di luar faktur", code: "4-2000" },
-    { label: "Terima pelunasan piutang (di luar faktur)", code: "1-1200" },
+    { key: "katSetoranModal", code: "3-1000" },
+    { key: "katPendapatanLain", code: "4-2000" },
+    { key: "katPelunasanPiutang", code: "1-1200" },
   ],
-};
+} satisfies Record<Exclude<Mode, "pindah">, { key: UiKey; code: string }[]>;
 
-const MODE_META: { key: Mode; label: string; icon: typeof ArrowDownToLine }[] = [
-  { key: "masuk", label: "Uang Masuk", icon: ArrowDownToLine },
-  { key: "keluar", label: "Uang Keluar", icon: ArrowUpFromLine },
-  { key: "pindah", label: "Pindah Dana", icon: ArrowRightLeft },
-];
+const MODE_META = [
+  { key: "masuk", labelKey: "uangMasuk", icon: ArrowDownToLine },
+  { key: "keluar", labelKey: "uangKeluar", icon: ArrowUpFromLine },
+  { key: "pindah", labelKey: "pindahDana", icon: ArrowRightLeft },
+] satisfies { key: Mode; labelKey: UiKey; icon: typeof ArrowDownToLine }[];
 
 const MANUAL = "__manual__";
 
@@ -60,6 +75,7 @@ function isWallet(a: ApiAccount): boolean {
 
 export function CatatPage() {
   const { tenant } = useWorkspace();
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const canWrite = tenant.role !== "viewer";
@@ -95,25 +111,31 @@ export function CatatPage() {
       ? walletTo
       : category === MANUAL
         ? byId.get(manualAccountId)
-        : byCode.get(categories.find((c) => c.label === category)?.code ?? "");
-  const categoryLabel = category === MANUAL ? (targetAccount?.name ?? "…") : category || "…";
+        : byCode.get(categories.find((c) => c.key === category)?.code ?? "");
+  // Label tampil diterjemahkan dari kuncinya; MANUAL memakai nama akun pilihan.
+  const categoryLabel =
+    category === MANUAL
+      ? (targetAccount?.name ?? "…")
+      : category
+        ? u(category as UiKey)
+        : "…";
   const amountInt = Math.round(Number(amount) || 0);
 
   const preview =
     amountInt > 0 && wallet && targetAccount
       ? mode === "masuk"
-        ? `${formatIDR(amountInt)} masuk ke ${wallet.name} dari "${categoryLabel}".`
+        ? `${formatIDR(amountInt)} ${u("pratinjauMasukKe")} ${wallet.name} ${u("pratinjauDari")} "${categoryLabel}".`
         : mode === "keluar"
-          ? `${formatIDR(amountInt)} keluar dari ${wallet.name} untuk "${categoryLabel}".`
-          : `${formatIDR(amountInt)} dipindahkan dari ${wallet.name} ke ${targetAccount.name}.`
+          ? `${formatIDR(amountInt)} ${u("pratinjauKeluarDari")} ${wallet.name} ${u("pratinjauUntuk")} "${categoryLabel}".`
+          : `${formatIDR(amountInt)} ${u("pratinjauDipindahDari")} ${wallet.name} ${u("pratinjauKe")} ${targetAccount.name}.`
       : null;
 
   const mutation = useMutation({
     mutationFn: () => {
-      if (!wallet || !targetAccount) throw new Error("Pilih dompet dan kategori dulu.");
+      if (!wallet || !targetAccount) throw new Error(u("pilihDompetKategoriDulu"));
       const memo =
         note.trim() ||
-        (mode === "pindah" ? `Pindah dana ${wallet.name} → ${targetAccount.name}` : categoryLabel);
+        (mode === "pindah" ? `${u("pindahDana")} ${wallet.name} → ${targetAccount.name}` : categoryLabel);
       const debitFirst = mode !== "keluar"; // masuk & pindah: dana bertambah di tujuan (debit)
       const lines =
         mode === "keluar"
@@ -137,7 +159,7 @@ export function CatatPage() {
       return api.createJournalEntry(tenant.tenantId, { entryDate, memo, lines });
     },
     onSuccess: () => {
-      toast("success", `Tercatat: ${preview ?? "transaksi tersimpan."}`);
+      toast("success", `${u("tercatatPrefix")} ${preview ?? u("transaksiTersimpan")}`);
       setAmount("");
       setNote("");
       queryClient.invalidateQueries({ queryKey: ["journal", tenant.tenantId] });
@@ -148,7 +170,7 @@ export function CatatPage() {
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (amountInt <= 0) {
-      toast("error", "Isi jumlah uangnya dulu.");
+      toast("error", u("isiJumlahDulu"));
       return;
     }
     mutation.mutate();
@@ -162,13 +184,13 @@ export function CatatPage() {
 
       {!canWrite ? (
         <Alert tone="info">
-          Peran Anda hanya bisa melihat — minta Owner/Admin untuk mencatat transaksi.
+          {u("hanyaLihatCatat")}
         </Alert>
       ) : null}
 
       <Card>
         <CardBody className="space-y-5">
-          <div className="grid grid-cols-3 gap-2" role="tablist" aria-label="Jenis transaksi">
+          <div className="grid grid-cols-3 gap-2" role="tablist" aria-label={u("jenisTransaksi")}>
             {MODE_META.map((m) => (
               <button
                 key={m.key}
@@ -186,7 +208,7 @@ export function CatatPage() {
                 }`}
               >
                 <m.icon className="size-4 shrink-0" aria-hidden />
-                {m.label}
+                {u(m.labelKey)}
               </button>
             ))}
           </div>
@@ -197,7 +219,7 @@ export function CatatPage() {
             <form onSubmit={onSubmit} className="space-y-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <Label htmlFor="catat-tanggal">Tanggal</Label>
+                  <Label htmlFor="catat-tanggal">{u("tanggal")}</Label>
                   <Input
                     id="catat-tanggal"
                     type="date"
@@ -207,13 +229,13 @@ export function CatatPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="catat-jumlah">Jumlah (Rp)</Label>
+                  <Label htmlFor="catat-jumlah">{u("jumlahRupiah")}</Label>
                   <Input
                     id="catat-jumlah"
                     type="number"
                     min="1"
                     step="1"
-                    placeholder="mis. 500000"
+                    placeholder={u("contohNominal")}
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     required
@@ -224,7 +246,7 @@ export function CatatPage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="catat-dompet">
-                    {mode === "pindah" ? "Dari dompet" : "Dompet (kas/bank)"}
+                    {mode === "pindah" ? u("dariDompet") : u("dompetKasBank")}
                   </Label>
                   <Select
                     id="catat-dompet"
@@ -240,7 +262,7 @@ export function CatatPage() {
                 </div>
                 {mode === "pindah" ? (
                   <div>
-                    <Label htmlFor="catat-dompet-tujuan">Ke dompet</Label>
+                    <Label htmlFor="catat-dompet-tujuan">{u("keDompet")}</Label>
                     <Select
                       id="catat-dompet-tujuan"
                       value={walletTo?.id ?? ""}
@@ -258,7 +280,7 @@ export function CatatPage() {
                 ) : (
                   <div>
                     <Label htmlFor="catat-kategori">
-                      {mode === "masuk" ? "Uangnya dari mana?" : "Untuk apa?"}
+                      {mode === "masuk" ? u("uangnyaDariMana") : u("untukApa")}
                     </Label>
                     <Select
                       id="catat-kategori"
@@ -266,13 +288,13 @@ export function CatatPage() {
                       onChange={(e) => setCategory(e.target.value)}
                       required
                     >
-                      <option value="">— pilih kategori —</option>
+                      <option value="">{u("pilihKategoriOpsi")}</option>
                       {categories.map((c) => (
-                        <option key={c.label} value={c.label}>
-                          {c.label}
+                        <option key={c.key} value={c.key}>
+                          {u(c.key)}
                         </option>
                       ))}
-                      <option value={MANUAL}>Lainnya — pilih akun sendiri…</option>
+                      <option value={MANUAL}>{u("kategoriLainnya")}</option>
                     </Select>
                   </div>
                 )}
@@ -280,14 +302,14 @@ export function CatatPage() {
 
               {category === MANUAL && mode !== "pindah" ? (
                 <div>
-                  <Label htmlFor="catat-akun-manual">Akun tujuan</Label>
+                  <Label htmlFor="catat-akun-manual">{u("akunTujuan")}</Label>
                   <Select
                     id="catat-akun-manual"
                     value={manualAccountId}
                     onChange={(e) => setManualAccountId(e.target.value)}
                     required
                   >
-                    <option value="">— pilih akun —</option>
+                    <option value="">{u("pilihAkunOpsi")}</option>
                     {accounts
                       .filter((a) => !isWallet(a))
                       .map((a) => (
@@ -300,10 +322,10 @@ export function CatatPage() {
               ) : null}
 
               <div>
-                <Label htmlFor="catat-catatan">Catatan (opsional)</Label>
+                <Label htmlFor="catat-catatan">{u("catatanOpsional")}</Label>
                 <Input
                   id="catat-catatan"
-                  placeholder="mis. token listrik bulan Juli"
+                  placeholder={u("contohCatatanListrik")}
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                 />
@@ -311,12 +333,12 @@ export function CatatPage() {
 
               {preview ? (
                 <div className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-800 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-200">
-                  Yang akan dicatat: <span className="font-medium">{preview}</span>
+                  {u("yangAkanDicatat")} <span className="font-medium">{preview}</span>
                 </div>
               ) : null}
 
               <Button type="submit" disabled={!canWrite || mutation.isPending || !preview}>
-                {mutation.isPending ? "Menyimpan…" : "Catat"}
+                {mutation.isPending ? u("menyimpanEllipsis") : u("catatAksi")}
               </Button>
             </form>
           )}
@@ -325,8 +347,8 @@ export function CatatPage() {
 
       <Card>
         <CardHeader
-          title="Bagaimana ini dibukukan?"
-          description="Setiap catatan menjadi jurnal 2 baris yang seimbang — sama seperti dicatat akuntan. Rinciannya bisa dilihat di Jurnal Umum (menu bisa disembunyikan lewat Mode Sederhana di Pengaturan)."
+          title={u("bagaimanaDibukukan")}
+          description={u("descBagaimanaDibukukan")}
         />
       </Card>
     </div>

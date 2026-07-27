@@ -1157,6 +1157,68 @@ const UI: Record<string, Dual> = {
     id: "langsung cocok otomatis.",
     en: "matched automatically straight away.",
   },
+
+  // Catat Transaksi (Fase 19d) — wizard berbahasa sehari-hari, jadi
+  // terjemahannya sengaja memakai kata awam, bukan istilah akuntansi.
+  // "Prive" dipertahankan apa adanya: itu istilah pembukuan baku Indonesia,
+  // dan padanan Inggrisnya ("owner's drawings") justru lebih teknis.
+  uangMasuk: { id: "Uang Masuk", en: "Money In" },
+  uangKeluar: { id: "Uang Keluar", en: "Money Out" },
+  pindahDana: { id: "Pindah Dana", en: "Move Funds" },
+  jenisTransaksi: { id: "Jenis transaksi", en: "Transaction type" },
+  katListrikAir: { id: "Bayar listrik, air & internet", en: "Electricity, water & internet" },
+  katSewaTempat: { id: "Sewa tempat", en: "Rent" },
+  katGajiKaryawan: { id: "Gaji karyawan", en: "Staff salaries" },
+  katPerlengkapan: { id: "Perlengkapan & operasional", en: "Supplies & operations" },
+  katBayarHutang: { id: "Bayar hutang usaha", en: "Pay trade payables" },
+  katPrive: { id: "Prive (ambil uang pribadi)", en: "Prive (owner withdrawal)" },
+  katSetoranModal: { id: "Setoran modal", en: "Capital injection" },
+  katPendapatanLain: { id: "Pendapatan di luar faktur", en: "Income outside invoices" },
+  katPelunasanPiutang: {
+    id: "Terima pelunasan piutang (di luar faktur)",
+    en: "Receivable settlement (outside invoices)",
+  },
+  jumlahRupiah: { id: "Jumlah (Rp)", en: "Amount (Rp)" },
+  contohNominal: { id: "mis. 500000", en: "e.g. 500000" },
+  dariDompet: { id: "Dari dompet", en: "From wallet" },
+  dompetKasBank: { id: "Dompet (kas/bank)", en: "Wallet (cash/bank)" },
+  keDompet: { id: "Ke dompet", en: "To wallet" },
+  uangnyaDariMana: { id: "Uangnya dari mana?", en: "Where did the money come from?" },
+  untukApa: { id: "Untuk apa?", en: "What is it for?" },
+  pilihKategoriOpsi: { id: "— pilih kategori —", en: "— pick a category —" },
+  kategoriLainnya: { id: "Lainnya — pilih akun sendiri…", en: "Other — pick an account…" },
+  akunTujuan: { id: "Akun tujuan", en: "Target account" },
+  contohCatatanListrik: {
+    id: "mis. token listrik bulan Juli",
+    en: "e.g. July electricity token",
+  },
+  yangAkanDicatat: { id: "Yang akan dicatat:", en: "What will be recorded:" },
+  menyimpanEllipsis: { id: "Menyimpan…", en: "Saving…" },
+  catatAksi: { id: "Catat", en: "Record" },
+  hanyaLihatCatat: {
+    id: "Peran Anda hanya bisa melihat — minta Owner/Admin untuk mencatat transaksi.",
+    en: "Your role is view-only — ask an Owner/Admin to record transactions.",
+  },
+  isiJumlahDulu: { id: "Isi jumlah uangnya dulu.", en: "Enter the amount first." },
+  pilihDompetKategoriDulu: {
+    id: "Pilih dompet dan kategori dulu.",
+    en: "Pick a wallet and a category first.",
+  },
+  tercatatPrefix: { id: "Tercatat:", en: "Recorded:" },
+  transaksiTersimpan: { id: "transaksi tersimpan.", en: "transaction saved." },
+  bagaimanaDibukukan: { id: "Bagaimana ini dibukukan?", en: "How is this booked?" },
+  descBagaimanaDibukukan: {
+    id: "Setiap catatan menjadi jurnal 2 baris yang seimbang — sama seperti dicatat akuntan. Rinciannya bisa dilihat di Jurnal Umum (menu bisa disembunyikan lewat Mode Sederhana di Pengaturan).",
+    en: "Each record becomes a balanced two-line journal entry — exactly as an accountant would post it. The detail is visible in the General Journal (the menu can be hidden via Simple Mode in Settings).",
+  },
+  // Pratinjau kalimat: dirangkai dari potongan, mengikuti konvensi awalan/
+  // akhiran kamus ini (lihat catatan di bagian Kas & Bank).
+  pratinjauMasukKe: { id: "masuk ke", en: "goes into" },
+  pratinjauDari: { id: "dari", en: "from" },
+  pratinjauKeluarDari: { id: "keluar dari", en: "leaves" },
+  pratinjauUntuk: { id: "untuk", en: "for" },
+  pratinjauDipindahDari: { id: "dipindahkan dari", en: "moved from" },
+  pratinjauKe: { id: "ke", en: "to" },
 };
 
 export type UiKey = keyof typeof UI;
