@@ -24,6 +24,7 @@ import {
   Tr,
   useToast,
 } from "../components/ui";
+import { useUi, type UiKey } from "../i18n/ui";
 import { useWorkspace } from "./app";
 
 /**
@@ -41,7 +42,9 @@ type Row = {
   discountPct?: number;
 };
 
-function parseCsv(text: string): { rows: Row[]; errors: string[] } {
+// Penerjemah diterima sebagai argumen: fungsi murni tingkat modul, tidak boleh
+// memakai hook — pola yang sama dengan parseCsv di kasbank.tsx (19c).
+function parseCsv(text: string, u: (k: UiKey) => string): { rows: Row[]; errors: string[] } {
   const lines = text
     .split(/\r?\n/)
     .map((l) => l.trim())
@@ -52,7 +55,7 @@ function parseCsv(text: string): { rows: Row[]; errors: string[] } {
     if (i === 0 && /sku/i.test(line) && /(order|pesanan)/i.test(line)) return; // baris header
     const cols = line.split(/[,;\t]/).map((c) => c.trim());
     if (cols.length < 5) {
-      errors.push(`Baris ${i + 1}: kolom kurang (butuh no. pesanan, tanggal, SKU, qty, harga).`);
+      errors.push(`${u("barisKe")} ${i + 1}${u("csvKolomKurang")}`);
       return;
     }
     const [externalOrderNo, orderDate, sku, qtyS, priceS, discS] = cols;
@@ -67,7 +70,7 @@ function parseCsv(text: string): { rows: Row[]; errors: string[] } {
       !Number.isFinite(unitPrice) ||
       unitPrice < 0
     ) {
-      errors.push(`Baris ${i + 1}: data tidak valid.`);
+      errors.push(`${u("barisKe")} ${i + 1}${u("csvDataTakValid")}`);
       return;
     }
     const row: Row = {
@@ -85,6 +88,7 @@ function parseCsv(text: string): { rows: Row[]; errors: string[] } {
 }
 
 export function MarketplacePage() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const qc = useQueryClient();
@@ -110,7 +114,9 @@ export function MarketplacePage() {
     queryFn: () => api.marketplaceOrders(tenant.tenantId),
   });
 
-  const parsed = useMemo(() => parseCsv(csv), [csv]);
+  // `u` WAJIB ada di dependensi — pelajaran 19f: tanpa itu pesan galat tetap
+  // berbahasa lama setelah tombol bahasa ditekan.
+  const parsed = useMemo(() => parseCsv(csv, u), [csv, u]);
   const orderCount = useMemo(
     () => new Set(parsed.rows.map((r) => r.externalOrderNo)).size,
     [parsed.rows]
@@ -127,7 +133,7 @@ export function MarketplacePage() {
     onSuccess: (r) => {
       toast(
         r.failed.length ? "error" : "success",
-        `${r.imported.length} pesanan diimpor${r.skipped.length ? `, ${r.skipped.length} dilewati` : ""}${r.failed.length ? `, ${r.failed.length} gagal` : ""}.`
+        `${r.imported.length} ${u("pesananDiimporSuffix")}${r.skipped.length ? `, ${r.skipped.length} ${u("dilewatiKata")}` : ""}${r.failed.length ? `, ${r.failed.length} ${u("gagalKata")}` : ""}.`
       );
       void qc.invalidateQueries({ queryKey: ["marketplace-orders", tenant.tenantId] });
       void qc.invalidateQueries({ queryKey: ["invoices", tenant.tenantId] });
@@ -151,13 +157,13 @@ export function MarketplacePage() {
       </div>
 
       {!isAdmin ? (
-        <Alert tone="info">Hanya Admin/Pemilik yang dapat mengimpor pesanan.</Alert>
+        <Alert tone="info">{u("hanyaAdminImpor")}</Alert>
       ) : null}
 
       <Card>
         <CardHeader
           title="Impor pesanan"
-          description="Pilih kanal, gudang, dan pelanggan, lalu tempel data CSV."
+          description={u("descImporMarketplace")}
         />
         <CardBody className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
@@ -175,9 +181,9 @@ export function MarketplacePage() {
               </Select>
             </div>
             <div>
-              <Label>Gudang (stok keluar)</Label>
+              <Label>{u("gudangStokKeluar")}</Label>
               <Select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
-                <option value="">— pilih gudang —</option>
+                <option value="">{u("pilihGudangOpsi")}</option>
                 {(warehouses.data?.items ?? []).map((w) => (
                   <option key={w.id} value={w.id}>
                     {w.name}
@@ -186,9 +192,9 @@ export function MarketplacePage() {
               </Select>
             </div>
             <div>
-              <Label>Pelanggan (mis. "Pembeli Shopee")</Label>
+              <Label>{u("pelangganContohShopee")}</Label>
               <Select value={contactId} onChange={(e) => setContactId(e.target.value)}>
-                <option value="">— pilih pelanggan —</option>
+                <option value="">{u("pilihPelangganOpsi")}</option>
                 {(contacts.data?.items ?? []).map((ct) => (
                   <option key={ct.id} value={ct.id}>
                     {ct.name}
@@ -203,9 +209,9 @@ export function MarketplacePage() {
             <p className="mb-1 text-xs text-slate-500 dark:text-slate-400">
               Kolom:{" "}
               <code>
-                no_pesanan, tanggal(YYYY-MM-DD), SKU, qty, harga_satuan, diskon%(opsional)
+                {u("kolomCsvMarketplace")}
               </code>
-              . Satu baris per item; item dari pesanan yang sama digabung menjadi satu faktur.
+              {u("descSatuBarisPerItem")}
             </p>
             <textarea
               value={csv}
@@ -235,7 +241,7 @@ export function MarketplacePage() {
           ) : null}
           {parsed.errors.length > 0 ? (
             <Alert tone="info">
-              {parsed.errors.length} baris dilewati karena format tidak valid:{" "}
+              {parsed.errors.length} {u("barisDilewati")}{" "}
               {parsed.errors.slice(0, 3).join(" ")}
             </Alert>
           ) : null}
@@ -251,10 +257,14 @@ export function MarketplacePage() {
               <div className="flex flex-wrap gap-2">
                 <Badge tone="green">{result.imported.length} diimpor</Badge>
                 {result.skipped.length ? (
-                  <Badge tone="amber">{result.skipped.length} dilewati</Badge>
+                  <Badge tone="amber">
+                    {result.skipped.length} {u("dilewatiKata")}
+                  </Badge>
                 ) : null}
                 {result.failed.length ? (
-                  <Badge tone="red">{result.failed.length} gagal</Badge>
+                  <Badge tone="red">
+                    {result.failed.length} {u("gagalKata")}
+                  </Badge>
                 ) : null}
               </div>
               {result.failed.slice(0, 8).map((f) => (
@@ -274,7 +284,7 @@ export function MarketplacePage() {
             <Spinner />
           ) : (orders.data?.orders ?? []).length === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Belum ada pesanan marketplace yang diimpor.
+              {u("belumAdaPesananMarketplace")}
             </p>
           ) : (
             <Table>
@@ -282,7 +292,7 @@ export function MarketplacePage() {
                 <tr>
                   <Th>Kanal</Th>
                   <Th>No. Pesanan</Th>
-                  <Th>Faktur</Th>
+                  <Th>{u("faktur")}</Th>
                   <Th>Diimpor</Th>
                 </tr>
               </Thead>
@@ -297,7 +307,7 @@ export function MarketplacePage() {
                     <Td label="No. Pesanan" className="font-mono text-xs">
                       {o.externalOrderNo}
                     </Td>
-                    <Td label="Faktur">{o.invoiceNo ?? "—"}</Td>
+                    <Td label={u("faktur")}>{o.invoiceNo ?? "—"}</Td>
                     <Td label="Diimpor" className="text-slate-500 dark:text-slate-400">
                       {formatDate(o.importedAt.slice(0, 10))}
                     </Td>

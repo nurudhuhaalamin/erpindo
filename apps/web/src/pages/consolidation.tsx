@@ -16,6 +16,7 @@ import {
   Thead,
   Tr,
 } from "../components/ui";
+import { useUi } from "../i18n/ui";
 import { ExportButton } from "./reports";
 
 function today(): string {
@@ -44,6 +45,7 @@ function ConsolidatedTable({
   perCompanyTotals: Record<string, number>;
   totalLabel: string;
 }) {
+  const u = useUi();
   const grand = companies.reduce((s, c) => s + (perCompanyTotals[c.tenantId] ?? 0), 0);
 
   return (
@@ -59,27 +61,27 @@ function ConsolidatedTable({
       <Table>
         <Thead>
           <tr>
-            <Th>Akun</Th>
+            <Th>{u("akun")}</Th>
             {companies.map((c) => (
               <Th key={c.tenantId} numeric>
                 {c.name}
               </Th>
             ))}
-            <Th numeric>Total</Th>
+            <Th numeric>{u("total")}</Th>
           </tr>
         </Thead>
         <tbody>
           {rows.length === 0 ? (
             <Tr>
               <Td className="text-slate-400" colSpan={companies.length + 2}>
-                Tidak ada data.
+                {u("tidakAdaData")}
               </Td>
             </Tr>
           ) : (
             rows.map((r) => (
               <Tr key={r.code}>
                 {/* Bukan `numeric`: selnya memuat kode DAN nama akun. */}
-                <Td label="Akun">
+                <Td label={u("akun")}>
                   <span className="font-mono text-xs text-slate-400">{r.code}</span> {r.name}
                 </Td>
                 {companies.map((c) => {
@@ -90,7 +92,7 @@ function ConsolidatedTable({
                     </Td>
                   );
                 })}
-                <Td numeric label="Total" className="font-medium">
+                <Td numeric label={u("total")} className="font-medium">
                   {formatIDR(r.total)}
                 </Td>
               </Tr>
@@ -103,7 +105,7 @@ function ConsolidatedTable({
                 {formatIDR(perCompanyTotals[c.tenantId] ?? 0)}
               </Td>
             ))}
-            <Td numeric label="Total">
+            <Td numeric label={u("total")}>
               {formatIDR(grand)}
             </Td>
           </Tr>
@@ -114,6 +116,7 @@ function ConsolidatedTable({
 }
 
 export function ConsolidationPage() {
+  const u = useUi();
   const h = useHeading("konsolidasi");
   const [mode, setMode] = useState<Mode>("income");
   const [from, setFrom] = useState(monthStart);
@@ -159,9 +162,9 @@ export function ConsolidationPage() {
           <h1 className="text-2xl font-semibold">{h.title}</h1>
           {mode === "balance" && balanceQuery.data ? (
             balanceQuery.data.balanced ? (
-              <Badge tone="brand">seimbang ✓</Badge>
+              <Badge tone="brand">{u("seimbangCentang")}</Badge>
             ) : (
-              <Badge tone="amber">TIDAK seimbang</Badge>
+              <Badge tone="amber">{u("tidakSeimbang")}</Badge>
             )
           ) : null}
         </div>
@@ -173,7 +176,7 @@ export function ConsolidationPage() {
               }`}
               onClick={() => setMode("income")}
             >
-              Laba Rugi
+              {u("labaRugiTab")}
             </button>
             <button
               className={`px-3 py-1.5 text-sm ${
@@ -183,7 +186,7 @@ export function ConsolidationPage() {
               }`}
               onClick={() => setMode("balance")}
             >
-              Neraca
+              {u("neracaTab")}
             </button>
           </div>
           {mode === "income" && incomeQuery.data ? (
@@ -263,8 +266,7 @@ export function ConsolidationPage() {
       </div>
 
       <p className="text-sm text-slate-500 dark:text-slate-400">
-        Laporan gabungan seluruh perusahaan yang Anda miliki — nilai per akun dijumlahkan lintas
-        perusahaan, dengan rincian per perusahaan di setiap kolom.
+        {u("descKonsolidasi")}
       </p>
 
       <Card>
@@ -277,7 +279,7 @@ export function ConsolidationPage() {
                 {mode === "income" ? (
                   <>
                     <div>
-                      <Label htmlFor="cons-from">Dari</Label>
+                      <Label htmlFor="cons-from">{u("dari")}</Label>
                       <Input
                         id="cons-from"
                         type="date"
@@ -286,7 +288,7 @@ export function ConsolidationPage() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="cons-to">Sampai</Label>
+                      <Label htmlFor="cons-to">{u("sampai")}</Label>
                       <Input
                         id="cons-to"
                         type="date"
@@ -297,7 +299,7 @@ export function ConsolidationPage() {
                   </>
                 ) : (
                   <div>
-                    <Label htmlFor="cons-asof">Per tanggal</Label>
+                    <Label htmlFor="cons-asof">{u("perTanggal")}</Label>
                     <Input
                       id="cons-asof"
                       type="date"
@@ -331,8 +333,7 @@ export function ConsolidationPage() {
                 </div>
                 {soloCompany ? (
                   <p className="mt-2 text-xs text-slate-400">
-                    Anda baru memiliki satu perusahaan. Tambahkan perusahaan lain di Pengaturan
-                    untuk melihat laporan gabungan.
+                    {u("satuPerusahaanSaja")}
                   </p>
                 ) : null}
               </div>
@@ -370,8 +371,8 @@ export function ConsolidationPage() {
               >
                 <span>
                   {incomeQuery.data.netProfit >= 0
-                    ? "Laba Bersih Konsolidasi"
-                    : "Rugi Bersih Konsolidasi"}
+                    ? u("labaBersihKonsolidasi")
+                    : u("rugiBersihKonsolidasi")}
                 </span>
                 <span className="tabular-nums">
                   {formatIDR(Math.abs(incomeQuery.data.netProfit))}
@@ -386,11 +387,11 @@ export function ConsolidationPage() {
         <Card>
           <CardBody className="space-y-6">
             <ConsolidatedTable
-              title="Aset"
+              title={u("aset")}
               companies={balanceQuery.data.companies}
               rows={balanceQuery.data.assets}
               perCompanyTotals={balanceQuery.data.totalAssetsByCompany}
-              totalLabel="Total Aset"
+              totalLabel={u("totalAset")}
             />
             <ConsolidatedTable
               title="Kewajiban"

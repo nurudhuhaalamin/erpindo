@@ -1806,6 +1806,79 @@ const UI = {
   belumAdaAkunSuffix: { id: "Belum ada akun", en: "No accounts for" },
   totalPrefix: { id: "Total", en: "Total" },
 
+  // Mata Uang, Marketplace, Konsolidasi (Fase 19m).
+  tambahPerbaruiKurs: { id: "Tambah / perbarui kurs", en: "Add / update rate" },
+  descKurs: {
+    id: "Kurs = nilai 1 unit valas dalam Rupiah (mis. 1 USD = Rp 16.200).",
+    en: "The rate is the value of 1 unit of foreign currency in Rupiah (e.g. 1 USD = Rp 16,200).",
+  },
+  kursIdr: { id: "Kurs (IDR)", en: "Rate (IDR)" },
+  simpanKurs: { id: "Simpan Kurs", en: "Save rate" },
+  daftarMataUang: { id: "Daftar mata uang", en: "Currency list" },
+  kodeTigaHuruf: { id: "Kode (3 huruf)", en: "Code (3 letters)" },
+  mataUangDasar: { id: "dasar", en: "base" },
+  toastKursDisimpan: { id: "Kurs disimpan.", en: "Rate saved." },
+  hanyaAdminImpor: {
+    id: "Hanya Admin/Pemilik yang dapat mengimpor pesanan.",
+    en: "Only an Admin/Owner can import orders.",
+  },
+  descImporMarketplace: {
+    id: "Pilih kanal, gudang, dan pelanggan, lalu tempel data CSV.",
+    en: "Pick a channel, warehouse, and customer, then paste the CSV data.",
+  },
+  // (kunci di atas sudah ada sejak Fase 16 — dipakai ulang)
+  pelangganContohShopee: {
+    id: 'Pelanggan (mis. "Pembeli Shopee")',
+    en: 'Customer (e.g. "Shopee Buyer")',
+  },
+  kolomCsvMarketplace: {
+    id: "no_pesanan, tanggal(YYYY-MM-DD), SKU, qty, harga_satuan, diskon%(opsional)",
+    en: "order_no, date(YYYY-MM-DD), SKU, qty, unit_price, discount%(optional)",
+  },
+  descSatuBarisPerItem: {
+    id: ". Satu baris per item; item dari pesanan yang sama digabung menjadi satu faktur.",
+    en: ". One row per item; items from the same order are merged into a single invoice.",
+  },
+  barisDilewati: {
+    id: "baris dilewati karena format tidak valid:",
+    en: "rows skipped because the format is invalid:",
+  },
+  gagalKata: { id: "gagal", en: "failed" },
+  dilewatiKata: { id: "dilewati", en: "skipped" },
+  pesananDiimporSuffix: { id: "pesanan diimpor", en: "orders imported" },
+  belumAdaPesananMarketplace: {
+    id: "Belum ada pesanan marketplace yang diimpor.",
+    en: "No marketplace orders imported yet.",
+  },
+  csvKolomKurang: {
+    id: ": kolom kurang (butuh no. pesanan, tanggal, SKU, qty, harga).",
+    en: ": missing columns (needs order no., date, SKU, qty, price).",
+  },
+  csvDataTakValid: { id: ": data tidak valid.", en: ": invalid data." },
+  tidakAdaData: { id: "Tidak ada data.", en: "No data." },
+  seimbangCentang: { id: "seimbang ✓", en: "balanced ✓" },
+  // (kunci di atas sudah ada sejak Fase 16 — dipakai ulang)
+  labaRugiTab: { id: "Laba Rugi", en: "Income Statement" },
+  neracaTab: { id: "Neraca", en: "Balance Sheet" },
+  descKonsolidasi: {
+    id: "Laporan gabungan seluruh perusahaan yang Anda miliki — nilai per akun dijumlahkan lintas perusahaan.",
+    en: "A combined report across every company you own — per-account values are summed across companies.",
+  },
+  // (kunci di atas sudah ada sejak Fase 16 — dipakai ulang)
+  satuPerusahaanSaja: {
+    id: "Anda baru memiliki satu perusahaan. Tambahkan perusahaan lain di Pengaturan untuk melihat laporan gabungan.",
+    en: "You only have one company so far. Add another under Settings to see a consolidated report.",
+  },
+  labaBersihKonsolidasi: {
+    id: "Laba Bersih Konsolidasi",
+    en: "Consolidated Net Profit",
+  },
+  rugiBersihKonsolidasi: {
+    id: "Rugi Bersih Konsolidasi",
+    en: "Consolidated Net Loss",
+  },
+  totalAset: { id: "Total Aset", en: "Total Assets" },
+
 } satisfies Record<string, Dual>;
 
 export type UiKey = keyof typeof UI;
