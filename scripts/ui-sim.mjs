@@ -878,6 +878,28 @@ try {
     `→ EN=${adaMgEn} tanpaID=${tanpaMgId}`,
   );
 
+  // F1p — Fase 19p: halaman Alat bantu bisnis. Rute diverifikasi ke main.tsx:
+  // /app/alat.
+  //
+  // Penandanya diambil dari DUA lapis yang selalu terlihat: bilah tab (selalu
+  // dirender) dan isi tab "HPP per unit" yang aktif secara bawaan. Kalkulator
+  // ini murni klien — tidak bergantung data tenant, jadi penandanya stabil.
+  await gotoRoute("/app/alat", 900);
+  const alEn = await page.innerText("body");
+  const adaAlEn =
+    alEn.includes("Break-even (BEP)") &&
+    alEn.includes("Suggested selling price") &&
+    alEn.includes("Material cost / unit");
+  const tanpaAlId =
+    !alEn.includes("Titik Impas (BEP)") &&
+    !alEn.includes("Harga jual disarankan") &&
+    !alEn.includes("Biaya bahan / unit");
+  check(
+    "F1p isi halaman Alat ikut EN: bilah tab + kalkulator HPP, tanpa teks Indonesia",
+    adaAlEn && tanpaAlId,
+    `→ EN=${adaAlEn} tanpaID=${tanpaAlId}`,
+  );
+
   // Fase 16n — pelunasan utang 16e. Rute diverifikasi ke main.tsx:
   // /app/keuangan/arus-kas dan /app/keuangan/neraca. Baris ringkasan arus kas
   // selalu tampil begitu data termuat (tak bergantung ada/tidaknya mutasi).
