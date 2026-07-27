@@ -411,7 +411,7 @@ export function AgingPage() {
         <h1 className="text-2xl font-semibold">{hAging.title}</h1>
         <div className="flex items-center gap-2">
           <Select
-            aria-label="Jenis"
+            aria-label={u("jenis")}
             className="w-40"
             value={kind}
             onChange={(e) => setKind(e.target.value as "receivable" | "payable")}
@@ -781,7 +781,7 @@ export function SalesReportPage() {
           </div>
           {data && (data.byProduct.length > 0 || data.byCustomer.length > 0) ? (
             <ExportButton
-              label="Ekspor Excel"
+              label={u("eksporExcel")}
               onClick={() =>
                 downloadXlsx(`penjualan-${from}_${to}.xlsx`, [
                   {

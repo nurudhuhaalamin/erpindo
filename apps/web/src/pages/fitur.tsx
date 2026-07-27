@@ -5,6 +5,7 @@ import { useState } from "react";
 import { BrandWordmark, Button, useDarkMode } from "../components/ui";
 import { pick, useLang, type Lang } from "../i18n";
 import { LangSwitcher } from "../i18n/LangSwitcher";
+import { useUi } from "../i18n/ui";
 import { MODUL_DETAIL } from "./landing/fiturDetail";
 
 /**
@@ -28,6 +29,7 @@ function L(lang: Lang, id: string, en: string): string {
 }
 
 function Header() {
+  const u = useUi();
   const { dark, toggle } = useDarkMode();
   const [menuOpen, setMenuOpen] = useState(false);
   const lang = useLang();
@@ -57,8 +59,8 @@ function Header() {
           <button
             onClick={toggle}
             className="rounded-lg p-2 text-slate-500 hover:bg-slate-200/60 dark:text-slate-400 dark:hover:bg-slate-800"
-            aria-label="Ganti tema terang/gelap"
-            title="Ganti tema terang/gelap"
+            aria-label={u("ftGantiTema")}
+            title={u("ftGantiTema")}
           >
             {dark ? <Sun className="size-4" aria-hidden /> : <Moon className="size-4" aria-hidden />}
           </button>

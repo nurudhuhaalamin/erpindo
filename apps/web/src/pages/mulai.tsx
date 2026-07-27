@@ -109,11 +109,11 @@ function ProfilStep({ tenantId, onDone, onSkip, toast }: { tenantId: string; onD
     onError: (e) => toast("error", (e as Error).message),
   });
   return (
-    <StepCard title="Profil perusahaan" description={u("descProfilPerusahaan")}>
+    <StepCard title={u("mlProfilPerusahaan")} description={u("descProfilPerusahaan")}>
       <div className="space-y-3">
         <div>
           <Label htmlFor="wz-address">Alamat usaha</Label>
-          <Input id="wz-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Jl. Merdeka No. 1, Jakarta" />
+          <Input id="wz-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder={u("mlPhAlamat")} />
         </div>
         <div>
           <Label htmlFor="wz-npwp">NPWP (opsional)</Label>
@@ -194,7 +194,7 @@ function ProdukStep({ tenantId, onDone, onSkip, toast }: { tenantId: string; onD
         </div>
         <div className="sm:col-span-2">
           <Label htmlFor="wz-pname">{u("namaProduk")}</Label>
-          <Input id="wz-pname" value={name} onChange={(e) => setName(e.target.value)} placeholder="Kopi Susu Gula Aren" />
+          <Input id="wz-pname" value={name} onChange={(e) => setName(e.target.value)} placeholder={u("mlPhNamaProduk")} />
         </div>
       </div>
       <div className="mt-5 flex items-center justify-between">

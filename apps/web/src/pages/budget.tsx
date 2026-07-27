@@ -251,8 +251,8 @@ export function BudgetPage() {
             <Spinner />
           ) : (
             <>
-              <BudgetTable title="Pendapatan" rows={income} period={period} editable={editable} />
-              <BudgetTable title="Beban" rows={expense} period={period} editable={editable} />
+              <BudgetTable title={u("pendapatan")} rows={income} period={period} editable={editable} />
+              <BudgetTable title={u("beban")} rows={expense} period={period} editable={editable} />
 
               <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/40">
                 <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">

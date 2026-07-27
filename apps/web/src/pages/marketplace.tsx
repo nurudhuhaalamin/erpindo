@@ -162,13 +162,13 @@ export function MarketplacePage() {
 
       <Card>
         <CardHeader
-          title="Impor pesanan"
+          title={u("mpImporPesanan")}
           description={u("descImporMarketplace")}
         />
         <CardBody className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
-              <Label>Kanal</Label>
+              <Label>{u("mpKanal")}</Label>
               <Select
                 value={channel}
                 onChange={(e) => setChannel(e.target.value as MarketplaceChannel)}
@@ -205,7 +205,7 @@ export function MarketplacePage() {
           </div>
 
           <div>
-            <Label>Data CSV pesanan</Label>
+            <Label>{u("mpDataCsv")}</Label>
             <p className="mb-1 text-xs text-slate-500 dark:text-slate-400">
               Kolom:{" "}
               <code>
@@ -278,7 +278,7 @@ export function MarketplacePage() {
       </Card>
 
       <Card>
-        <CardHeader title="Pesanan terimpor" description="200 impor terakhir." />
+        <CardHeader title={u("mpPesananTerimpor")} description="200 impor terakhir." />
         <CardBody>
           {orders.isLoading ? (
             <Spinner />
@@ -290,10 +290,10 @@ export function MarketplacePage() {
             <Table>
               <Thead>
                 <tr>
-                  <Th>Kanal</Th>
-                  <Th>No. Pesanan</Th>
+                  <Th>{u("mpKanal")}</Th>
+                  <Th>{u("mpNoPesanan")}</Th>
                   <Th>{u("faktur")}</Th>
-                  <Th>Diimpor</Th>
+                  <Th>{u("mpDiimpor")}</Th>
                 </tr>
               </Thead>
               <tbody>
@@ -301,14 +301,14 @@ export function MarketplacePage() {
                   // Tidak ada kolom `numeric` di sini: semuanya pengenal, label
                   // kanal, atau tanggal — bukan nilai (aturan 17h).
                   <Tr key={o.id}>
-                    <Td label="Kanal">
+                    <Td label={u("mpKanal")}>
                       {MARKETPLACE_CHANNEL_LABELS[o.channel as MarketplaceChannel] ?? o.channel}
                     </Td>
-                    <Td label="No. Pesanan" className="font-mono text-xs">
+                    <Td label={u("mpNoPesanan")} className="font-mono text-xs">
                       {o.externalOrderNo}
                     </Td>
                     <Td label={u("faktur")}>{o.invoiceNo ?? "—"}</Td>
-                    <Td label="Diimpor" className="text-slate-500 dark:text-slate-400">
+                    <Td label={u("mpDiimpor")} className="text-slate-500 dark:text-slate-400">
                       {formatDate(o.importedAt.slice(0, 10))}
                     </Td>
                   </Tr>

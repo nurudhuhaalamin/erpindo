@@ -543,7 +543,7 @@ export function ProductsPage() {
                 <Input
                   id="p-name"
                   name="name"
-                  placeholder="Kopi Arabika 1kg"
+                  placeholder={u("mdPhNamaProduk")}
                   defaultValue={editing?.name}
                   required
                 />

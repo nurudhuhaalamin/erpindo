@@ -343,11 +343,12 @@ export function Td({
 }
 
 export function Spinner() {
+  const u = useUi();
   return (
     <span
       className="inline-block size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
       role="status"
-      aria-label="Memuat"
+      aria-label={u("memuat")}
     />
   );
 }
@@ -832,6 +833,7 @@ export function PageTour({
   open: boolean;
   onClose: () => void;
 }) {
+  const u = useUi();
   const [i, setI] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
 
@@ -925,7 +927,7 @@ export function PageTour({
         <button
           onClick={finish}
           className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-          aria-label="Tutup tur"
+          aria-label={u("cpTutupTur")}
         >
           ✕
         </button>

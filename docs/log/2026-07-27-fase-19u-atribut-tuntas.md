@@ -1,4 +1,4 @@
-# Fase 19u (bagian 1) — teks tampilan di atribut
+# Fase 19u — teks tampilan di atribut (TUNTAS)
 
 Menindaklanjuti kelas buta yang ditemukan 19t: teks tampilan yang duduk di
 **atribut** (`label=`, `title=`, `placeholder=`, `confirmLabel=`) dan tak
@@ -58,12 +58,35 @@ kartu HP. Menambah cek hampa hanya demi menaikkan angka melanggar semangat
 aturan "jumlah cek hanya boleh naik" — aturan itu menuntut cakupan bertambah,
 bukan angkanya.
 
-## Sisa
+## Bagian 2 — sisanya diselesaikan
 
-**65 temuan atribut di 20 berkas** (terbanyak `projects` 8, `mulai` 5,
-`marketplace` 5, `consolidation` 4, `approvals` 4), ditambah **102 temuan
-teks layar** yang sudah diklasifikasikan di 19t sebagai disengaja atau
-positif palsu.
+Ketiga berkas di atas ditulis sebagai "bagian 1" dengan sisa 65 temuan. Sisa
+itu **sudah dikerjakan di PR yang sama**, jadi log ini mencatat keduanya.
 
-Bagian 2 melanjutkan sisa 65 itu. Program dwibahasa Fase 19 **masih belum
-tuntas**, dan tetap dinyatakan begitu sampai benar-benar nol.
+Berkas yang ikut tuntas: `projects`, `mulai`, `marketplace`, `consolidation`,
+`approvals`, `admin`, `budget`, `contracts`, `crm`, `currencies`, `dashboard`,
+`finance`, `fitur`, `helpdesk`, `masterdata`, `pajak`, `procurement`,
+`reports`, `payroll`, `pos`, `salesorders`, `stok`, dan `components/ui.tsx`.
+
+Tiga komponen ternyata belum punya `useUi()` sama sekali dan baru ketahuan
+dari galat kompilasi — bukti bahwa `satisfies`/tsc memang menangkap yang
+luput dari mata: `Spinner` (`aria-label="Memuat"`), `PageTour`
+(`aria-label="Tutup tur"`), dan `Header` di `fitur.tsx`.
+
+Butir yang masuk daftar `NETRAL` pada bagian 2: kode contoh (`LGN-01`,
+`BRG-001`, `CAB-01`, `PRJ-01`, `PRD-001`, `USD`, `0%`, format NPWP), istilah
+resmi (`1721-A1`, `BPJS`, `PPh 21 (TER)`, `Qty`, `Lot`), dan **nama contoh
+Indonesia** (`PT Maju Jaya`, `Budi Santoso`) — yang terakhir konsisten dengan
+keputusan 19q: pasar produk ini UKM Indonesia, contoh yang realistis lebih
+menolong daripada contoh yang diterjemahkan.
+
+## Hasil akhir
+
+```
+TOTAL teks tampilan di atribut: 0
+```
+
+**Kelas atribut tuntas — nol, bukan "hampir".** Sisa 102 temuan teks layar
+seluruhnya sudah diklasifikasikan di 19t sebagai disengaja (contoh kolom CSV,
+parameter URL, `note:` yang disimpan ke basis data, dokumen cetak) atau
+positif palsu (potongan kode, id DOM, sisi `L(lang,…)` landing).

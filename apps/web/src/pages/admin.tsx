@@ -86,7 +86,7 @@ export function AdminPage() {
         <PageHeading k="adminPlatform" />
       </div>
 
-      <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Bagian admin">
+      <div className="flex flex-wrap gap-1.5" role="tablist" aria-label={u("adBagianAdmin")}>
         {TABS.map((t) => (
           <button
             key={t}

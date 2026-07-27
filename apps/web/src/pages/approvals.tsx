@@ -133,7 +133,7 @@ function QueueTab() {
 
   return (
     <Card>
-      <CardHeader title="Menunggu persetujuan saya" description={u("descAntrean")} />
+      <CardHeader title={u("apMenungguSaya")} description={u("descAntrean")} />
       <CardBody>
         {query.isLoading ? (
           <Spinner />
@@ -200,7 +200,7 @@ function SubmitTab() {
 
   return (
     <Card>
-      <CardHeader title="Ajukan persetujuan" description={u("descAjukanDokumen")} />
+      <CardHeader title={u("apAjukan")} description={u("descAjukanDokumen")} />
       <CardBody className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
@@ -254,7 +254,7 @@ function HistoryTab() {
   const flows = query.data?.flows ?? [];
   return (
     <Card>
-      <CardHeader title="Riwayat alur persetujuan" description={u("descSemuaPengajuan")} />
+      <CardHeader title={u("apRiwayat")} description={u("descSemuaPengajuan")} />
       <CardBody>
         {query.isLoading ? (
           <Spinner />
@@ -329,7 +329,7 @@ function RulesTab() {
 
   return (
     <Card>
-      <CardHeader title="Aturan persetujuan" description={u("descTetapkanAlur")} />
+      <CardHeader title={u("apAturan")} description={u("descTetapkanAlur")} />
       <CardBody className="space-y-4">
         <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div>

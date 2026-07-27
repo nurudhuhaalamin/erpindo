@@ -1025,10 +1025,10 @@ function MilestonesSection({
             className="min-w-40 flex-1"
           />
           <Input
-            aria-label="Nominal termin"
+            aria-label={u("nominalTermin")}
             type="number"
             min={0}
-            placeholder="Nominal"
+            placeholder={u("nominal")}
             value={form.amount}
             onChange={(e) => setForm({ ...form, amount: e.target.value })}
             className="w-40"
@@ -1195,10 +1195,10 @@ function BudgetSection({
             className="min-w-40 flex-1"
           />
           <Input
-            aria-label="Anggaran"
+            aria-label={u("anggaran")}
             type="number"
             min={0}
-            placeholder="Anggaran"
+            placeholder={u("anggaran")}
             value={form.amount}
             onChange={(e) => setForm({ ...form, amount: e.target.value })}
             className="w-40"
@@ -1324,7 +1324,7 @@ function TimesheetSection({
       {isAdmin ? (
         <div className="mb-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
           <Select
-            aria-label="Karyawan"
+            aria-label={u("karyawan")}
             value={form.employeeId}
             onChange={(e) => setForm({ ...form, employeeId: e.target.value })}
           >
@@ -1342,7 +1342,7 @@ function TimesheetSection({
             onChange={(e) => setForm({ ...form, date: e.target.value })}
           />
           <Input
-            aria-label="Jam"
+            aria-label={u("jam")}
             type="number"
             min={0}
             step="0.5"
@@ -1351,7 +1351,7 @@ function TimesheetSection({
             onChange={(e) => setForm({ ...form, hours: e.target.value })}
           />
           <Input
-            aria-label="Tarif/jam"
+            aria-label={u("tarifJam")}
             type="number"
             min={0}
             placeholder={u("tarifJam")}

@@ -50,7 +50,13 @@ const RE_ID = new RegExp(`(^|[^a-z])(${KATA_ID.join("|")})([^a-z]|$)`, "i");
 const NETRAL = new Set([
   "No.", "QC", "SKU", "DPP", "PPN", "PPh 21", "PPh 23", "PPh Final", "NPWP",
   "TER", "PTKP", "HPP", "BEP", "BoM", "FEFO", "CRM", "POS", "e-Faktur",
-  "Work center", "WC-CUT", "CAB-BDG", "Email", "Password",
+  "Work center", "WC-CUT", "CAB-BDG", "PRJ-01", "PRD-001",
+  "00.000.000.0-000.000", "LGN-01", "BRG-001", "CAB-01", "USD", "0%",
+  "1721-A1", "BPJS", "PPh 21 (TER)", "Qty", "Lot", "Menu", "Harga",
+  // Nama & perusahaan contoh sengaja tetap Indonesia (keputusan 19q): pasar
+  // produk ini UKM Indonesia, dan contoh yang realistis lebih menolong.
+  "PT Maju Jaya", "Budi Santoso",
+  "Email", "Password",
 ]);
 
 const RE_TAILWIND = /(^|\s)(text|bg|border|flex|grid|gap|rounded|dark|hover|sm|md|lg|p[xytblr]?|m[xytblr]?|w|h)[-:]/;
