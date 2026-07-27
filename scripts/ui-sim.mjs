@@ -795,6 +795,19 @@ try {
     `→ kontrak EN=${adaKtEn}/tanpaID=${tanpaKtId} helpdesk EN=${adaHdEn}/tanpaID=${tanpaHdId}`,
   );
 
+  // F1k — Fase 19k: halaman Absensi.
+  // Rute diverifikasi ke audit-routes.mjs: /app/hr/absensi.
+  await gotoRoute("/app/hr/absensi", 900);
+  const abEn = await page.innerText("body");
+  const adaAbEn = abEn.includes("Attendance") && abEn.includes("Monthly recap");
+  const tanpaAbId =
+    !abEn.includes("Catat kehadiran harian karyawan") && !abEn.includes("Rekap bulanan");
+  check(
+    "F1k isi halaman Absensi ikut EN: judul + rekap bulanan, tanpa teks Indonesia",
+    adaAbEn && tanpaAbId,
+    `→ EN=${adaAbEn} tanpaID=${tanpaAbId}`,
+  );
+
   // Fase 16n — pelunasan utang 16e. Rute diverifikasi ke main.tsx:
   // /app/keuangan/arus-kas dan /app/keuangan/neraca. Baris ringkasan arus kas
   // selalu tampil begitu data termuat (tak bergantung ada/tidaknya mutasi).
