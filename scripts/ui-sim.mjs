@@ -189,6 +189,29 @@ try {
     gerbang.email === 1 && gerbang.password === 1 && gerbang.submit >= 1,
     `→ email=${gerbang.email} password=${gerbang.password} submit=${gerbang.submit}`,
   );
+  // F1a — Fase 19a: wordmark tidak lagi berlatar chip putih.
+  //
+  // Diukur dari GAYA TERHITUNG pembungkusnya, bukan dari ada/tidaknya kelas
+  // `bg-white` di markup: kelas bisa saja hilang sementara latar putih kembali
+  // lewat jalan lain, dan sebaliknya asersi "tidak ada kelas bg-white" akan
+  // hijau walaupun logonya tetap berkotak putih. Halaman /masuk dipilih karena
+  // di sinilah masalahnya paling terlihat — wordmark berdiri di atas panel
+  // `brand-50` yang berwarna, sehingga kotak putih langsung tampak.
+  const latarWordmark = await page.evaluate(() => {
+    const img = document.querySelector('img[alt^="ERPindo"]');
+    if (!img) return null;
+    const bungkus = img.parentElement;
+    const bg = getComputedStyle(bungkus).backgroundColor;
+    const m = bg.match(/rgba?\(([^)]+)\)/);
+    const [r, g, b, a = "1"] = m ? m[1].split(",").map((s) => s.trim()) : [];
+    return { bg, buram: Number(a) > 0 && Number(r) > 245 && Number(g) > 245 && Number(b) > 245 };
+  });
+  check(
+    "F1a wordmark tanpa chip putih di atas panel brand halaman masuk",
+    Boolean(latarWordmark && latarWordmark.buram === false),
+    `→ ${latarWordmark ? `latar=${latarWordmark.bg}` : "wordmark tidak ditemukan"}`,
+  );
+
   await page.fill("#email", EMAIL);
   await page.fill("#password", PASSWORD);
   await page.click("button[type=submit]");
@@ -243,6 +266,32 @@ try {
   resetErrors();
   const dashBody = await page.innerText("body");
   check("dashboard memuat KPI 'Laba Bulan Ini' (Fase 12d)", dashBody.includes("Laba Bulan Ini"));
+
+  // F1b — Fase 19b: perusahaan demo harus UNTUNG, bukan rugi.
+  //
+  // Ini bukan cek kosmetik. Perusahaan demo adalah yang dimasuki setiap calon
+  // pelanggan lewat tombol "Lihat Demo", dan angkanya juga yang terpampang di
+  // tangkapan layar halaman depan. Sebelum fase ini kartunya menampilkan
+  // −Rp 42,2 jt karena gaji bulan lalu ikut terbukukan di bulan berjalan.
+  //
+  // Nilainya dibaca dari kartu yang DIRENDER lalu diurai jadi angka — bukan
+  // sekadar memastikan tidak ada tanda minus di halaman, yang akan hijau
+  // walaupun kartunya hilang sama sekali.
+  const labaDemo = await page.evaluate(() => {
+    const kartu = [...document.querySelectorAll("div")].find(
+      (d) => d.children.length && d.textContent?.trim().startsWith("Laba Bulan Ini"),
+    );
+    if (!kartu) return null;
+    const teks = kartu.innerText;
+    const m = teks.match(/(-?)\s*Rp\s*([\d.]+)/);
+    if (!m) return { teks, nilai: null };
+    return { teks: m[0], nilai: Number(m[2].replace(/\./g, "")) * (m[1] === "-" ? -1 : 1) };
+  });
+  check(
+    "F1b perusahaan demo menampilkan laba positif, bukan rugi",
+    Boolean(labaDemo && typeof labaDemo.nilai === "number" && labaDemo.nilai > 0),
+    `→ ${labaDemo ? `terbaca "${labaDemo.teks}" → ${labaDemo.nilai}` : "kartu Laba Bulan Ini tidak ditemukan"}`,
+  );
   // Widget ringkasan mingguan AI (Fase 12f): di CI tanpa binding harus tampil
   // fallback redup — bukan error state; di produksi berisi narasi ("Dibuat …").
   await page.getByText("Ringkasan mingguan AI").first().waitFor({ timeout: 15_000 });
