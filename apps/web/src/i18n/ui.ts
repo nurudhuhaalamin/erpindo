@@ -1383,6 +1383,36 @@ const UI: Record<string, Dual> = {
     id: "terbentuk (stok masuk).",
     en: "created (stock added).",
   },
+
+  // Pesanan Penjualan (Fase 19g).
+  daftarPesanan: { id: "Daftar pesanan", en: "Order list" },
+  descDaftarPesanan: {
+    id: "Kelola tiap tahap: uang muka, kirim (surat jalan), buat faktur.",
+    en: "Manage each stage: down payment, delivery note, invoicing.",
+  },
+  descBelumAdaPesananSo: {
+    id: "Buat pesanan penjualan untuk mulai.",
+    en: "Create a sales order to get started.",
+  },
+  pesananBaru: { id: "Pesanan baru", en: "New order" },
+  descPesananBaru: {
+    id: "Catat pesanan pelanggan — belum menggerakkan stok/pembukuan.",
+    en: "Record a customer order — no stock or bookkeeping movement yet.",
+  },
+  pilihPelangganOpsi: { id: "— pilih pelanggan —", en: "— pick a customer —" },
+  perkiraanKirim: { id: "Perkiraan kirim (opsional)", en: "Expected delivery (optional)" },
+  // `hargaSatuan` ("Harga satuan"/"Unit price") sudah ada sejak Fase 16 dan
+  // justru lebih tepat daripada "Harga" saja — dipakai ulang.
+  diskonPersen: { id: "Diskon %", en: "Discount %" },
+  kirimSuratJalan: { id: "Kirim (surat jalan)", en: "Ship (delivery note)" },
+  uangMuka: { id: "Uang muka", en: "Down payment" },
+  // `buatFaktur` sudah ada sejak Fase 16 dengan makna sama — dipakai ulang.
+  cetakSuratJalan: { id: "Cetak surat jalan", en: "Print delivery note" },
+  nominalUangMuka: { id: "Nominal uang muka", en: "Down payment amount" },
+  placeholderNominalDp: { id: "Nominal DP", en: "DP amount" },
+  akunKasBank: { id: "Akun kas/bank", en: "Cash/bank account" },
+  simpanDp: { id: "Simpan DP", en: "Save DP" },
+  fakturPrefix: { id: "faktur", en: "invoice" },
 };
 
 export type UiKey = keyof typeof UI;

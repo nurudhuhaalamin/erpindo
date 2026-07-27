@@ -20,7 +20,9 @@ import {
   Select,
   Spinner,
   useToast,
+  PageHeading,
 } from "../components/ui";
+import { useUi } from "../i18n/ui";
 import { useWorkspace } from "./app";
 
 type ProductRow = { id: string; name: string; sell_price: number };
@@ -57,6 +59,7 @@ function printDeliveryNote(o: ApiSalesOrder, companyName: string) {
 }
 
 export function SalesOrdersPage() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
 
@@ -75,21 +78,19 @@ export function SalesOrdersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Pesanan Penjualan</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Alur bertahap: pesanan (SO) → surat jalan (barang keluar) → faktur. Bisa terima uang muka sebelum faktur.
-        </p>
+        {/* Fase 19g: judul + pengantar ke PAGE_HEADINGS (Fase 16a). */}
+        <PageHeading k="pesananPenjualan" />
       </div>
 
       {isAdmin ? <NewOrderCard tenantId={tenant.tenantId} products={products} customers={customers} warehouses={warehouses} /> : null}
 
       <Card>
-        <CardHeader title="Daftar pesanan" description="Kelola tiap tahap: uang muka, kirim (surat jalan), buat faktur." />
+        <CardHeader title={u("daftarPesanan")} description={u("descDaftarPesanan")} />
         <CardBody>
           {ordersQuery.isLoading ? (
             <Spinner />
           ) : orders.length === 0 ? (
-            <EmptyState icon={<FileText className="size-6" aria-hidden />} title="Belum ada pesanan" description="Buat pesanan penjualan untuk mulai." />
+            <EmptyState icon={<FileText className="size-6" aria-hidden />} title={u("belumAdaPesanan")} description={u("descBelumAdaPesananSo")} />
           ) : (
             <div className="space-y-2">
               {orders.map((o) => (
@@ -104,6 +105,7 @@ export function SalesOrdersPage() {
 }
 
 function NewOrderCard({ tenantId, products, customers, warehouses }: { tenantId: string; products: ProductRow[]; customers: ContactRow[]; warehouses: WarehouseRow[] }) {
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [head, setHead] = useState({ contactId: "", warehouseId: "", taxRate: "0", orderDate: today(), expectedDate: "" });
@@ -134,22 +136,22 @@ function NewOrderCard({ tenantId, products, customers, warehouses }: { tenantId:
 
   return (
     <Card>
-      <CardHeader title="Pesanan baru" description="Catat pesanan pelanggan — belum menggerakkan stok/pembukuan." />
+      <CardHeader title={u("pesananBaru")} description={u("descPesananBaru")} />
       <CardBody className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div>
-            <Label htmlFor="so-cust">Pelanggan</Label>
+            <Label htmlFor="so-cust">{u("pelanggan")}</Label>
             <Select id="so-cust" value={head.contactId} onChange={(e) => setHead({ ...head, contactId: e.target.value })}>
-              <option value="">— pilih pelanggan —</option>
+              <option value="">{u("pilihPelangganOpsi")}</option>
               {customers.map((k) => (
                 <option key={k.id} value={k.id}>{k.name}</option>
               ))}
             </Select>
           </div>
           <div>
-            <Label htmlFor="so-wh">Gudang</Label>
+            <Label htmlFor="so-wh">{u("gudang")}</Label>
             <Select id="so-wh" value={head.warehouseId} onChange={(e) => setHead({ ...head, warehouseId: e.target.value })}>
-              <option value="">— pilih gudang —</option>
+              <option value="">{u("pilihGudangOpsi")}</option>
               {warehouses.map((w) => (
                 <option key={w.id} value={w.id}>{w.name}</option>
               ))}
@@ -164,28 +166,28 @@ function NewOrderCard({ tenantId, products, customers, warehouses }: { tenantId:
             </Select>
           </div>
           <div>
-            <Label htmlFor="so-date">Tanggal pesan</Label>
+            <Label htmlFor="so-date">{u("tanggalPesan")}</Label>
             <Input id="so-date" type="date" value={head.orderDate} onChange={(e) => setHead({ ...head, orderDate: e.target.value })} />
           </div>
           <div>
-            <Label htmlFor="so-exp">Perkiraan kirim (opsional)</Label>
+            <Label htmlFor="so-exp">{u("perkiraanKirim")}</Label>
             <Input id="so-exp" type="date" value={head.expectedDate} onChange={(e) => setHead({ ...head, expectedDate: e.target.value })} />
           </div>
         </div>
         <div className="space-y-2">
           {lines.map((line, i) => (
             <div key={i} className="flex flex-wrap items-center gap-2">
-              <Select aria-label="Produk" className="min-w-[10rem] flex-1" value={line.productId} onChange={(e) => setLines(lines.map((l, j) => (j === i ? { ...l, productId: e.target.value, unitPrice: l.unitPrice || String(products.find((p) => p.id === e.target.value)?.sell_price ?? 0) } : l)))}>
-                <option value="">— pilih produk —</option>
+              <Select aria-label={u("produk")} className="min-w-[10rem] flex-1" value={line.productId} onChange={(e) => setLines(lines.map((l, j) => (j === i ? { ...l, productId: e.target.value, unitPrice: l.unitPrice || String(products.find((p) => p.id === e.target.value)?.sell_price ?? 0) } : l)))}>
+                <option value="">{u("pilihProdukOpsi")}</option>
                 {products.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </Select>
-              <Input aria-label="Jumlah" type="number" min={1} className="w-20" value={line.qty} onChange={(e) => setLines(lines.map((l, j) => (j === i ? { ...l, qty: e.target.value } : l)))} />
-              <Input aria-label="Harga" type="number" min={0} placeholder="Harga" className="w-32" value={line.unitPrice} onChange={(e) => setLines(lines.map((l, j) => (j === i ? { ...l, unitPrice: e.target.value } : l)))} />
-              <Input aria-label="Diskon %" type="number" min={0} max={100} placeholder="0%" className="w-16" value={line.discountPct} onChange={(e) => setLines(lines.map((l, j) => (j === i ? { ...l, discountPct: e.target.value } : l)))} />
+              <Input aria-label={u("qtyBarang")} type="number" min={1} className="w-20" value={line.qty} onChange={(e) => setLines(lines.map((l, j) => (j === i ? { ...l, qty: e.target.value } : l)))} />
+              <Input aria-label={u("hargaSatuan")} type="number" min={0} placeholder={u("hargaSatuan")} className="w-32" value={line.unitPrice} onChange={(e) => setLines(lines.map((l, j) => (j === i ? { ...l, unitPrice: e.target.value } : l)))} />
+              <Input aria-label={u("diskonPersen")} type="number" min={0} max={100} placeholder="0%" className="w-16" value={line.discountPct} onChange={(e) => setLines(lines.map((l, j) => (j === i ? { ...l, discountPct: e.target.value } : l)))} />
               {lines.length > 1 ? (
-                <button type="button" aria-label="Hapus baris" className="inline-flex size-8 items-center justify-center rounded-lg text-slate-400 hover:text-red-600" onClick={() => setLines(lines.filter((_, j) => j !== i))}>
+                <button type="button" aria-label={u("hapusBaris")} className="inline-flex size-8 items-center justify-center rounded-lg text-slate-400 hover:text-red-600" onClick={() => setLines(lines.filter((_, j) => j !== i))}>
                   <Trash2 className="size-4" aria-hidden />
                 </button>
               ) : null}
@@ -193,10 +195,10 @@ function NewOrderCard({ tenantId, products, customers, warehouses }: { tenantId:
           ))}
           <div className="flex items-center justify-between">
             <Button variant="ghost" className="h-8" onClick={() => setLines([...lines, { productId: "", qty: "1", unitPrice: "", discountPct: "" }])}>
-              <Plus className="size-4" aria-hidden /> Baris
+              <Plus className="size-4" aria-hidden /> {u("barisAksi")}
             </Button>
             <Button onClick={() => create.mutate()} disabled={create.isPending || !canSubmit}>
-              {create.isPending ? <Spinner /> : <FileText className="size-4" aria-hidden />} Buat pesanan
+              {create.isPending ? <Spinner /> : <FileText className="size-4" aria-hidden />} {u("buatPesanan")}
             </Button>
           </div>
         </div>
@@ -206,6 +208,7 @@ function NewOrderCard({ tenantId, products, customers, warehouses }: { tenantId:
 }
 
 function OrderRow({ order, isAdmin, cashAccounts, companyName }: { order: ApiSalesOrder; isAdmin: boolean; cashAccounts: AccountRow[]; companyName: string }) {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -246,7 +249,7 @@ function OrderRow({ order, isAdmin, cashAccounts, companyName }: { order: ApiSal
         <span className="font-medium">{order.contactName}</span>
         <Badge tone={SO_TONE[order.status]}>{SO_STATUS_LABELS[order.status]}</Badge>
         {order.deliveryNo ? <Badge tone="neutral">{order.deliveryNo}</Badge> : null}
-        {order.invoiceNo ? <Badge tone="green">faktur {order.invoiceNo}</Badge> : null}
+        {order.invoiceNo ? <Badge tone="green">{u("fakturPrefix")} {order.invoiceNo}</Badge> : null}
         {order.dpAmount > 0 ? <span className="text-xs text-slate-400">DP {formatIDR(order.dpAmount)}</span> : null}
         <span className="ml-auto font-semibold tabular-nums">{formatIDR(order.total)}</span>
       </div>
@@ -258,41 +261,41 @@ function OrderRow({ order, isAdmin, cashAccounts, companyName }: { order: ApiSal
           {order.status === "open" ? (
             <>
               <Button className="h-8" onClick={() => deliver.mutate()} disabled={deliver.isPending}>
-                <Truck className="size-4" aria-hidden /> Kirim (surat jalan)
+                <Truck className="size-4" aria-hidden /> {u("kirimSuratJalan")}
               </Button>
               <Button variant="secondary" className="h-8" onClick={() => setDpOpen((o) => !o)}>
-                Uang muka
+                {u("uangMuka")}
               </Button>
               <Button variant="ghost" className="h-8" onClick={() => cancel.mutate()} disabled={cancel.isPending}>
-                Batalkan
+                {u("batalkanPesanan")}
               </Button>
             </>
           ) : null}
           {order.status === "delivered" ? (
             <>
               <Button className="h-8" onClick={() => invoice.mutate()} disabled={invoice.isPending}>
-                <Send className="size-4" aria-hidden /> Buat faktur
+                <Send className="size-4" aria-hidden /> {u("buatFaktur")}
               </Button>
               <Button variant="secondary" className="h-8" onClick={() => printDeliveryNote(order, companyName)}>
-                Cetak surat jalan
+                {u("cetakSuratJalan")}
               </Button>
             </>
           ) : null}
           {order.status === "invoiced" && order.deliveryNo ? (
             <Button variant="secondary" className="h-8" onClick={() => printDeliveryNote(order, companyName)}>
-              Cetak surat jalan
+              {u("cetakSuratJalan")}
             </Button>
           ) : null}
           {dpOpen && order.status === "open" ? (
             <div className="flex w-full flex-wrap items-center gap-2 pt-1">
-              <Input aria-label="Nominal uang muka" type="number" min={1} placeholder="Nominal DP" className="w-40" value={dp.amount} onChange={(e) => setDp({ ...dp, amount: e.target.value })} />
-              <Select aria-label="Akun kas/bank" className="w-48" value={dp.accountId} onChange={(e) => setDp({ ...dp, accountId: e.target.value })}>
+              <Input aria-label={u("nominalUangMuka")} type="number" min={1} placeholder={u("placeholderNominalDp")} className="w-40" value={dp.amount} onChange={(e) => setDp({ ...dp, amount: e.target.value })} />
+              <Select aria-label={u("akunKasBank")} className="w-48" value={dp.accountId} onChange={(e) => setDp({ ...dp, accountId: e.target.value })}>
                 {cashAccounts.map((a) => (
                   <option key={a.id} value={a.id}>{a.name}</option>
                 ))}
               </Select>
               <Button className="h-8" onClick={() => downPayment.mutate()} disabled={downPayment.isPending || !(Number(dp.amount) > 0)}>
-                Simpan DP
+                {u("simpanDp")}
               </Button>
             </div>
           ) : null}
