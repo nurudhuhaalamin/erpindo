@@ -1,4 +1,4 @@
-import { PPH23_OBJECTS, PPH23_OBJECT_LABELS } from "@erpindo/shared";
+import { PPH23_OBJECTS, PPH23_OBJECT_LABELS, type Pph23ObjectCode } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -21,6 +21,7 @@ import {
   Tr,
   useToast,
 } from "../components/ui";
+import { useUi, type UiKey } from "../i18n/ui";
 import { useWorkspace } from "./app";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -28,16 +29,36 @@ const thisMonth = () => new Date().toISOString().slice(0, 7);
 
 type Tab = "pph-final" | "pph23" | "spt-ppn";
 
+/**
+ * Peta kode objek PPh 23 → kunci kamus web (pola Fase 16t).
+ *
+ * `packages/shared` tetap berbahasa Indonesia karena `apps/api` ikut memakainya
+ * — paket bersama tidak boleh bergantung pada kamus web. Pemetaannya karena itu
+ * dilakukan di sisi web, dan `satisfies` memastikan setiap kode PPh 23 punya
+ * kunci: menambah objek baru di shared tanpa menambah terjemahannya di sini
+ * akan gagal saat kompilasi, bukan tampil sebagai teks kosong.
+ */
+const PPH23_OBJECT_KEY = {
+  jasa: "pph23Jasa",
+  sewa: "pph23Sewa",
+  royalti: "pph23Royalti",
+  bunga: "pph23Bunga",
+  dividen: "pph23Dividen",
+} satisfies Record<Pph23ObjectCode, UiKey>;
+
 export function PajakPage() {
   const { tenant } = useWorkspace();
+  const u = useUi();
   const isAdmin = tenant.role !== "viewer";
   const [tab, setTab] = useState<Tab>("pph-final");
 
-  const tabs: { key: Tab; label: string }[] = [
-    { key: "pph-final", label: "PPh Final 0,5%" },
-    { key: "pph23", label: "PPh 23 (Bukti Potong)" },
-    { key: "spt-ppn", label: "SPT Masa PPN" },
-  ];
+  // Label tab dari kamus; kuncinya bertipe UiKey lewat `satisfies` agar salah
+  // tulis tertangkap saat kompilasi (pola Fase 16u).
+  const tabs = [
+    { key: "pph-final", label: u("tabPphFinal") },
+    { key: "pph23", label: u("tabPph23") },
+    { key: "spt-ppn", label: u("tabSptPpn") },
+  ] satisfies { key: Tab; label: string }[];
 
   return (
     <div className="space-y-6">
@@ -68,6 +89,7 @@ export function PajakPage() {
 
 // --- PPh Final 0,5% ---------------------------------------------------------
 function PphFinalSection({ isAdmin }: { isAdmin: boolean }) {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -100,7 +122,7 @@ function PphFinalSection({ isAdmin }: { isAdmin: boolean }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pph-final", tenant.tenantId] });
       queryClient.invalidateQueries({ queryKey: ["pph-final-preview", tenant.tenantId, period] });
-      toast("success", "Setoran PPh Final tercatat & terjurnal.");
+      toast("success", u("toastSetoranPphTercatat"));
     },
     onError: (e: Error) => toast("error", e.message),
   });
@@ -111,13 +133,13 @@ function PphFinalSection({ isAdmin }: { isAdmin: boolean }) {
       {isAdmin ? (
         <Card>
           <CardHeader
-            title="Setor PPh Final masa"
-            description="Omzet (peredaran bruto) dihitung otomatis dari faktur penjualan bulan terpilih × 0,5%."
+            title={u("setorPphFinalMasa")}
+            description={u("descSetorPphFinal")}
           />
           <CardBody className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-[10rem_1fr_10rem_auto] sm:items-end">
               <div>
-                <Label htmlFor="pf-period">Masa (bulan)</Label>
+                <Label htmlFor="pf-period">{u("masaPajak")}</Label>
                 <Input
                   id="pf-period"
                   type="month"
@@ -126,13 +148,13 @@ function PphFinalSection({ isAdmin }: { isAdmin: boolean }) {
                 />
               </div>
               <div>
-                <Label htmlFor="pf-account">Bayar dari</Label>
+                <Label htmlFor="pf-account">{u("bayarDari")}</Label>
                 <Select
                   id="pf-account"
                   value={accountId}
                   onChange={(e) => setAccountId(e.target.value)}
                 >
-                  <option value="">— pilih akun kas/bank —</option>
+                  <option value="">{u("pilihAkunKasBank")}</option>
                   {cashAccounts.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.code} · {a.name}
@@ -141,7 +163,7 @@ function PphFinalSection({ isAdmin }: { isAdmin: boolean }) {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="pf-date">Tanggal setor</Label>
+                <Label htmlFor="pf-date">{u("tanggalSetor")}</Label>
                 <Input
                   id="pf-date"
                   type="date"
@@ -159,14 +181,14 @@ function PphFinalSection({ isAdmin }: { isAdmin: boolean }) {
                   preview.data.amount <= 0
                 }
               >
-                {pay.isPending ? <Spinner /> : null} Catat setoran
+                {pay.isPending ? <Spinner /> : null} {u("catatSetoran")}
               </Button>
             </div>
             {preview.data ? (
               <div className="rounded-xl bg-slate-50 p-4 text-sm dark:bg-slate-800/40">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span>
-                    Omzet masa {preview.data.period}:{" "}
+                    {u("omzetMasa")} {preview.data.period}:{" "}
                     <strong className="tabular-nums">{formatIDR(preview.data.omzet)}</strong>
                   </span>
                   <span>
@@ -177,10 +199,10 @@ function PphFinalSection({ isAdmin }: { isAdmin: boolean }) {
                   </span>
                 </div>
                 {preview.data.alreadyRecorded ? (
-                  <p className="mt-2 text-amber-600 dark:text-amber-400">Masa ini sudah dicatat.</p>
+                  <p className="mt-2 text-amber-600 dark:text-amber-400">{u("masaSudahDicatat")}</p>
                 ) : null}
                 {preview.data.amount <= 0 ? (
-                  <p className="mt-2 text-slate-500">Belum ada omzet pada masa ini.</p>
+                  <p className="mt-2 text-slate-500">{u("belumAdaOmzetMasa")}</p>
                 ) : null}
               </div>
             ) : null}
@@ -189,41 +211,41 @@ function PphFinalSection({ isAdmin }: { isAdmin: boolean }) {
       ) : null}
 
       <Card>
-        <CardHeader title="Riwayat setoran PPh Final" />
+        <CardHeader title={u("riwayatSetoranPphFinal")} />
         <CardBody>
           {list.isLoading ? (
             <Spinner />
           ) : records.length === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Belum ada setoran tercatat.
+              {u("belumAdaSetoran")}
             </p>
           ) : (
             <Table>
               <Thead>
                 <tr>
-                  <Th>Masa</Th>
-                  <Th numeric>Omzet</Th>
-                  <Th numeric>Tarif</Th>
+                  <Th>{u("masaKolom")}</Th>
+                  <Th numeric>{u("omzet")}</Th>
+                  <Th numeric>{u("tarif")}</Th>
                   <Th numeric>PPh Final</Th>
-                  <Th>Tgl setor</Th>
+                  <Th>{u("tglSetor")}</Th>
                 </tr>
               </Thead>
               <tbody>
                 {records.map((r) => (
                   <Tr key={r.id}>
-                    <Td label="Masa" className="font-medium">
+                    <Td label={u("masaKolom")} className="font-medium">
                       {r.period}
                     </Td>
-                    <Td numeric label="Omzet">
+                    <Td numeric label={u("omzet")}>
                       {formatIDR(r.omzet)}
                     </Td>
-                    <Td numeric label="Tarif">
+                    <Td numeric label={u("tarif")}>
                       {r.rate}%
                     </Td>
                     <Td numeric label="PPh Final">
                       {formatIDR(r.amount)}
                     </Td>
-                    <Td label="Tgl setor">{formatDate(r.paidDate)}</Td>
+                    <Td label={u("tglSetor")}>{formatDate(r.paidDate)}</Td>
                   </Tr>
                 ))}
               </tbody>
@@ -237,6 +259,7 @@ function PphFinalSection({ isAdmin }: { isAdmin: boolean }) {
 
 // --- PPh 23 -----------------------------------------------------------------
 function Pph23Section({ isAdmin }: { isAdmin: boolean }) {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -288,7 +311,7 @@ function Pph23Section({ isAdmin }: { isAdmin: boolean }) {
     onSuccess: (r) => {
       queryClient.invalidateQueries({ queryKey: ["pph23", tenant.tenantId] });
       setGross("");
-      toast("success", `Bukti potong ${r.docNo} dibuat.`);
+      toast("success", `${u("toastBuktiPotongPrefix")} ${r.docNo} ${u("toastBuktiPotongDibuat")}`);
     },
     onError: (e: Error) => toast("error", e.message),
   });
@@ -298,7 +321,7 @@ function Pph23Section({ isAdmin }: { isAdmin: boolean }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pph23", tenant.tenantId] });
       setDepositId(null);
-      toast("success", "PPh 23 disetor.");
+      toast("success", u("toastPph23Disetor"));
     },
     onError: (e: Error) => toast("error", e.message),
   });
@@ -309,8 +332,8 @@ function Pph23Section({ isAdmin }: { isAdmin: boolean }) {
       {isAdmin ? (
         <Card>
           <CardHeader
-            title="Buat bukti potong PPh 23"
-            description="Potong PPh 23 atas jasa/sewa/royalti/dll dari rekanan. Menciptakan Hutang PPh 23 untuk disetor."
+            title={u("buatBuktiPotong23")}
+            description={u("descBuktiPotong23")}
           />
           <CardBody className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -321,7 +344,7 @@ function Pph23Section({ isAdmin }: { isAdmin: boolean }) {
                   value={contactId}
                   onChange={(e) => setContactId(e.target.value)}
                 >
-                  <option value="">— pilih rekanan —</option>
+                  <option value="">{u("pilihRekanan")}</option>
                   {(contactsQuery.data?.items ?? []).map((k) => (
                     <option key={k.id} value={k.id}>
                       {k.name}
@@ -330,7 +353,7 @@ function Pph23Section({ isAdmin }: { isAdmin: boolean }) {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="p23-object">Objek pajak</Label>
+                <Label htmlFor="p23-object">{u("objekPajak")}</Label>
                 <Select
                   id="p23-object"
                   value={objectType}
@@ -338,13 +361,13 @@ function Pph23Section({ isAdmin }: { isAdmin: boolean }) {
                 >
                   {PPH23_OBJECTS.map((o) => (
                     <option key={o.code} value={o.code}>
-                      {o.label} ({o.rate}%)
+                      {u(PPH23_OBJECT_KEY[o.code])} ({o.rate}%)
                     </option>
                   ))}
                 </Select>
               </div>
               <div>
-                <Label htmlFor="p23-date">Tanggal</Label>
+                <Label htmlFor="p23-date">{u("tanggal")}</Label>
                 <Input
                   id="p23-date"
                   type="date"
@@ -360,17 +383,17 @@ function Pph23Section({ isAdmin }: { isAdmin: boolean }) {
                   min={0}
                   value={gross}
                   onChange={(e) => setGross(e.target.value)}
-                  placeholder="mis. 10000000"
+                  placeholder={u("contohNominalBesar")}
                 />
               </div>
               <div>
-                <Label htmlFor="p23-source">Akun sumber</Label>
+                <Label htmlFor="p23-source">{u("akunSumber")}</Label>
                 <Select
                   id="p23-source"
                   value={sourceAccountId}
                   onChange={(e) => setSourceAccountId(e.target.value)}
                 >
-                  <option value="">— hutang usaha / kas —</option>
+                  <option value="">{u("hutangUsahaAtauKas")}</option>
                   {sourceAccounts.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.code} · {a.name}
@@ -389,7 +412,7 @@ function Pph23Section({ isAdmin }: { isAdmin: boolean }) {
               onClick={() => create.mutate()}
               disabled={create.isPending || !contactId || !sourceAccountId || amount <= 0}
             >
-              {create.isPending ? <Spinner /> : null} Buat bukti potong
+              {create.isPending ? <Spinner /> : null} {u("buatBuktiPotong")}
             </Button>
           </CardBody>
         </Card>
@@ -422,6 +445,9 @@ function Pph23Section({ isAdmin }: { isAdmin: boolean }) {
                       r.taxDate,
                       r.contactName,
                       r.contactNpwp ?? "-",
+                      // Ekspor CSV tetap berbahasa Indonesia (keputusan Fase 16e,
+                      // lihat reports.tsx): berkasnya untuk akuntan/pelaporan,
+                      // bukan tampilan layar — jadi memakai label `shared` apa adanya.
                       PPH23_OBJECT_LABELS[r.objectType] ?? r.objectType,
                       r.gross,
                       `${r.rate}%`,
@@ -440,41 +466,45 @@ function Pph23Section({ isAdmin }: { isAdmin: boolean }) {
           {list.isLoading ? (
             <Spinner />
           ) : records.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada bukti potong.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{u("belumAdaBuktiPotong")}</p>
           ) : (
             <Table>
               <Thead>
                 <tr>
-                  <Th>Nomor</Th>
-                  <Th>Tanggal</Th>
+                  <Th>{u("nomor")}</Th>
+                  <Th>{u("tanggal")}</Th>
                   <Th>Rekanan</Th>
-                  <Th>Objek</Th>
+                  <Th>{u("objekPajak")}</Th>
                   <Th numeric>DPP</Th>
                   <Th numeric>PPh 23</Th>
-                  <Th>Status</Th>
+                  <Th>{u("status")}</Th>
                   {isAdmin ? <Th></Th> : null}
                 </tr>
               </Thead>
               <tbody>
                 {records.map((r) => (
                   <Tr key={r.id}>
-                    <Td label="Nomor" className="font-mono text-xs">
+                    <Td label={u("nomor")} className="font-mono text-xs">
                       {r.docNo}
                     </Td>
-                    <Td label="Tanggal">{formatDate(r.taxDate)}</Td>
+                    <Td label={u("tanggal")}>{formatDate(r.taxDate)}</Td>
                     <Td label="Rekanan">{r.contactName}</Td>
-                    <Td label="Objek">{PPH23_OBJECT_LABELS[r.objectType] ?? r.objectType}</Td>
+                    <Td label={u("objekPajak")}>
+                      {PPH23_OBJECT_KEY[r.objectType as Pph23ObjectCode]
+                        ? u(PPH23_OBJECT_KEY[r.objectType as Pph23ObjectCode])
+                        : r.objectType}
+                    </Td>
                     <Td numeric label="DPP">
                       {formatIDR(r.gross)}
                     </Td>
                     <Td numeric label="PPh 23">
                       {formatIDR(r.amount)}
                     </Td>
-                    <Td label="Status">
+                    <Td label={u("status")}>
                       {r.deposited ? (
                         <Badge tone="green">Disetor</Badge>
                       ) : (
-                        <Badge tone="amber">Belum setor</Badge>
+                        <Badge tone="amber">{u("belumSetor")}</Badge>
                       )}
                     </Td>
                     {isAdmin ? (
@@ -487,7 +517,7 @@ function Pph23Section({ isAdmin }: { isAdmin: boolean }) {
                                   onChange={(e) => setDepAccount(e.target.value)}
                                   className="h-8"
                                 >
-                                  <option value="">kas/bank</option>
+                                  <option value="">{u("kasBankSingkat")}</option>
                                   {cashAccounts.map((a) => (
                                     <option key={a.id} value={a.id}>
                                       {a.code}
@@ -499,14 +529,14 @@ function Pph23Section({ isAdmin }: { isAdmin: boolean }) {
                                   onClick={() => deposit.mutate(r.id)}
                                   disabled={deposit.isPending || !depAccount}
                                 >
-                                  Setor
+                                  {u("setorAksi")}
                                 </Button>
                                 <Button
                                   variant="ghost"
                                   size="xs"
                                   onClick={() => setDepositId(null)}
                                 >
-                                  Batal
+                                  {u("batal")}
                                 </Button>
                               </span>
                             ) : (
@@ -518,7 +548,7 @@ function Pph23Section({ isAdmin }: { isAdmin: boolean }) {
                                   setDepAccount("");
                                 }}
                               >
-                                Setor
+                                {u("setorAksi")}
                               </Button>
                             )
                         ) : null}
@@ -537,6 +567,7 @@ function Pph23Section({ isAdmin }: { isAdmin: boolean }) {
 
 // --- SPT Masa PPN 1111 ------------------------------------------------------
 function SptPpnSection() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const [period, setPeriod] = useState(thisMonth());
   const query = useQuery({
@@ -547,15 +578,15 @@ function SptPpnSection() {
   const data = query.data;
   const netLabel = useMemo(() => {
     if (!data) return "";
-    return data.net >= 0 ? "PPN Kurang Bayar (setor)" : "PPN Lebih Bayar (kompensasi)";
+    return data.net >= 0 ? u("ppnKurangBayar") : u("ppnLebihBayar");
   }, [data]);
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader
-          title="SPT Masa PPN 1111"
-          description="Rekap Pajak Keluaran (A: faktur penjualan ber-PPN) vs Pajak Masukan (B: pembelian ber-PPN)."
+          title={u("sptMasaPpn1111")}
+          description={u("descSptMasaPpn")}
           action={
             data ? (
               <Button
@@ -595,7 +626,7 @@ function SptPpnSection() {
         />
         <CardBody className="space-y-5">
           <div>
-            <Label htmlFor="spt-period">Masa (bulan)</Label>
+            <Label htmlFor="spt-period">{u("masaPajak")}</Label>
             <Input
               id="spt-period"
               type="month"
@@ -631,13 +662,13 @@ function SptPpnSection() {
                 </div>
               </div>
               <SptTable
-                title="A. Pajak Keluaran (faktur penjualan)"
+                title={u("pajakKeluaranA")}
                 rows={data.output}
                 totalDpp={data.totalOutputDpp}
                 totalPpn={data.totalOutputPpn}
               />
               <SptTable
-                title="B. Pajak Masukan (pembelian)"
+                title={u("pajakMasukanB")}
                 rows={data.input}
                 totalDpp={data.totalInputDpp}
                 totalPpn={data.totalInputPpn}
@@ -668,20 +699,21 @@ function SptTable({
   totalDpp: number;
   totalPpn: number;
 }) {
+  const u = useUi();
   return (
     <div>
       <h3 className="mb-2 text-sm font-semibold">{title}</h3>
       {rows.length === 0 ? (
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Tidak ada transaksi ber-PPN pada masa ini.
+          {u("tidakAdaTransaksiPpn")}
         </p>
       ) : (
         <Table>
           <Thead>
             <tr>
-              <Th>Nomor</Th>
-              <Th>Tanggal</Th>
-              <Th>Lawan Transaksi</Th>
+              <Th>{u("nomor")}</Th>
+              <Th>{u("tanggal")}</Th>
+              <Th>{u("lawanTransaksi")}</Th>
               <Th numeric>DPP</Th>
               <Th numeric>PPN</Th>
             </tr>
@@ -689,11 +721,11 @@ function SptTable({
           <tbody>
             {rows.map((r) => (
               <Tr key={r.docNo}>
-                <Td label="Nomor" className="font-mono text-xs">
+                <Td label={u("nomor")} className="font-mono text-xs">
                   {r.docNo}
                 </Td>
-                <Td label="Tanggal">{formatDate(r.date)}</Td>
-                <Td label="Lawan Transaksi">{r.partnerName}</Td>
+                <Td label={u("tanggal")}>{formatDate(r.date)}</Td>
+                <Td label={u("lawanTransaksi")}>{r.partnerName}</Td>
                 <Td numeric label="DPP">
                   {formatIDR(r.dpp)}
                 </Td>
