@@ -808,6 +808,23 @@ try {
     `→ EN=${adaAbEn} tanpaID=${tanpaAbId}`,
   );
 
+  // F1l — Fase 19l: Dimensi & Anggaran.
+  // Rute diverifikasi ke audit-routes.mjs: /app/keuangan/dimensi dan
+  // /app/keuangan/anggaran.
+  await gotoRoute("/app/keuangan/dimensi", 900);
+  const dmEn = await page.innerText("body");
+  await gotoRoute("/app/keuangan/anggaran", 900);
+  const agEn = await page.innerText("body");
+  const adaDmEn = dmEn.includes("Profit & loss per dimension");
+  const tanpaDmId = !dmEn.includes("Laba-rugi per dimensi");
+  const adaAgEn = agEn.includes("Budget vs actual");
+  const tanpaAgId = !agEn.includes("Anggaran vs realisasi");
+  check(
+    "F1l isi Dimensi & Anggaran ikut EN: laba-rugi dimensi + anggaran, tanpa teks Indonesia",
+    adaDmEn && tanpaDmId && adaAgEn && tanpaAgId,
+    `→ dimensi EN=${adaDmEn}/tanpaID=${tanpaDmId} anggaran EN=${adaAgEn}/tanpaID=${tanpaAgId}`,
+  );
+
   // Fase 16n — pelunasan utang 16e. Rute diverifikasi ke main.tsx:
   // /app/keuangan/arus-kas dan /app/keuangan/neraca. Baris ringkasan arus kas
   // selalu tampil begitu data termuat (tak bergantung ada/tidaknya mutasi).

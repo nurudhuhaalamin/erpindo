@@ -17,6 +17,7 @@ import {
   Tr,
   useToast,
 } from "../components/ui";
+import { useUi } from "../i18n/ui";
 import { useWorkspace } from "./app";
 import { ExportButton } from "./reports";
 
@@ -34,6 +35,7 @@ function BudgetRow({
   period: string;
   editable: boolean;
 }) {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -62,14 +64,14 @@ function BudgetRow({
     // `align-top` supaya baris lain tidak ikut merenggang mengikuti tinggi
     // input anggaran (pola yang sama dengan work order 18o & routing 18p).
     <Tr className="align-top">
-      <Td label="Kode" className="font-mono text-xs text-slate-400">
+      <Td label={u("kodeKolom")} className="font-mono text-xs text-slate-400">
         {row.code}
       </Td>
-      <Td label="Akun">{row.name}</Td>
+      <Td label={u("akun")}>{row.name}</Td>
       {/* Kolom Anggaran TIDAK memakai `numeric`: bagi admin selnya memuat
           kontrol form, bukan nilai — sama seperti sel berisi lencana (17g).
           Perataan kanan tetap dipasang manual agar kolomnya berbaris. */}
-      <Td label="Anggaran" className="text-right">
+      <Td label={u("anggaranKolom")} className="text-right">
         {editable ? (
           <Input
             aria-label={`Anggaran ${row.name}`}
@@ -84,12 +86,12 @@ function BudgetRow({
           <span className="num">{formatIDR(row.budget)}</span>
         )}
       </Td>
-      <Td numeric label="Realisasi">
+      <Td numeric label={u("realisasi")}>
         {formatIDR(row.actual)}
       </Td>
       <Td
         numeric
-        label="Selisih"
+        label={u("selisihKolom")}
         className={
           favorable ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
         }
@@ -112,6 +114,7 @@ function BudgetTable({
   period: string;
   editable: boolean;
 }) {
+  const u = useUi();
   const totBudget = rows.reduce((s, r) => s + r.budget, 0);
   const totActual = rows.reduce((s, r) => s + r.actual, 0);
   const totVar = rows.reduce((s, r) => s + r.variance, 0);
@@ -124,11 +127,11 @@ function BudgetTable({
       <Table>
         <Thead>
           <tr>
-            <Th>Kode</Th>
-            <Th>Akun</Th>
-            <Th numeric>Anggaran</Th>
-            <Th numeric>Realisasi</Th>
-            <Th numeric>Selisih</Th>
+            <Th>{u("kodeKolom")}</Th>
+            <Th>{u("akun")}</Th>
+            <Th numeric>{u("anggaranKolom")}</Th>
+            <Th numeric>{u("realisasi")}</Th>
+            <Th numeric>{u("selisihKolom")}</Th>
           </tr>
         </Thead>
         <tbody>
@@ -138,7 +141,7 @@ function BudgetTable({
                   di mode kartu selnya membentang penuh, jadi rata tengah
                   membuatnya terbaca seperti judul, bukan keterangan. */}
               <Td colSpan={5} className="text-slate-400 md:text-center">
-                Belum ada akun {title.toLowerCase()}.
+                {u("belumAdaAkunSuffix")} {title.toLowerCase()}.
               </Td>
             </Tr>
           ) : (
@@ -147,16 +150,18 @@ function BudgetTable({
             ))
           )}
           <Tr className="border-t border-slate-200 font-semibold dark:border-slate-800">
-            <Td colSpan={2}>Total {title}</Td>
-            <Td numeric label="Anggaran">
+            <Td colSpan={2}>
+              {u("totalPrefix")} {title}
+            </Td>
+            <Td numeric label={u("anggaranKolom")}>
               {formatIDR(totBudget)}
             </Td>
-            <Td numeric label="Realisasi">
+            <Td numeric label={u("realisasi")}>
               {formatIDR(totActual)}
             </Td>
             <Td
               numeric
-              label="Selisih"
+              label={u("selisihKolom")}
               className={
                 favorable
                   ? "text-emerald-600 dark:text-emerald-400"
@@ -174,6 +179,7 @@ function BudgetTable({
 }
 
 export function BudgetPage() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const editable = tenant.role !== "viewer";
   const [period, setPeriod] = useState(thisMonth);
@@ -220,13 +226,13 @@ export function BudgetPage() {
 
       <Card>
         <CardHeader
-          title="Anggaran vs realisasi"
-          description="Tetapkan target pendapatan & beban per bulan; realisasi dihitung otomatis dari jurnal. Selisih hijau = menguntungkan (pendapatan di atas target atau beban di bawah target)."
+          title={u("anggaranVsRealisasi")}
+          description={u("descAnggaranRealisasi")}
         />
         <CardBody className="space-y-6">
           <div className="flex flex-wrap items-end gap-3">
             <div>
-              <Label htmlFor="budget-period">Periode (bulan)</Label>
+              <Label htmlFor="budget-period">{u("periodeBulan")}</Label>
               <Input
                 id="budget-period"
                 type="month"
@@ -236,7 +242,7 @@ export function BudgetPage() {
             </div>
             {!editable ? (
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Hanya Owner/Admin yang dapat mengubah anggaran.
+                {u("hanyaOwnerUbahAnggaran")}
               </p>
             ) : null}
           </div>
@@ -250,7 +256,7 @@ export function BudgetPage() {
 
               <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/40">
                 <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
-                  <div className="font-medium">Laba/rugi</div>
+                  <div className="font-medium">{u("labaRugiKecil")}</div>
                   <div className="text-slate-500 dark:text-slate-400 sm:text-right">
                     Anggaran: <span className="tabular-nums">{formatIDR(budgetProfit)}</span>
                   </div>
