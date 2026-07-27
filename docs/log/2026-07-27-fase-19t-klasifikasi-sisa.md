@@ -55,10 +55,20 @@ Hasil ukurannya: **123 teks tampilan tersembunyi di atribut, tersebar di 23
 berkas** (terbanyak `manufacturing` 12, `pajak` 9, `reports` 9, `maintenance`
 7, `dimensi` 6, `stok` 6).
 
-**Angka itu utang nyata, bukan positif palsu.** Ia tidak dikerjakan di
-sub-fase ini — dan saya menyatakannya terang-terangan alih-alih menutupnya:
-program i18n Fase 19 **belum tuntas**. Yang berubah adalah utangnya kini
-**terukur dan terjaga**, bukan tak terlihat seperti sebelumnya.
+**Angka itu bukan positif palsu** — seluruhnya memang teks tampilan. Tetapi
+supaya tidak dilebih-lebihkan: sebagian di antaranya **istilah resmi yang sama
+di kedua bahasa** (`DPP`, `PPN`, `PPh 23`, `No.`, `QC`, `Work center`), yang
+tetap perlu dilewatkan `u()` demi konsistensi tetapi tidak berarti pemakai
+berbahasa Inggris melihat kata Indonesia. Sampel dua berkas menunjukkan
+kira-kira sepertiganya berjenis itu; pemisahan pastinya adalah pekerjaan 19u,
+dan saya tidak menaksirnya di sini.
+
+Yang jelas: teks seperti `title="Perintah produksi"`, `label="Rekanan"`,
+`label="Tahap"`, dan `placeholder="Potong bahan"` **memang muncul berbahasa
+Indonesia di mode Inggris**. Itu tidak dikerjakan di sub-fase ini — dan saya
+menyatakannya terang-terangan alih-alih menutupnya: program i18n Fase 19
+**belum tuntas**. Yang berubah adalah utangnya kini **terukur dan terjaga**,
+bukan tak terlihat seperti sebelumnya.
 
 Sub-fase **19u** mengerjakan 123 atribut itu.
 
