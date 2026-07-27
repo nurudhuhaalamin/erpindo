@@ -19,6 +19,7 @@ import {
   Tr,
   useToast,
 } from "../components/ui";
+import { useUi, type UiKey } from "../i18n/ui";
 import { useWorkspace } from "./app";
 
 /**
@@ -28,8 +29,17 @@ import { useWorkspace } from "./app";
  * MENANDAI baris; tidak pernah mengubah jurnal.
  */
 
-/** Parse CSV mutasi sederhana: tanggal, keterangan, jumlah (+masuk/−keluar). */
-function parseCsv(text: string): {
+/**
+ * Parse CSV mutasi sederhana: tanggal, keterangan, jumlah (+masuk/−keluar).
+ *
+ * Penerjemah `u` diterima sebagai argumen, bukan dipanggil di dalam: ini fungsi
+ * murni di tingkat modul, sehingga tidak boleh memakai hook. Pesan galatnya
+ * tampil ke pengguna lewat toast, jadi tetap harus ikut bahasa aktif.
+ */
+function parseCsv(
+  text: string,
+  u: (k: UiKey) => string,
+): {
   rows: { date: string; description: string; amount: number }[];
   errors: string[];
 } {
@@ -43,7 +53,7 @@ function parseCsv(text: string): {
     const parts = line.split(/[;,\t]/).map((p) => p.trim());
     if (i === 0 && /tanggal|date/i.test(parts[0] ?? "")) continue; // baris header
     if (parts.length < 3) {
-      errors.push(`Baris ${i + 1}: butuh 3 kolom (tanggal;keterangan;jumlah)`);
+      errors.push(`${u("barisKe")} ${i + 1}: ${u("csvButuh3Kolom")}`);
       continue;
     }
     const [rawDate, description, rawAmount] = [
@@ -61,21 +71,22 @@ function parseCsv(text: string): {
     const amount = Math.round(Number(rawAmount.replace(/\./g, "").replace(",", ".")));
     if (!date) {
       errors.push(
-        `Baris ${i + 1}: tanggal tidak dikenal (${rawDate}) — pakai YYYY-MM-DD atau DD/MM/YYYY`
+        `${u("barisKe")} ${i + 1}: ${u("csvTanggalTakDikenal")} (${rawDate}) — ${u("csvPakaiFormatTanggal")}`
       );
       continue;
     }
     if (!Number.isFinite(amount) || amount === 0) {
-      errors.push(`Baris ${i + 1}: jumlah tidak valid (${rawAmount})`);
+      errors.push(`${u("barisKe")} ${i + 1}: ${u("csvJumlahTakValid")} (${rawAmount})`);
       continue;
     }
-    rows.push({ date, description: description || "(tanpa keterangan)", amount });
+    rows.push({ date, description: description || u("tanpaKeterangan"), amount });
   }
   return { rows, errors };
 }
 
 export function KasBankPage() {
   const { tenant } = useWorkspace();
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const isAdmin = tenant.role !== "viewer";
@@ -122,15 +133,15 @@ export function KasBankPage() {
 
   const importMutation = useMutation({
     mutationFn: () => {
-      const { rows, errors } = parseCsv(csvText);
+      const { rows, errors } = parseCsv(csvText, u);
       if (errors.length > 0) throw new Error(errors.slice(0, 3).join(" · "));
-      if (rows.length === 0) throw new Error("Tidak ada baris mutasi yang bisa dibaca.");
+      if (rows.length === 0) throw new Error(u("csvTakTerbaca"));
       return api.bankReconImport(tenant.tenantId, { accountId: selected!.id, items: rows });
     },
     onSuccess: (res) => {
       toast(
         "success",
-        `${res.imported} mutasi diimpor — ${res.autoMatched} langsung cocok otomatis.`
+        `${res.imported} ${u("mutasiDiimporSuffix")} — ${res.autoMatched} ${u("langsungCocokSuffix")}`
       );
       setCsvText("");
       queryClient.invalidateQueries({ queryKey: ["bank-recon", tenant.tenantId] });
@@ -189,41 +200,41 @@ export function KasBankPage() {
 
           <Card>
             <CardHeader
-              title={`Mutasi ${selected?.name ?? ""}`}
-              description="Riwayat keluar-masuk beserta saldo berjalan — sama dengan buku besar akun ini."
+              title={`${u("mutasiAkun")} ${selected?.name ?? ""}`}
+              description={u("descMutasi")}
             />
             <CardBody>
               {ledgerQuery.isLoading ? (
                 <Spinner />
               ) : (ledgerQuery.data?.entries.length ?? 0) === 0 ? (
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Belum ada mutasi pada akun ini.
+                  {u("belumAdaMutasi")}
                 </p>
               ) : (
                 <Table>
                   <Thead>
                     <tr>
-                      <Th>Tanggal</Th>
-                      <Th>Keterangan</Th>
-                      <Th numeric>Masuk</Th>
-                      <Th numeric>Keluar</Th>
-                      <Th numeric>Saldo</Th>
+                      <Th>{u("tanggal")}</Th>
+                      <Th>{u("keterangan")}</Th>
+                      <Th numeric>{u("masuk")}</Th>
+                      <Th numeric>{u("keluar")}</Th>
+                      <Th numeric>{u("saldo")}</Th>
                     </tr>
                   </Thead>
                   <tbody>
                     {ledgerQuery.data!.entries.slice(-50).map((e, i) => (
                       <Tr key={i}>
-                        <Td label="Tanggal" className="whitespace-nowrap">
+                        <Td label={u("tanggal")} className="whitespace-nowrap">
                           {formatDate(e.entryDate)}
                         </Td>
-                        <Td label="Keterangan">{e.description ?? e.entryNo}</Td>
-                        <Td numeric label="Masuk">
+                        <Td label={u("keterangan")}>{e.description ?? e.entryNo}</Td>
+                        <Td numeric label={u("masuk")}>
                           {e.debit ? formatIDR(e.debit) : "—"}
                         </Td>
-                        <Td numeric label="Keluar">
+                        <Td numeric label={u("keluar")}>
                           {e.credit ? formatIDR(e.credit) : "—"}
                         </Td>
-                        <Td numeric label="Saldo" className="font-medium">
+                        <Td numeric label={u("saldo")} className="font-medium">
                           {formatIDR(e.balance)}
                         </Td>
                       </Tr>
@@ -236,14 +247,14 @@ export function KasBankPage() {
 
           <Card>
             <CardHeader
-              title="Rekonsiliasi rekening koran"
-              description="Unduh mutasi (CSV) dari internet banking, tempel di sini — sistem mencocokkan otomatis berdasarkan nominal yang sama dan tanggal berdekatan (±3 hari)."
+              title={u("rekonsiliasiKoran")}
+              description={u("descRekonsiliasi")}
             />
             <CardBody className="space-y-4">
               {isAdmin ? (
                 <div className="space-y-2">
                   <Label htmlFor="csv-mutasi">
-                    Tempel CSV mutasi — kolom: tanggal; keterangan; jumlah (+ masuk / − keluar)
+                    {u("labelCsvMutasi")}
                   </Label>
                   <textarea
                     id="csv-mutasi"
@@ -260,7 +271,7 @@ export function KasBankPage() {
                     disabled={!csvText.trim() || importMutation.isPending}
                   >
                     <Upload className="size-4" aria-hidden />{" "}
-                    {importMutation.isPending ? "Mengimpor…" : "Impor & cocokkan otomatis"}
+                    {importMutation.isPending ? u("mengimpor") : u("imporCocokkan")}
                   </Button>
                 </div>
               ) : null}
@@ -268,61 +279,65 @@ export function KasBankPage() {
               {recon && recon.items.length > 0 ? (
                 <>
                   <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <Badge tone="green">{recon.summary.matched} cocok</Badge>
+                    <Badge tone="green">
+                      {recon.summary.matched} {u("cocok")}
+                    </Badge>
                     <Badge tone={recon.summary.unmatched > 0 ? "amber" : "green"}>
-                      {recon.summary.unmatched} belum cocok
+                      {recon.summary.unmatched} {u("belumCocok")}
                     </Badge>
                     <span className="text-slate-500 dark:text-slate-400">
-                      dari {recon.summary.total} baris mutasi
+                      {u("dariPrefix")} {recon.summary.total} {u("barisMutasiSuffix")}
                     </span>
                   </div>
                   <Table>
                     <Thead>
                       <tr>
-                        <Th>Tanggal</Th>
-                        <Th>Keterangan bank</Th>
-                        <Th numeric>Jumlah</Th>
-                        <Th>Status</Th>
+                        <Th>{u("tanggal")}</Th>
+                        <Th>{u("keteranganBank")}</Th>
+                        <Th numeric>{u("jumlah")}</Th>
+                        <Th>{u("status")}</Th>
                       </tr>
                     </Thead>
                     <tbody>
                       {recon.items.map((item) => (
                         <Tr key={item.id} className="align-top">
-                          <Td label="Tanggal" className="whitespace-nowrap">
+                          <Td label={u("tanggal")} className="whitespace-nowrap">
                             {formatDate(item.stmtDate)}
                           </Td>
-                          <Td label="Keterangan bank">{item.description}</Td>
+                          <Td label={u("keteranganBank")}>{item.description}</Td>
                           <Td
                             numeric
-                            label="Jumlah"
+                            label={u("jumlah")}
                             className={item.amount < 0 ? "text-red-600 dark:text-red-400" : ""}
                           >
                             {formatIDR(item.amount)}
                           </Td>
-                          <Td label="Status">
+                          <Td label={u("status")}>
                               {item.matchedJournalLineId ? (
                                 <span className="inline-flex flex-wrap items-center gap-2">
-                                  <Badge tone="green">cocok · {item.matchedEntryNo}</Badge>
+                                  <Badge tone="green">
+                                    {u("cocok")} · {item.matchedEntryNo}
+                                  </Badge>
                                   {isAdmin ? (
                                     <button
                                       onClick={() => unmatchMutation.mutate(item.id)}
                                       className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-red-600 dark:text-slate-400"
                                     >
-                                      <Link2Off className="size-3.5" aria-hidden /> lepas
+                                      <Link2Off className="size-3.5" aria-hidden /> {u("lepasCocok")}
                                     </button>
                                   ) : null}
                                 </span>
                               ) : isAdmin ? (
                                 <span className="flex flex-wrap items-center gap-2">
                                   <Select
-                                    aria-label="Pilih baris jurnal untuk dicocokkan"
+                                    aria-label={u("ariaPilihBarisJurnal")}
                                     className="h-8 max-w-64 text-xs"
                                     value={matchPick[item.id] ?? ""}
                                     onChange={(e) =>
                                       setMatchPick((m) => ({ ...m, [item.id]: e.target.value }))
                                     }
                                   >
-                                    <option value="">— pilih baris jurnal —</option>
+                                    <option value="">{u("pilihBarisJurnal")}</option>
                                     {recon.unmatchedLines.map((l) => (
                                       <option key={l.id} value={l.id}>
                                         {formatDate(l.entryDate)} · {l.entryNo} ·{" "}
@@ -341,11 +356,11 @@ export function KasBankPage() {
                                       })
                                     }
                                   >
-                                    <Link2 className="size-4" aria-hidden /> Cocokkan
+                                    <Link2 className="size-4" aria-hidden /> {u("cocokkan")}
                                   </Button>
                                 </span>
                               ) : (
-                                <Badge tone="amber">belum cocok</Badge>
+                                <Badge tone="amber">{u("belumCocok")}</Badge>
                             )}
                           </Td>
                         </Tr>
@@ -355,7 +370,7 @@ export function KasBankPage() {
                 </>
               ) : recon ? (
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Belum ada mutasi rekening koran yang diimpor untuk akun ini.
+                  {u("belumAdaKoranDiimpor")}
                 </p>
               ) : null}
             </CardBody>

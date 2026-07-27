@@ -1084,6 +1084,79 @@ const UI: Record<string, Dual> = {
   descAlurHarian: { id: "Alur kerja harian yang umum.", en: "Common day-to-day workflows." },
   menuPenjualan: { id: "Penjualan", en: "Sales" },
   menuPembelian: { id: "Pembelian", en: "Purchases" },
+
+  // Kas & Bank + rekonsiliasi rekening koran (Fase 19c).
+  // Istilah perbankan Indonesia yang memang nama baku ("rekening koran")
+  // diterjemahkan deskriptif ke "bank statement", bukan dibiarkan apa adanya —
+  // berbeda dari PPN/NPWP yang merupakan nama resmi pajak.
+  mutasiAkun: { id: "Mutasi", en: "Transactions" },
+  descMutasi: {
+    id: "Riwayat keluar-masuk beserta saldo berjalan — sama dengan buku besar akun ini.",
+    en: "In and out history with a running balance — the same as this account's ledger.",
+  },
+  belumAdaMutasi: { id: "Belum ada mutasi pada akun ini.", en: "No transactions on this account yet." },
+  masuk: { id: "Masuk", en: "In" },
+  keluar: { id: "Keluar", en: "Out" },
+  rekonsiliasiKoran: { id: "Rekonsiliasi rekening koran", en: "Bank statement reconciliation" },
+  descRekonsiliasi: {
+    id: "Unduh mutasi (CSV) dari internet banking, tempel di sini — sistem mencocokkan otomatis berdasarkan nominal yang sama dan tanggal berdekatan (±3 hari).",
+    en: "Download your transactions (CSV) from internet banking and paste them here — matching is automatic, by equal amount and nearby date (±3 days).",
+  },
+  labelCsvMutasi: {
+    id: "Tempel CSV mutasi — kolom: tanggal; keterangan; jumlah (+ masuk / − keluar)",
+    en: "Paste transaction CSV — columns: date; description; amount (+ in / − out)",
+  },
+  mengimpor: { id: "Mengimpor…", en: "Importing…" },
+  imporCocokkan: { id: "Impor & cocokkan otomatis", en: "Import & auto-match" },
+  cocok: { id: "cocok", en: "matched" },
+  belumCocok: { id: "belum cocok", en: "unmatched" },
+  // Rangkaian awalan/akhiran, bukan penyulihan `{n}` — mengikuti pola yang
+  // sudah dipakai kamus ini sejak Fase 16 (mis. `penjualanHariTerakhir` +
+  // angka + `hariTerakhirSuffix`). Memperkenalkan mekanisme penyulihan kedua
+  // hanya untuk satu berkas akan membuat dua gaya bersaing di kamus yang sama.
+  //
+  // `dariPrefix` sengaja BUKAN memakai kunci `dari` yang sudah ada: kunci itu
+  // berisi "Dari"/"From" sebagai label rentang tanggal — nama yang cocok, makna
+  // yang tidak (pelajaran Fase 16u).
+  dariPrefix: { id: "dari", en: "of" },
+  barisMutasiSuffix: { id: "baris mutasi", en: "statement rows" },
+  keteranganBank: { id: "Keterangan bank", en: "Bank description" },
+  lepasCocok: { id: "lepas", en: "unmatch" },
+  cocokkan: { id: "Cocokkan", en: "Match" },
+  pilihBarisJurnal: { id: "— pilih baris jurnal —", en: "— pick a journal line —" },
+  ariaPilihBarisJurnal: {
+    id: "Pilih baris jurnal untuk dicocokkan",
+    en: "Pick a journal line to match",
+  },
+  belumAdaKoranDiimpor: {
+    id: "Belum ada mutasi rekening koran yang diimpor untuk akun ini.",
+    en: "No bank statement rows imported for this account yet.",
+  },
+  // Galat pengurai CSV — ditampilkan ke pengguna, jadi ikut dwibahasa.
+  // Disusun sebagai awalan "Baris <n>: " + inti pesan, supaya nomor barisnya
+  // disisipkan pemanggil tanpa penyulihan. Awalannya memakai `barisKe` yang
+  // SUDAH ADA (Fase 16) — sempat ditambahkan lagi di sini dengan isi persis
+  // sama, dan TypeScript menangkapnya sebagai TS1117.
+  csvButuh3Kolom: {
+    id: "butuh 3 kolom (tanggal;keterangan;jumlah)",
+    en: "needs 3 columns (date;description;amount)",
+  },
+  csvTanggalTakDikenal: { id: "tanggal tidak dikenal", en: "unrecognised date" },
+  csvPakaiFormatTanggal: {
+    id: "pakai YYYY-MM-DD atau DD/MM/YYYY",
+    en: "use YYYY-MM-DD or DD/MM/YYYY",
+  },
+  csvJumlahTakValid: { id: "jumlah tidak valid", en: "invalid amount" },
+  tanpaKeterangan: { id: "(tanpa keterangan)", en: "(no description)" },
+  csvTakTerbaca: {
+    id: "Tidak ada baris mutasi yang bisa dibaca.",
+    en: "No statement rows could be read.",
+  },
+  mutasiDiimporSuffix: { id: "mutasi diimpor", en: "rows imported" },
+  langsungCocokSuffix: {
+    id: "langsung cocok otomatis.",
+    en: "matched automatically straight away.",
+  },
 };
 
 export type UiKey = keyof typeof UI;

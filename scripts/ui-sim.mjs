@@ -641,6 +641,34 @@ try {
     adaJurnalSisaEn && tanpaJurnalSisaId,
     `→ tombol=${adaJurnalSisaEn} tanpaID=${tanpaJurnalSisaId}`,
   );
+  // F1c — Fase 19c: halaman Kas & Bank, halaman pertama program i18n yang
+  // dilanjutkan setelah perombakan desain. Rute diverifikasi ke main.tsx:
+  // /app/keuangan/kas-bank.
+  //
+  // Penanda positifnya judul kartu rekonsiliasi + keterangan kartu mutasi.
+  // Sempat memakai judul kolom "Bank description", dan itu SALAH: kolom itu
+  // hanya dirender bila ada baris rekening koran terimpor, sementara akun yang
+  // terpilih pertama adalah Kas yang tidak punya. Penanda harus sesuatu yang
+  // dirender tanpa syarat data.
+  //
+  // Penanda negatifnya sengaja memakai teks UI MURNI ("Rekonsiliasi rekening
+  // koran", "Keterangan bank"), bukan kata seperti "Saldo" atau "Bank" yang
+  // juga muncul sebagai NAMA AKUN dari data pengguna — pelajaran Fase 16e:
+  // penanda negatif yang menyentuh data akan gagal karena datanya, bukan karena
+  // terjemahannya.
+  await gotoRoute("/app/keuangan/kas-bank", 900);
+  const kbEn = await page.innerText("body");
+  const adaKbEn =
+    kbEn.includes("Bank statement reconciliation") &&
+    kbEn.includes("In and out history with a running balance");
+  const tanpaKbId =
+    !kbEn.includes("Rekonsiliasi rekening koran") && !kbEn.includes("Riwayat keluar-masuk");
+  check(
+    "F1c isi halaman Kas & Bank ikut EN: rekonsiliasi + kolom mutasi, tanpa teks Indonesia",
+    adaKbEn && tanpaKbId,
+    `→ EN=${adaKbEn} tanpaID=${tanpaKbId}`,
+  );
+
   // Fase 16n — pelunasan utang 16e. Rute diverifikasi ke main.tsx:
   // /app/keuangan/arus-kas dan /app/keuangan/neraca. Baris ringkasan arus kas
   // selalu tampil begitu data termuat (tak bergantung ada/tidaknya mutasi).
