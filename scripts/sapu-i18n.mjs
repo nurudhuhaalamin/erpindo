@@ -108,8 +108,77 @@ function panggilanHarfiah(src) {
   return out;
 }
 
+/**
+ * Pola tabel-lookup dwibahasa (Fase 19s).
+ *
+ * `app.tsx` menerjemahkan menu bukan lewat `u("kunci")` melainkan lewat dua
+ * tabel: `NAV_ITEMS` (label Indonesia + rute) dipasangkan dengan
+ * `NAV_LABEL_EN` (rute → label Inggris), dan nama seksi dengan `SECTION_EN`.
+ * Alat ini tidak mengenalinya, jadi 64 temuan dilaporkan di berkas yang
+ * sebenarnya sudah dwibahasa sejak Fase 13e — dan angka palsu sebesar itu
+ * MENUTUPI belasan utang nyata di berkas yang sama. Itulah alasan pola ini
+ * diajarkan sekarang, bukan sekadar demi angka yang rapi.
+ *
+ * Yang penting: ini BUKAN pembungkaman. Pasangan diperiksa betulan —
+ * label yang rutenya tidak ada di tabel EN tetap dilaporkan, jadi menu baru
+ * yang lupa diberi label Inggris tetap ketahuan.
+ */
+function zonaTabelDwibahasa(src) {
+  const sah = [];
+  const bolong = [];
+
+  const blok = (re, buka, tutup) => {
+    const out = [];
+    for (const m of src.matchAll(re)) {
+      const awal = m.index + m[0].length - 1;
+      let d = 0;
+      for (let i = awal; i < src.length; i++) {
+        if (src[i] === buka) d++;
+        else if (src[i] === tutup && --d === 0) {
+          out.push({ a: m.index, b: i, isi: src.slice(awal, i + 1), nama: m[1] });
+          break;
+        }
+      }
+    }
+    return out;
+  };
+
+  // 1. Deklarasi `const X_EN … = { … }`: seluruh isinya sisi Inggris plus
+  //    kunci pencarian (rute atau nama seksi Indonesia). Bukan teks layar.
+  const tabelEn = blok(/\bconst\s+([A-Z0-9_]*_EN)\b[^=]*=\s*\{/g, "{", "}");
+  sah.push(...tabelEn.map((t) => ({ a: t.a, b: t.b })));
+
+  const kunciEn = new Set();
+  for (const t of tabelEn)
+    for (const k of t.isi.matchAll(/(?:^|[{,]\s*)"?([^":,{}\n]+?)"?\s*:/g)) kunciEn.add(k[1].trim());
+
+  // 2. Tabel item bernavigasi: entri `{ to: "…", label: "…" , section: "…" }`.
+  //    Label & seksinya sah HANYA bila padanan Inggrisnya benar-benar ada.
+  if (tabelEn.length > 0) {
+    for (const t of blok(/\bconst\s+([A-Z0-9_]+)\b[^=]*=\s*\[/g, "[", "]")) {
+      for (const e of t.isi.matchAll(/\{[^{}]*\bto:\s*"([^"]+)"[^{}]*\}/g)) {
+        const label = e[0].match(/\blabel:\s*"([^"]+)"/)?.[1];
+        const seksi = e[0].match(/\bsection:\s*"([^"]+)"/)?.[1];
+        const a = t.a + e.index;
+        const b = a + e[0].length;
+        const kurang = [];
+        if (label && !kunciEn.has(e[1])) kurang.push(`rute ${e[1]}`);
+        if (seksi && !kunciEn.has(seksi)) kurang.push(`seksi "${seksi}"`);
+        if (kurang.length === 0) sah.push({ a, b });
+        else
+          bolong.push({
+            baris: src.slice(0, a).split("\n").length,
+            pesan: `${label ?? e[1]} — tanpa padanan Inggris (${kurang.join(", ")})`,
+          });
+      }
+    }
+  }
+  return { sah, bolong };
+}
+
 let totalLayar = 0;
 let totalHarfiah = 0;
+let totalBolong = 0;
 for (const file of process.argv.slice(2)) {
   const asli = readFileSync(file, "utf8");
   const src = bersihkan(asli);
@@ -177,6 +246,14 @@ for (const file of process.argv.slice(2)) {
   // `\bL\(` aman: pada `HTML(` huruf L didahului M, jadi tak ada batas kata.
   zonaSah.push(...rentang("L", "SAH"));
 
+  // Tabel-lookup dwibahasa (Fase 19s) — lihat komentar zonaTabelDwibahasa.
+  const tabel = zonaTabelDwibahasa(src);
+  zonaSah.push(...tabel.sah);
+  for (const b of tabel.bolong) {
+    totalBolong++;
+    console.log(`  ⚠️  ${file}:${b.baris}  ${b.pesan}`);
+  }
+
   // Pakai TUMPANG-TINDIH rentang, bukan sekadar posisi awal: potongan teks JSX
   // sering dimulai tepat SEBELUM `downloadCsv(` sehingga awalnya di luar zona
   // padahal isinya jelas milik panggilan itu.
@@ -205,5 +282,9 @@ for (const file of process.argv.slice(2)) {
 console.log(`\nTOTAL utang teks layar: ${totalLayar}`);
 if (totalHarfiah > 0) {
   console.log(`TOTAL panggilan u() harfiah (BUG, bukan sekadar utang): ${totalHarfiah}`);
+  process.exitCode = 1;
+}
+if (totalBolong > 0) {
+  console.log(`TOTAL item menu tanpa padanan Inggris (BUG, bukan sekadar utang): ${totalBolong}`);
   process.exitCode = 1;
 }

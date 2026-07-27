@@ -2354,6 +2354,139 @@ export const UI = {
     id: "Terima kasih! Masukan Anda sudah kami terima.",
     en: "Thank you! We have received your feedback.",
   },
+
+  // — Kerangka aplikasi: topbar, sidebar, spanduk (Fase 19s) —
+  // Awalan `sh` (shell). Teks di sini muncul di SETIAP halaman, jadi satu
+  // kalimat yang tertinggal terlihat di seluruh aplikasi sekaligus.
+  shPanduanAria: { id: "Buka panduan halaman ini", en: "Open the guide for this page" },
+  shPanduanTitle: { id: "Panduan halaman ini", en: "Guide for this page" },
+  shTurAria: { id: "Mulai tur halaman ini", en: "Start the tour of this page" },
+  shTurTitle: { id: "Tur halaman ini", en: "Tour of this page" },
+  shNotifikasi: { id: "Notifikasi", en: "Notifications" },
+  shTakAdaPerhatian: {
+    id: "Tidak ada yang perlu perhatian. 👍",
+    en: "Nothing needs your attention. 👍",
+  },
+  shGagalMuat: {
+    id: "Gagal memuat data. Muat ulang halaman.",
+    en: "Could not load your data. Reload the page.",
+  },
+  shBelumGabung: {
+    id: "Akun Anda belum tergabung ke perusahaan mana pun.",
+    en: "Your account is not part of any company yet.",
+  },
+  shCariMenuAria: { id: "Cari menu", en: "Search menu" },
+  shPilihPerusahaan: { id: "Pilih perusahaan", en: "Choose company" },
+  shMasaUjiCoba: { id: "Masa uji coba", en: "Trial" },
+  shGantiTemaAria: { id: "Ganti tema", en: "Switch theme" },
+  shGantiTemaTitle: { id: "Ganti tema terang/gelap", en: "Switch between light and dark" },
+  shMenuNavigasi: { id: "Menu navigasi", en: "Navigation menu" },
+  shTutupMenu: { id: "Tutup menu", en: "Close menu" },
+  shKeluar: { id: "Keluar", en: "Sign out" },
+  shModeDemo: { id: "Mode demo", en: "Demo mode" },
+  shDemoBacaSaja: {
+    id: "— data hanya bisa dilihat, tidak bisa diubah.",
+    en: "— data can only be viewed, not changed.",
+  },
+  shUntukKelolaBisnis: {
+    id: "untuk mengelola bisnis Anda sendiri.",
+    en: "to run your own business.",
+  },
+  shEmailBelumVerifikasi: {
+    id: "Email Anda belum diverifikasi. Periksa kotak masuk untuk tautan verifikasi.",
+    en: "Your email is not verified yet. Check your inbox for the verification link.",
+  },
+  shTrialBerakhir: {
+    id: "Masa trial/langganan berakhir — akun dalam",
+    en: "Your trial/subscription has ended — this account is in",
+  },
+  shModeBacaSaja: { id: "mode baca-saja", en: "read-only mode" },
+  shAktifkanDi: { id: ". Aktifkan langganan di", en: ". Reactivate your subscription in" },
+  shPengaturan: { id: "Pengaturan", en: "Settings" },
+  shMasaTrialTersisa: { id: "Masa trial tersisa", en: "Trial time left" },
+  shHari: { id: "hari", en: "days" },
+
+  // — Komponen bersama & Asisten AI (Fase 19s). Awalan `cp` (komponen). —
+  cpKetikCari: { id: "Ketik untuk mencari…", en: "Type to search…" },
+  cpMencari: { id: "Mencari…", en: "Searching…" },
+  cpTakAdaHasil: { id: "Tidak ada hasil.", en: "No results." },
+  cpYaLanjutkan: { id: "Ya, lanjutkan", en: "Yes, continue" },
+  cpBatal: { id: "Batal", en: "Cancel" },
+  cpAsisten: { id: "Asisten erpindo", en: "erpindo Assistant" },
+  cpAsistenAi: { id: "Asisten erpindo (AI)", en: "erpindo Assistant (AI)" },
+  cpTutupAsisten: { id: "Tutup Asisten erpindo", en: "Close the erpindo Assistant" },
+  cpBukaAsisten: { id: "Buka Asisten erpindo", en: "Open the erpindo Assistant" },
+  cpModeTanya: { id: "Tanya", en: "Ask" },
+  cpModeLaporan: { id: "Laporan", en: "Reports" },
+  cpModeJurnal: { id: "Draf Jurnal", en: "Journal Draft" },
+  cpAjakanTanya: {
+    id: "Tanyakan cara memakai erpindo, misalnya:",
+    en: "Ask how to use erpindo, for example:",
+  },
+  cpContohTanya1: {
+    id: "Bagaimana cara ekspor XML Coretax?",
+    en: "How do I export Coretax XML?",
+  },
+  cpContohTanya2: { id: "Cara mencatat retur penjualan?", en: "How do I record a sales return?" },
+  cpContohTanya3: {
+    id: "Gaji karyawan dihitung bagaimana?",
+    en: "How is employee pay calculated?",
+  },
+  cpAjakanLaporan: {
+    id: "Tanyakan kondisi keuangan Anda — dijawab dari buku Anda sendiri, misalnya:",
+    en: "Ask about your finances — answered from your own books, for example:",
+  },
+  cpContohLaporan1: { id: "Berapa laba bulan ini?", en: "What is this month's profit?" },
+  cpContohLaporan2: {
+    id: "Bandingkan pendapatan bulan ini vs bulan lalu.",
+    en: "Compare this month's revenue with last month's.",
+  },
+  cpContohLaporan3: {
+    id: "Berapa saldo kas & piutang saya?",
+    en: "What are my cash and receivables balances?",
+  },
+  cpHanyaMembaca: {
+    id: "Hanya membaca — AI tidak mengubah data apa pun.",
+    en: "Read-only — the AI does not change any data.",
+  },
+  cpAjakanJurnal: {
+    id: "Tulis transaksi dengan bahasa sehari-hari, misalnya:",
+    en: "Describe a transaction in plain language, for example:",
+  },
+  cpContohJurnal1: {
+    id: "bayar listrik 500 ribu dari kas",
+    en: "pay 500 thousand for electricity from cash",
+  },
+  cpContohJurnal2: { id: "setor tunai ke bank 2 juta", en: "deposit 2 million cash to the bank" },
+  cpHanyaDraf: {
+    id: "Hasilnya hanya draf — Anda yang meninjau & memposting.",
+    en: "The result is only a draft — you review and post it.",
+  },
+  cpBerpikir: { id: "berpikir…", en: "thinking…" },
+  cpSisaKuota: { id: "Sisa kuota AI hari ini:", en: "AI quota left today:" },
+  cpPlaceholderTanya: { id: "Tanya cara pakai…", en: "Ask how to use it…" },
+  cpPlaceholderLaporan: { id: "Tanya soal laporan…", en: "Ask about a report…" },
+  cpPlaceholderJurnal: { id: "Deskripsikan transaksinya…", en: "Describe the transaction…" },
+  cpPesanUntukAsisten: { id: "Pesan untuk Asisten erpindo", en: "Message for the erpindo Assistant" },
+  cpKirim: { id: "Kirim", en: "Send" },
+  cpAiLamaMerespons: {
+    id: "Asisten AI lama merespons (mungkin sedang sibuk). Coba lagi sebentar.",
+    en: "The AI assistant is slow to respond (it may be busy). Try again shortly.",
+  },
+  cpAiTakTersedia: {
+    id: "Fitur AI sedang tidak tersedia — fitur lain tetap berjalan normal. Coba lagi nanti.",
+    en: "The AI feature is unavailable right now — everything else works as normal. Try again later.",
+  },
+  cpKesalahanUmum: { id: "Terjadi kesalahan. Coba lagi.", en: "Something went wrong. Try again." },
+  cpDrafJurnalPrefix: { id: "Draf jurnal:", en: "Journal draft:" },
+  cpUsulanJurnal: { id: "Usulan jurnal", en: "Suggested journal entry" },
+  cpDrafDimuat: {
+    id: "Draf dimuat ke form Jurnal Umum — periksa lalu posting.",
+    en: "The draft is loaded into the General Journal form — review it, then post.",
+  },
+  // Huruf debit/kredit pada ringkasan draf. Sengaja satu huruf: barisnya sempit.
+  cpHurufDebit: { id: "D", en: "Dr" },
+  cpHurufKredit: { id: "K", en: "Cr" },
 } satisfies Record<string, Dual>;
 
 export type UiKey = keyof typeof UI;

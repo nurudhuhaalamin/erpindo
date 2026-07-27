@@ -62,6 +62,7 @@ import { createContext, useContext, useEffect, useRef, useState,  } from "react"
 import { api, ApiRequestError,  } from "../api/client";
 import { useLang } from "../i18n";
 import { LangSwitcher } from "../i18n/LangSwitcher";
+import { useUi } from "../i18n/ui";
 import {
   Alert,
   BrandWordmark,
@@ -289,6 +290,7 @@ const GUIDE_SLUG_BY_PREFIX: [prefix: string, slug: string][] = [
 /** Tombol "?" — membuka panduan modul yang sedang dibuka DI DALAM aplikasi
  *  (Fase 10f: rute internal /app/panduan, tak lagi pindah situs). */
 function HelpLink() {
+  const u = useUi();
   const { location } = useRouterState();
   const navigate = useNavigate();
   const slug = GUIDE_SLUG_BY_PREFIX.find(([p]) => location.pathname.startsWith(p))?.[1] ?? "mulai";
@@ -296,8 +298,8 @@ function HelpLink() {
     <button
       onClick={() => navigate({ to: "/app/panduan/$modul", params: { modul: slug } })}
       className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-      aria-label="Buka panduan halaman ini"
-      title="Panduan halaman ini"
+      aria-label={u("shPanduanAria")}
+      title={u("shPanduanTitle")}
     >
       <CircleHelp className="size-4" aria-hidden />
     </button>
@@ -307,6 +309,7 @@ function HelpLink() {
 /** Tombol "Tur" + tur berpandu untuk halaman aktif (Fase 10f). Tur dasbor
  *  tampil otomatis sekali untuk pengguna baru; sisanya lewat tombol ini. */
 function TourLauncher() {
+  const u = useUi();
   const { location } = useRouterState();
   const tour = tourForPath(location.pathname);
   const [open, setOpen] = useState(false);
@@ -324,8 +327,8 @@ function TourLauncher() {
       <button
         onClick={() => setOpen(true)}
         className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-        aria-label="Mulai tur halaman ini"
-        title="Tur halaman ini"
+        aria-label={u("shTurAria")}
+        title={u("shTurTitle")}
       >
         <Compass className="size-4" aria-hidden />
       </button>
@@ -335,6 +338,7 @@ function TourLauncher() {
 }
 
 function NotificationBell({ tenantId }: { tenantId: string }) {
+  const u = useUi();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const query = useQuery({
@@ -374,8 +378,8 @@ function NotificationBell({ tenantId }: { tenantId: string }) {
       <button
         onClick={() => setOpen((o) => !o)}
         className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-        aria-label={`Notifikasi${items.length > 0 ? ` (${items.length})` : ""}`}
-        title="Notifikasi"
+        aria-label={`${u("shNotifikasi")}${items.length > 0 ? ` (${items.length})` : ""}`}
+        title={u("shNotifikasi")}
       >
         <Bell className="size-4" aria-hidden />
         {items.length > 0 ? (
@@ -387,12 +391,12 @@ function NotificationBell({ tenantId }: { tenantId: string }) {
       {open ? (
         <div className="fixed right-2 top-16 z-50 w-[calc(100vw-1rem)] max-w-sm overflow-hidden rounded-card border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:absolute sm:right-0 sm:top-auto sm:mt-2 sm:w-80">
           <div className="border-b border-slate-200 px-4 py-2.5 text-sm font-semibold dark:border-slate-800">
-            Notifikasi
+            {u("shNotifikasi")}
           </div>
           <div className="max-h-96 overflow-y-auto">
             {items.length === 0 ? (
               <p className="px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400">
-                Tidak ada yang perlu perhatian. 👍
+                {u("shTakAdaPerhatian")}
               </p>
             ) : (
               items.map((n, i) => (
@@ -418,6 +422,7 @@ function NotificationBell({ tenantId }: { tenantId: string }) {
 }
 
 export function AppShell() {
+  const u = useUi();
   const navigate = useNavigate();
   const { dark, toggle } = useDarkMode();
   const lang = useLang();
@@ -509,7 +514,7 @@ export function AppShell() {
     }
     return (
       <div className="p-6">
-        <Alert tone="error">Gagal memuat data. Muat ulang halaman.</Alert>
+        <Alert tone="error">{u("shGagalMuat")}</Alert>
       </div>
     );
   }
@@ -520,7 +525,7 @@ export function AppShell() {
   if (!tenant) {
     return (
       <div className="p-6">
-        <Alert tone="error">Akun Anda belum tergabung ke perusahaan mana pun.</Alert>
+        <Alert tone="error">{u("shBelumGabung")}</Alert>
       </div>
     );
   }
@@ -580,7 +585,7 @@ export function AppShell() {
             if (e.key === "Escape") setNavQuery("");
           }}
           placeholder={lang === "en" ? "Search menu…" : "Cari menu…"}
-          aria-label="Cari menu"
+          aria-label={u("shCariMenuAria")}
           className="h-8 w-full rounded border border-slate-200 bg-transparent pl-8 pr-2 text-[13px] text-slate-700 outline-none placeholder:text-slate-400 focus:border-brand-400 dark:border-slate-700 dark:text-slate-200 dark:focus:border-brand-500"
         />
       </div>
@@ -625,7 +630,7 @@ export function AppShell() {
       <div className="mt-2 flex items-center gap-1.5 rounded bg-slate-100 px-2 py-1 dark:bg-white/5">
         <Building2 className="size-4 shrink-0 text-slate-400" aria-hidden />
         <select
-          aria-label="Pilih perusahaan"
+          aria-label={u("shPilihPerusahaan")}
           className="w-full bg-transparent text-[13px] text-slate-700 outline-none dark:text-slate-200 [&>option]:text-slate-900"
           value={tenant.tenantId}
           onChange={(e) => {
@@ -699,7 +704,7 @@ export function AppShell() {
               <BrandWordmark className="h-7" />
             </div>
             <div className="hidden items-center gap-2 md:flex">
-              {tenant.tenantStatus === "trial" ? <Badge tone="amber">Masa uji coba</Badge> : null}
+              {tenant.tenantStatus === "trial" ? <Badge tone="amber">{u("shMasaUjiCoba")}</Badge> : null}
               <Badge tone="brand">{tenant.role}</Badge>
             </div>
             <div className="flex items-center gap-2">
@@ -720,8 +725,8 @@ export function AppShell() {
               <button
                 onClick={toggle}
                 className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-                aria-label="Ganti tema"
-                title="Ganti tema terang/gelap"
+                aria-label={u("shGantiTemaAria")}
+                title={u("shGantiTemaTitle")}
               >
                 {dark ? <Sun className="size-4" aria-hidden /> : <Moon className="size-4" aria-hidden />}
               </button>
@@ -729,7 +734,7 @@ export function AppShell() {
                 <Avatar name={me.user.name} />
               </span>
               <Button variant="secondary" onClick={() => logout.mutate()}>
-                <LogOut className="size-4" aria-hidden /> Keluar
+                <LogOut className="size-4" aria-hidden /> {u("shKeluar")}
               </Button>
             </div>
           </header>
@@ -748,12 +753,12 @@ export function AppShell() {
             }`}
             role="dialog"
             aria-modal="true"
-            aria-label="Menu navigasi"
+            aria-label={u("shMenuNavigasi")}
           >
             <button
               onClick={() => setMenuOpen(false)}
               className="absolute right-2 top-2 z-10 flex size-11 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/5"
-              aria-label="Tutup menu"
+              aria-label={u("shTutupMenu")}
             >
               <X className="size-5" aria-hidden />
             </button>
@@ -762,23 +767,23 @@ export function AppShell() {
 
           {me.user.isDemo ? (
             <div className="border-b border-brand-200 bg-brand-50 px-4 py-2 text-sm text-brand-800 dark:border-brand-900 dark:bg-brand-950 dark:text-brand-200">
-              <strong>Mode demo</strong> — data hanya bisa dilihat, tidak bisa diubah.{" "}
+              <strong>{u("shModeDemo")}</strong> {u("shDemoBacaSaja")}{" "}
               <a href="/daftar" className="font-medium underline">
-                Daftar gratis
+                {u("authDaftarGratis")}
               </a>{" "}
-              untuk mengelola bisnis Anda sendiri.
+              {u("shUntukKelolaBisnis")}
             </div>
           ) : !me.user.emailVerified ? (
             <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
-              Email Anda belum diverifikasi. Periksa kotak masuk untuk tautan verifikasi.
+              {u("shEmailBelumVerifikasi")}
             </div>
           ) : null}
 
           {tenant.tenantStatus === "past_due" ? (
             <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
-              Masa trial/langganan berakhir — akun dalam <strong>mode baca-saja</strong>. Aktifkan langganan di{" "}
+              {u("shTrialBerakhir")} <strong>{u("shModeBacaSaja")}</strong>{u("shAktifkanDi")}{" "}
               <Link to="/app/pengaturan" className="font-medium underline">
-                Pengaturan
+                {u("shPengaturan")}
               </Link>
               .
             </div>
@@ -787,7 +792,7 @@ export function AppShell() {
               const daysLeft = Math.ceil((Date.parse(tenant.trialEndsAt) - Date.now()) / 86_400_000);
               return daysLeft <= 7 ? (
                 <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
-                  Masa trial tersisa <strong>{Math.max(daysLeft, 0)} hari</strong>.
+                  {u("shMasaTrialTersisa")} <strong>{Math.max(daysLeft, 0)} {u("shHari")}</strong>.
                 </div>
               ) : null;
             })()
