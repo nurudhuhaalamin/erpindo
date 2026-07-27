@@ -23,12 +23,14 @@ import {
   Tr,
   useToast,
 } from "../components/ui";
+import { useUi } from "../i18n/ui";
 import { useWorkspace } from "./app";
 
 type AccountRow = { id: string; code: string; name: string; type: string };
 const today = () => new Date().toISOString().slice(0, 10);
 
 export function MaintenancePage() {
+  const u = useUi();
   const h = useHeading("pemeliharaan");
   const { tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
@@ -80,7 +82,7 @@ export function MaintenancePage() {
         startDate: schStart,
       }),
     onSuccess: () => {
-      toast("success", "Jadwal servis dibuat.");
+      toast("success", u("toastJadwalServisDibuat"));
       setSchAsset("");
       setSchName("");
       setSchInterval("1");
@@ -125,7 +127,7 @@ export function MaintenancePage() {
         scheduledDate: woDate,
       }),
     onSuccess: () => {
-      toast("success", "Work order dibuat.");
+      toast("success", u("toastWorkOrderDibuat"));
       setWoAsset("");
       setWoTitle("");
       setWoError(null);
@@ -150,7 +152,7 @@ export function MaintenancePage() {
         notes: doneNotes.trim() || undefined,
       }),
     onSuccess: () => {
-      toast("success", "Work order selesai.");
+      toast("success", u("toastWorkOrderSelesai"));
       setDoneFor(null);
       setDoneCost("0");
       setDoneNotes("");
@@ -175,17 +177,17 @@ export function MaintenancePage() {
           <Card>
             <CardHeader
               title="Jadwal servis berkala"
-              description="Servis otomatis diterbitkan saat jatuh tempo."
+              description={u("descJadwalServis")}
             />
             <CardBody className="space-y-4">
               <div>
-                <Label htmlFor="sch-asset">Aset</Label>
+                <Label htmlFor="sch-asset">{u("asetTunggal")}</Label>
                 <Select
                   id="sch-asset"
                   value={schAsset}
                   onChange={(e) => setSchAsset(e.target.value)}
                 >
-                  <option value="">— pilih aset —</option>
+                  <option value="">{u("pilihAsetOpsi")}</option>
                   {assets.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.name}
@@ -194,17 +196,17 @@ export function MaintenancePage() {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="sch-name">Nama servis</Label>
+                <Label htmlFor="sch-name">{u("namaServis")}</Label>
                 <Input
                   id="sch-name"
-                  placeholder="mis. Servis rutin"
+                  placeholder={u("contohServisRutin")}
                   value={schName}
                   onChange={(e) => setSchName(e.target.value)}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label htmlFor="sch-interval">Interval (bulan)</Label>
+                  <Label htmlFor="sch-interval">{u("intervalBulan")}</Label>
                   <Input
                     id="sch-interval"
                     type="number"
@@ -229,7 +231,7 @@ export function MaintenancePage() {
                   onClick={() => createSchedule.mutate()}
                   disabled={createSchedule.isPending || !schAsset || schName.trim().length < 2}
                 >
-                  {createSchedule.isPending ? <Spinner /> : null} Simpan Jadwal
+                  {createSchedule.isPending ? <Spinner /> : null} {u("simpanJadwal")}
                 </Button>
                 <Button variant="secondary" onClick={() => run.mutate()} disabled={run.isPending}>
                   <RefreshCw className="size-4" aria-hidden /> Terbitkan Jatuh Tempo
@@ -241,13 +243,13 @@ export function MaintenancePage() {
           <Card>
             <CardHeader
               title="Work order ad-hoc"
-              description="Buat pekerjaan servis di luar jadwal."
+              description={u("descWorkOrderLuarJadwal")}
             />
             <CardBody className="space-y-4">
               <div>
-                <Label htmlFor="wo-asset">Aset</Label>
+                <Label htmlFor="wo-asset">{u("asetTunggal")}</Label>
                 <Select id="wo-asset" value={woAsset} onChange={(e) => setWoAsset(e.target.value)}>
-                  <option value="">— pilih aset —</option>
+                  <option value="">{u("pilihAsetOpsi")}</option>
                   {assets.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.name}
@@ -259,13 +261,13 @@ export function MaintenancePage() {
                 <Label htmlFor="wo-title">Judul pekerjaan</Label>
                 <Input
                   id="wo-title"
-                  placeholder="mis. Ganti oli mesin"
+                  placeholder={u("contohGantiOli")}
                   value={woTitle}
                   onChange={(e) => setWoTitle(e.target.value)}
                 />
               </div>
               <div>
-                <Label htmlFor="wo-date">Tanggal rencana</Label>
+                <Label htmlFor="wo-date">{u("tanggalRencana")}</Label>
                 <Input
                   id="wo-date"
                   type="date"
@@ -279,7 +281,7 @@ export function MaintenancePage() {
                 onClick={() => createWo.mutate()}
                 disabled={createWo.isPending || !woAsset || woTitle.trim().length < 2}
               >
-                {createWo.isPending ? <Spinner /> : null} Buat Work Order
+                {createWo.isPending ? <Spinner /> : null} {u("buatWorkOrder")}
               </Button>
             </CardBody>
           </Card>
@@ -294,31 +296,33 @@ export function MaintenancePage() {
           ) : (schedulesQuery.data?.schedules.length ?? 0) === 0 ? (
             <EmptyState
               icon={<Wrench className="size-6" aria-hidden />}
-              title="Belum ada jadwal"
-              description="Buat jadwal servis berkala per aset."
+              title={u("belumAdaJadwal")}
+              description={u("descBelumAdaJadwal")}
             />
           ) : (
             <Table>
               <Thead>
                 <tr>
-                  <Th>Aset</Th>
+                  <Th>{u("asetTunggal")}</Th>
                   <Th>Servis</Th>
                   <Th>Interval</Th>
                   <Th>Jatuh tempo berikut</Th>
-                  <Th>Status</Th>
+                  <Th>{u("status")}</Th>
                   {isAdmin ? <Th>Aksi</Th> : null}
                 </tr>
               </Thead>
               <tbody>
                 {(schedulesQuery.data?.schedules ?? []).map((s: ApiMaintenanceSchedule) => (
                   <Tr key={s.id}>
-                    <Td label="Aset">{s.assetName}</Td>
-                    <Td label="Servis">{s.name}</Td>
-                    <Td label="Interval">{s.intervalMonths} bln</Td>
-                    <Td label="Jatuh tempo berikut">{formatDate(s.nextDueDate)}</Td>
-                    <Td label="Status">
+                    <Td label={u("asetTunggal")}>{s.assetName}</Td>
+                    <Td label={u("servisKolom")}>{s.name}</Td>
+                    <Td label={u("intervalKolom")}>
+                      {s.intervalMonths} {u("bulanSingkat")}
+                    </Td>
+                    <Td label={u("jatuhTempoBerikut")}>{formatDate(s.nextDueDate)}</Td>
+                    <Td label={u("status")}>
                       <Badge tone={s.active ? "green" : "neutral"}>
-                        {s.active ? "aktif" : "jeda"}
+                        {s.active ? u("statusAktifKecil") : u("statusJeda")}
                       </Badge>
                     </Td>
                     {isAdmin ? (
@@ -342,8 +346,8 @@ export function MaintenancePage() {
 
       <Card>
         <CardHeader
-          title="Work order & riwayat servis"
-          description={`Total biaya servis tercatat: ${formatIDR(totalCost)}`}
+          title={u("workOrderRiwayat")}
+          description={`${u("totalBiayaServis")} ${formatIDR(totalCost)}`}
         />
         <CardBody>
           {workOrdersQuery.isLoading ? (
@@ -351,18 +355,18 @@ export function MaintenancePage() {
           ) : workOrders.length === 0 ? (
             <EmptyState
               icon={<Wrench className="size-6" aria-hidden />}
-              title="Belum ada work order"
-              description="Work order servis akan muncul di sini."
+              title={u("belumAdaWorkOrder")}
+              description={u("descBelumAdaWorkOrder")}
             />
           ) : (
             <Table>
               <Thead>
                 <tr>
                   <Th>No.</Th>
-                  <Th>Aset / Pekerjaan</Th>
+                  <Th>{u("asetPekerjaan")}</Th>
                   <Th>Rencana</Th>
-                  <Th numeric>Biaya</Th>
-                  <Th>Status</Th>
+                  <Th numeric>{u("biaya")}</Th>
+                  <Th>{u("status")}</Th>
                   {isAdmin ? <Th>Aksi</Th> : null}
                 </tr>
               </Thead>
@@ -372,15 +376,15 @@ export function MaintenancePage() {
                     <Td label="No." className="font-mono text-xs">
                       {w.orderNo}
                     </Td>
-                    <Td label="Aset / Pekerjaan">
+                    <Td label={u("asetPekerjaan")}>
                       {w.title}
                       <span className="block text-xs text-slate-400">{w.assetName}</span>
                     </Td>
                     <Td label="Rencana">{formatDate(w.scheduledDate)}</Td>
-                    <Td numeric label="Biaya">
+                    <Td numeric label={u("biaya")}>
                       {w.status === "done" ? formatIDR(w.cost) : "—"}
                     </Td>
-                    <Td label="Status">
+                    <Td label={u("status")}>
                       <Badge tone={w.status === "done" ? "green" : "amber"}>
                         {w.status === "done" ? "selesai" : "terbuka"}
                       </Badge>
@@ -398,7 +402,7 @@ export function MaintenancePage() {
                                 <Input
                                   type="number"
                                   min={0}
-                                  placeholder="Biaya"
+                                  placeholder={u("biaya")}
                                   value={doneCost}
                                   onChange={(e) => setDoneCost(e.target.value)}
                                 />
@@ -407,7 +411,7 @@ export function MaintenancePage() {
                                     value={doneAccount}
                                     onChange={(e) => setDoneAccount(e.target.value)}
                                   >
-                                    <option value="">— akun pembayar —</option>
+                                    <option value="">{u("akunPembayarOpsi")}</option>
                                     {cashAccounts.map((a) => (
                                       <option key={a.id} value={a.id}>
                                         {a.name}
@@ -416,7 +420,7 @@ export function MaintenancePage() {
                                   </Select>
                                 ) : null}
                                 <Input
-                                  placeholder="Catatan (opsional)"
+                                  placeholder={u("catatanOpsional")}
                                   value={doneNotes}
                                   onChange={(e) => setDoneNotes(e.target.value)}
                                 />
@@ -428,14 +432,14 @@ export function MaintenancePage() {
                                       complete.isPending || (Number(doneCost) > 0 && !doneAccount)
                                     }
                                   >
-                                    Simpan
+                                    {u("simpan")}
                                   </Button>
                                   <Button
                                     variant="secondary"
                                     size="xs"
                                     onClick={() => setDoneFor(null)}
                                   >
-                                    Batal
+                                    {u("batal")}
                                   </Button>
                                 </div>
                               </div>

@@ -1413,6 +1413,133 @@ const UI: Record<string, Dual> = {
   akunKasBank: { id: "Akun kas/bank", en: "Cash/bank account" },
   simpanDp: { id: "Simpan DP", en: "Save DP" },
   fakturPrefix: { id: "faktur", en: "invoice" },
+
+  // Manufaktur & QC (Fase 19h).
+  // "BoM" dan "work center" dipertahankan: keduanya istilah manufaktur yang
+  // dipakai apa adanya di industri Indonesia, dan pemakainya justru mencari
+  // kata itu. "Routing" sama — diberi keterangan, bukan diganti.
+  resepBom: { id: "Resep produk (BoM)", en: "Bill of materials (BoM)" },
+  descResepBom: {
+    id: "Komponen & jumlah untuk menghasilkan produk jadi.",
+    en: "Components and quantities needed to make a finished product.",
+  },
+  produkJadi: { id: "Produk jadi", en: "Finished product" },
+  cariProdukPendek: { id: "Cari produk…", en: "Search products…" },
+  cariKomponen: { id: "Cari komponen…", en: "Search components…" },
+  hasilPerResep: { id: "Hasil per resep", en: "Output per recipe" },
+  hapusKomponen: { id: "Hapus komponen", en: "Remove component" },
+  // `tambahKomponen` & `pilihOpsi` sudah ada sejak Fase 16 — dipakai ulang.
+  simpanResep: { id: "Simpan Resep", en: "Save recipe" },
+  descJalankanProduksi: {
+    id: "Jalankan produksi berdasarkan resep.",
+    en: "Run production from a recipe.",
+  },
+  produkHarusPunyaResep: {
+    id: "Produk (harus punya resep)",
+    en: "Product (must have a recipe)",
+  },
+  gudangOpsi: { id: "— gudang —", en: "— warehouse —" },
+  buatPerintah: { id: "Buat Perintah", en: "Create order" },
+  daftarResep: { id: "Daftar resep", en: "Recipe list" },
+  belumAdaResep: { id: "Belum ada resep", en: "No recipes yet" },
+  descBelumAdaResep: {
+    id: "Buat resep (BoM) untuk mulai memproduksi.",
+    en: "Create a bill of materials to start producing.",
+  },
+  hasilSuffix: { id: "hasil", en: "output" },
+  perResepSuffix: { id: "/ resep", en: "/ recipe" },
+  gudangKarantina: {
+    id: "Gudang karantina (untuk QC gagal)",
+    en: "Quarantine warehouse (for failed QC)",
+  },
+  belumAdaProduksi: { id: "Belum ada produksi", en: "No production yet" },
+  descBelumAdaProduksi: {
+    id: "Perintah produksi akan muncul di sini.",
+    en: "Production orders will appear here.",
+  },
+  biayaTotal: { id: "Biaya total", en: "Total cost" },
+  descWorkCenter: {
+    id: "Stasiun/tahap produksi dengan tarif per jam, dipakai untuk routing.",
+    en: "Production stations/stages with an hourly rate, used for routing.",
+  },
+  belumAdaWorkCenter: { id: "Belum ada work center.", en: "No work centers yet." },
+  routingProduksi: {
+    id: "Routing produksi (biaya standar vs aktual)",
+    en: "Production routing (standard vs actual cost)",
+  },
+  descRoutingProduksi: {
+    id: "Tahapan proses per perintah produksi di tiap work center — bandingkan biaya standar dengan aktual (WIP).",
+    en: "Process stages per production order at each work center — compare standard cost against actual (WIP).",
+  },
+  pilihPerintahProduksi: {
+    id: "— pilih perintah produksi —",
+    en: "— pick a production order —",
+  },
+  namaTahap: { id: "Nama tahap", en: "Stage name" },
+  biayaStandar: { id: "Biaya standar", en: "Standard cost" },
+  tambahTahap: { id: "Tambah tahap", en: "Add stage" },
+  belumAdaRouting: { id: "Belum ada tahapan routing.", en: "No routing stages yet." },
+  // Status QC — konstanta tingkat modul, dipetakan ke kunci lewat `satisfies`.
+  qcNone: { id: "—", en: "—" },
+  qcPending: { id: "menunggu QC", en: "awaiting QC" },
+  qcPassed: { id: "lulus QC", en: "QC passed" },
+  qcQuarantined: { id: "karantina", en: "quarantined" },
+  toastResepDisimpan: { id: "Resep (BoM) disimpan.", en: "Bill of materials saved." },
+  toastPerintahDibuat: { id: "Perintah produksi dibuat.", en: "Production order created." },
+  toastProduksiSelesaiPrefix: {
+    id: "Produksi selesai — biaya total",
+    en: "Production finished — total cost",
+  },
+  toastQcLulus: { id: "Hasil produksi diluluskan QC.", en: "Production output passed QC." },
+  toastQcKarantina: { id: "Hasil produksi dikarantina.", en: "Production output quarantined." },
+
+  // Pemeliharaan (Fase 19h).
+  // `asetTunggal` sengaja terpisah dari `aset` yang sudah ada: kunci itu berisi
+  // "Aset"/"Assets" (jamak, untuk menu/judul modul), sedangkan di sini ia label
+  // sebuah field yang menunjuk SATU aset.
+  asetTunggal: { id: "Aset", en: "Asset" },
+  descJadwalServis: {
+    id: "Servis otomatis diterbitkan saat jatuh tempo.",
+    en: "Service work orders are raised automatically when due.",
+  },
+  pilihAsetOpsi: { id: "— pilih aset —", en: "— pick an asset —" },
+  namaServis: { id: "Nama servis", en: "Service name" },
+  contohServisRutin: { id: "mis. Servis rutin", en: "e.g. Routine service" },
+  intervalBulan: { id: "Interval (bulan)", en: "Interval (months)" },
+  simpanJadwal: { id: "Simpan Jadwal", en: "Save schedule" },
+  descWorkOrderLuarJadwal: {
+    id: "Buat pekerjaan servis di luar jadwal.",
+    en: "Create an unscheduled service job.",
+  },
+  contohGantiOli: { id: "mis. Ganti oli mesin", en: "e.g. Change engine oil" },
+  tanggalRencana: { id: "Tanggal rencana", en: "Planned date" },
+  buatWorkOrder: { id: "Buat Work Order", en: "Create work order" },
+  belumAdaJadwal: { id: "Belum ada jadwal", en: "No schedules yet" },
+  descBelumAdaJadwal: {
+    id: "Buat jadwal servis berkala per aset.",
+    en: "Create a recurring service schedule per asset.",
+  },
+  bulanSingkat: { id: "bln", en: "mo" },
+  statusAktifKecil: { id: "aktif", en: "active" },
+  totalBiayaServis: { id: "Total biaya servis tercatat:", en: "Total recorded service cost:" },
+  belumAdaWorkOrder: { id: "Belum ada work order", en: "No work orders yet" },
+  descBelumAdaWorkOrder: {
+    id: "Work order servis akan muncul di sini.",
+    en: "Service work orders will appear here.",
+  },
+  asetPekerjaan: { id: "Aset / Pekerjaan", en: "Asset / Job" },
+  akunPembayarOpsi: { id: "— akun pembayar —", en: "— paying account —" },
+  workOrderRiwayat: { id: "Work order & riwayat servis", en: "Work orders & service history" },
+  servisKolom: { id: "Servis", en: "Service" },
+  intervalKolom: { id: "Interval", en: "Interval" },
+  jatuhTempoBerikut: { id: "Jatuh tempo berikut", en: "Next due" },
+  statusJeda: { id: "jeda", en: "paused" },
+  toastJadwalServisDibuat: { id: "Jadwal servis dibuat.", en: "Service schedule created." },
+  toastWorkOrderDibuat: { id: "Work order dibuat.", en: "Work order created." },
+  toastWorkOrderSelesai: { id: "Work order selesai.", en: "Work order completed." },
+  toastWorkCenterDitambah: { id: "Work center ditambahkan.", en: "Work center added." },
+  toastTahapRoutingDitambah: { id: "Tahap routing ditambahkan.", en: "Routing stage added." },
+  toastBiayaAktualDicatat: { id: "Biaya aktual dicatat.", en: "Actual cost recorded." },
 };
 
 export type UiKey = keyof typeof UI;
