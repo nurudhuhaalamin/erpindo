@@ -74,6 +74,7 @@ function ReportSection({
   lines: ApiReportLine[];
   total: number;
 }) {
+  const u = useUi();
   return (
     <div>
       <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -83,13 +84,13 @@ function ReportSection({
         <tbody>
           {lines.map((l) => (
             <Tr key={l.accountId}>
-              <Td label="Kode" className="py-1 font-mono text-xs">
+              <Td label={u("kode")} className="py-1 font-mono text-xs">
                 {l.code}
               </Td>
-              <Td label="Akun" className="py-1">
+              <Td label={u("akun")} className="py-1">
                 {l.name}
               </Td>
-              <Td numeric label="Jumlah" className="py-1">
+              <Td numeric label={u("jumlah")} className="py-1">
                 {formatIDR(l.amount)}
               </Td>
             </Tr>

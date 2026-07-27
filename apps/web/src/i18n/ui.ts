@@ -2487,6 +2487,29 @@ export const UI = {
   // Huruf debit/kredit pada ringkasan draf. Sengaja satu huruf: barisnya sempit.
   cpHurufDebit: { id: "D", en: "Dr" },
   cpHurufKredit: { id: "K", en: "Cr" },
+
+  // — Panduan dalam aplikasi (Fase 19t). Awalan `pd`. —
+  // Hanya KERANGKA-nya yang dwibahasa. Isi panduannya (./panduan/content)
+  // tetap Indonesia, sekeluarga dengan keputusan pemilik soal dokumen cetak:
+  // itu korpus dokumentasi untuk UKM Indonesia, bukan teks antarmuka.
+  pdCariPanduanPlaceholder: {
+    id: "Cari panduan… (mis. PPN, gaji, stok)",
+    en: "Search the guide… (e.g. PPN, payroll, stock)",
+  },
+  pdCariPanduanAria: { id: "Cari panduan", en: "Search the guide" },
+  pdTakAdaCocok: {
+    id: "Tidak ada panduan yang cocok dengan pencarian.",
+    en: "No guide matches that search.",
+  },
+  pdTakDitemukan: { id: "Panduan tidak ditemukan.", en: "Guide not found." },
+  pdKembaliKeDaftar: { id: "← Kembali ke daftar panduan", en: "← Back to the guide list" },
+
+  // — Sisa pecahan toast yang luput karena dirakit di variabel, di LUAR
+  //   panggilan toast() sehingga alat menggolongkannya LAYAR (Fase 19t). —
+  cmRefundTunai: { id: ", refund tunai", en: ", cash refund" },
+  cmSelisihKurs: { id: "selisih kurs", en: "FX difference" },
+  cmKursLaba: { id: "laba", en: "gain" },
+  cmKursRugi: { id: "rugi", en: "loss" },
 } satisfies Record<string, Dual>;
 
 export type UiKey = keyof typeof UI;

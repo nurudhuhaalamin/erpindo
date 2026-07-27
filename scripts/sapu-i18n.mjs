@@ -179,6 +179,7 @@ function zonaTabelDwibahasa(src) {
 let totalLayar = 0;
 let totalHarfiah = 0;
 let totalBolong = 0;
+let totalAtribut = 0;
 for (const file of process.argv.slice(2)) {
   const asli = readFileSync(file, "utf8");
   const src = bersihkan(asli);
@@ -272,14 +273,41 @@ for (const file of process.argv.slice(2)) {
   for (const m of src.matchAll(/[>}]([^<>{}]+)[<{]/gs))
     if (isID(m[1])) add(jenisDari(m.index, m.index + m[0].length), m[1], m.index);
 
+  /**
+   * Kelas buta tersendiri (ditemukan Fase 19t): teks tampilan yang duduk di
+   * ATRIBUT — `label="Akun"`, `title="Pendapatan"`, `confirmLabel="Arsipkan"`.
+   *
+   * Saringan `isID` di atas menuntut ada kata penanda Indonesia, jadi label
+   * satu kata seperti "Kode", "Akun", atau "Aksi" lolos begitu saja — padahal
+   * `label=` pada <Td> adalah judul kartu yang dibaca pemakai di layar HP, dan
+   * `title=` pada <Card> adalah judul kartu yang selalu terlihat.
+   *
+   * Di sini penandanya bukan kosakata melainkan POSISI: atribut-atribut ini
+   * memang berisi teks tampilan, titik. Yang sah hanyalah bentuk `={u("…")}`,
+   * dan bentuk itu bukan literal sehingga tidak tertangkap pola ini.
+   */
+  const ATRIBUT_TAMPILAN = /\b(label|title|confirmLabel|cancelLabel|placeholder|aria-label)="([^"]{2,60})"/g;
+  for (const m of src.matchAll(ATRIBUT_TAMPILAN)) {
+    const teks = m[2];
+    // Buang yang jelas bukan kalimat tampilan: kode/slug (huruf kecil berstrip),
+    // dan nilai satu kata berbahasa Inggris yang sama di kedua bahasa.
+    if (/^[a-z0-9-]+$/.test(teks)) continue;
+    if (jenisDari(m.index, m.index + m[0].length) !== "LAYAR") continue;
+    add("ATRIBUT", `${m[1]}="${teks}"`, m.index);
+  }
+
   const rows = [...hits.values()].sort((a, b) => a.baris - b.baris);
   const layar = rows.filter((r) => r.jenis === "LAYAR");
+  const atribut = rows.filter((r) => r.jenis === "ATRIBUT");
   totalLayar += layar.length;
-  const ringkas = `${file}: LAYAR=${layar.length} TOAST=${rows.filter((r) => r.jenis === "TOAST").length} BERKAS=${rows.filter((r) => r.jenis === "BERKAS").length}`;
-  console.log(layar.length === 0 ? `BERSIH ✅ ${ringkas}` : ringkas);
+  totalAtribut += atribut.length;
+  const ringkas = `${file}: LAYAR=${layar.length} ATRIBUT=${atribut.length} TOAST=${rows.filter((r) => r.jenis === "TOAST").length} BERKAS=${rows.filter((r) => r.jenis === "BERKAS").length}`;
+  console.log(layar.length === 0 && atribut.length === 0 ? `BERSIH ✅ ${ringkas}` : ringkas);
   for (const r of layar) console.log(`  ${String(r.baris).padStart(4)}  ${JSON.stringify(r.teks.slice(0, 95))}`);
+  for (const r of atribut) console.log(`  ${String(r.baris).padStart(4)}  [atribut] ${r.teks.slice(0, 95)}`);
 }
 console.log(`\nTOTAL utang teks layar: ${totalLayar}`);
+console.log(`TOTAL teks tampilan di atribut: ${totalAtribut}`);
 if (totalHarfiah > 0) {
   console.log(`TOTAL panggilan u() harfiah (BUG, bukan sekadar utang): ${totalHarfiah}`);
   process.exitCode = 1;
