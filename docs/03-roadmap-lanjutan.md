@@ -449,7 +449,13 @@ tabel perbandingan **kategori** (tanpa merek), form **Jadwalkan Demo**, halaman 
 **Sudah selesai (Fase 13):**
 - ✅ Struktur 4 paket + penegakan modul per-path (13a) & billing per paket + upsell UI (13b).
 - ✅ Halaman harga + reposisi landing + form demo + halaman Layanan (13c).
-- ✅ Multibahasa ID/EN — landing, shell aplikasi, dashboard (13d/13e).
+- ✅ Multibahasa ID/EN — landing, shell aplikasi, dashboard (13d/13e), lalu
+  **dituntaskan ke SELURUH aplikasi pada Fase 19** (19c–19u): 40+ halaman,
+  komponen bersama, dan panel Asisten AI. Termasuk kelas teks yang selama ini
+  tak terdeteksi alat mana pun karena diletakkan sebagai atribut (`label=`,
+  `title=`) — kini nol. Yang sengaja TETAP Indonesia: dokumen cetak (faktur,
+  penawaran, slip gaji, surat jalan), korpus panduan, contoh kolom CSV, dan
+  teks yang disimpan ke basis data.
 - ✅ Wizard migrasi & saldo awal (jurnal pembuka seimbang otomatis) (13f) — penghancur hambatan pindah ERP.
 - ✅ Keamanan enterprise: 2FA wajib, pembatasan IP (CIDR), ekspor audit CSV (13g).
 - ✅ API publik (Bearer key) + webhook (HMAC) + halaman dokumentasi `/api-docs` (13h).
