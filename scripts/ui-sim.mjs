@@ -847,6 +847,20 @@ try {
     `→ EN=${adaEn} tanpaID=${tanpaId}`,
   );
 
+  // F1n — Fase 19n: wizard "Mulai".
+  // Rute diverifikasi ke main.tsx: /app/mulai. Penandanya label langkah +
+  // kartu pilihan pengalaman, yang dirender tanpa syarat data.
+  await gotoRoute("/app/mulai", 900);
+  const mlEn = await page.innerText("body");
+  const adaMlEn = mlEn.includes("Experience") && mlEn.includes("Skip everything");
+  const tanpaMlId =
+    !mlEn.includes("Lewati semua dan langsung") && !mlEn.includes("Pengalaman");
+  check(
+    "F1n isi wizard Mulai ikut EN: label langkah + lewati, tanpa teks Indonesia",
+    adaMlEn && tanpaMlId,
+    `→ EN=${adaMlEn} tanpaID=${tanpaMlId}`,
+  );
+
   // Fase 16n — pelunasan utang 16e. Rute diverifikasi ke main.tsx:
   // /app/keuangan/arus-kas dan /app/keuangan/neraca. Baris ringkasan arus kas
   // selalu tampil begitu data termuat (tak bergantung ada/tidaknya mutasi).

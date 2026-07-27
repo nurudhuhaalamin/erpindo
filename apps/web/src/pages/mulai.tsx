@@ -5,6 +5,7 @@ import { Check, ChevronRight, GraduationCap, Rocket, SkipForward, Sparkles } fro
 import { useState, type ReactNode } from "react";
 import { api } from "../api/client";
 import { Alert, Button, Card, CardBody, Input, Label, Spinner, useToast } from "../components/ui";
+import { useUi, type UiKey } from "../i18n/ui";
 import { setSimpleMode, useWorkspace } from "./app";
 
 /**
@@ -24,9 +25,10 @@ export function markWizardDone(): void {
   }
 }
 
-const STEPS = ["Profil", "Pengalaman", "Produk", "Kontak"] as const;
+const STEP_KEYS = ["wizardProfil", "wizardPengalaman", "wizardProduk", "wizardKontak"] as const satisfies readonly UiKey[];
 
 export function MulaiPage() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const navigate = useNavigate();
   const toast = useToast();
@@ -36,7 +38,7 @@ export function MulaiPage() {
     markWizardDone();
     navigate({ to: "/app" });
   };
-  const nextOrFinish = () => (step >= STEPS.length - 1 ? finish() : setStep((s) => s + 1));
+  const nextOrFinish = () => (step >= STEP_KEYS.length - 1 ? finish() : setStep((s) => s + 1));
 
   return (
     <div className="mx-auto max-w-xl">
@@ -47,8 +49,8 @@ export function MulaiPage() {
 
       {/* Indikator langkah */}
       <ol className="mb-6 flex items-center gap-2">
-        {STEPS.map((label, i) => (
-          <li key={label} className="flex flex-1 items-center gap-2">
+        {STEP_KEYS.map((kunci, i) => (
+          <li key={kunci} className="flex flex-1 items-center gap-2">
             <span
               className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
                 i < step
@@ -61,9 +63,9 @@ export function MulaiPage() {
               {i < step ? <Check className="size-3.5" aria-hidden /> : i + 1}
             </span>
             <span className={`hidden text-xs sm:block ${i === step ? "font-semibold text-slate-800 dark:text-slate-200" : "text-slate-400"}`}>
-              {label}
+              {u(kunci)}
             </span>
-            {i < STEPS.length - 1 ? <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" /> : null}
+            {i < STEP_KEYS.length - 1 ? <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" /> : null}
           </li>
         ))}
       </ol>
@@ -74,7 +76,7 @@ export function MulaiPage() {
       {step === 3 ? <KontakStep tenantId={tenant.tenantId} onDone={finish} onSkip={finish} toast={toast} /> : null}
 
       <button onClick={finish} className="mt-6 flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
-        <SkipForward className="size-3.5" aria-hidden /> Lewati semua dan langsung ke dasbor
+        <SkipForward className="size-3.5" aria-hidden /> {u("lewatiSemua")}
       </button>
     </div>
   );
@@ -95,18 +97,19 @@ function StepCard({ title, description, children }: { title: string; description
 }
 
 function ProfilStep({ tenantId, onDone, onSkip, toast }: { tenantId: string; onDone: () => void; onSkip: () => void; toast: ToastFn }) {
+  const u = useUi();
   const [address, setAddress] = useState("");
   const [npwp, setNpwp] = useState("");
   const save = useMutation({
     mutationFn: () => api.updateSettings(tenantId, { address: address.trim(), npwp: npwp.trim() }),
     onSuccess: () => {
-      toast("success", "Profil perusahaan tersimpan.");
+      toast("success", u("toastProfilTersimpan"));
       onDone();
     },
     onError: (e) => toast("error", (e as Error).message),
   });
   return (
-    <StepCard title="Profil perusahaan" description="Alamat & NPWP muncul di kop faktur dan dokumen resmi. Bisa dilengkapi nanti di Pengaturan.">
+    <StepCard title="Profil perusahaan" description={u("descProfilPerusahaan")}>
       <div className="space-y-3">
         <div>
           <Label htmlFor="wz-address">Alamat usaha</Label>
@@ -122,7 +125,7 @@ function ProfilStep({ tenantId, onDone, onSkip, toast }: { tenantId: string; onD
           Lewati
         </button>
         <Button onClick={() => save.mutate()} disabled={save.isPending || address.trim().length === 0}>
-          {save.isPending ? <Spinner /> : null} Simpan & lanjut <ChevronRight className="size-4" aria-hidden />
+          {save.isPending ? <Spinner /> : null} {u("simpanLanjut")} <ChevronRight className="size-4" aria-hidden />
         </Button>
       </div>
     </StepCard>
@@ -130,28 +133,29 @@ function ProfilStep({ tenantId, onDone, onSkip, toast }: { tenantId: string; onD
 }
 
 function PengalamanStep({ onDone }: { onDone: () => void }) {
+  const u = useUi();
   const pick = (simple: boolean) => {
     setSimpleMode(simple);
     onDone();
   };
   return (
-    <StepCard title="Seberapa akrab Anda dengan akuntansi?" description="Kami sesuaikan tampilan menu. Bisa diubah kapan saja di Pengaturan.">
+    <StepCard title={u("seberapaAkrabAkuntansi")} description={u("descSesuaikanMenu")}>
       <div className="grid gap-3 sm:grid-cols-2">
         <button
           onClick={() => pick(true)}
           className="rounded-2xl border border-slate-200 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md dark:border-slate-700 dark:hover:border-brand-700"
         >
           <Sparkles className="size-6 text-brand-600 dark:text-brand-400" aria-hidden />
-          <h3 className="mt-2 font-semibold">Saya pemula</h3>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Sembunyikan menu akuntansi teknis (jurnal, buku besar). Fokus catat uang masuk/keluar.</p>
+          <h3 className="mt-2 font-semibold">{u("sayaPemula")}</h3>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{u("descModeSederhana")}</p>
         </button>
         <button
           onClick={() => pick(false)}
           className="rounded-2xl border border-slate-200 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md dark:border-slate-700 dark:hover:border-brand-700"
         >
           <GraduationCap className="size-6 text-brand-600 dark:text-brand-400" aria-hidden />
-          <h3 className="mt-2 font-semibold">Saya sudah paham</h3>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Tampilkan semua fitur akuntansi: jurnal umum, buku besar, neraca saldo, tutup buku.</p>
+          <h3 className="mt-2 font-semibold">{u("sayaSudahPaham")}</h3>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{u("descModeLengkap")}</p>
         </button>
       </div>
     </StepCard>
@@ -159,6 +163,7 @@ function PengalamanStep({ onDone }: { onDone: () => void }) {
 }
 
 function ProdukStep({ tenantId, onDone, onSkip, toast }: { tenantId: string; onDone: () => void; onSkip: () => void; toast: ToastFn }) {
+  const u = useUi();
   const [sku, setSku] = useState("");
   const [name, setName] = useState("");
   const [sellPrice, setSellPrice] = useState("");
@@ -166,17 +171,17 @@ function ProdukStep({ tenantId, onDone, onSkip, toast }: { tenantId: string; onD
   const save = useMutation({
     mutationFn: () => {
       const parsed = productSchema.safeParse({ sku: sku.trim(), name: name.trim(), sellPrice: Number(sellPrice) || 0 });
-      if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Data produk tidak valid");
+      if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? u("dataProdukTakValid"));
       return api.createItem(tenantId, "products", parsed.data);
     },
     onSuccess: () => {
-      toast("success", "Produk pertama ditambahkan.");
+      toast("success", u("toastProdukPertama"));
       onDone();
     },
     onError: (e) => setError((e as Error).message),
   });
   return (
-    <StepCard title="Tambah produk/jasa pertama" description="Barang atau jasa yang Anda jual. Nanti dipakai di faktur & kasir.">
+    <StepCard title={u("tambahProdukPertama")} description={u("descProdukPertama")}>
       {error ? <Alert tone="error">{error}</Alert> : null}
       <div className="mt-2 grid gap-3 sm:grid-cols-2">
         <div>
@@ -188,7 +193,7 @@ function ProdukStep({ tenantId, onDone, onSkip, toast }: { tenantId: string; onD
           <Input id="wz-price" type="number" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} placeholder="25000" />
         </div>
         <div className="sm:col-span-2">
-          <Label htmlFor="wz-pname">Nama produk</Label>
+          <Label htmlFor="wz-pname">{u("namaProduk")}</Label>
           <Input id="wz-pname" value={name} onChange={(e) => setName(e.target.value)} placeholder="Kopi Susu Gula Aren" />
         </div>
       </div>
@@ -197,7 +202,7 @@ function ProdukStep({ tenantId, onDone, onSkip, toast }: { tenantId: string; onD
           Lewati
         </button>
         <Button onClick={() => save.mutate()} disabled={save.isPending || sku.trim().length === 0 || name.trim().length < 2}>
-          {save.isPending ? <Spinner /> : null} Simpan & lanjut <ChevronRight className="size-4" aria-hidden />
+          {save.isPending ? <Spinner /> : null} {u("simpanLanjut")} <ChevronRight className="size-4" aria-hidden />
         </Button>
       </div>
     </StepCard>
@@ -205,23 +210,24 @@ function ProdukStep({ tenantId, onDone, onSkip, toast }: { tenantId: string; onD
 }
 
 function KontakStep({ tenantId, onDone, onSkip, toast }: { tenantId: string; onDone: () => void; onSkip: () => void; toast: ToastFn }) {
+  const u = useUi();
   const [name, setName] = useState("");
   const [type, setType] = useState<"customer" | "supplier">("customer");
   const [error, setError] = useState("");
   const save = useMutation({
     mutationFn: () => {
       const parsed = contactSchema.safeParse({ type, name: name.trim() });
-      if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Data kontak tidak valid");
+      if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? u("dataKontakTakValid"));
       return api.createItem(tenantId, "contacts", parsed.data);
     },
     onSuccess: () => {
-      toast("success", "Kontak pertama ditambahkan. Anda siap!");
+      toast("success", u("toastKontakPertama"));
       onDone();
     },
     onError: (e) => setError((e as Error).message),
   });
   return (
-    <StepCard title="Tambah pelanggan/pemasok pertama" description="Pihak yang bertransaksi dengan Anda — pelanggan (menjual) atau pemasok (membeli).">
+    <StepCard title={u("tambahKontakPertama")} description={u("descKontakPertama")}>
       {error ? <Alert tone="error">{error}</Alert> : null}
       <div className="mt-2 space-y-3">
         <div className="flex gap-2">
@@ -229,18 +235,18 @@ function KontakStep({ tenantId, onDone, onSkip, toast }: { tenantId: string; onD
             onClick={() => setType("customer")}
             className={`flex-1 rounded-lg border px-3 py-2 text-sm ${type === "customer" ? "border-brand-500 bg-brand-50 font-semibold text-brand-700 dark:bg-brand-950 dark:text-brand-300" : "border-slate-300 dark:border-slate-700"}`}
           >
-            Pelanggan
+            {u("pelanggan")}
           </button>
           <button
             onClick={() => setType("supplier")}
             className={`flex-1 rounded-lg border px-3 py-2 text-sm ${type === "supplier" ? "border-brand-500 bg-brand-50 font-semibold text-brand-700 dark:bg-brand-950 dark:text-brand-300" : "border-slate-300 dark:border-slate-700"}`}
           >
-            Pemasok
+            {u("pemasok")}
           </button>
         </div>
         <div>
-          <Label htmlFor="wz-cname">Nama</Label>
-          <Input id="wz-cname" value={name} onChange={(e) => setName(e.target.value)} placeholder="Toko Berkah / PT Sumber Rezeki" />
+          <Label htmlFor="wz-cname">{u("nama")}</Label>
+          <Input id="wz-cname" value={name} onChange={(e) => setName(e.target.value)} placeholder={u("contohNamaKontak")} />
         </div>
       </div>
       <div className="mt-5 flex items-center justify-between">
