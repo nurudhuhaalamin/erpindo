@@ -10,6 +10,11 @@ import {
   Label,
   PageHeading,
   Spinner,
+  Table,
+  Td,
+  Th,
+  Thead,
+  Tr,
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
@@ -54,34 +59,45 @@ function BudgetRow({
 
   const favorable = row.variance >= 0;
   return (
-    <tr className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
-      <td className="py-1.5 pr-3 font-mono text-xs text-slate-400">{row.code}</td>
-      <td className="py-1.5 pr-3">{row.name}</td>
-      <td className="py-1.5 pr-3 text-right">
+    // `align-top` supaya baris lain tidak ikut merenggang mengikuti tinggi
+    // input anggaran (pola yang sama dengan work order 18o & routing 18p).
+    <Tr className="align-top">
+      <Td label="Kode" className="font-mono text-xs text-slate-400">
+        {row.code}
+      </Td>
+      <Td label="Akun">{row.name}</Td>
+      {/* Kolom Anggaran TIDAK memakai `numeric`: bagi admin selnya memuat
+          kontrol form, bukan nilai — sama seperti sel berisi lencana (17g).
+          Perataan kanan tetap dipasang manual agar kolomnya berbaris. */}
+      <Td label="Anggaran" className="text-right">
         {editable ? (
           <Input
             aria-label={`Anggaran ${row.name}`}
             type="number"
             min={0}
-            className="h-8 w-32 text-right"
+            className="w-32 text-right"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onBlur={commit}
           />
         ) : (
-          <span className="tabular-nums">{formatIDR(row.budget)}</span>
+          <span className="num">{formatIDR(row.budget)}</span>
         )}
-      </td>
-      <td className="py-1.5 pr-3 text-right tabular-nums">{formatIDR(row.actual)}</td>
-      <td
-        className={`py-1.5 text-right tabular-nums ${
+      </Td>
+      <Td numeric label="Realisasi">
+        {formatIDR(row.actual)}
+      </Td>
+      <Td
+        numeric
+        label="Selisih"
+        className={
           favorable ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
-        }`}
+        }
       >
         {favorable ? "+" : ""}
         {formatIDR(row.variance)}
-      </td>
-    </tr>
+      </Td>
+    </Tr>
   );
 }
 
@@ -105,49 +121,54 @@ function BudgetTable({
       <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
         {title}
       </h3>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
-              <th className="pb-1 pr-3 font-medium">Kode</th>
-              <th className="pb-1 pr-3 font-medium">Akun</th>
-              <th className="pb-1 pr-3 text-right font-medium">Anggaran</th>
-              <th className="pb-1 pr-3 text-right font-medium">Realisasi</th>
-              <th className="pb-1 text-right font-medium">Selisih</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="py-3 text-center text-slate-400">
-                  Belum ada akun {title.toLowerCase()}.
-                </td>
-              </tr>
-            ) : (
-              rows.map((r) => (
-                <BudgetRow key={r.accountId} row={r} period={period} editable={editable} />
-              ))
-            )}
-            <tr className="border-t border-slate-200 font-semibold dark:border-slate-800">
-              <td className="py-1.5 pr-3" colSpan={2}>
-                Total {title}
-              </td>
-              <td className="py-1.5 pr-3 text-right tabular-nums">{formatIDR(totBudget)}</td>
-              <td className="py-1.5 pr-3 text-right tabular-nums">{formatIDR(totActual)}</td>
-              <td
-                className={`py-1.5 text-right tabular-nums ${
-                  favorable
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-red-600 dark:text-red-400"
-                }`}
-              >
-                {favorable ? "+" : ""}
-                {formatIDR(totVar)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <Table>
+        <Thead>
+          <tr>
+            <Th>Kode</Th>
+            <Th>Akun</Th>
+            <Th numeric>Anggaran</Th>
+            <Th numeric>Realisasi</Th>
+            <Th numeric>Selisih</Th>
+          </tr>
+        </Thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <Tr>
+              {/* Baris kosong: `text-center` sengaja dilepas di layar kecil —
+                  di mode kartu selnya membentang penuh, jadi rata tengah
+                  membuatnya terbaca seperti judul, bukan keterangan. */}
+              <Td colSpan={5} className="text-slate-400 md:text-center">
+                Belum ada akun {title.toLowerCase()}.
+              </Td>
+            </Tr>
+          ) : (
+            rows.map((r) => (
+              <BudgetRow key={r.accountId} row={r} period={period} editable={editable} />
+            ))
+          )}
+          <Tr className="border-t border-slate-200 font-semibold dark:border-slate-800">
+            <Td colSpan={2}>Total {title}</Td>
+            <Td numeric label="Anggaran">
+              {formatIDR(totBudget)}
+            </Td>
+            <Td numeric label="Realisasi">
+              {formatIDR(totActual)}
+            </Td>
+            <Td
+              numeric
+              label="Selisih"
+              className={
+                favorable
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-red-600 dark:text-red-400"
+              }
+            >
+              {favorable ? "+" : ""}
+              {formatIDR(totVar)}
+            </Td>
+          </Tr>
+        </tbody>
+      </Table>
     </div>
   );
 }
