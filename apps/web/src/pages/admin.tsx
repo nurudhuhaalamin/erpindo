@@ -1,6 +1,4 @@
 import {
-  FEEDBACK_CATEGORY_LABELS,
-  FEEDBACK_STATUS_LABELS,
   FEEDBACK_STATUSES,
   PLAN_LABELS,
   renderMarkdown,
@@ -31,6 +29,8 @@ import {
   Tr,
   useToast,
 } from "../components/ui";
+import { KATEGORI_KEY, STATUS_MASUKAN_KEY } from "../i18n/masukan";
+import { useUi, type UiKey } from "../i18n/ui";
 import { useWorkspace } from "./app";
 
 /**
@@ -39,8 +39,18 @@ import { useWorkspace } from "./app";
  * pengguna, dan tulis artikel blog (tayang SSR di /blog).
  */
 
-const TABS = ["Ringkasan", "Tenant", "Infra", "Masukan", "Blog"] as const;
+// Kunci tab dipisah dari labelnya (Fase 19r): dulu label Indonesia sekaligus
+// menjadi nilai state, jadi menerjemahkannya akan mematikan pemilihan tab —
+// cacat senyap yang sama seperti kategori di catat.tsx (19d).
+const TABS = ["ringkasan", "tenant", "infra", "masukan", "blog"] as const;
 type Tab = (typeof TABS)[number];
+const TAB_KEY = {
+  ringkasan: "adTabRingkasan",
+  tenant: "adTabTenant",
+  infra: "adTabInfra",
+  masukan: "adTabMasukan",
+  blog: "adTabBlog",
+} satisfies Record<Tab, UiKey>;
 
 const STATUS_TONE: Record<string, "green" | "amber" | "red" | "neutral" | "brand"> = {
   active: "green",
@@ -49,14 +59,23 @@ const STATUS_TONE: Record<string, "green" | "amber" | "red" | "neutral" | "brand
   suspended: "red",
 };
 
+/** Kode status langganan → kunci kamus. Sebelumnya kodenya tampil apa adanya. */
+const STATUS_KEY = {
+  trial: "adTsTrial",
+  active: "adTsActive",
+  past_due: "adTsPastDue",
+  suspended: "adTsSuspended",
+} satisfies Record<string, UiKey>;
+
 export function AdminPage() {
+  const u = useUi();
   const { me } = useWorkspace();
-  const [tab, setTab] = useState<Tab>("Ringkasan");
+  const [tab, setTab] = useState<Tab>("ringkasan");
 
   if (!me.user.isPlatformAdmin) {
     return (
       <div className="p-2">
-        <Alert tone="error">Halaman ini khusus admin platform ERPindo.</Alert>
+        <Alert tone="error">{u("adHanyaAdmin")}</Alert>
       </div>
     );
   }
@@ -80,32 +99,33 @@ export function AdminPage() {
                 : "bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700 dark:hover:bg-slate-800"
             }`}
           >
-            {t}
+            {u(TAB_KEY[t])}
           </button>
         ))}
       </div>
 
-      {tab === "Ringkasan" ? <OverviewTab /> : null}
-      {tab === "Tenant" ? <TenantsTab /> : null}
-      {tab === "Infra" ? <InfraTab /> : null}
-      {tab === "Masukan" ? <FeedbackTab /> : null}
-      {tab === "Blog" ? <BlogTab /> : null}
+      {tab === "ringkasan" ? <OverviewTab /> : null}
+      {tab === "tenant" ? <TenantsTab /> : null}
+      {tab === "infra" ? <InfraTab /> : null}
+      {tab === "masukan" ? <FeedbackTab /> : null}
+      {tab === "blog" ? <BlogTab /> : null}
     </div>
   );
 }
 
 function OverviewTab() {
+  const u = useUi();
   const q = useQuery({ queryKey: ["admin-overview"], queryFn: api.adminOverview });
   if (q.isLoading) return <Spinner />;
-  if (!q.data) return <Alert tone="error">Gagal memuat ringkasan.</Alert>;
+  if (!q.data) return <Alert tone="error">{u("adGagalRingkasan")}</Alert>;
   const d = q.data;
   const stats = [
-    { label: "Total perusahaan", value: d.totals.tenants },
-    { label: "Total pengguna", value: d.totals.users },
-    { label: "Trial berjalan", value: d.byStatus.trial ?? 0 },
-    { label: "Aktif berbayar/comped", value: d.byStatus.active ?? 0 },
-    { label: "Menunggak (baca-saja)", value: d.byStatus.past_due ?? 0 },
-    { label: "Masukan baru", value: d.totals.feedbackBaru },
+    { label: u("adTotalPerusahaan"), value: d.totals.tenants },
+    { label: u("adTotalPengguna"), value: d.totals.users },
+    { label: u("adTrialBerjalan"), value: d.byStatus.trial ?? 0 },
+    { label: u("adAktifBerbayar"), value: d.byStatus.active ?? 0 },
+    { label: u("adMenunggakBacaSaja"), value: d.byStatus.past_due ?? 0 },
+    { label: u("adMasukanBaru"), value: d.totals.feedbackBaru },
   ];
   const maxGrowth = Math.max(...d.growth.map((g) => g.n), 1);
   return (
@@ -122,10 +142,7 @@ function OverviewTab() {
       </div>
 
       <Card>
-        <CardHeader
-          title="Pendaftaran per bulan"
-          description="Perusahaan baru 12 bulan terakhir."
-        />
+        <CardHeader title={u("adPendaftaranPerBulan")} description={u("adDescPendaftaran")} />
         <CardBody>
           <div className="flex h-32 items-end gap-2">
             {d.growth.map((g) => (
@@ -145,33 +162,34 @@ function OverviewTab() {
       </Card>
 
       <Card>
-        <CardHeader
-          title="Pendaftar terbaru"
-          description="20 perusahaan terakhir beserta email pemiliknya."
-        />
+        <CardHeader title={u("adPendaftarTerbaru")} description={u("adDescPendaftarTerbaru")} />
         <CardBody>
           <Table>
             <Thead>
               <tr>
-                <Th>Perusahaan</Th>
-                <Th>Pemilik</Th>
-                <Th>Status</Th>
-                <Th>Paket</Th>
-                <Th>Daftar</Th>
+                <Th>{u("adKolomPerusahaan")}</Th>
+                <Th>{u("adKolomPemilik")}</Th>
+                <Th>{u("adKolomStatus")}</Th>
+                <Th>{u("adKolomPaket")}</Th>
+                <Th>{u("adKolomDaftar")}</Th>
               </tr>
             </Thead>
             <tbody>
               {d.recentSignups.map((t) => (
                 <Tr key={t.id}>
-                  <Td label="Perusahaan" className="font-medium">
+                  <Td label={u("adKolomPerusahaan")} className="font-medium">
                     {t.name}
                   </Td>
-                  <Td label="Pemilik">{t.ownerEmail ?? "—"}</Td>
-                  <Td label="Status">
-                    <Badge tone={STATUS_TONE[t.status] ?? "neutral"}>{t.status}</Badge>
+                  <Td label={u("adKolomPemilik")}>{t.ownerEmail ?? "—"}</Td>
+                  <Td label={u("adKolomStatus")}>
+                    <Badge tone={STATUS_TONE[t.status] ?? "neutral"}>
+                      {STATUS_KEY[t.status as keyof typeof STATUS_KEY]
+                        ? u(STATUS_KEY[t.status as keyof typeof STATUS_KEY])
+                        : t.status}
+                    </Badge>
                   </Td>
-                  <Td label="Paket">{PLAN_LABELS[t.plan as Plan] ?? t.plan}</Td>
-                  <Td label="Daftar" className="text-slate-500 dark:text-slate-400">
+                  <Td label={u("adKolomPaket")}>{PLAN_LABELS[t.plan as Plan] ?? t.plan}</Td>
+                  <Td label={u("adKolomDaftar")} className="text-slate-500 dark:text-slate-400">
                     {formatDate(t.createdAt.slice(0, 10))}
                   </Td>
                 </Tr>
@@ -185,6 +203,7 @@ function OverviewTab() {
 }
 
 function TenantsTab() {
+  const u = useUi();
   const [search, setSearch] = useState("");
   const q = useDebounced(search);
   const [status, setStatus] = useState("");
@@ -196,29 +215,31 @@ function TenantsTab() {
   return (
     <Card>
       <CardHeader
-        title="Semua perusahaan"
-        description={`${query.data?.total ?? 0} perusahaan terdaftar.`}
+        title={u("adSemuaPerusahaan")}
+        description={`${query.data?.total ?? 0} ${u("adPerusahaanTerdaftar")}`}
       />
       <CardBody className="space-y-3">
         <div className="flex flex-wrap gap-2">
           <Input
-            aria-label="Cari perusahaan"
-            placeholder="Cari nama/slug…"
+            aria-label={u("adCariPerusahaan")}
+            placeholder={u("adCariNamaSlug")}
             className="max-w-xs"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
           <Select
-            aria-label="Filter status"
+            aria-label={u("adFilterStatus")}
             className="w-44"
             value={status}
             onChange={(e) => setStatus(e.target.value)}
           >
-            <option value="">Semua status</option>
-            <option value="trial">Trial</option>
-            <option value="active">Aktif</option>
-            <option value="past_due">Menunggak</option>
-            <option value="suspended">Ditangguhkan</option>
+            <option value="">{u("adSemuaStatus")}</option>
+            {/* Nilai `value` adalah kode API — jangan ikut diterjemahkan. */}
+            {(Object.keys(STATUS_KEY) as (keyof typeof STATUS_KEY)[]).map((s) => (
+              <option key={s} value={s}>
+                {u(STATUS_KEY[s])}
+              </option>
+            ))}
           </Select>
         </div>
         {query.isLoading ? (
@@ -227,34 +248,38 @@ function TenantsTab() {
           <Table>
             <Thead>
               <tr>
-                <Th>Perusahaan</Th>
-                <Th>Pemilik</Th>
-                <Th>Status</Th>
-                <Th>Paket</Th>
-                <Th numeric>Anggota</Th>
-                <Th>Trial berakhir</Th>
-                <Th>Daftar</Th>
+                <Th>{u("adKolomPerusahaan")}</Th>
+                <Th>{u("adKolomPemilik")}</Th>
+                <Th>{u("adKolomStatus")}</Th>
+                <Th>{u("adKolomPaket")}</Th>
+                <Th numeric>{u("adKolomAnggota")}</Th>
+                <Th>{u("adKolomTrialBerakhir")}</Th>
+                <Th>{u("adKolomDaftar")}</Th>
               </tr>
             </Thead>
             <tbody>
               {(query.data?.tenants ?? []).map((t) => (
                 <Tr key={t.id}>
-                  <Td label="Perusahaan">
+                  <Td label={u("adKolomPerusahaan")}>
                     <div className="font-medium">{t.name}</div>
                     <div className="text-xs text-slate-400">{t.slug}</div>
                   </Td>
-                  <Td label="Pemilik">{t.ownerEmail ?? "—"}</Td>
-                  <Td label="Status">
-                    <Badge tone={STATUS_TONE[t.status] ?? "neutral"}>{t.status}</Badge>
+                  <Td label={u("adKolomPemilik")}>{t.ownerEmail ?? "—"}</Td>
+                  <Td label={u("adKolomStatus")}>
+                    <Badge tone={STATUS_TONE[t.status] ?? "neutral"}>
+                      {STATUS_KEY[t.status as keyof typeof STATUS_KEY]
+                        ? u(STATUS_KEY[t.status as keyof typeof STATUS_KEY])
+                        : t.status}
+                    </Badge>
                   </Td>
-                  <Td label="Paket">{PLAN_LABELS[t.plan as Plan] ?? t.plan}</Td>
-                  <Td numeric label="Anggota">
+                  <Td label={u("adKolomPaket")}>{PLAN_LABELS[t.plan as Plan] ?? t.plan}</Td>
+                  <Td numeric label={u("adKolomAnggota")}>
                     {t.members}
                   </Td>
-                  <Td label="Trial berakhir" className="text-slate-500 dark:text-slate-400">
+                  <Td label={u("adKolomTrialBerakhir")} className="text-slate-500 dark:text-slate-400">
                     {t.trialEndsAt ? formatDate(t.trialEndsAt.slice(0, 10)) : "—"}
                   </Td>
-                  <Td label="Daftar" className="text-slate-500 dark:text-slate-400">
+                  <Td label={u("adKolomDaftar")} className="text-slate-500 dark:text-slate-400">
                     {formatDate(t.createdAt.slice(0, 10))}
                   </Td>
                 </Tr>
@@ -273,6 +298,7 @@ function TenantsTab() {
  * ke tenant yang tertinggal (idempoten & resumable).
  */
 function InfraTab() {
+  const u = useUi();
   const toast = useToast();
   const qc = useQueryClient();
   const query = useQuery({ queryKey: ["admin-infra"], queryFn: api.adminInfra });
@@ -282,8 +308,8 @@ function InfraTab() {
       toast(
         r.failed ? "error" : "success",
         r.migrated > 0
-          ? `${r.migrated} perusahaan dimutakhirkan${r.failed ? `, ${r.failed} gagal` : ""}.`
-          : "Semua perusahaan sudah di versi skema terkini."
+          ? `${r.migrated} ${u("adToastDimutakhirkan")}${r.failed ? `, ${r.failed} ${u("adToastGagalKata")}` : ""}.`
+          : u("adToastSemuaTerkini")
       );
       void qc.invalidateQueries({ queryKey: ["admin-infra"] });
     },
@@ -295,27 +321,24 @@ function InfraTab() {
   const stats = d
     ? [
         {
-          label: "Mode database tenant",
-          value: d.dbMode === "cloudflare" ? "Cloudflare (D1 dinamis)" : "Lokal (pool binding)",
+          label: u("adModeDbTenant"),
+          value: d.dbMode === "cloudflare" ? u("adModeCloudflare") : u("adModeLokal"),
         },
-        { label: "Versi skema terkini", value: `v${d.schemaVersion}` },
-        { label: "Total perusahaan", value: String(d.totalTenants) },
-        { label: "Tertinggal migrasi", value: String(behind) },
+        { label: u("adVersiSkemaTerkini"), value: `v${d.schemaVersion}` },
+        { label: u("adTotalPerusahaan"), value: String(d.totalTenants) },
+        { label: u("adTertinggalMigrasi"), value: String(behind) },
       ]
     : [];
 
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader
-          title="Infrastruktur & kapasitas"
-          description="Mode database tenant, versi skema, dan status migrasi antar-perusahaan."
-        />
+        <CardHeader title={u("adInfrastruktur")} description={u("adDescInfra")} />
         <CardBody className="space-y-4">
           {query.isLoading ? (
             <Spinner />
           ) : !d ? (
-            <Alert tone="error">Gagal memuat status infra.</Alert>
+            <Alert tone="error">{u("adGagalInfra")}</Alert>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -332,25 +355,24 @@ function InfraTab() {
 
               {behind > 0 ? (
                 <Alert tone="info">
-                  {behind} perusahaan belum di versi skema terkini. Klik “Migrasi sekarang” untuk
-                  menerapkan migrasi.
+                  {behind} {u("adPeringatanTertinggal")}
                 </Alert>
               ) : (
-                <Alert tone="success">Semua perusahaan berada di versi skema terkini.</Alert>
+                <Alert tone="success">{u("adSemuaTerkini")}</Alert>
               )}
 
               <div className="flex flex-wrap items-center gap-2">
                 <Button onClick={() => migrate.mutate()} disabled={migrate.isPending}>
-                  {migrate.isPending ? "Memigrasi…" : "Migrasi sekarang"}
+                  {migrate.isPending ? u("adMemigrasi") : u("adMigrasiSekarang")}
                 </Button>
                 <span className="text-xs text-slate-500 dark:text-slate-400">
-                  Aman dijalankan berulang — hanya perusahaan yang tertinggal yang disentuh.
+                  {u("adAmanBerulang")}
                 </span>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <h3 className="mb-2 text-sm font-semibold">Sebaran versi skema</h3>
+                  <h3 className="mb-2 text-sm font-semibold">{u("adSebaranVersi")}</h3>
                   <div className="space-y-1">
                     {d.versionDistribution.map((v) => (
                       <div
@@ -359,28 +381,26 @@ function InfraTab() {
                       >
                         <span>
                           v{v.v}
-                          {v.v === d.schemaVersion ? " (terkini)" : ""}
+                          {v.v === d.schemaVersion ? ` ${u("adTerkiniSuffix")}` : ""}
                         </span>
                         <span className="tabular-nums text-slate-500 dark:text-slate-400">
-                          {v.n} perusahaan
+                          {v.n} {u("adPerusahaanKata")}
                         </span>
                       </div>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <h3 className="mb-2 text-sm font-semibold">Jenis penyimpanan</h3>
+                  <h3 className="mb-2 text-sm font-semibold">{u("adJenisPenyimpanan")}</h3>
                   <div className="space-y-1">
                     {Object.entries(d.refKinds).map(([kind, n]) => (
                       <div
                         key={kind}
                         className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-1.5 text-sm dark:bg-slate-900"
                       >
-                        <span>
-                          {kind === "cloudflare" ? "D1 dinamis (uuid)" : "Pool binding lokal"}
-                        </span>
+                        <span>{kind === "cloudflare" ? u("adD1Dinamis") : u("adPoolLokal")}</span>
                         <span className="tabular-nums text-slate-500 dark:text-slate-400">
-                          {n} perusahaan
+                          {n} {u("adPerusahaanKata")}
                         </span>
                       </div>
                     ))}
@@ -390,25 +410,25 @@ function InfraTab() {
 
               {d.behind.length > 0 ? (
                 <div>
-                  <h3 className="mb-2 text-sm font-semibold">Perusahaan tertinggal</h3>
+                  <h3 className="mb-2 text-sm font-semibold">{u("adPerusahaanTertinggal")}</h3>
                   <Table>
                     <Thead>
                       <tr>
-                        <Th>Perusahaan</Th>
-                        <Th>Versi skema</Th>
+                        <Th>{u("adKolomPerusahaan")}</Th>
+                        <Th>{u("adKolomVersiSkema")}</Th>
                       </tr>
                     </Thead>
                     <tbody>
                       {d.behind.map((t) => (
                         <Tr key={t.id}>
-                          <Td label="Perusahaan">
+                          <Td label={u("adKolomPerusahaan")}>
                             <div className="font-medium">{t.name}</div>
                             <div className="text-xs text-slate-400">{t.slug}</div>
                           </Td>
                           {/* Bukan `numeric`: isinya "v12 → v38", sebuah
                               perpindahan versi, bukan nilai yang perlu
                               dirata-kanankan terhadap kolom lain. */}
-                          <Td label="Versi skema" className="num">
+                          <Td label={u("adKolomVersiSkema")} className="num">
                             v{t.schemaVersion} → v{d.schemaVersion}
                           </Td>
                         </Tr>
@@ -426,6 +446,7 @@ function InfraTab() {
 }
 
 function FeedbackTab() {
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState("");
@@ -438,7 +459,7 @@ function FeedbackTab() {
     mutationFn: (input: { id: string; status?: string; adminNote?: string }) =>
       api.adminUpdateFeedback(input.id, { status: input.status, adminNote: input.adminNote }),
     onSuccess: () => {
-      toast("success", "Masukan diperbarui.");
+      toast("success", u("adToastMasukanDiperbarui"));
       queryClient.invalidateQueries({ queryKey: ["admin-feedback"] });
     },
     onError: (err) => toast("error", (err as Error).message),
@@ -446,28 +467,25 @@ function FeedbackTab() {
   const [noteDraft, setNoteDraft] = useState<Record<string, string>>({});
   return (
     <Card>
-      <CardHeader
-        title="Masukan pengguna"
-        description="Saran fitur, laporan bug, dan pertanyaan dari seluruh pengguna."
-      />
+      <CardHeader title={u("adMasukanPengguna")} description={u("adDescMasukan")} />
       <CardBody className="space-y-3">
         <Select
-          aria-label="Filter status masukan"
+          aria-label={u("adFilterStatusMasukan")}
           className="w-44"
           value={status}
           onChange={(e) => setStatus(e.target.value)}
         >
-          <option value="">Semua status</option>
+          <option value="">{u("adSemuaStatus")}</option>
           {FEEDBACK_STATUSES.map((s) => (
             <option key={s} value={s}>
-              {FEEDBACK_STATUS_LABELS[s]}
+              {u(STATUS_MASUKAN_KEY[s])}
             </option>
           ))}
         </Select>
         {query.isLoading ? (
           <Spinner />
         ) : (query.data?.feedback ?? []).length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada masukan.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{u("adBelumAdaMasukan")}</p>
         ) : (
           (query.data?.feedback ?? []).map((f) => (
             <div
@@ -475,7 +493,7 @@ function FeedbackTab() {
               className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800"
             >
               <div className="flex flex-wrap items-center gap-2">
-                <Badge tone="brand">{FEEDBACK_CATEGORY_LABELS[f.category]}</Badge>
+                <Badge tone="brand">{u(KATEGORI_KEY[f.category])}</Badge>
                 <span className="font-medium">{f.userName}</span>
                 <span className="text-xs text-slate-400">{f.userEmail}</span>
                 {f.tenantName ? (
@@ -486,14 +504,14 @@ function FeedbackTab() {
                 </span>
                 <span className="ml-auto">
                   <Select
-                    aria-label={`Status masukan ${f.id}`}
+                    aria-label={`${u("adStatusMasukan")} ${f.id}`}
                     className="h-8 w-32"
                     value={f.status}
                     onChange={(e) => update.mutate({ id: f.id, status: e.target.value })}
                   >
                     {FEEDBACK_STATUSES.map((s) => (
                       <option key={s} value={s}>
-                        {FEEDBACK_STATUS_LABELS[s]}
+                        {u(STATUS_MASUKAN_KEY[s])}
                       </option>
                     ))}
                   </Select>
@@ -503,15 +521,17 @@ function FeedbackTab() {
                 {f.message}
               </p>
               {f.pagePath ? (
-                <p className="mt-1 text-xs text-slate-400">Halaman: {f.pagePath}</p>
+                <p className="mt-1 text-xs text-slate-400">
+                  {u("adHalamanLabel")} {f.pagePath}
+                </p>
               ) : null}
               <div className="mt-2 flex gap-2">
                 <Input
-                  aria-label={`Balasan untuk ${f.id}`}
+                  aria-label={`${u("adBalasanUntuk")} ${f.id}`}
                   placeholder={
                     f.adminNote
-                      ? `Balasan: ${f.adminNote}`
-                      : "Tulis balasan singkat (tampil ke pengguna)…"
+                      ? `${u("adBalasanPrefix")} ${f.adminNote}`
+                      : u("adTulisBalasan")
                   }
                   className="h-9 flex-1"
                   value={noteDraft[f.id] ?? ""}
@@ -526,7 +546,7 @@ function FeedbackTab() {
                     setNoteDraft((d) => ({ ...d, [f.id]: "" }));
                   }}
                 >
-                  Balas
+                  {u("adBalas")}
                 </Button>
               </div>
             </div>
@@ -540,6 +560,7 @@ function FeedbackTab() {
 const EMPTY_POST = { slug: "", title: "", excerpt: "", bodyMd: "", coverUrl: "" };
 
 function BlogTab() {
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["admin-blog"], queryFn: api.adminBlogPosts });
@@ -561,10 +582,7 @@ function BlogTab() {
       return editing ? api.adminUpdateBlogPost(editing.id, input) : api.adminCreateBlogPost(input);
     },
     onSuccess: () => {
-      toast(
-        "success",
-        editing ? "Artikel diperbarui." : "Draf artikel dibuat — terbitkan bila sudah siap."
-      );
+      toast("success", editing ? u("adToastArtikelDiperbarui") : u("adToastDrafDibuat"));
       setEditing(null);
       setForm(EMPTY_POST);
       refresh();
@@ -575,7 +593,10 @@ function BlogTab() {
     mutationFn: (input: { id: string; published: boolean }) =>
       api.adminUpdateBlogPost(input.id, { published: input.published }),
     onSuccess: (_res, vars) => {
-      toast("success", vars.published ? "Artikel TAYANG di /blog." : "Artikel ditarik jadi draf.");
+      toast(
+        "success",
+        vars.published ? u("adToastArtikelTayang") : u("adToastArtikelDitarik")
+      );
       refresh();
     },
     onError: (err) => toast("error", (err as Error).message),
@@ -583,7 +604,7 @@ function BlogTab() {
   const doDelete = useMutation({
     mutationFn: (id: string) => api.adminDeleteBlogPost(id),
     onSuccess: () => {
-      toast("success", "Artikel dihapus.");
+      toast("success", u("adToastArtikelDihapus"));
       setDeleting(null);
       refresh();
     },
@@ -594,13 +615,13 @@ function BlogTab() {
     <div className="space-y-6">
       <Card>
         <CardHeader
-          title={editing ? `Ubah artikel: ${editing.title}` : "Artikel baru"}
-          description="Markdown sederhana: # judul, - daftar, **tebal**, [tautan](https://…). Artikel tayang di /blog setelah diterbitkan."
+          title={editing ? `${u("adUbahArtikel")} ${editing.title}` : u("adArtikelBaru")}
+          description={u("adDescMarkdown")}
         />
         <CardBody className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <Label htmlFor="blog-title">Judul</Label>
+              <Label htmlFor="blog-title">{u("adJudulArtikel")}</Label>
               <Input
                 id="blog-title"
                 value={form.title}
@@ -608,7 +629,7 @@ function BlogTab() {
               />
             </div>
             <div>
-              <Label htmlFor="blog-slug">Slug (URL)</Label>
+              <Label htmlFor="blog-slug">{u("adSlugUrl")}</Label>
               <Input
                 id="blog-slug"
                 placeholder="cara-hitung-hpp-umkm"
@@ -618,7 +639,7 @@ function BlogTab() {
             </div>
           </div>
           <div>
-            <Label htmlFor="blog-excerpt">Ringkasan (untuk daftar & meta description)</Label>
+            <Label htmlFor="blog-excerpt">{u("adRingkasanMeta")}</Label>
             <Input
               id="blog-excerpt"
               value={form.excerpt}
@@ -628,14 +649,14 @@ function BlogTab() {
           <div>
             <div className="mb-1.5 flex items-center justify-between">
               <Label htmlFor="blog-body" className="mb-0">
-                Isi artikel (Markdown)
+                {u("adIsiArtikel")}
               </Label>
               <button
                 type="button"
                 className="text-xs font-medium text-brand-700 underline-offset-2 hover:underline dark:text-brand-400"
                 onClick={() => setPreview((p) => !p)}
               >
-                {preview ? "Tulis" : "Pratinjau"}
+                {preview ? u("adTulis") : u("adPratinjau")}
               </button>
             </div>
             {preview ? (
@@ -643,7 +664,7 @@ function BlogTab() {
                 className="prose-blog min-h-40 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-900"
                 // renderMarkdown escape-first — aman XSS by construction.
                 dangerouslySetInnerHTML={{
-                  __html: renderMarkdown(form.bodyMd || "*Belum ada isi.*"),
+                  __html: renderMarkdown(form.bodyMd || u("adBelumAdaIsi")),
                 }}
               />
             ) : (
@@ -665,7 +686,7 @@ function BlogTab() {
                   setForm(EMPTY_POST);
                 }}
               >
-                Batal
+                {u("adBatal")}
               </Button>
             ) : null}
             <Button
@@ -674,22 +695,20 @@ function BlogTab() {
                 save.isPending || !form.title.trim() || !form.slug.trim() || form.bodyMd.length < 10
               }
             >
-              {save.isPending ? <Spinner /> : null} {editing ? "Simpan Perubahan" : "Simpan Draf"}
+              {save.isPending ? <Spinner /> : null}{" "}
+              {editing ? u("adSimpanPerubahan") : u("adSimpanDraf")}
             </Button>
           </div>
         </CardBody>
       </Card>
 
       <Card>
-        <CardHeader
-          title="Semua artikel"
-          description="Draf tidak tampil di /blog sampai diterbitkan."
-        />
+        <CardHeader title={u("adSemuaArtikel")} description={u("adDescDraf")} />
         <CardBody>
           {query.isLoading ? (
             <Spinner />
           ) : (query.data?.posts ?? []).length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada artikel.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{u("adBelumAdaArtikel")}</p>
           ) : (
             <div className="space-y-2">
               {(query.data?.posts ?? []).map((p) => (
@@ -700,9 +719,9 @@ function BlogTab() {
                   <span className="font-medium">{p.title}</span>
                   <span className="font-mono text-xs text-slate-400">/blog/{p.slug}</span>
                   {p.publishedAt ? (
-                    <Badge tone="green">TAYANG</Badge>
+                    <Badge tone="green">{u("adTayang")}</Badge>
                   ) : (
-                    <Badge tone="amber">DRAF</Badge>
+                    <Badge tone="amber">{u("adDraf")}</Badge>
                   )}
                   <span className="ml-auto flex gap-2">
                     {p.publishedAt ? (
@@ -712,7 +731,7 @@ function BlogTab() {
                         rel="noreferrer"
                         className="text-xs font-medium text-brand-700 underline-offset-2 hover:underline dark:text-brand-400"
                       >
-                        Lihat
+                        {u("adLihat")}
                       </a>
                     ) : null}
                     <button
@@ -729,19 +748,19 @@ function BlogTab() {
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
                     >
-                      Ubah
+                      {u("adUbah")}
                     </button>
                     <button
                       className="text-xs font-medium text-brand-700 underline-offset-2 hover:underline dark:text-brand-400"
                       onClick={() => publish.mutate({ id: p.id, published: !p.publishedAt })}
                     >
-                      {p.publishedAt ? "Tarik" : "Terbitkan"}
+                      {p.publishedAt ? u("adTarik") : u("adTerbitkan")}
                     </button>
                     <button
                       className="text-xs font-medium text-red-600 underline-offset-2 hover:underline dark:text-red-400"
                       onClick={() => setDeleting(p)}
                     >
-                      Hapus
+                      {u("adHapus")}
                     </button>
                   </span>
                 </div>
@@ -753,9 +772,9 @@ function BlogTab() {
 
       <ConfirmDialog
         open={deleting !== null}
-        title={`Hapus artikel "${deleting?.title}"?`}
-        description="Artikel dihapus permanen dari blog. Aksi ini tidak bisa diurungkan."
-        confirmLabel="Ya, hapus artikel"
+        title={`${u("adHapusArtikelPrefix")} "${deleting?.title}"?`}
+        description={u("adDescHapusArtikel")}
+        confirmLabel={u("adYaHapusArtikel")}
         danger
         busy={doDelete.isPending}
         onConfirm={() => deleting && doDelete.mutate(deleting.id)}

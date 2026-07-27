@@ -243,7 +243,27 @@ try {
   );
   // Dashboard tenant BARU (Fase 10a): perusahaan pertama (Kopi Nusantara) belum
   // punya transaksi — kartu KPI harus menampilkan "Rp 0" nyata, bukan shimmer.
-  await page.waitForTimeout(1200);
+  //
+  // Fase 19s: dulu `waitForTimeout(1200)` lalu langsung diasersi. Ambang itu
+  // cukup di mesin pengembang tetapi mulai merah di runner CI yang lebih
+  // lambat — dua cek ini gagal pada PR yang sama sekali tidak menyentuh
+  // dasbor. Sekarang KONDISINYA yang ditunggu, bukan waktunya. Kekuatan
+  // asersinya tidak berubah (tetap ≥3 "Rp 0" dan nol shimmer); yang hilang
+  // hanya ketergantungan pada kecepatan mesin. Bila memang macet, tunggu ini
+  // habis dan asersi di bawah tetap merah dengan diagnostik yang sama.
+  await page
+    .waitForFunction(
+      () => {
+        const t = document.body.innerText;
+        return (
+          t.includes("Kas & Bank") &&
+          (t.match(/Rp\s?0/g) ?? []).length >= 3 &&
+          document.querySelectorAll(".animate-pulse").length === 0
+        );
+      },
+      { timeout: 15_000 },
+    )
+    .catch(() => {});
   const freshBody = await page.innerText("body");
   check(
     "dashboard tenant baru menampilkan Rp 0 (bukan skeleton abu-abu)",
@@ -898,6 +918,36 @@ try {
     "F1p isi halaman Alat ikut EN: bilah tab + kalkulator HPP, tanpa teks Indonesia",
     adaAlEn && tanpaAlId,
     `→ EN=${adaAlEn} tanpaID=${tanpaAlId}`,
+  );
+
+  // F1s — Fase 19r: Dukungan & dashboard admin platform.
+  // Rute diverifikasi ke main.tsx: /app/dukungan dan /app/admin.
+  //
+  // Untuk /app/admin penandanya adalah pesan "khusus admin platform": akun
+  // simulasi BUKAN admin platform, jadi itulah satu-satunya keadaan halaman
+  // yang benar-benar dirender. Memakai penanda tab admin akan merah walaupun
+  // terjemahannya benar (pelajaran F1c/F1o).
+  await gotoRoute("/app/dukungan", 900);
+  const dkEn = await page.innerText("body");
+  await gotoRoute("/app/admin", 900);
+  const adEn = await page.innerText("body");
+  const adaDkEn =
+    dkEn.includes("Send feedback") &&
+    dkEn.includes("My feedback") &&
+    // Lencana kategori datang dari peta label `shared` yang tetap Indonesia;
+    // sisi web memetakannya sendiri. Tanpa penanda ini kebocoran itu tak
+    // terukur — persis jenis kebocoran yang lolos sapuan teks.
+    dkEn.includes("Feature suggestion") &&
+    adEn.includes("platform admins only");
+  const tanpaDkId =
+    !dkEn.includes("Kirim masukan") &&
+    !dkEn.includes("Masukan saya") &&
+    !dkEn.includes("Saran fitur") &&
+    !adEn.includes("khusus admin platform");
+  check(
+    "F1s isi Dukungan & Admin ikut EN: kartu masukan + label kategori, tanpa teks Indonesia",
+    adaDkEn && tanpaDkId,
+    `→ EN=${adaDkEn} tanpaID=${tanpaDkId}`,
   );
 
   // Fase 16n — pelunasan utang 16e. Rute diverifikasi ke main.tsx:
