@@ -1627,6 +1627,61 @@ const UI: Record<string, Dual> = {
   toastDisetujuiFakturPrefix: { id: "Disetujui — faktur", en: "Approved — invoice" },
   toastDiposting: { id: "diposting", en: "posted" },
   toastPermintaanDitolakTitik: { id: "Permintaan ditolak.", en: "Request rejected." },
+
+  // Kontrak Berulang (Fase 19j).
+  descKontrakBerulang: {
+    id: "Faktur diterbitkan otomatis pada tanggal tagih; gunakan produk 'jasa' agar tak butuh stok.",
+    en: "Invoices are issued automatically on the billing date; use a 'service' product so no stock is needed.",
+  },
+  namaKontrak: { id: "Nama kontrak", en: "Contract name" },
+  contohLangganan: {
+    id: "Langganan Maintenance Bulanan",
+    en: "Monthly Maintenance Subscription",
+  },
+  cariPelanggan: { id: "Cari pelanggan…", en: "Search customers…" },
+  mulaiTagih: { id: "Mulai tagih", en: "Billing starts" },
+  cariProdukJasa: { id: "Cari produk/jasa…", en: "Search products/services…" },
+  tambahBarisPlus: { id: "+ Tambah baris", en: "+ Add line" },
+  buatKontrak: { id: "Buat Kontrak", en: "Create contract" },
+  daftarKontrak: { id: "Daftar kontrak", en: "Contract list" },
+  belumAdaKontrak: { id: "Belum ada kontrak", en: "No contracts yet" },
+  descBelumAdaKontrak: {
+    id: "Buat kontrak langganan agar faktur terbit otomatis tiap periode.",
+    en: "Create a subscription contract so invoices are issued automatically each period.",
+  },
+  fakturTerbitSuffix: { id: "faktur terbit", en: "invoices issued" },
+  kontrakBerjalan: { id: "berjalan", en: "active" },
+  kontrakJeda: { id: "jeda", en: "paused" },
+  kontrakBerakhir: { id: "berakhir", en: "ended" },
+
+  // Helpdesk (Fase 19j).
+  buatTiket: { id: "Buat Tiket", en: "Create ticket" },
+  daftarTiket: { id: "Daftar tiket", en: "Ticket list" },
+  belumAdaTiket: { id: "Belum ada tiket", en: "No tickets yet" },
+  descBelumAdaTiket: {
+    id: "Tiket dukungan akan muncul di sini.",
+    en: "Support tickets will appear here.",
+  },
+  ditugaskanKeSuffix: { id: "· ditugaskan ke", en: "· assigned to" },
+  pilihTiketDetail: {
+    id: "Pilih tiket untuk melihat detail.",
+    en: "Pick a ticket to see its detail.",
+  },
+  ditugaskanKe: { id: "Ditugaskan ke", en: "Assigned to" },
+  belumDitugaskanOpsi: { id: "— belum ditugaskan —", en: "— unassigned —" },
+  belumAdaBalasan: { id: "Belum ada balasan.", en: "No replies yet." },
+  catatanInternalKecil: { id: "catatan internal", en: "internal note" },
+  balasanSuffix: { id: "balasan", en: "replies" },
+  toastKontrakDibuat: { id: "Kontrak dibuat.", en: "Contract created." },
+  toastStatusKontrakDiperbarui: {
+    id: "Status kontrak diperbarui.",
+    en: "Contract status updated.",
+  },
+  toastTiketDibuat: { id: "Tiket dibuat.", en: "Ticket created." },
+  catatanInternalLabel: {
+    id: "Catatan internal (tak terlihat pelanggan)",
+    en: "Internal note (not visible to the customer)",
+  },
 };
 
 export type UiKey = keyof typeof UI;

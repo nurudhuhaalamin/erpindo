@@ -24,10 +24,16 @@ import {
   Spinner,
   useToast,
 } from "../components/ui";
+import { useUi, type UiKey } from "../i18n/ui";
 import { useWorkspace } from "./app";
 
 const STATUS_TONE = { active: "green", paused: "amber", ended: "neutral" } as const;
-const STATUS_LABEL = { active: "berjalan", paused: "jeda", ended: "berakhir" } as const;
+/** Status kontrak → kunci kamus (Fase 19j, pola 16u). */
+const STATUS_KEY = {
+  active: "kontrakBerjalan",
+  paused: "kontrakJeda",
+  ended: "kontrakBerakhir",
+} satisfies Record<keyof typeof STATUS_TONE, UiKey>;
 const today = () => new Date().toISOString().slice(0, 10);
 
 type ProductRow = { id: string; sku: string; name: string; sell_price: number };
@@ -37,6 +43,7 @@ type DraftLine = { productId: string; productLabel: string; qty: string; unitPri
 const emptyLine = (): DraftLine => ({ productId: "", productLabel: "", qty: "1", unitPrice: "" });
 
 export function ContractsPage() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
   const toast = useToast();
@@ -103,7 +110,7 @@ export function ContractsPage() {
           })),
       }),
     onSuccess: () => {
-      toast("success", "Kontrak dibuat.");
+      toast("success", u("toastKontrakDibuat"));
       setForm({
         code: "",
         name: "",
@@ -173,7 +180,7 @@ export function ContractsPage() {
         <Card>
           <CardHeader
             title="Kontrak baru"
-            description="Faktur diterbitkan otomatis pada tanggal tagih; gunakan produk 'jasa' agar tak butuh stok."
+            description={u("descKontrakBerulang")}
           />
           <CardBody className="space-y-4">
             {error ? <Alert tone="error">{error}</Alert> : null}
@@ -188,21 +195,21 @@ export function ContractsPage() {
                 />
               </div>
               <div className="sm:col-span-2">
-                <Label htmlFor="ct-name">Nama kontrak</Label>
+                <Label htmlFor="ct-name">{u("namaKontrak")}</Label>
                 <Input
                   id="ct-name"
-                  placeholder="Langganan Maintenance Bulanan"
+                  placeholder={u("contohLangganan")}
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />
               </div>
               <div>
-                <Label htmlFor="ct-contact">Pelanggan</Label>
+                <Label htmlFor="ct-contact">{u("pelanggan")}</Label>
                 <SearchSelect
                   id="ct-contact"
                   value={form.contactId}
                   valueLabel={form.contactLabel}
-                  placeholder="Cari pelanggan…"
+                  placeholder={u("cariPelanggan")}
                   fetchOptions={fetchCustomerOptions}
                   onSelect={(opt) =>
                     setForm({ ...form, contactId: opt.value, contactLabel: opt.label })
@@ -226,7 +233,7 @@ export function ContractsPage() {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="ct-start">Mulai tagih</Label>
+                <Label htmlFor="ct-start">{u("mulaiTagih")}</Label>
                 <Input
                   id="ct-start"
                   type="date"
@@ -268,7 +275,7 @@ export function ContractsPage() {
                   <SearchSelect
                     value={line.productId}
                     valueLabel={line.productLabel}
-                    placeholder="Cari produk/jasa…"
+                    placeholder={u("cariProdukJasa")}
                     fetchOptions={fetchProductOptions}
                     onSelect={(opt) => pickProduct(i, opt)}
                   />
@@ -293,7 +300,7 @@ export function ContractsPage() {
                   <Button
                     type="button"
                     variant="ghost"
-                    aria-label={`Hapus baris ${i + 1}`}
+                    aria-label={`${u("hapusBaris")} ${i + 1}`}
                     onClick={() =>
                       setLines((ls) => (ls.length > 1 ? ls.filter((_, idx) => idx !== i) : ls))
                     }
@@ -310,7 +317,7 @@ export function ContractsPage() {
                 variant="secondary"
                 onClick={() => setLines((ls) => [...ls, emptyLine()])}
               >
-                + Tambah baris
+                {u("tambahBarisPlus")}
               </Button>
               <Button
                 onClick={() => create.mutate()}
@@ -321,8 +328,7 @@ export function ContractsPage() {
                   warehouses.length === 0
                 }
               >
-                {create.isPending ? <Spinner /> : <Plus className="size-4" aria-hidden />} Buat
-                Kontrak
+                {create.isPending ? <Spinner /> : <Plus className="size-4" aria-hidden />} {u("buatKontrak")}
               </Button>
             </div>
           </CardBody>
@@ -330,15 +336,15 @@ export function ContractsPage() {
       ) : null}
 
       <Card>
-        <CardHeader title="Daftar kontrak" />
+        <CardHeader title={u("daftarKontrak")} />
         <CardBody>
           {contractsQuery.isLoading ? (
             <Spinner />
           ) : contracts.length === 0 ? (
             <EmptyState
               icon={<CalendarClock className="size-6" aria-hidden />}
-              title="Belum ada kontrak"
-              description="Buat kontrak langganan agar faktur terbit otomatis tiap periode."
+              title={u("belumAdaKontrak")}
+              description={u("descBelumAdaKontrak")}
             />
           ) : (
             <div className="space-y-3">
@@ -354,6 +360,7 @@ export function ContractsPage() {
 }
 
 function ContractRow({ contract, isAdmin }: { contract: ApiContract; isAdmin: boolean }) {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -361,7 +368,7 @@ function ContractRow({ contract, isAdmin }: { contract: ApiContract; isAdmin: bo
   const setStatus = useMutation({
     mutationFn: (status: string) => api.setContractStatus(tenant.tenantId, contract.id, status),
     onSuccess: () => {
-      toast("success", "Status kontrak diperbarui.");
+      toast("success", u("toastStatusKontrakDiperbarui"));
       queryClient.invalidateQueries({ queryKey: ["contracts", tenant.tenantId] });
     },
     onError: (err) => toast("error", (err as Error).message),
@@ -372,7 +379,7 @@ function ContractRow({ contract, isAdmin }: { contract: ApiContract; isAdmin: bo
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="font-mono text-sm">{contract.code}</span>
         <span className="font-medium">{contract.name}</span>
-        <Badge tone={STATUS_TONE[contract.status]}>{STATUS_LABEL[contract.status]}</Badge>
+        <Badge tone={STATUS_TONE[contract.status]}>{u(STATUS_KEY[contract.status])}</Badge>
         <span className="text-xs text-slate-400">{contract.contactName}</span>
         <span className="ml-auto text-sm">
           {CONTRACT_FREQUENCY_LABELS[contract.frequency]} ·{" "}
@@ -384,7 +391,7 @@ function ContractRow({ contract, isAdmin }: { contract: ApiContract; isAdmin: bo
           {contract.status === "ended" ? "Berakhir" : "Tagih berikutnya"}:{" "}
           {contract.nextInvoiceDate}
         </span>
-        <span>· {contract.invoiceCount} faktur terbit</span>
+        <span>· {contract.invoiceCount} {u("fakturTerbitSuffix")}</span>
         {contract.endDate ? <span>· sampai {contract.endDate}</span> : null}
         {contract.lines.map((l) => (
           <span key={l.id} className="text-slate-500 dark:text-slate-400">

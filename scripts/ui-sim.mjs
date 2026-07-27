@@ -779,6 +779,22 @@ try {
     `→ EN=${adaApEn} tanpaID=${tanpaApId}`,
   );
 
+  // F1j — Fase 19j: Kontrak Berulang & Helpdesk.
+  // Rute diverifikasi ke audit-routes.mjs: /app/kontrak dan /app/helpdesk.
+  await gotoRoute("/app/kontrak", 900);
+  const ktEn = await page.innerText("body");
+  await gotoRoute("/app/helpdesk", 900);
+  const hdEn = await page.innerText("body");
+  const adaKtEn = ktEn.includes("Contract list") && ktEn.includes("Invoices are issued automatically");
+  const tanpaKtId = !ktEn.includes("Daftar kontrak") && !ktEn.includes("Faktur diterbitkan otomatis");
+  const adaHdEn = hdEn.includes("Ticket list");
+  const tanpaHdId = !hdEn.includes("Daftar tiket");
+  check(
+    "F1j isi Kontrak & Helpdesk ikut EN: daftar kontrak + daftar tiket, tanpa teks Indonesia",
+    adaKtEn && tanpaKtId && adaHdEn && tanpaHdId,
+    `→ kontrak EN=${adaKtEn}/tanpaID=${tanpaKtId} helpdesk EN=${adaHdEn}/tanpaID=${tanpaHdId}`,
+  );
+
   // Fase 16n — pelunasan utang 16e. Rute diverifikasi ke main.tsx:
   // /app/keuangan/arus-kas dan /app/keuangan/neraca. Baris ringkasan arus kas
   // selalu tampil begitu data termuat (tak bergantung ada/tidaknya mutasi).
