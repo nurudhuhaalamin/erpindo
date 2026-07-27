@@ -24,6 +24,11 @@ import {
   PageHeading,
   Select,
   Spinner,
+  Table,
+  Td,
+  Th,
+  Thead,
+  Tr,
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
@@ -332,32 +337,39 @@ function SourceReportCard({ tenantId }: { tenantId: string }) {
     <Card>
       <CardHeader title={u("konversiPerSumber")} description={u("descKonversiSumber")} />
       <CardBody>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[480px] text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                <th className="py-2 pr-3 font-medium">{u("sumber")}</th>
-                <th className="py-2 pr-3 text-right font-medium">{u("lead")}</th>
-                <th className="py-2 pr-3 text-right font-medium">{u("menang")}</th>
-                <th className="py-2 pr-3 text-right font-medium">{u("kalah")}</th>
-                <th className="py-2 text-right font-medium">{u("konversi")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.source} className="border-b border-slate-100 dark:border-slate-800">
-                  <td className="py-2 pr-3">{r.source}</td>
-                  <td className="py-2 pr-3 text-right tabular-nums">{r.total}</td>
-                  <td className="py-2 pr-3 text-right tabular-nums">{r.won}</td>
-                  <td className="py-2 pr-3 text-right tabular-nums">{r.lost}</td>
-                  <td className="py-2 text-right font-medium tabular-nums">
-                    {r.conversionPct.toLocaleString("id-ID")}%
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {/* Label kartu di layar kecil WAJIB ikut `u()`, bukan string Indonesia
+            keras — kalau tidak, judul kolom berubah bahasa saat pengguna
+            memilih EN sementara labelnya tidak (penjaga: sapu-i18n.mjs). */}
+        <Table>
+          <Thead>
+            <tr>
+              <Th>{u("sumber")}</Th>
+              <Th numeric>{u("lead")}</Th>
+              <Th numeric>{u("menang")}</Th>
+              <Th numeric>{u("kalah")}</Th>
+              <Th numeric>{u("konversi")}</Th>
+            </tr>
+          </Thead>
+          <tbody>
+            {rows.map((r) => (
+              <Tr key={r.source}>
+                <Td label={u("sumber")}>{r.source}</Td>
+                <Td numeric label={u("lead")}>
+                  {r.total}
+                </Td>
+                <Td numeric label={u("menang")}>
+                  {r.won}
+                </Td>
+                <Td numeric label={u("kalah")}>
+                  {r.lost}
+                </Td>
+                <Td numeric label={u("konversi")} className="font-medium">
+                  {r.conversionPct.toLocaleString("id-ID")}%
+                </Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Table>
       </CardBody>
     </Card>
   );
