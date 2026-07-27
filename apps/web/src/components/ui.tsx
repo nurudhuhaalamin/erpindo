@@ -10,6 +10,7 @@ import {
 } from "react";
 import { twMerge } from "tailwind-merge";
 import { useLang } from "../i18n";
+import { useUi } from "../i18n/ui";
 import { PAGE_HEADINGS, type PageHeadingKey } from "../i18n/pageHeadings";
 
 /**
@@ -423,7 +424,7 @@ export function SearchSelect({
   id,
   value,
   valueLabel,
-  placeholder = "Ketik untuk mencari…",
+  placeholder,
   disabled,
   fetchOptions,
   onSelect,
@@ -439,6 +440,7 @@ export function SearchSelect({
   fetchOptions: (q: string) => Promise<SearchSelectOption[]>;
   onSelect: (option: SearchSelectOption) => void;
 }) {
+  const u = useUi();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [options, setOptions] = useState<SearchSelectOption[]>([]);
@@ -488,7 +490,7 @@ export function SearchSelect({
         aria-expanded={open}
         aria-autocomplete="list"
         disabled={disabled}
-        placeholder={value ? undefined : placeholder}
+        placeholder={value ? undefined : (placeholder ?? u("cpKetikCari"))}
         value={open ? query : valueLabel}
         onFocus={() => {
           setOpen(true);
@@ -519,10 +521,10 @@ export function SearchSelect({
       {open ? (
         <div className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
           {loading ? (
-            <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">Mencari…</div>
+            <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">{u("cpMencari")}</div>
           ) : options.length === 0 ? (
             <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">
-              Tidak ada hasil.
+              {u("cpTakAdaHasil")}
             </div>
           ) : (
             options.map((opt, i) => (
@@ -563,8 +565,8 @@ export function ConfirmDialog({
   open,
   title,
   description,
-  confirmLabel = "Ya, lanjutkan",
-  cancelLabel = "Batal",
+  confirmLabel,
+  cancelLabel,
   danger = false,
   busy = false,
   onConfirm,
@@ -580,6 +582,7 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const u = useUi();
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -608,11 +611,11 @@ export function ConfirmDialog({
         ) : null}
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="secondary" onClick={onCancel} disabled={busy}>
-            {cancelLabel}
+            {cancelLabel ?? u("cpBatal")}
           </Button>
           <Button variant={danger ? "danger" : "primary"} onClick={onConfirm} disabled={busy}>
             {busy ? <Spinner /> : null}
-            {confirmLabel}
+            {confirmLabel ?? u("cpYaLanjutkan")}
           </Button>
         </div>
       </div>

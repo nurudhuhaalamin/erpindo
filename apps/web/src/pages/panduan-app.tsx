@@ -1,5 +1,6 @@
 import { Link, useParams } from "@tanstack/react-router";
 import { useHeading } from "../i18n/pageHeadings";
+import { useUi } from "../i18n/ui";
 import { ArrowLeft, ArrowRight, ExternalLink, Search } from "lucide-react";
 import { useState } from "react";
 import { Button } from "../components/ui";
@@ -14,6 +15,7 @@ import { GuideSections, iconFor } from "./panduan";
  */
 
 export function PanduanAppIndexPage() {
+  const u = useUi();
   const h = useHeading("panduanApp");
   const [q, setQ] = useState("");
   const query = q.trim().toLowerCase();
@@ -35,8 +37,8 @@ export function PanduanAppIndexPage() {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Cari panduan… (mis. PPN, gaji, stok)"
-          aria-label="Cari panduan"
+          placeholder={u("pdCariPanduanPlaceholder")}
+          aria-label={u("pdCariPanduanAria")}
           className="h-11 w-full rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-slate-700 dark:bg-slate-900"
         />
       </div>
@@ -78,7 +80,7 @@ export function PanduanAppIndexPage() {
 
       {GUIDE_MODULES.filter(matches).length === 0 ? (
         <p className="mt-10 text-center text-sm text-slate-500">
-          Tidak ada panduan yang cocok dengan pencarian.
+          {u("pdTakAdaCocok")}
         </p>
       ) : null}
     </div>
@@ -86,6 +88,7 @@ export function PanduanAppIndexPage() {
 }
 
 export function PanduanAppModulePage() {
+  const u = useUi();
   const { modul } = useParams({ strict: false }) as { modul: string };
   const mod = guideBySlug(modul);
   const idx = GUIDE_MODULES.findIndex((m) => m.slug === modul);
@@ -95,12 +98,12 @@ export function PanduanAppModulePage() {
   if (!mod) {
     return (
       <div className="mx-auto max-w-3xl py-10 text-center">
-        <p className="text-slate-600 dark:text-slate-300">Panduan tidak ditemukan.</p>
+        <p className="text-slate-600 dark:text-slate-300">{u("pdTakDitemukan")}</p>
         <Link
           to="/app/panduan"
           className="mt-4 inline-block text-brand-600 hover:underline dark:text-brand-400"
         >
-          ← Kembali ke daftar panduan
+          {u("pdKembaliKeDaftar")}
         </Link>
       </div>
     );

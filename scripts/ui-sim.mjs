@@ -950,6 +950,41 @@ try {
     `→ EN=${adaDkEn} tanpaID=${tanpaDkId}`,
   );
 
+  // F1t — Fase 19s: kerangka aplikasi (topbar/spanduk) + panel Asisten AI.
+  //
+  // Kerangka muncul di SETIAP halaman, jadi satu kalimat yang tertinggal
+  // terlihat di seluruh aplikasi sekaligus — justru bagian yang paling lama
+  // luput karena sapuan teks melaporkan `app.tsx` penuh positif palsu.
+  // Penandanya dipilih dari yang pasti dirender untuk akun simulasi: tombol
+  // keluar dan spanduk "email belum diverifikasi" (akun ini memang belum
+  // terverifikasi — terlihat di tiap tangkapan layar Fase 19).
+  await gotoRoute("/app", 900);
+  const shEn = await page.innerText("body");
+  const adaShEn =
+    shEn.includes("Sign out") && shEn.includes("Your email is not verified yet");
+  const tanpaShId =
+    !shEn.includes("Email Anda belum diverifikasi") && !shEn.includes("Masa uji coba");
+  check(
+    "F1t kerangka aplikasi ikut EN: tombol keluar + spanduk verifikasi, tanpa teks Indonesia",
+    adaShEn && tanpaShId,
+    `→ EN=${adaShEn} tanpaID=${tanpaShId}`,
+  );
+
+  // Panel Asisten AI: hanya terlihat setelah tombol mengambangnya ditekan,
+  // jadi tak pernah tersentuh sapuan innerText halaman mana pun.
+  await page.getByRole("button", { name: "Open the erpindo Assistant" }).first().click();
+  await page.waitForTimeout(500);
+  const aiEn = await page.innerText("body");
+  const adaAiEn = aiEn.includes("Ask how to use erpindo") && aiEn.includes("erpindo Assistant");
+  const tanpaAiId = !aiEn.includes("Tanyakan cara memakai erpindo");
+  check(
+    "F1u panel Asisten AI ikut EN: ajakan + contoh pertanyaan, tanpa teks Indonesia",
+    adaAiEn && tanpaAiId,
+    `→ EN=${adaAiEn} tanpaID=${tanpaAiId}`,
+  );
+  await page.getByRole("button", { name: "Close the erpindo Assistant" }).first().click();
+  await page.waitForTimeout(300);
+
   // Fase 16n — pelunasan utang 16e. Rute diverifikasi ke main.tsx:
   // /app/keuangan/arus-kas dan /app/keuangan/neraca. Baris ringkasan arus kas
   // selalu tampil begitu data termuat (tak bergantung ada/tidaknya mutasi).

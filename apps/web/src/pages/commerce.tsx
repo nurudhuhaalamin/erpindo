@@ -698,7 +698,7 @@ function DocRow({
           .map(([productId, q]) => ({ productId, qty: Number(q) })),
       }),
     onSuccess: (res) => {
-      const refundNote = res.refund > 0 ? `, refund tunai ${formatIDR(res.refund)}` : "";
+      const refundNote = res.refund > 0 ? `${u("cmRefundTunai")} ${formatIDR(res.refund)}` : "";
       toast(
         "success",
         `Retur ${res.returnNo} diposting (${formatIDR(res.total)}${refundNote}, jurnal ${res.journalNo}).`
@@ -747,7 +747,7 @@ function DocRow({
     onSuccess: (res) => {
       const forex =
         res.forexGain && res.forexGain !== 0
-          ? ` (selisih kurs ${res.forexGain > 0 ? "laba" : "rugi"} ${formatIDR(Math.abs(res.forexGain))})`
+          ? ` (${u("cmSelisihKurs")} ${res.forexGain > 0 ? u("cmKursLaba") : u("cmKursRugi")} ${formatIDR(Math.abs(res.forexGain))})`
           : "";
       toast(
         "success",

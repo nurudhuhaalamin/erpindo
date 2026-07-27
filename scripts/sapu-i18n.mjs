@@ -108,8 +108,78 @@ function panggilanHarfiah(src) {
   return out;
 }
 
+/**
+ * Pola tabel-lookup dwibahasa (Fase 19s).
+ *
+ * `app.tsx` menerjemahkan menu bukan lewat `u("kunci")` melainkan lewat dua
+ * tabel: `NAV_ITEMS` (label Indonesia + rute) dipasangkan dengan
+ * `NAV_LABEL_EN` (rute → label Inggris), dan nama seksi dengan `SECTION_EN`.
+ * Alat ini tidak mengenalinya, jadi 64 temuan dilaporkan di berkas yang
+ * sebenarnya sudah dwibahasa sejak Fase 13e — dan angka palsu sebesar itu
+ * MENUTUPI belasan utang nyata di berkas yang sama. Itulah alasan pola ini
+ * diajarkan sekarang, bukan sekadar demi angka yang rapi.
+ *
+ * Yang penting: ini BUKAN pembungkaman. Pasangan diperiksa betulan —
+ * label yang rutenya tidak ada di tabel EN tetap dilaporkan, jadi menu baru
+ * yang lupa diberi label Inggris tetap ketahuan.
+ */
+function zonaTabelDwibahasa(src) {
+  const sah = [];
+  const bolong = [];
+
+  const blok = (re, buka, tutup) => {
+    const out = [];
+    for (const m of src.matchAll(re)) {
+      const awal = m.index + m[0].length - 1;
+      let d = 0;
+      for (let i = awal; i < src.length; i++) {
+        if (src[i] === buka) d++;
+        else if (src[i] === tutup && --d === 0) {
+          out.push({ a: m.index, b: i, isi: src.slice(awal, i + 1), nama: m[1] });
+          break;
+        }
+      }
+    }
+    return out;
+  };
+
+  // 1. Deklarasi `const X_EN … = { … }`: seluruh isinya sisi Inggris plus
+  //    kunci pencarian (rute atau nama seksi Indonesia). Bukan teks layar.
+  const tabelEn = blok(/\bconst\s+([A-Z0-9_]*_EN)\b[^=]*=\s*\{/g, "{", "}");
+  sah.push(...tabelEn.map((t) => ({ a: t.a, b: t.b })));
+
+  const kunciEn = new Set();
+  for (const t of tabelEn)
+    for (const k of t.isi.matchAll(/(?:^|[{,]\s*)"?([^":,{}\n]+?)"?\s*:/g)) kunciEn.add(k[1].trim());
+
+  // 2. Tabel item bernavigasi: entri `{ to: "…", label: "…" , section: "…" }`.
+  //    Label & seksinya sah HANYA bila padanan Inggrisnya benar-benar ada.
+  if (tabelEn.length > 0) {
+    for (const t of blok(/\bconst\s+([A-Z0-9_]+)\b[^=]*=\s*\[/g, "[", "]")) {
+      for (const e of t.isi.matchAll(/\{[^{}]*\bto:\s*"([^"]+)"[^{}]*\}/g)) {
+        const label = e[0].match(/\blabel:\s*"([^"]+)"/)?.[1];
+        const seksi = e[0].match(/\bsection:\s*"([^"]+)"/)?.[1];
+        const a = t.a + e.index;
+        const b = a + e[0].length;
+        const kurang = [];
+        if (label && !kunciEn.has(e[1])) kurang.push(`rute ${e[1]}`);
+        if (seksi && !kunciEn.has(seksi)) kurang.push(`seksi "${seksi}"`);
+        if (kurang.length === 0) sah.push({ a, b });
+        else
+          bolong.push({
+            baris: src.slice(0, a).split("\n").length,
+            pesan: `${label ?? e[1]} — tanpa padanan Inggris (${kurang.join(", ")})`,
+          });
+      }
+    }
+  }
+  return { sah, bolong };
+}
+
 let totalLayar = 0;
 let totalHarfiah = 0;
+let totalBolong = 0;
+let totalAtribut = 0;
 for (const file of process.argv.slice(2)) {
   const asli = readFileSync(file, "utf8");
   const src = bersihkan(asli);
@@ -177,6 +247,14 @@ for (const file of process.argv.slice(2)) {
   // `\bL\(` aman: pada `HTML(` huruf L didahului M, jadi tak ada batas kata.
   zonaSah.push(...rentang("L", "SAH"));
 
+  // Tabel-lookup dwibahasa (Fase 19s) — lihat komentar zonaTabelDwibahasa.
+  const tabel = zonaTabelDwibahasa(src);
+  zonaSah.push(...tabel.sah);
+  for (const b of tabel.bolong) {
+    totalBolong++;
+    console.log(`  ⚠️  ${file}:${b.baris}  ${b.pesan}`);
+  }
+
   // Pakai TUMPANG-TINDIH rentang, bukan sekadar posisi awal: potongan teks JSX
   // sering dimulai tepat SEBELUM `downloadCsv(` sehingga awalnya di luar zona
   // padahal isinya jelas milik panggilan itu.
@@ -195,15 +273,46 @@ for (const file of process.argv.slice(2)) {
   for (const m of src.matchAll(/[>}]([^<>{}]+)[<{]/gs))
     if (isID(m[1])) add(jenisDari(m.index, m.index + m[0].length), m[1], m.index);
 
+  /**
+   * Kelas buta tersendiri (ditemukan Fase 19t): teks tampilan yang duduk di
+   * ATRIBUT — `label="Akun"`, `title="Pendapatan"`, `confirmLabel="Arsipkan"`.
+   *
+   * Saringan `isID` di atas menuntut ada kata penanda Indonesia, jadi label
+   * satu kata seperti "Kode", "Akun", atau "Aksi" lolos begitu saja — padahal
+   * `label=` pada <Td> adalah judul kartu yang dibaca pemakai di layar HP, dan
+   * `title=` pada <Card> adalah judul kartu yang selalu terlihat.
+   *
+   * Di sini penandanya bukan kosakata melainkan POSISI: atribut-atribut ini
+   * memang berisi teks tampilan, titik. Yang sah hanyalah bentuk `={u("…")}`,
+   * dan bentuk itu bukan literal sehingga tidak tertangkap pola ini.
+   */
+  const ATRIBUT_TAMPILAN = /\b(label|title|confirmLabel|cancelLabel|placeholder|aria-label)="([^"]{2,60})"/g;
+  for (const m of src.matchAll(ATRIBUT_TAMPILAN)) {
+    const teks = m[2];
+    // Buang yang jelas bukan kalimat tampilan: kode/slug (huruf kecil berstrip),
+    // dan nilai satu kata berbahasa Inggris yang sama di kedua bahasa.
+    if (/^[a-z0-9-]+$/.test(teks)) continue;
+    if (jenisDari(m.index, m.index + m[0].length) !== "LAYAR") continue;
+    add("ATRIBUT", `${m[1]}="${teks}"`, m.index);
+  }
+
   const rows = [...hits.values()].sort((a, b) => a.baris - b.baris);
   const layar = rows.filter((r) => r.jenis === "LAYAR");
+  const atribut = rows.filter((r) => r.jenis === "ATRIBUT");
   totalLayar += layar.length;
-  const ringkas = `${file}: LAYAR=${layar.length} TOAST=${rows.filter((r) => r.jenis === "TOAST").length} BERKAS=${rows.filter((r) => r.jenis === "BERKAS").length}`;
-  console.log(layar.length === 0 ? `BERSIH ✅ ${ringkas}` : ringkas);
+  totalAtribut += atribut.length;
+  const ringkas = `${file}: LAYAR=${layar.length} ATRIBUT=${atribut.length} TOAST=${rows.filter((r) => r.jenis === "TOAST").length} BERKAS=${rows.filter((r) => r.jenis === "BERKAS").length}`;
+  console.log(layar.length === 0 && atribut.length === 0 ? `BERSIH ✅ ${ringkas}` : ringkas);
   for (const r of layar) console.log(`  ${String(r.baris).padStart(4)}  ${JSON.stringify(r.teks.slice(0, 95))}`);
+  for (const r of atribut) console.log(`  ${String(r.baris).padStart(4)}  [atribut] ${r.teks.slice(0, 95)}`);
 }
 console.log(`\nTOTAL utang teks layar: ${totalLayar}`);
+console.log(`TOTAL teks tampilan di atribut: ${totalAtribut}`);
 if (totalHarfiah > 0) {
   console.log(`TOTAL panggilan u() harfiah (BUG, bukan sekadar utang): ${totalHarfiah}`);
+  process.exitCode = 1;
+}
+if (totalBolong > 0) {
+  console.log(`TOTAL item menu tanpa padanan Inggris (BUG, bukan sekadar utang): ${totalBolong}`);
   process.exitCode = 1;
 }
