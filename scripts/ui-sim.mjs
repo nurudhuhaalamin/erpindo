@@ -189,6 +189,29 @@ try {
     gerbang.email === 1 && gerbang.password === 1 && gerbang.submit >= 1,
     `→ email=${gerbang.email} password=${gerbang.password} submit=${gerbang.submit}`,
   );
+  // F1a — Fase 19a: wordmark tidak lagi berlatar chip putih.
+  //
+  // Diukur dari GAYA TERHITUNG pembungkusnya, bukan dari ada/tidaknya kelas
+  // `bg-white` di markup: kelas bisa saja hilang sementara latar putih kembali
+  // lewat jalan lain, dan sebaliknya asersi "tidak ada kelas bg-white" akan
+  // hijau walaupun logonya tetap berkotak putih. Halaman /masuk dipilih karena
+  // di sinilah masalahnya paling terlihat — wordmark berdiri di atas panel
+  // `brand-50` yang berwarna, sehingga kotak putih langsung tampak.
+  const latarWordmark = await page.evaluate(() => {
+    const img = document.querySelector('img[alt^="ERPindo"]');
+    if (!img) return null;
+    const bungkus = img.parentElement;
+    const bg = getComputedStyle(bungkus).backgroundColor;
+    const m = bg.match(/rgba?\(([^)]+)\)/);
+    const [r, g, b, a = "1"] = m ? m[1].split(",").map((s) => s.trim()) : [];
+    return { bg, buram: Number(a) > 0 && Number(r) > 245 && Number(g) > 245 && Number(b) > 245 };
+  });
+  check(
+    "F1a wordmark tanpa chip putih di atas panel brand halaman masuk",
+    Boolean(latarWordmark && latarWordmark.buram === false),
+    `→ ${latarWordmark ? `latar=${latarWordmark.bg}` : "wordmark tidak ditemukan"}`,
+  );
+
   await page.fill("#email", EMAIL);
   await page.fill("#password", PASSWORD);
   await page.click("button[type=submit]");
