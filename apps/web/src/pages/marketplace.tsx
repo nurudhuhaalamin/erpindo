@@ -17,6 +17,11 @@ import {
   PageHeading,
   Select,
   Spinner,
+  Table,
+  Td,
+  Th,
+  Thead,
+  Tr,
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
@@ -272,35 +277,34 @@ export function MarketplacePage() {
               Belum ada pesanan marketplace yang diimpor.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                    <th className="pb-2 pr-4 font-medium">Kanal</th>
-                    <th className="pb-2 pr-4 font-medium">No. Pesanan</th>
-                    <th className="pb-2 pr-4 font-medium">Faktur</th>
-                    <th className="pb-2 font-medium">Diimpor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(orders.data?.orders ?? []).map((o) => (
-                    <tr
-                      key={o.id}
-                      className="border-b border-slate-100 last:border-0 dark:border-slate-800/60"
-                    >
-                      <td className="py-2 pr-4">
-                        {MARKETPLACE_CHANNEL_LABELS[o.channel as MarketplaceChannel] ?? o.channel}
-                      </td>
-                      <td className="py-2 pr-4 font-mono text-xs">{o.externalOrderNo}</td>
-                      <td className="py-2 pr-4">{o.invoiceNo ?? "—"}</td>
-                      <td className="py-2 text-slate-500 dark:text-slate-400">
-                        {formatDate(o.importedAt.slice(0, 10))}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <Thead>
+                <tr>
+                  <Th>Kanal</Th>
+                  <Th>No. Pesanan</Th>
+                  <Th>Faktur</Th>
+                  <Th>Diimpor</Th>
+                </tr>
+              </Thead>
+              <tbody>
+                {(orders.data?.orders ?? []).map((o) => (
+                  // Tidak ada kolom `numeric` di sini: semuanya pengenal, label
+                  // kanal, atau tanggal — bukan nilai (aturan 17h).
+                  <Tr key={o.id}>
+                    <Td label="Kanal">
+                      {MARKETPLACE_CHANNEL_LABELS[o.channel as MarketplaceChannel] ?? o.channel}
+                    </Td>
+                    <Td label="No. Pesanan" className="font-mono text-xs">
+                      {o.externalOrderNo}
+                    </Td>
+                    <Td label="Faktur">{o.invoiceNo ?? "—"}</Td>
+                    <Td label="Diimpor" className="text-slate-500 dark:text-slate-400">
+                      {formatDate(o.importedAt.slice(0, 10))}
+                    </Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
           )}
         </CardBody>
       </Card>

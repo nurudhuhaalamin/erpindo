@@ -12,6 +12,11 @@ import {
   Label,
   PageHeading,
   Spinner,
+  Table,
+  Td,
+  Th,
+  Thead,
+  Tr,
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
@@ -117,33 +122,30 @@ export function CurrenciesPage() {
           {query.isLoading ? (
             <Spinner />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                    <th className="pb-2 pr-4 font-medium">Kode</th>
-                    <th className="pb-2 pr-4 font-medium">Nama</th>
-                    <th className="pb-2 text-right font-medium">Kurs (IDR)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {currencies.map((cur) => (
-                    <tr
-                      key={cur.code}
-                      className="border-b border-slate-100 last:border-0 dark:border-slate-800/60"
-                    >
-                      <td className="py-2 pr-4 font-mono">
-                        {cur.code} {cur.isBase ? <Badge tone="neutral">dasar</Badge> : null}
-                      </td>
-                      <td className="py-2 pr-4">{cur.name}</td>
-                      <td className="py-2 text-right tabular-nums">
-                        {cur.rate.toLocaleString("id-ID")}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <Thead>
+                <tr>
+                  <Th>Kode</Th>
+                  <Th>Nama</Th>
+                  <Th numeric>Kurs (IDR)</Th>
+                </tr>
+              </Thead>
+              <tbody>
+                {currencies.map((cur) => (
+                  // Kolom Kode BUKAN `numeric`: selnya memuat kode plus lencana
+                  // "dasar", bukan satu nilai (aturan 17g/17h).
+                  <Tr key={cur.code}>
+                    <Td label="Kode" className="font-mono">
+                      {cur.code} {cur.isBase ? <Badge tone="neutral">dasar</Badge> : null}
+                    </Td>
+                    <Td label="Nama">{cur.name}</Td>
+                    <Td numeric label="Kurs (IDR)">
+                      {cur.rate.toLocaleString("id-ID")}
+                    </Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
           )}
         </CardBody>
       </Card>

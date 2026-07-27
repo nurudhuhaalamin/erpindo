@@ -232,7 +232,28 @@ export function Alert({
 export function Table({ className, children }: { className?: string; children: ReactNode }) {
   return (
     <div className="md:overflow-x-auto">
-      <table className={cx("w-full text-sm max-md:block", className)}>{children}</table>
+      <table
+        className={cx(
+          "w-full text-sm max-md:block",
+          // `<tbody>` HARUS ikut jadi blok di layar kecil (Fase 18q).
+          //
+          // Tanpa ini `tbody` tetap `table-row-group`, sehingga baris yang sudah
+          // `block` dibungkus tabel anonim yang **menciut ke lebar isinya**.
+          // Akibatnya kartu baris tidak memenuhi lebar kartu induknya. Cacat ini
+          // ada sejak 18d tapi tidak terlihat: tabel Stok & Manufaktur isinya
+          // cukup lebar sehingga kebetulan penuh. Halaman Mata Uang (3 kolom
+          // pendek) memperlihatkannya — dan hanya ketahuan dari melihat
+          // tangkapan layar, bukan dari asersi.
+          //
+          // Ditulis sebagai varian arbitrer di sini, bukan komponen `Tbody`
+          // baru, supaya seluruh pemanggil yang sudah bermigrasi ikut terbaiki
+          // tanpa perlu disentuh satu per satu.
+          "max-md:[&>tbody]:block",
+          className
+        )}
+      >
+        {children}
+      </table>
     </div>
   );
 }
