@@ -266,6 +266,32 @@ try {
   resetErrors();
   const dashBody = await page.innerText("body");
   check("dashboard memuat KPI 'Laba Bulan Ini' (Fase 12d)", dashBody.includes("Laba Bulan Ini"));
+
+  // F1b — Fase 19b: perusahaan demo harus UNTUNG, bukan rugi.
+  //
+  // Ini bukan cek kosmetik. Perusahaan demo adalah yang dimasuki setiap calon
+  // pelanggan lewat tombol "Lihat Demo", dan angkanya juga yang terpampang di
+  // tangkapan layar halaman depan. Sebelum fase ini kartunya menampilkan
+  // −Rp 42,2 jt karena gaji bulan lalu ikut terbukukan di bulan berjalan.
+  //
+  // Nilainya dibaca dari kartu yang DIRENDER lalu diurai jadi angka — bukan
+  // sekadar memastikan tidak ada tanda minus di halaman, yang akan hijau
+  // walaupun kartunya hilang sama sekali.
+  const labaDemo = await page.evaluate(() => {
+    const kartu = [...document.querySelectorAll("div")].find(
+      (d) => d.children.length && d.textContent?.trim().startsWith("Laba Bulan Ini"),
+    );
+    if (!kartu) return null;
+    const teks = kartu.innerText;
+    const m = teks.match(/(-?)\s*Rp\s*([\d.]+)/);
+    if (!m) return { teks, nilai: null };
+    return { teks: m[0], nilai: Number(m[2].replace(/\./g, "")) * (m[1] === "-" ? -1 : 1) };
+  });
+  check(
+    "F1b perusahaan demo menampilkan laba positif, bukan rugi",
+    Boolean(labaDemo && typeof labaDemo.nilai === "number" && labaDemo.nilai > 0),
+    `→ ${labaDemo ? `terbaca "${labaDemo.teks}" → ${labaDemo.nilai}` : "kartu Laba Bulan Ini tidak ditemukan"}`,
+  );
   // Widget ringkasan mingguan AI (Fase 12f): di CI tanpa binding harus tampil
   // fallback redup — bukan error state; di produksi berisi narasi ("Dibuat …").
   await page.getByText("Ringkasan mingguan AI").first().waitFor({ timeout: 15_000 });

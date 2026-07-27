@@ -82,7 +82,22 @@ const day = 86_400_000;
 /** Tanggal ISO n hari yang lalu (n boleh negatif untuk masa depan). */
 const daysAgo = (n) => new Date(Date.now() - n * day).toISOString().slice(0, 10);
 const thisMonth = new Date().toISOString().slice(0, 7);
-const lastMonth = new Date(Date.now() - 28 * day).toISOString().slice(0, 7);
+/**
+ * Bulan lalu dihitung dari kalender, bukan dari "28 hari lalu" (Fase 19b).
+ *
+ * Cara lama salah pada tanggal 29–31: pada 30 Juli, 28 hari lalu adalah 2 Juli
+ * — masih bulan yang sama — sehingga `lastMonth === thisMonth` dan seluruh data
+ * "bulan lalu" diam-diam tertumpuk ke bulan berjalan. Bug yang hanya muncul tiga
+ * hari sebulan, jadi tidak pernah tertangkap.
+ */
+const _kini = new Date();
+const lastMonth = new Date(Date.UTC(_kini.getUTCFullYear(), _kini.getUTCMonth() - 1, 1))
+  .toISOString()
+  .slice(0, 7);
+/** Hari terakhir bulan lalu — hari gajian yang benar untuk periode itu. */
+const akhirBulanLalu = new Date(Date.UTC(_kini.getUTCFullYear(), _kini.getUTCMonth(), 0))
+  .toISOString()
+  .slice(0, 10);
 const nextMonth = new Date(Date.now() + 32 * day).toISOString().slice(0, 7);
 
 // Logo demo kecil (SVG kotak "DS" indigo, base64 — jauh di bawah batas 64KB).
@@ -294,6 +309,61 @@ await step("faktur sambal (FEFO otomatis)", "POST", `${T}/invoices`, {
   lines: [{ productId: sambal.id, qty: 10, unitPrice: 35_000 }],
 });
 
+// --- 7b. Siklus grosir bulan berjalan (Fase 19b) --------------------------------
+//
+// Sebelum ini, demo memperlihatkan perusahaan dengan 4 karyawan bergaji total
+// Rp 24,4 jt/bulan tetapi penjualan hanya ±Rp 18 jt/bulan — mustahil, dan
+// membuat kartu "Laba Bulan Ini" selalu merah. Yang dilihat SETIAP calon
+// pelanggan yang mengeklik "Lihat Demo", bukan cuma di tangkapan layar landing.
+//
+// Ditambahkan satu siklus dagang grosir yang wajar: kulakan lebih dulu, lalu
+// tiga faktur grosir ke pelanggan besar. Kulakan sengaja lebih banyak daripada
+// yang dijual supaya stok tetap sehat dan tidak ada baris yang minus.
+//
+// `taxRate: 0` dipakai untuk seluruh siklus ini secara sengaja: demo sudah
+// punya banyak faktur ber-PPN 11% untuk modul pajak, sementara mengubah total
+// PPN akan menggeser puluhan asersi smoke tanpa menambah nilai demo apa pun.
+await purchase("kulakan grosir bulan ini (12 hari lalu)", {
+  contactId: suppAneka.id, invoiceDate: daysAgo(12), taxRate: 0, warehouseId: whUtama.id,
+  lines: [
+    { productId: kopi.id, qty: 300, unitPrice: 55_000 },
+    { productId: teh.id, qty: 250, unitPrice: 28_000 },
+    { productId: keripik.id, qty: 500, unitPrice: 14_000 },
+    { productId: gula.id, qty: 200, unitPrice: 38_000 },
+    { productId: madu.id, qty: 60, unitPrice: 80_000 },
+    { productId: sirup.id, qty: 250, unitPrice: 24_000 },
+  ],
+});
+for (const [nama, cust, back, lines] of [
+  ["grosir hotel (kopi + madu)", custHotel, 10, [
+    { productId: kopi.id, qty: 150, unitPrice: 85_000 },
+    { productId: madu.id, qty: 40, unitPrice: 120_000 },
+  ]],
+  ["grosir koperasi (keripik + sirup + teh)", custKoperasi, 7, [
+    { productId: keripik.id, qty: 450, unitPrice: 25_000 },
+    { productId: sirup.id, qty: 200, unitPrice: 40_000 },
+    { productId: teh.id, qty: 130, unitPrice: 45_000 },
+  ]],
+  ["grosir kafe (kopi + gula + teh)", custKafe, 4, [
+    { productId: kopi.id, qty: 100, unitPrice: 85_000 },
+    { productId: gula.id, qty: 150, unitPrice: 60_000 },
+    { productId: teh.id, qty: 70, unitPrice: 45_000 },
+  ]],
+]) {
+  const invGrosir = await step(`faktur ${nama}`, "POST", `${T}/invoices`, {
+    contactId: cust.id, invoiceDate: daysAgo(back), dueDate: daysAgo(back - 21),
+    taxRate: 0, warehouseId: whUtama.id, lines,
+  });
+  // Dua dari tiga dilunasi; satu sengaja dibiarkan terbuka agar piutang
+  // (dan pengingat penagihan) tetap punya isi yang masuk akal.
+  if (back !== 4) {
+    await step(`pelunasan ${nama}`, "POST", `${T}/payments`, {
+      refType: "invoice", refId: invGrosir.invoiceId ?? invGrosir.id, accountId: bank.id,
+      amount: invGrosir.total, paymentDate: daysAgo(back - 3),
+    });
+  }
+}
+
 // --- 8. Pembayaran: sebagian lunas, sebagian parsial, sisakan yang telat ---------
 for (let i = 0; i < 12; i++) {
   const inv = invoices[i];
@@ -398,7 +468,14 @@ for (const name of ["Agus Prabowo", "Sari Melati", "Budi Santosa"]) {
   const src = { "Agus Prabowo": { position: "Staf Gudang", ptkpStatus: "TK/0", baseSalary: 5_200_000, departmentId: deptGudang.id }, "Sari Melati": { position: "Kasir", ptkpStatus: "TK/0", baseSalary: 4_900_000, departmentId: deptToko.id }, "Budi Santosa": { position: "Kurir", ptkpStatus: "K/0", baseSalary: 4_800_000, departmentId: deptGudang.id } }[name];
   await step(`atasan ${name} → Rina Kusuma`, "PATCH", `${T}/employees/${employees[name].id}`, { name, ...src, managerId: employees["Rina Kusuma"].id });
 }
-await step(`payroll periode ${lastMonth}`, "POST", `${T}/payroll-runs`, { period: lastMonth, cashAccountId: bank.id, paymentDate: daysAgo(3) });
+// Gaji bulan lalu dibayar DI bulan lalu (Fase 19b).
+//
+// Sebelumnya `paymentDate: daysAgo(3)` — dan karena jurnal penggajian memakai
+// paymentDate sebagai tanggal jurnal (`payroll.ts`), beban gaji bulan lalu ikut
+// jatuh ke bulan BERJALAN. Akibatnya bulan berjalan menanggung dua kali gaji:
+// Rp 24,4 jt × 2 + bonus Rp 2,5 jt = Rp 51,3 jt, tiga perempat dari seluruh
+// bebannya. Itulah sebab utama demo tampil merugi.
+await step(`payroll periode ${lastMonth}`, "POST", `${T}/payroll-runs`, { period: lastMonth, cashAccountId: bank.id, paymentDate: akhirBulanLalu });
 
 // Kasbon (dicairkan dari bank; cicilan otomatis memotong gaji tiap run berikutnya).
 await step("kasbon Agus Prabowo", "POST", `${T}/employee-loans`, {
