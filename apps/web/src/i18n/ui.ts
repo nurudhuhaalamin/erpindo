@@ -1879,6 +1879,73 @@ const UI = {
   },
   totalAset: { id: "Total Aset", en: "Total Assets" },
 
+  // Wizard "Mulai" (Fase 19n).
+  // Label langkah wizard. Sengaja BUKAN memakai `langkahProfil`/`langkahProduk`/
+  // `langkahKontak` yang sudah ada: kunci-kunci itu berisi kalimat daftar-tugas
+  // onboarding ("Lengkapi profil perusahaan (alamat & NPWP)"), sedangkan di sini
+  // yang dibutuhkan satu kata untuk penanda langkah. Nama cocok, makna tidak —
+  // pelajaran Fase 16u, varian ketiga.
+  wizardProfil: { id: "Profil", en: "Profile" },
+  wizardPengalaman: { id: "Pengalaman", en: "Experience" },
+  wizardProduk: { id: "Produk", en: "Products" },
+  wizardKontak: { id: "Kontak", en: "Contacts" },
+  lewatiSemua: {
+    id: "Lewati semua dan langsung ke dasbor",
+    en: "Skip everything and go straight to the dashboard",
+  },
+  descProfilPerusahaan: {
+    id: "Alamat & NPWP muncul di kop faktur dan dokumen resmi. Bisa dilengkapi nanti di Pengaturan.",
+    en: "Address and NPWP appear on invoice letterheads and official documents. You can fill these in later under Settings.",
+  },
+  simpanLanjut: { id: "Simpan & lanjut", en: "Save & continue" },
+  seberapaAkrabAkuntansi: {
+    id: "Seberapa akrab Anda dengan akuntansi?",
+    en: "How familiar are you with accounting?",
+  },
+  descSesuaikanMenu: {
+    id: "Kami sesuaikan tampilan menu. Bisa diubah kapan saja di Pengaturan.",
+    en: "We will tailor the menu accordingly. You can change this any time under Settings.",
+  },
+  descModeSederhana: {
+    id: "Sembunyikan menu akuntansi teknis (jurnal, buku besar). Fokus catat uang masuk/keluar.",
+    en: "Hide the technical accounting menus (journal, ledger). Focus on recording money in and out.",
+  },
+  sayaSudahPaham: { id: "Saya sudah paham", en: "I know my way around" },
+  sayaPemula: { id: "Saya pemula", en: "I am a beginner" },
+  toastProfilTersimpan: { id: "Profil perusahaan tersimpan.", en: "Company profile saved." },
+  toastProdukPertama: { id: "Produk pertama ditambahkan.", en: "First product added." },
+  toastKontakPertama: {
+    id: "Kontak pertama ditambahkan. Anda siap!",
+    en: "First contact added. You are all set!",
+  },
+  descModeLengkap: {
+    id: "Tampilkan semua fitur akuntansi: jurnal umum, buku besar, neraca saldo, tutup buku.",
+    en: "Show every accounting feature: general journal, ledger, trial balance, period close.",
+  },
+  dataProdukTakValid: { id: "Data produk tidak valid", en: "Invalid product data" },
+  tambahProdukPertama: {
+    id: "Tambah produk/jasa pertama",
+    en: "Add your first product or service",
+  },
+  descProdukPertama: {
+    id: "Barang atau jasa yang Anda jual. Nanti dipakai di faktur & kasir.",
+    en: "The goods or services you sell. These are used later in invoices and the cashier.",
+  },
+  namaProduk: { id: "Nama produk", en: "Product name" },
+  dataKontakTakValid: { id: "Data kontak tidak valid", en: "Invalid contact data" },
+  tambahKontakPertama: {
+    id: "Tambah pelanggan/pemasok pertama",
+    en: "Add your first customer or supplier",
+  },
+  descKontakPertama: {
+    id: "Pihak yang bertransaksi dengan Anda — pelanggan (menjual) atau pemasok (membeli).",
+    en: "The parties you transact with — customers (you sell to) or suppliers (you buy from).",
+  },
+  contohNamaKontak: {
+    id: "Toko Berkah / PT Sumber Rezeki",
+    en: "Toko Berkah / PT Sumber Rezeki",
+  },
+
 } satisfies Record<string, Dual>;
 
 export type UiKey = keyof typeof UI;
