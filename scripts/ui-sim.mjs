@@ -1780,6 +1780,55 @@ try {
     console.log(`\nTangkapan layar ditulis ke ${dir}`);
   }
 
+  // ---------------------------------------------------------------------------
+  // F1q/F1r — Fase 19q: halaman masuk/daftar dwibahasa.
+  //
+  // Diletakkan PALING AKHIR dengan sengaja. Halaman auth hanya bisa dilihat
+  // tanpa sesi (dengan sesi hidup, /masuk mengalihkan ke /app), sementara
+  // seluruh suite di atas bergantung pada sesi yang sudah masuk. Menaruhnya di
+  // awal berarti menyentuh gerbang `#email`/`#password` yang menopang 200-an
+  // asersi lain — persis yang dilarang komentar kontrak di auth.tsx.
+  await page.setViewportSize({ width: 1360, height: 900 });
+  await ctx.clearCookies();
+  await page.goto(`${BASE}/masuk`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(600);
+
+  // Sampai Fase 19q ini satu-satunya layar publik TANPA tombol bahasa.
+  const saklarBahasa = page.getByRole("group", { name: "Bahasa" });
+  const adaSaklar = (await saklarBahasa.count()) > 0;
+  check(
+    "F1q halaman masuk punya tombol pemilih bahasa (dulu satu-satunya layar publik tanpa itu)",
+    adaSaklar,
+    `→ jumlah saklar=${await saklarBahasa.count()}`,
+  );
+
+  if (adaSaklar) {
+    // Mulai dari ID secara eksplisit: bahasa tersimpan di localStorage dan
+    // suite di atas sempat menggantinya — jangan mengandalkan sisa keadaan.
+    await saklarBahasa.getByRole("button", { name: "ID", exact: true }).first().click();
+    await page.waitForTimeout(300);
+    const masukId = await page.innerText("body");
+    await saklarBahasa.getByRole("button", { name: "EN", exact: true }).first().click();
+    await page.waitForTimeout(300);
+    const masukEn = await page.innerText("body");
+    const adaMasukEn =
+      masukEn.includes("Welcome back") &&
+      masukEn.includes("Sign in to pick up where you left off") &&
+      masukEn.includes("One app for everything your small business runs on.") &&
+      masukEn.includes("Forgot your password?");
+    const tanpaMasukId =
+      !masukEn.includes("Selamat datang kembali") &&
+      !masukEn.includes("Satu aplikasi untuk seluruh operasional") &&
+      !masukEn.includes("Lupa password?");
+    check(
+      "F1r halaman masuk ikut EN: judul, pengantar, panel manfaat, tanpa teks Indonesia",
+      adaMasukEn && tanpaMasukId && masukId.includes("Selamat datang kembali"),
+      `→ EN=${adaMasukEn} tanpaID=${tanpaMasukId} awalID=${masukId.includes("Selamat datang kembali")}`,
+    );
+    await saklarBahasa.getByRole("button", { name: "ID", exact: true }).first().click();
+    await page.waitForTimeout(200);
+  }
+
   await ctx.close();
   await browser.close();
   browser = undefined;

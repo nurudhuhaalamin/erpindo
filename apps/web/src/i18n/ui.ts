@@ -25,8 +25,11 @@ import { useLang, type Dual } from "./index";
  *
  * `satisfies Record<string, Dual>` memberi pemeriksaan bentuk yang sama tanpa
  * melebarkan tipe kuncinya.
+ *
+ * Diekspor HANYA untuk uji kelengkapan (`test/i18n.test.ts`). Di kode aplikasi
+ * pakailah `useUi()` — mengambil `UI` langsung melewatkan reaktivitas bahasa.
  */
-const UI = {
+export const UI = {
   // Kolom & label umum
   nama: { id: "Nama", en: "Name" },
   kode: { id: "Kode", en: "Code" },
@@ -2050,6 +2053,117 @@ const UI = {
   potonganPerBulan: { id: "Potongan per bulan", en: "Deduction per month" },
   cicilanTerakhir: { id: "Cicilan terakhir", en: "Final instalment" },
   totalDipotong: { id: "Total dipotong", en: "Total deducted" },
+
+  // — Halaman masuk/daftar (Fase 19q) —
+  // Awalan `auth` dipakai konsisten karena beberapa kata di sini bertabrakan
+  // makna dengan kunci lama: `masuk` di kamus ini berarti stok MASUK ("In"),
+  // bukan sign-in. Pelajaran 16u, kembali terbukti.
+  authManfaat1: {
+    id: "Pembukuan double-entry otomatis dari faktur, kasir, sampai penggajian",
+    en: "Automatic double-entry bookkeeping from invoices and the till through to payroll",
+  },
+  authManfaat2: {
+    id: "Siap pajak Indonesia: PPN 11/12%, PPh 21 TER, dan ekspor e-Faktur",
+    en: "Ready for Indonesian tax: PPN 11/12%, PPh 21 TER, and e-Faktur export",
+  },
+  authManfaat3: {
+    id: "Database terpisah untuk tiap perusahaan — data Anda benar-benar terisolasi",
+    en: "A separate database per company — your data really is isolated",
+  },
+  authManfaat4: {
+    id: "1.300+ uji otomatis menjaga setiap rilis; angka pembukuan selalu seimbang",
+    en: "1,300+ automated tests guard every release; the books always balance",
+  },
+  authGoogleDibatalkan: { id: "Masuk via Google dibatalkan.", en: "Google sign-in was cancelled." },
+  authGoogleGagalToken: {
+    id: "Masuk via Google gagal — coba lagi atau pakai email & password.",
+    en: "Google sign-in failed — try again, or use email and password.",
+  },
+  authGoogleTidakDiizinkan: {
+    id: "Akun tersebut tidak bisa dipakai masuk via Google.",
+    en: "That account cannot be used to sign in with Google.",
+  },
+  authGoogleBelumDikonfigurasi: {
+    id: "Masuk via Google belum tersedia saat ini.",
+    en: "Google sign-in is not available right now.",
+  },
+  authAtau: { id: "atau", en: "or" },
+  authLanjutkanGoogle: { id: "Lanjutkan dengan Google", en: "Continue with Google" },
+  authTagline: {
+    id: "Satu aplikasi untuk seluruh operasional UMKM Anda.",
+    en: "One app for everything your small business runs on.",
+  },
+  authGratisPrefix: { id: "Gratis", en: "Free for" },
+  authGratisSuffix: {
+    id: "hari · tanpa kartu kredit · berhenti kapan saja",
+    en: "days · no credit card · cancel anytime",
+  },
+  authSatuLangkahLagi: { id: "Satu langkah lagi", en: "One more step" },
+  authDescGoogleLangkah: {
+    id: "Akun Google Anda sudah tersambung. Beri nama perusahaan Anda untuk mulai.",
+    en: "Your Google account is connected. Name your company to get started.",
+  },
+  authSesiBerakhir: { id: "Sesi Anda berakhir —", en: "Your session has expired —" },
+  authMasukLagiGoogle: { id: "masuk lagi dengan Google", en: "sign in with Google again" },
+  authNamaPerusahaan: { id: "Nama perusahaan", en: "Company name" },
+  authBuatPerusahaanPrefix: {
+    id: "Buat Perusahaan & Mulai Gratis",
+    en: "Create company & start free for",
+  },
+  authHariSuffix: { id: "Hari", en: "days" },
+  authBuatAkun: { id: "Buat akun perusahaan", en: "Create your company account" },
+  authSudahPunyaAkun: { id: "Sudah punya akun?", en: "Already have an account?" },
+  authMasuk: { id: "Masuk", en: "Sign in" },
+  authNamaAnda: { id: "Nama Anda", en: "Your name" },
+  authPassword: { id: "Password", en: "Password" },
+  authPlaceholderEmail: { id: "anda@perusahaan.co.id", en: "you@company.com" },
+  authPlaceholderPassword: { id: "Minimal 8 karakter", en: "At least 8 characters" },
+  authDaftarPrefix: { id: "Daftar & Mulai Gratis", en: "Sign up & start free for" },
+  authSelamatDatang: { id: "Selamat datang kembali", en: "Welcome back" },
+  authDescMasuk: {
+    id: "Masuk untuk melanjutkan pekerjaan Anda. Belum punya akun?",
+    en: "Sign in to pick up where you left off. Don't have an account yet?",
+  },
+  authDaftarGratis: { id: "Daftar gratis", en: "Sign up free" },
+  authKodeTotp: { id: "Kode authenticator (2FA)", en: "Authenticator code (2FA)" },
+  authPlaceholder6Digit: { id: "6 digit", en: "6 digits" },
+  authLupaPassword: { id: "Lupa password?", en: "Forgot your password?" },
+  authVerifikasiEmail: { id: "Verifikasi email", en: "Email verification" },
+  authVerifikasiBerhasil: {
+    id: "Email Anda berhasil diverifikasi. Selamat menggunakan erpindo!",
+    en: "Your email is verified. Welcome to erpindo!",
+  },
+  authBukaDashboard: { id: "Buka Dashboard", en: "Open dashboard" },
+  authTautanTidakValid: {
+    id: "Tautan verifikasi tidak valid atau sudah kedaluwarsa.",
+    en: "That verification link is invalid or has expired.",
+  },
+  authLupaPasswordJudul: { id: "Lupa password", en: "Forgotten password" },
+  authDescLupaPassword: {
+    id: "Kami akan mengirim tautan reset ke email Anda.",
+    en: "We'll send a reset link to your email.",
+  },
+  authResetTerkirim: {
+    id: "Bila email terdaftar, tautan reset password sudah dikirim. Periksa kotak masuk Anda.",
+    en: "If that email is registered, a password reset link is on its way. Check your inbox.",
+  },
+  authKirimTautanReset: { id: "Kirim Tautan Reset", en: "Send reset link" },
+  authAturUlangPassword: { id: "Atur ulang password", en: "Reset your password" },
+  authPasswordBaru: { id: "Password baru", en: "New password" },
+  authSimpanPasswordBaru: { id: "Simpan Password Baru", en: "Save new password" },
+  authUndanganTim: { id: "Undangan tim", en: "Team invitation" },
+  authDescUndangan: {
+    id: "Anda diundang bergabung ke sebuah perusahaan di erpindo.",
+    en: "You have been invited to join a company on erpindo.",
+  },
+  authSilakan: { id: "Silakan", en: "Please" },
+  authMasukKecil: { id: "masuk", en: "sign in" },
+  authDaftarKecil: { id: "daftar", en: "sign up" },
+  authUndanganLanjutan: {
+    id: "dengan email yang diundang terlebih dahulu, lalu buka tautan ini lagi.",
+    en: "with the invited email address first, then open this link again.",
+  },
+  authTerimaUndangan: { id: "Terima Undangan", en: "Accept invitation" },
 } satisfies Record<string, Dual>;
 
 export type UiKey = keyof typeof UI;
