@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { DICT, getLang, LANGS, pick, setLang } from "../src/i18n";
+import { getLang, LANGS, pick, setLang } from "../src/i18n";
+import { UI } from "../src/i18n/ui";
 
 describe("i18n core (Fase 13d)", () => {
   it("default bahasa Indonesia di lingkungan tanpa window", () => {
@@ -20,10 +21,23 @@ describe("i18n core (Fase 13d)", () => {
     expect(pick(dual, "en")).toBe("Pricing");
   });
 
-  it("setiap entri kamus punya kedua bahasa terisi", () => {
-    for (const key of Object.keys(DICT) as (keyof typeof DICT)[]) {
-      expect(DICT[key].id.length).toBeGreaterThan(0);
-      expect(DICT[key].en.length).toBeGreaterThan(0);
+  /**
+   * Fase 19q — penjaga ini dulu mengawasi `DICT`, kamus 17 entri yang
+   * `useT()`-nya tidak pernah dipanggil siapa pun. Jadi ia menjaga kode mati
+   * sementara kamus yang benar-benar dipakai (`UI`, 1.100+ entri) tidak
+   * dijaga sama sekali. `DICT` sudah dihapus; penjaganya dipindahkan ke `UI`.
+   *
+   * `satisfies Record<string, Dual>` sudah memastikan kedua kolom ADA saat
+   * kompilasi; yang belum dijamin adalah keduanya TERISI — kolom `en: ""`
+   * lolos tsc tapi membuat layar kosong saat bahasa Inggris dipilih.
+   */
+  it("setiap entri kamus UI punya kedua bahasa terisi", () => {
+    const kosong: string[] = [];
+    for (const key of Object.keys(UI) as (keyof typeof UI)[]) {
+      if (!UI[key].id.trim()) kosong.push(`${key}.id`);
+      if (!UI[key].en.trim()) kosong.push(`${key}.en`);
     }
+    expect(kosong).toEqual([]);
+    expect(Object.keys(UI).length).toBeGreaterThan(1000);
   });
 });

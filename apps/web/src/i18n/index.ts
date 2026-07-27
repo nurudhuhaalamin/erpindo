@@ -59,33 +59,16 @@ export function pick(v: Dual, lang: Lang): string {
 }
 
 // ---------------------------------------------------------------------------
-// Kamus UI chrome (landing + auth). Prosa panjang list ada di sections.ts
-// sebagai data dwibahasa.
+// Fase 19q — `DICT`/`TKey`/`useT()` DIHAPUS.
+//
+// Kamus itu berisi delapan istilah navigasi landing plus sembilan kunci auth
+// (`authMasukJudul`, `authPerusahaan`, …) yang ditulis pada Fase 13d — lalu
+// `useT()` tidak pernah dipanggil satu berkas pun. Terjemahannya ada, tapi
+// tidak tersambung ke halamannya; halaman masuk/daftar tetap satu bahasa
+// sampai Fase 19q.
+//
+// Menyimpannya justru berbahaya: kunci auth yang tampak "sudah ada" membuat
+// pembaca berikutnya menyangka halaman auth sudah dwibahasa. Kamus yang
+// berlaku sekarang hanya satu: `UI` di `./ui`, dipakai lewat `useUi()`.
+// Landing memakai `pick()` + `sections.ts`, keduanya masih hidup di bawah ini.
 // ---------------------------------------------------------------------------
-export const DICT = {
-  navFitur: { id: "Fitur", en: "Features" },
-  navHarga: { id: "Harga", en: "Pricing" },
-  navPanduan: { id: "Panduan", en: "Guide" },
-  navFaq: { id: "FAQ", en: "FAQ" },
-  masuk: { id: "Masuk", en: "Sign in" },
-  mulaiGratis: { id: "Mulai Gratis", en: "Start Free" },
-  lihatDemo: { id: "Lihat Demo", en: "View Demo" },
-  perBulan: { id: "/bulan", en: "/month" },
-  // Auth
-  authMasukJudul: { id: "Masuk ke akun Anda", en: "Sign in to your account" },
-  authDaftarJudul: { id: "Buat akun perusahaan", en: "Create your company account" },
-  authEmail: { id: "Email", en: "Email" },
-  authPassword: { id: "Password", en: "Password" },
-  authNama: { id: "Nama Anda", en: "Your name" },
-  authPerusahaan: { id: "Nama perusahaan", en: "Company name" },
-  authPunyaAkun: { id: "Sudah punya akun?", en: "Already have an account?" },
-  authBelumAkun: { id: "Belum punya akun?", en: "Don't have an account?" },
-  authLupaPassword: { id: "Lupa password?", en: "Forgot password?" },
-} as const;
-export type TKey = keyof typeof DICT;
-
-/** Hook penerjemah UI chrome: `const t = useT(); t("navHarga")`. */
-export function useT(): (key: TKey) => string {
-  const lang = useLang();
-  return (key: TKey) => DICT[key][lang];
-}

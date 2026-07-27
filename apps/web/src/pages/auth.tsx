@@ -5,23 +5,30 @@ import { CheckCircle2 } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { api, ApiRequestError } from "../api/client";
 import { BrandWordmark, Alert, Button, Card, CardBody, FieldError, Input, Label, Spinner } from "../components/ui";
+import { LangSwitcher } from "../i18n/LangSwitcher";
+import { useUi, type UiKey } from "../i18n/ui";
 
+// Angka pada manfaat ke-4 diperbarui Fase 17f: klaim "890+" sudah lama
+// tertinggal. Hitungan nyata per hari ini = 863 smoke + 249 unit test +
+// 250 cek simulasi UI.
 const AUTH_BENEFITS = [
-  "Pembukuan double-entry otomatis dari faktur, kasir, sampai penggajian",
-  "Siap pajak Indonesia: PPN 11/12%, PPh 21 TER, dan ekspor e-Faktur",
-  "Database terpisah untuk tiap perusahaan — data Anda benar-benar terisolasi",
-  // Angka diperbarui Fase 17f: klaim "890+" sudah lama tertinggal. Hitungan
-  // nyata per hari ini = 861 smoke + 244 unit test + 220 cek simulasi UI.
-  "1.300+ uji otomatis menjaga setiap rilis; angka pembukuan selalu seimbang",
-];
+  "authManfaat1",
+  "authManfaat2",
+  "authManfaat3",
+  "authManfaat4",
+] satisfies UiKey[];
 
-/** Pesan hasil alur Google (?google=… di URL, diset callback server). */
-const GOOGLE_MESSAGES: Record<string, string> = {
-  dibatalkan: "Masuk via Google dibatalkan.",
-  "gagal-tukar-token": "Masuk via Google gagal — coba lagi atau pakai email & password.",
-  "tidak-diizinkan": "Akun tersebut tidak bisa dipakai masuk via Google.",
-  "belum-dikonfigurasi": "Masuk via Google belum tersedia saat ini.",
-};
+/**
+ * Pesan hasil alur Google (?google=… di URL, diset callback server).
+ * Kuncinya adalah nilai parameter URL — JANGAN diterjemahkan; yang
+ * diterjemahkan adalah pesan yang ditunjuknya (pola 19d).
+ */
+const GOOGLE_MESSAGES = {
+  dibatalkan: "authGoogleDibatalkan",
+  "gagal-tukar-token": "authGoogleGagalToken",
+  "tidak-diizinkan": "authGoogleTidakDiizinkan",
+  "belum-dikonfigurasi": "authGoogleBelumDikonfigurasi",
+} satisfies Record<string, UiKey>;
 
 /**
  * Tombol "Lanjutkan dengan Google" (Fase 10d) — hanya tampil bila server
@@ -29,13 +36,14 @@ const GOOGLE_MESSAGES: Record<string, string> = {
  * terjadi penuh di server.
  */
 function GoogleButton() {
+  const u = useUi();
   const q = useQuery({ queryKey: ["google-available"], queryFn: api.googleAvailable, staleTime: 60_000 });
   if (!q.data?.available) return null;
   return (
     <>
       <div className="flex items-center gap-3 text-xs text-slate-400">
         <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
-        atau
+        {u("authAtau")}
         <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
       </div>
       <a
@@ -48,7 +56,7 @@ function GoogleButton() {
           <path fill="#FBBC05" d="M5.26 14.28a7.2 7.2 0 0 1 0-4.56v-3.1H1.27a12 12 0 0 0 0 10.76l3.99-3.1Z" />
           <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.43-3.43A11.97 11.97 0 0 0 1.27 6.62l3.99 3.1A7.17 7.17 0 0 1 12 4.75Z" />
         </svg>
-        Lanjutkan dengan Google
+        {u("authLanjutkanGoogle")}
       </a>
     </>
   );
@@ -68,6 +76,7 @@ function GoogleButton() {
  * mengubah tombol kirim mematikan 200-an asersi sekaligus.
  */
 function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: ReactNode; children: ReactNode }) {
+  const u = useUi();
   return (
     <div className="flex min-h-full">
       {/* Fase 18g: panel kiri tidak lagi bidang pekat. Pada arah terang-lapang,
@@ -88,24 +97,26 @@ function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: R
           <BrandWordmark className="h-8" />
         </Link>
         <div className="relative">
-          <h2 className="max-w-md text-2xl font-semibold leading-snug">
-            Satu aplikasi untuk seluruh operasional UMKM Anda.
-          </h2>
+          <h2 className="max-w-md text-2xl font-semibold leading-snug">{u("authTagline")}</h2>
           <ul className="mt-6 divide-y divide-brand-200/70 border-y border-brand-200/70 dark:divide-white/10 dark:border-white/10">
             {AUTH_BENEFITS.map((b) => (
               <li key={b} className="flex items-start gap-2.5 py-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
                 <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-brand-600 dark:text-brand-400" aria-hidden />
-                {b}
+                {u(b)}
               </li>
             ))}
           </ul>
         </div>
         <p className="relative text-xs text-slate-500 dark:text-slate-400">
-          Gratis {TRIAL_DAYS} hari · tanpa kartu kredit · berhenti kapan saja
+          {u("authGratisPrefix")} {TRIAL_DAYS} {u("authGratisSuffix")}
         </p>
       </aside>
 
-      <div className="flex flex-1 flex-col items-center justify-center px-4 py-10">
+      <div className="relative flex flex-1 flex-col items-center justify-center px-4 py-10">
+        {/* Fase 19q: halaman ini tadinya satu-satunya layar publik tanpa tombol
+            bahasa — pengunjung yang tiba langsung di /masuk (mis. dari tautan
+            undangan) tidak punya cara mengganti bahasa sama sekali. */}
+        <LangSwitcher className="absolute right-4 top-4" />
         <Link to="/" className="mb-5 lg:hidden">
           <BrandWordmark className="h-7" />
         </Link>
@@ -129,16 +140,14 @@ function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: R
  * multi-perusahaan yang sudah ada).
  */
 function GoogleCompanyStep() {
+  const u = useUi();
   const navigate = useNavigate();
   const mutation = useMutation({
     mutationFn: (companyName: string) => api.createCompany({ companyName }),
     onSuccess: () => navigate({ to: "/app/mulai" }),
   });
   return (
-    <AuthLayout
-      title="Satu langkah lagi"
-      subtitle="Akun Google Anda sudah tersambung. Beri nama perusahaan Anda untuk mulai."
-    >
+    <AuthLayout title={u("authSatuLangkahLagi")} subtitle={u("authDescGoogleLangkah")}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -152,9 +161,9 @@ function GoogleCompanyStep() {
             {mutation.error instanceof ApiRequestError && mutation.error.status === 401 ? (
               <>
                 {" "}
-                Sesi Anda berakhir —{" "}
+                {u("authSesiBerakhir")}{" "}
                 <a href="/api/auth/google" className="font-medium underline">
-                  masuk lagi dengan Google
+                  {u("authMasukLagiGoogle")}
                 </a>
                 .
               </>
@@ -162,11 +171,12 @@ function GoogleCompanyStep() {
           </Alert>
         ) : null}
         <div>
-          <Label htmlFor="companyName">Nama perusahaan</Label>
+          <Label htmlFor="companyName">{u("authNamaPerusahaan")}</Label>
           <Input id="companyName" name="companyName" placeholder="PT Maju Jaya" required autoFocus />
         </div>
         <Button type="submit" className="w-full" disabled={mutation.isPending}>
-          {mutation.isPending ? <Spinner /> : null} Buat Perusahaan & Mulai Gratis {TRIAL_DAYS} Hari
+          {mutation.isPending ? <Spinner /> : null} {u("authBuatPerusahaanPrefix")} {TRIAL_DAYS}{" "}
+          {u("authHariSuffix")}
         </Button>
       </form>
     </AuthLayout>
@@ -174,6 +184,7 @@ function GoogleCompanyStep() {
 }
 
 export function RegisterPage() {
+  const u = useUi();
   const navigate = useNavigate();
   const viaGoogle = new URLSearchParams(window.location.search).get("via") === "google";
   const [issues, setIssues] = useState<Record<string, string[]>>({});
@@ -201,12 +212,12 @@ export function RegisterPage() {
 
   return (
     <AuthLayout
-      title="Buat akun perusahaan"
+      title={u("authBuatAkun")}
       subtitle={
         <>
-          Sudah punya akun?{" "}
+          {u("authSudahPunyaAkun")}{" "}
           <Link to="/masuk" className="font-medium text-brand-700 hover:underline dark:text-brand-400">
-            Masuk
+            {u("authMasuk")}
           </Link>
         </>
       }
@@ -216,27 +227,28 @@ export function RegisterPage() {
           <Alert tone="error">{(mutation.error as Error).message}</Alert>
         ) : null}
         <div>
-          <Label htmlFor="companyName">Nama perusahaan</Label>
+          <Label htmlFor="companyName">{u("authNamaPerusahaan")}</Label>
           <Input id="companyName" name="companyName" placeholder="PT Maju Jaya" required />
           <FieldError messages={issues.companyName} />
         </div>
         <div>
-          <Label htmlFor="name">Nama Anda</Label>
+          <Label htmlFor="name">{u("authNamaAnda")}</Label>
           <Input id="name" name="name" placeholder="Budi Santoso" required />
           <FieldError messages={issues.name} />
         </div>
         <div>
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" placeholder="anda@perusahaan.co.id" required />
+          <Label htmlFor="email">{u("email")}</Label>
+          <Input id="email" name="email" type="email" placeholder={u("authPlaceholderEmail")} required />
           <FieldError messages={issues.email} />
         </div>
         <div>
-          <Label htmlFor="password">Password</Label>
-          <Input id="password" name="password" type="password" placeholder="Minimal 8 karakter" required />
+          <Label htmlFor="password">{u("authPassword")}</Label>
+          <Input id="password" name="password" type="password" placeholder={u("authPlaceholderPassword")} required />
           <FieldError messages={issues.password} />
         </div>
         <Button type="submit" className="w-full" disabled={mutation.isPending}>
-          {mutation.isPending ? <Spinner /> : null} Daftar & Mulai Gratis {TRIAL_DAYS} Hari
+          {mutation.isPending ? <Spinner /> : null} {u("authDaftarPrefix")} {TRIAL_DAYS}{" "}
+          {u("authHariSuffix")}
         </Button>
         <GoogleButton />
       </form>
@@ -247,9 +259,13 @@ export function RegisterPage() {
 // ---------------------------------------------------------------------------
 
 export function LoginPage() {
+  const u = useUi();
   const navigate = useNavigate();
   const [needsTotp, setNeedsTotp] = useState(false);
-  const googleMsg = GOOGLE_MESSAGES[new URLSearchParams(window.location.search).get("google") ?? ""];
+  // `satisfies` membuat kuncinya literal, jadi parameter URL yang sembarang
+  // perlu dilebarkan dulu — hasilnya bisa `undefined` dan itu memang diharapkan.
+  const googleParam = new URLSearchParams(window.location.search).get("google") ?? "";
+  const googleKey: UiKey | undefined = (GOOGLE_MESSAGES as Record<string, UiKey>)[googleParam];
   const mutation = useMutation({
     mutationFn: api.login,
     onSuccess: () => navigate({ to: "/app" }),
@@ -270,48 +286,48 @@ export function LoginPage() {
 
   return (
     <AuthLayout
-      title="Selamat datang kembali"
+      title={u("authSelamatDatang")}
       subtitle={
         <>
-          Masuk untuk melanjutkan pekerjaan Anda. Belum punya akun?{" "}
+          {u("authDescMasuk")}{" "}
           <Link to="/daftar" className="font-medium text-brand-700 hover:underline dark:text-brand-400">
-            Daftar gratis
+            {u("authDaftarGratis")}
           </Link>
         </>
       }
     >
       <form onSubmit={onSubmit} className="space-y-3">
-        {googleMsg && !mutation.isError ? <Alert tone="error">{googleMsg}</Alert> : null}
+        {googleKey && !mutation.isError ? <Alert tone="error">{u(googleKey)}</Alert> : null}
         {mutation.isError ? <Alert tone="error">{(mutation.error as Error).message}</Alert> : null}
         <div>
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">{u("email")}</Label>
           <Input id="email" name="email" type="email" required />
         </div>
         <div>
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">{u("authPassword")}</Label>
           <Input id="password" name="password" type="password" required />
         </div>
         {needsTotp ? (
           <div>
-            <Label htmlFor="totpCode">Kode authenticator (2FA)</Label>
+            <Label htmlFor="totpCode">{u("authKodeTotp")}</Label>
             <Input
               id="totpCode"
               name="totpCode"
               inputMode="numeric"
               autoComplete="one-time-code"
-              placeholder="6 digit"
+              placeholder={u("authPlaceholder6Digit")}
               maxLength={6}
               autoFocus
             />
           </div>
         ) : null}
         <Button type="submit" className="w-full" disabled={mutation.isPending}>
-          {mutation.isPending ? <Spinner /> : null} Masuk
+          {mutation.isPending ? <Spinner /> : null} {u("authMasuk")}
         </Button>
         <GoogleButton />
         <p className="text-center text-[13px]">
           <Link to="/lupa-password" className="text-slate-500 hover:underline dark:text-slate-400">
-            Lupa password?
+            {u("authLupaPassword")}
           </Link>
         </p>
       </form>
@@ -326,6 +342,7 @@ function useUrlToken(): string {
 }
 
 export function VerifyPage() {
+  const u = useUi();
   const token = useUrlToken();
   const [state, setState] = useState<"loading" | "ok" | "error">(token ? "loading" : "error");
 
@@ -338,26 +355,27 @@ export function VerifyPage() {
   }, [token]);
 
   return (
-    <AuthLayout title="Verifikasi email">
+    <AuthLayout title={u("authVerifikasiEmail")}>
       {state === "loading" ? (
         <div className="flex justify-center py-6">
           <Spinner />
         </div>
       ) : state === "ok" ? (
         <div className="space-y-3">
-          <Alert tone="success">Email Anda berhasil diverifikasi. Selamat menggunakan erpindo!</Alert>
+          <Alert tone="success">{u("authVerifikasiBerhasil")}</Alert>
           <Link to="/app">
-            <Button className="w-full">Buka Dashboard</Button>
+            <Button className="w-full">{u("authBukaDashboard")}</Button>
           </Link>
         </div>
       ) : (
-        <Alert tone="error">Tautan verifikasi tidak valid atau sudah kedaluwarsa.</Alert>
+        <Alert tone="error">{u("authTautanTidakValid")}</Alert>
       )}
     </AuthLayout>
   );
 }
 
 export function ForgotPasswordPage() {
+  const u = useUi();
   const mutation = useMutation({ mutationFn: api.forgotPassword });
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -366,17 +384,17 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <AuthLayout title="Lupa password" subtitle="Kami akan mengirim tautan reset ke email Anda.">
+    <AuthLayout title={u("authLupaPasswordJudul")} subtitle={u("authDescLupaPassword")}>
       {mutation.isSuccess ? (
-        <Alert tone="success">Bila email terdaftar, tautan reset password sudah dikirim. Periksa kotak masuk Anda.</Alert>
+        <Alert tone="success">{u("authResetTerkirim")}</Alert>
       ) : (
         <form onSubmit={onSubmit} className="space-y-3">
           <div>
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">{u("email")}</Label>
             <Input id="email" name="email" type="email" required />
           </div>
           <Button type="submit" className="w-full" disabled={mutation.isPending}>
-            {mutation.isPending ? <Spinner /> : null} Kirim Tautan Reset
+            {mutation.isPending ? <Spinner /> : null} {u("authKirimTautanReset")}
           </Button>
         </form>
       )}
@@ -385,6 +403,7 @@ export function ForgotPasswordPage() {
 }
 
 export function ResetPasswordPage() {
+  const u = useUi();
   const token = useUrlToken();
   const navigate = useNavigate();
   const mutation = useMutation({
@@ -398,15 +417,15 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <AuthLayout title="Atur ulang password">
+    <AuthLayout title={u("authAturUlangPassword")}>
       <form onSubmit={onSubmit} className="space-y-3">
         {mutation.isError ? <Alert tone="error">{(mutation.error as Error).message}</Alert> : null}
         <div>
-          <Label htmlFor="password">Password baru</Label>
-          <Input id="password" name="password" type="password" placeholder="Minimal 8 karakter" required />
+          <Label htmlFor="password">{u("authPasswordBaru")}</Label>
+          <Input id="password" name="password" type="password" placeholder={u("authPlaceholderPassword")} required />
         </div>
         <Button type="submit" className="w-full" disabled={mutation.isPending || !token}>
-          {mutation.isPending ? <Spinner /> : null} Simpan Password Baru
+          {mutation.isPending ? <Spinner /> : null} {u("authSimpanPasswordBaru")}
         </Button>
       </form>
     </AuthLayout>
@@ -414,6 +433,7 @@ export function ResetPasswordPage() {
 }
 
 export function InvitePage() {
+  const u = useUi();
   const token = useUrlToken();
   const navigate = useNavigate();
   const mutation = useMutation({
@@ -422,28 +442,28 @@ export function InvitePage() {
   });
 
   return (
-    <AuthLayout title="Undangan tim" subtitle="Anda diundang bergabung ke sebuah perusahaan di erpindo.">
+    <AuthLayout title={u("authUndanganTim")} subtitle={u("authDescUndangan")}>
       <div className="space-y-3">
         {mutation.isError ? (
           <Alert tone="error">
             {(mutation.error as Error).message}{" "}
             {mutation.error instanceof ApiRequestError && mutation.error.status === 401 ? (
               <>
-                Silakan{" "}
+                {u("authSilakan")}{" "}
                 <Link to="/masuk" className="font-medium underline">
-                  masuk
+                  {u("authMasukKecil")}
                 </Link>{" "}
-                atau{" "}
+                {u("authAtau")}{" "}
                 <Link to="/daftar" className="font-medium underline">
-                  daftar
+                  {u("authDaftarKecil")}
                 </Link>{" "}
-                dengan email yang diundang terlebih dahulu, lalu buka tautan ini lagi.
+                {u("authUndanganLanjutan")}
               </>
             ) : null}
           </Alert>
         ) : null}
         <Button className="w-full" onClick={() => mutation.mutate()} disabled={mutation.isPending || !token}>
-          {mutation.isPending ? <Spinner /> : null} Terima Undangan
+          {mutation.isPending ? <Spinner /> : null} {u("authTerimaUndangan")}
         </Button>
       </div>
     </AuthLayout>
