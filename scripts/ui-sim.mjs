@@ -825,6 +825,28 @@ try {
     `→ dimensi EN=${adaDmEn}/tanpaID=${tanpaDmId} anggaran EN=${adaAgEn}/tanpaID=${tanpaAgId}`,
   );
 
+  // F1m — Fase 19m: Mata Uang, Marketplace, Konsolidasi.
+  // Rute diverifikasi ke audit-routes.mjs.
+  await gotoRoute("/app/keuangan/kurs", 900);
+  const kuEn = await page.innerText("body");
+  await gotoRoute("/app/marketplace", 900);
+  const mpEn = await page.innerText("body");
+  await gotoRoute("/app/konsolidasi", 900);
+  const koEn = await page.innerText("body");
+  const adaEn =
+    kuEn.includes("Currency list") &&
+    mpEn.includes("Pick a channel, warehouse, and customer") &&
+    koEn.includes("A combined report across every company");
+  const tanpaId =
+    !kuEn.includes("Daftar mata uang") &&
+    !mpEn.includes("Pilih kanal, gudang, dan pelanggan") &&
+    !koEn.includes("Laporan gabungan seluruh perusahaan");
+  check(
+    "F1m isi Mata Uang/Marketplace/Konsolidasi ikut EN, tanpa teks Indonesia",
+    adaEn && tanpaId,
+    `→ EN=${adaEn} tanpaID=${tanpaId}`,
+  );
+
   // Fase 16n — pelunasan utang 16e. Rute diverifikasi ke main.tsx:
   // /app/keuangan/arus-kas dan /app/keuangan/neraca. Baris ringkasan arus kas
   // selalu tampil begitu data termuat (tak bergantung ada/tidaknya mutasi).
