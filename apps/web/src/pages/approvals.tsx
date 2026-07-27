@@ -13,34 +13,53 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, ClipboardCheck, Plus, Send, Settings2, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { api, formatIDR } from "../api/client";
-import { Badge, Button, Card, CardBody, CardHeader, EmptyState, Input, Label, Select, Spinner, useToast } from "../components/ui";
+import { Badge, Button, Card, CardBody, CardHeader, EmptyState, Input, Label, PageHeading, Select, Spinner, useToast } from "../components/ui";
+import { useUi, type UiKey } from "../i18n/ui";
 import { useWorkspace } from "./app";
 
 const STATUS_TONE: Record<ApprovalStatus, "amber" | "green" | "red"> = { pending: "amber", approved: "green", rejected: "red" };
-const LEGACY_STATUS_LABEL = { pending: "menunggu", approved: "disetujui", rejected: "ditolak" } as const;
+/**
+ * Status & jenis dokumen → kunci kamus (Fase 19i).
+ *
+ * `APPROVAL_DOC_TYPE_LABELS` tetap berbahasa Indonesia di `packages/shared`
+ * karena `apps/api` ikut memakainya; pemetaannya dilakukan di sisi web, sama
+ * seperti PPh 23 di 19e. `satisfies` memastikan setiap jenis dokumen punya
+ * terjemahan.
+ */
+const LEGACY_STATUS_KEY = {
+  pending: "statusMenunggu",
+  approved: "statusDisetujui",
+  rejected: "statusDitolak",
+} satisfies Record<ApprovalStatus, UiKey>;
+
+const DOC_TYPE_KEY = {
+  pembelian: "docPembelian",
+  pesanan_pembelian: "docPesananPembelian",
+  pengeluaran: "docPengeluaran",
+  jurnal: "docJurnal",
+} satisfies Record<ApprovalDocType, UiKey>;
 
 type Tab = "queue" | "submit" | "rules" | "history" | "purchase";
 
 export function ApprovalsPage() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const isOwner = tenant.role === "owner";
   const [tab, setTab] = useState<Tab>("queue");
 
   const tabs: { key: Tab; label: string; show: boolean }[] = [
-    { key: "queue", label: "Antrean saya", show: true },
-    { key: "submit", label: "Ajukan", show: tenant.role !== "viewer" },
-    { key: "history", label: "Riwayat", show: true },
-    { key: "rules", label: "Aturan", show: isOwner },
-    { key: "purchase", label: "Pembelian (ambang)", show: isOwner },
+    { key: "queue", label: u("antreanSaya"), show: true },
+    { key: "submit", label: u("ajukan"), show: tenant.role !== "viewer" },
+    { key: "history", label: u("riwayatTab"), show: true },
+    { key: "rules", label: u("aturanTab"), show: isOwner },
+    { key: "purchase", label: u("pembelianAmbang"), show: isOwner },
   ];
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Persetujuan</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Alur persetujuan berjenjang — atur aturan per jenis dokumen & nominal, lalu setujui berurutan sesuai peran.
-        </p>
+        {/* Fase 19i: judul + pengantar ke PAGE_HEADINGS (Fase 16a). */}
+        <PageHeading k="persetujuan" />
       </div>
 
       <div className="flex flex-wrap gap-1.5 border-b border-slate-200 dark:border-slate-800">
@@ -93,6 +112,7 @@ function StepTrail({ flow }: { flow: ApiApprovalFlow }) {
 }
 
 function QueueTab() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -103,7 +123,7 @@ function QueueTab() {
   const decide = useMutation({
     mutationFn: (v: { id: string; decision: "approve" | "reject" }) => api.decideApprovalStep(tenant.tenantId, v.id, { decision: v.decision }),
     onSuccess: (res) => {
-      toast("success", res.status === "approved" ? "Disetujui — alur selesai." : res.status === "rejected" ? "Ditolak." : "Langkah disetujui, lanjut ke approver berikutnya.");
+      toast("success", res.status === "approved" ? u("toastAlurSelesai") : res.status === "rejected" ? u("toastDitolakTitik") : u("toastLangkahDisetujui"));
       queryClient.invalidateQueries({ queryKey: ["approval-flows", tenant.tenantId] });
     },
     onError: (err) => toast("error", (err as Error).message),
@@ -113,19 +133,19 @@ function QueueTab() {
 
   return (
     <Card>
-      <CardHeader title="Menunggu persetujuan saya" description="Alur yang langkah aktifnya menunggu peran Anda." />
+      <CardHeader title="Menunggu persetujuan saya" description={u("descAntrean")} />
       <CardBody>
         {query.isLoading ? (
           <Spinner />
         ) : flows.length === 0 ? (
-          <EmptyState icon={<ClipboardCheck className="size-6" aria-hidden />} title="Antrean kosong" description="Tak ada alur yang menunggu persetujuan Anda saat ini." />
+          <EmptyState icon={<ClipboardCheck className="size-6" aria-hidden />} title={u("antreanKosong")} description={u("descAntreanKosong")} />
         ) : (
           <div className="space-y-2">
             {flows.map((f) => (
               <div key={f.id} className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span className="font-mono text-xs">{f.flowNo}</span>
-                  <Badge tone="neutral">{APPROVAL_DOC_TYPE_LABELS[f.docType]}</Badge>
+                  <Badge tone="neutral">{u(DOC_TYPE_KEY[f.docType])}</Badge>
                   <span className="font-medium">{f.title}</span>
                   {f.requestedByName ? <span className="text-xs text-slate-400">oleh {f.requestedByName}</span> : null}
                   <span className="ml-auto font-semibold tabular-nums">{formatIDR(f.amount)}</span>
@@ -151,6 +171,7 @@ function QueueTab() {
 }
 
 function SubmitTab() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -170,7 +191,7 @@ function SubmitTab() {
   const submit = useMutation({
     mutationFn: () => api.submitApproval(tenant.tenantId, { docType: form.docType, title: form.title.trim(), amount: amountNum }),
     onSuccess: (res) => {
-      toast("success", res.autoApproved ? `Diajukan (${res.flowNo}) — tak perlu persetujuan, langsung disetujui.` : `Diajukan (${res.flowNo}) — menunggu persetujuan.`);
+      toast("success", res.autoApproved ? `${u("toastDiajukanPrefix")} (${res.flowNo}) ${u("toastTanpaPersetujuan")}` : `${u("toastDiajukanPrefix")} (${res.flowNo}) ${u("toastMenungguPersetujuan")}`);
       setForm({ ...form, title: "", amount: "" });
       queryClient.invalidateQueries({ queryKey: ["approval-flows", tenant.tenantId] });
     },
@@ -179,22 +200,22 @@ function SubmitTab() {
 
   return (
     <Card>
-      <CardHeader title="Ajukan persetujuan" description="Ajukan dokumen untuk disetujui sesuai aturan berlaku." />
+      <CardHeader title="Ajukan persetujuan" description={u("descAjukanDokumen")} />
       <CardBody className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <Label htmlFor="ap-type">Jenis dokumen</Label>
+            <Label htmlFor="ap-type">{u("jenisDokumen")}</Label>
             <Select id="ap-type" value={form.docType} onChange={(e) => setForm({ ...form, docType: e.target.value as ApprovalDocType })}>
               {APPROVAL_DOC_TYPES.map((t) => (
                 <option key={t} value={t}>
-                  {APPROVAL_DOC_TYPE_LABELS[t]}
+                  {u(DOC_TYPE_KEY[t])}
                 </option>
               ))}
             </Select>
           </div>
           <div className="sm:col-span-2">
-            <Label htmlFor="ap-title">Judul / keterangan</Label>
-            <Input id="ap-title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="mis. Pembelian laptop tim" />
+            <Label htmlFor="ap-title">{u("judulKeterangan")}</Label>
+            <Input id="ap-title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={u("contohPembelianLaptop")} />
           </div>
           <div>
             <Label htmlFor="ap-amount">Nominal (Rp)</Label>
@@ -203,14 +224,14 @@ function SubmitTab() {
         </div>
         <div className="rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-800/40">
           {amountNum <= 0 ? (
-            <span className="text-slate-400">Isi nominal untuk melihat aturan yang berlaku.</span>
+            <span className="text-slate-400">{u("isiNominalUntukAturan")}</span>
           ) : matchedRule ? (
             <span>
               Aturan berlaku: <strong>{matchedRule.name}</strong> — persetujuan berurutan:{" "}
               {matchedRule.approverRoles.map((r) => APPROVAL_ROLE_LABELS[r]).join(" → ")}
             </span>
           ) : (
-            <span className="text-emerald-600 dark:text-emerald-400">Tak ada aturan cocok — akan langsung disetujui (tanpa persetujuan).</span>
+            <span className="text-emerald-600 dark:text-emerald-400">{u("takAdaAturanCocok")}</span>
           )}
         </div>
         <div className="flex justify-end">
@@ -224,6 +245,7 @@ function SubmitTab() {
 }
 
 function HistoryTab() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const query = useQuery({
     queryKey: ["approval-flows", tenant.tenantId, "all"],
@@ -232,25 +254,25 @@ function HistoryTab() {
   const flows = query.data?.flows ?? [];
   return (
     <Card>
-      <CardHeader title="Riwayat alur persetujuan" description="Semua pengajuan + jejak langkah per approver." />
+      <CardHeader title="Riwayat alur persetujuan" description={u("descSemuaPengajuan")} />
       <CardBody>
         {query.isLoading ? (
           <Spinner />
         ) : flows.length === 0 ? (
-          <p className="text-sm text-slate-400">Belum ada pengajuan.</p>
+          <p className="text-sm text-slate-400">{u("belumAdaPengajuan")}</p>
         ) : (
           <div className="space-y-2">
             {flows.map((f) => (
               <div key={f.id} className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span className="font-mono text-xs">{f.flowNo}</span>
-                  <Badge tone="neutral">{APPROVAL_DOC_TYPE_LABELS[f.docType]}</Badge>
+                  <Badge tone="neutral">{u(DOC_TYPE_KEY[f.docType])}</Badge>
                   <span className="font-medium">{f.title}</span>
                   {f.requestedByName ? <span className="text-xs text-slate-400">oleh {f.requestedByName}</span> : null}
                   <Badge tone={STATUS_TONE[f.status]}>{APPROVAL_STATUS_LABELS[f.status]}</Badge>
                   <span className="ml-auto font-semibold tabular-nums">{formatIDR(f.amount)}</span>
                 </div>
-                {f.steps.length > 0 ? <StepTrail flow={f} /> : <div className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">Otomatis disetujui (tanpa aturan).</div>}
+                {f.steps.length > 0 ? <StepTrail flow={f} /> : <div className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">{u("otomatisDisetujui")}</div>}
               </div>
             ))}
           </div>
@@ -261,6 +283,7 @@ function HistoryTab() {
 }
 
 function RulesTab() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -280,7 +303,7 @@ function RulesTab() {
   const create = useMutation({
     mutationFn: () => api.createApprovalRule(tenant.tenantId, { name: form.name.trim(), docType: form.docType, minAmount: Number(form.minAmount) || 0, approverRoles: form.approverRoles }),
     onSuccess: () => {
-      toast("success", "Aturan dibuat.");
+      toast("success", u("toastAturanDibuat"));
       setForm({ name: "", docType: "pembelian", minAmount: "", approverRoles: ["owner"] });
       invalidate();
     },
@@ -294,7 +317,7 @@ function RulesTab() {
   const remove = useMutation({
     mutationFn: (id: string) => api.deleteApprovalRule(tenant.tenantId, id),
     onSuccess: () => {
-      toast("success", "Aturan dihapus.");
+      toast("success", u("toastAturanDihapus"));
       invalidate();
     },
     onError: (err) => toast("error", (err as Error).message),
@@ -306,19 +329,19 @@ function RulesTab() {
 
   return (
     <Card>
-      <CardHeader title="Aturan persetujuan" description="Tetapkan alur untuk jenis dokumen di atas ambang tertentu — disetujui berurutan sesuai peran." />
+      <CardHeader title="Aturan persetujuan" description={u("descTetapkanAlur")} />
       <CardBody className="space-y-4">
         <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div>
-            <Label htmlFor="rule-name">Nama aturan</Label>
-            <Input id="rule-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="mis. Pembelian besar" />
+            <Label htmlFor="rule-name">{u("namaAturan")}</Label>
+            <Input id="rule-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={u("contohPembelianBesar")} />
           </div>
           <div>
-            <Label htmlFor="rule-type">Jenis dokumen</Label>
+            <Label htmlFor="rule-type">{u("jenisDokumen")}</Label>
             <Select id="rule-type" value={form.docType} onChange={(e) => setForm({ ...form, docType: e.target.value as ApprovalDocType })}>
               {APPROVAL_DOC_TYPES.map((t) => (
                 <option key={t} value={t}>
-                  {APPROVAL_DOC_TYPE_LABELS[t]}
+                  {u(DOC_TYPE_KEY[t])}
                 </option>
               ))}
             </Select>
@@ -346,14 +369,14 @@ function RulesTab() {
             </div>
           </div>
           <Button onClick={() => create.mutate()} disabled={create.isPending || !form.name.trim() || form.approverRoles.length === 0}>
-            {create.isPending ? <Spinner /> : <Plus className="size-4" aria-hidden />} Tambah
+            {create.isPending ? <Spinner /> : <Plus className="size-4" aria-hidden />} {u("tambah")}
           </Button>
         </div>
 
         {query.isLoading ? (
           <Spinner />
         ) : rules.length === 0 ? (
-          <EmptyState icon={<Settings2 className="size-6" aria-hidden />} title="Belum ada aturan" description="Tanpa aturan, semua pengajuan langsung disetujui." />
+          <EmptyState icon={<Settings2 className="size-6" aria-hidden />} title={u("belumAdaAturan")} description="Tanpa aturan, semua pengajuan langsung disetujui." />
         ) : (
           <div className="space-y-2">
             {rules.map((r) => (
@@ -367,7 +390,7 @@ function RulesTab() {
                   <Button variant="ghost" className="h-8" onClick={() => toggleActive.mutate({ id: r.id, active: !r.active })} disabled={toggleActive.isPending}>
                     {r.active ? "Nonaktifkan" : "Aktifkan"}
                   </Button>
-                  <button type="button" aria-label="Hapus aturan" className="inline-flex size-8 items-center justify-center rounded-lg text-slate-400 hover:text-red-600" onClick={() => remove.mutate(r.id)}>
+                  <button type="button" aria-label={u("hapusAturan")} className="inline-flex size-8 items-center justify-center rounded-lg text-slate-400 hover:text-red-600" onClick={() => remove.mutate(r.id)}>
                     <Trash2 className="size-4" aria-hidden />
                   </button>
                 </span>
@@ -382,6 +405,7 @@ function RulesTab() {
 
 /** Persetujuan pembelian ambang-tunggal lama (Owner) — tak berubah. */
 function PurchaseApprovalTab() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -396,7 +420,7 @@ function PurchaseApprovalTab() {
   const approve = useMutation({
     mutationFn: (id: string) => api.approveRequest(tenant.tenantId, id),
     onSuccess: (res) => {
-      toast("success", `Disetujui — faktur ${res.docNo} diposting (${formatIDR(res.total)}).`);
+      toast("success", `${u("toastDisetujuiFakturPrefix")} ${res.docNo} ${u("toastDiposting")} (${formatIDR(res.total)}).`);
       invalidate();
     },
     onError: (err) => toast("error", (err as Error).message),
@@ -404,7 +428,7 @@ function PurchaseApprovalTab() {
   const reject = useMutation({
     mutationFn: (id: string) => api.rejectRequest(tenant.tenantId, id),
     onSuccess: () => {
-      toast("success", "Permintaan ditolak.");
+      toast("success", u("toastPermintaanDitolakTitik"));
       invalidate();
     },
     onError: (err) => toast("error", (err as Error).message),
@@ -413,12 +437,12 @@ function PurchaseApprovalTab() {
 
   return (
     <Card>
-      <CardHeader title="Permintaan pembelian (ambang tunggal)" description="Pembelian di atas ambang oleh non-Owner — jurnal & stok baru diproses saat disetujui." />
+      <CardHeader title={u("permintaanPembelianAmbang")} description={u("descPermintaanAmbang")} />
       <CardBody>
         {query.isLoading ? (
           <Spinner />
         ) : requests.length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Tidak ada permintaan.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{u("tidakAdaPermintaan")}</p>
         ) : (
           <div className="space-y-3">
             {requests.map((r) => (
@@ -426,7 +450,7 @@ function PurchaseApprovalTab() {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-xs font-semibold">{r.request_no}</span>
                   <span>{r.summary}</span>
-                  <Badge tone={r.status === "pending" ? "amber" : r.status === "approved" ? "brand" : "neutral"}>{LEGACY_STATUS_LABEL[r.status]}</Badge>
+                  <Badge tone={r.status === "pending" ? "amber" : r.status === "approved" ? "brand" : "neutral"}>{u(LEGACY_STATUS_KEY[r.status])}</Badge>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold tabular-nums">{formatIDR(r.total)}</span>

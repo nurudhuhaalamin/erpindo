@@ -761,6 +761,24 @@ try {
     `→ manufaktur EN=${adaMfEn}/tanpaID=${tanpaMfId} pemeliharaan EN=${adaMtEn}/tanpaID=${tanpaMtId}`,
   );
 
+  // F1i — Fase 19i: halaman Persetujuan.
+  // Rute diverifikasi ke audit-routes.mjs: /app/persetujuan.
+  //
+  // Penandanya judul halaman (kini dari PAGE_HEADINGS) + label tab, yang
+  // dirender tanpa syarat data. Tab "Aturan"/"Pembelian (ambang)" sengaja TIDAK
+  // dipakai: keduanya hanya tampil untuk peran owner, dan asersi yang
+  // bergantung peran akan rapuh bila alur uji berubah (pelajaran F0y).
+  await gotoRoute("/app/persetujuan", 900);
+  const apEn = await page.innerText("body");
+  const adaApEn = apEn.includes("Approvals") && apEn.includes("My queue");
+  const tanpaApId =
+    !apEn.includes("Alur persetujuan berjenjang") && !apEn.includes("Antrean saya");
+  check(
+    "F1i isi halaman Persetujuan ikut EN: judul + tab antrean, tanpa teks Indonesia",
+    adaApEn && tanpaApId,
+    `→ EN=${adaApEn} tanpaID=${tanpaApId}`,
+  );
+
   // Fase 16n — pelunasan utang 16e. Rute diverifikasi ke main.tsx:
   // /app/keuangan/arus-kas dan /app/keuangan/neraca. Baris ringkasan arus kas
   // selalu tampil begitu data termuat (tak bergantung ada/tidaknya mutasi).
