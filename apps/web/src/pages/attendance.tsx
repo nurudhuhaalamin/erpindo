@@ -21,6 +21,11 @@ import {
   Label,
   Select,
   Spinner,
+  Table,
+  Td,
+  Th,
+  Thead,
+  Tr,
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
@@ -189,34 +194,56 @@ export function AttendancePage() {
           ) : recap.length === 0 ? (
             <EmptyState icon={<CalendarCheck className="size-6" aria-hidden />} title="Belum ada karyawan" description="Tambahkan karyawan di menu Penggajian terlebih dahulu." />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[520px] text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400 dark:border-slate-800">
-                    <th className="py-2 pr-3 font-medium">Karyawan</th>
-                    <th className="py-2 px-2 text-right font-medium">Hadir</th>
-                    <th className="py-2 px-2 text-right font-medium">Izin</th>
-                    <th className="py-2 px-2 text-right font-medium">Sakit</th>
-                    <th className="py-2 px-2 text-right font-medium">Alfa</th>
-                    <th className="py-2 px-2 text-right font-medium">Cuti</th>
-                    <th className="py-2 pl-2 text-right font-medium">Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {recap.map((r) => (
-                    <tr key={r.employeeId}>
-                      <td className="py-2 pr-3 font-medium">{r.employeeName}</td>
-                      <td className="py-2 px-2 text-right tabular-nums">{r.hadir}</td>
-                      <td className="py-2 px-2 text-right tabular-nums">{r.izin}</td>
-                      <td className="py-2 px-2 text-right tabular-nums">{r.sakit}</td>
-                      <td className="py-2 px-2 text-right tabular-nums text-red-600 dark:text-red-400">{r.alfa || ""}</td>
-                      <td className="py-2 px-2 text-right tabular-nums">{r.cuti}</td>
-                      <td className="py-2 pl-2 text-right font-semibold tabular-nums">{r.total}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <Thead>
+                <tr>
+                  <Th>Karyawan</Th>
+                  <Th numeric>Hadir</Th>
+                  <Th numeric>Izin</Th>
+                  <Th numeric>Sakit</Th>
+                  <Th numeric>Alfa</Th>
+                  <Th numeric>Cuti</Th>
+                  <Th numeric>Total</Th>
+                </tr>
+              </Thead>
+              <tbody>
+                {recap.map((r) => (
+                  <Tr key={r.employeeId}>
+                    <Td label="Karyawan" className="font-medium">
+                      {r.employeeName}
+                    </Td>
+                    <Td numeric label="Hadir">
+                      {r.hadir}
+                    </Td>
+                    <Td numeric label="Izin">
+                      {r.izin}
+                    </Td>
+                    <Td numeric label="Sakit">
+                      {r.sakit}
+                    </Td>
+                    {/* Nol ditulis "—", bukan dikosongkan. Di tabel lebar sel
+                        kosong terbaca sebagai "tidak ada" karena kolom di
+                        kiri-kanannya berisi angka; di mode kartu ia berdiri
+                        sendiri di sebelah label "Alfa" dan justru terbaca
+                        seperti data yang hilang. Warna merah pun hanya dipakai
+                        saat memang ada alfa. */}
+                    <Td
+                      numeric
+                      label="Alfa"
+                      className={r.alfa ? "text-red-600 dark:text-red-400" : "text-slate-400"}
+                    >
+                      {r.alfa || "—"}
+                    </Td>
+                    <Td numeric label="Cuti">
+                      {r.cuti}
+                    </Td>
+                    <Td numeric label="Total" className="font-semibold">
+                      {r.total}
+                    </Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
           )}
         </CardBody>
       </Card>
