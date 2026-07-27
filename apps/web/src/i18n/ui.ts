@@ -1739,6 +1739,73 @@ const UI = {
   toastKehadiranTercatat: { id: "Kehadiran tercatat.", en: "Attendance recorded." },
   toastKehadiranDihapus: { id: "Catatan kehadiran dihapus.", en: "Attendance record deleted." },
 
+  // Dimensi & Rekonsiliasi (Fase 19l).
+  descCostCenter: {
+    id: "Unit biaya opsional yang bisa ditandai per baris jurnal (mis. per cabang / divisi).",
+    en: "Optional cost units that can be tagged per journal line (e.g. per branch / division).",
+  },
+  belumAdaCostCenter: { id: "Belum ada cost center.", en: "No cost centers yet." },
+  takLagiBisaDipilih: {
+    id: "tak lagi bisa dipilih. Jurnal lama tetap tertandai.",
+    en: "can no longer be selected. Existing journals keep their tag.",
+  },
+  labaRugiPerDimensi: { id: "Laba-rugi per dimensi", en: "Profit & loss per dimension" },
+  descLabaRugiDimensi: {
+    id: "Pendapatan & beban dikelompokkan per cost center pada rentang tanggal terpilih.",
+    en: "Income and expenses grouped per cost center over the selected date range.",
+  },
+  belumAdaTransaksiPeriode: {
+    id: "Belum ada transaksi pendapatan/beban pada periode ini.",
+    en: "No income or expense transactions in this period.",
+  },
+  labaRugiKolom: { id: "Laba/Rugi", en: "Profit/Loss" },
+  rekonsiliasiV2: {
+    id: "Rekonsiliasi bank v2 — aturan auto-match",
+    en: "Bank reconciliation v2 — auto-match rules",
+  },
+  descRekonsiliasiV2: {
+    id: "Simpan aturan pencocokan berdasarkan kata kunci deskripsi + toleransi tanggal, untuk mempercepat rekonsiliasi berikutnya.",
+    en: "Save matching rules based on description keywords plus a date tolerance, to speed up future reconciliations.",
+  },
+  akunBank: { id: "Akun bank", en: "Bank account" },
+  kataKunciDeskripsi: { id: "Kata kunci deskripsi", en: "Description keyword" },
+  contohKataKunciBank: { id: "mis. TRSF / BIAYA ADM", en: "e.g. TRSF / BIAYA ADM" },
+  simpanAturan: { id: "Simpan aturan", en: "Save rule" },
+  kataKunciPrefix: { id: "kata kunci", en: "keyword" },
+  belumAdaAturanTersimpan: {
+    id: "Belum ada aturan tersimpan.",
+    en: "No saved rules yet.",
+  },
+  formatImporKoran: {
+    id: "Format impor rekening koran didukung",
+    en: "Supported bank statement import formats",
+  },
+  descFormatImpor: {
+    id: "Saat impor mutasi (menu Kas & Bank), pilih format bank agar kolom terpetakan otomatis:",
+    en: "When importing transactions (Cash & Bank menu), pick your bank's format so the columns map automatically:",
+  },
+
+  // Anggaran (Fase 19l).
+  descAnggaranRealisasi: {
+    id: "Tetapkan target pendapatan & beban per bulan; realisasi dihitung otomatis dari jurnal. Selisih hijau = menguntungkan (pendapatan di atas target atau beban di bawah target).",
+    en: "Set monthly income and expense targets; actuals are computed automatically from the journal. A green variance is favourable (income above target, or expense below target).",
+  },
+  // `periodeBulan` sudah ada sejak Fase 16 — dipakai ulang.
+  hanyaOwnerUbahAnggaran: {
+    id: "Hanya Owner/Admin yang dapat mengubah anggaran.",
+    en: "Only an Owner/Admin can change the budget.",
+  },
+  labaRugiKecil: { id: "Laba/rugi", en: "Profit/loss" },
+  belumAdaAkun: { id: "Belum ada akun", en: "No accounts" },
+  selisihKolom: { id: "Selisih", en: "Variance" },
+  arsipkanCostCenter: { id: "Arsipkan cost center?", en: "Archive this cost center?" },
+  hariSuffixTol: { id: "hari", en: "days" },
+  anggaranVsRealisasi: { id: "Anggaran vs realisasi", en: "Budget vs actual" },
+  kodeKolom: { id: "Kode", en: "Code" },
+  anggaranKolom: { id: "Anggaran", en: "Budget" },
+  belumAdaAkunSuffix: { id: "Belum ada akun", en: "No accounts for" },
+  totalPrefix: { id: "Total", en: "Total" },
+
 } satisfies Record<string, Dual>;
 
 export type UiKey = keyof typeof UI;

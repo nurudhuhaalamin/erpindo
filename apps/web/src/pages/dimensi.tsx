@@ -22,6 +22,7 @@ import {
   Tr,
   useToast,
 } from "../components/ui";
+import { useUi } from "../i18n/ui";
 import { useWorkspace } from "./app";
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -43,6 +44,7 @@ export function DimensiPage() {
 }
 
 function CostCenterCard() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -82,7 +84,7 @@ function CostCenterCard() {
     <Card>
       <CardHeader
         title="Cost center / departemen"
-        description="Unit biaya opsional yang bisa ditandai per baris jurnal (mis. per cabang / divisi)."
+        description={u("descCostCenter")}
       />
       <CardBody className="space-y-4">
         <form
@@ -102,7 +104,7 @@ function CostCenterCard() {
             />
           </div>
           <div>
-            <Label htmlFor="cc-name">Nama</Label>
+            <Label htmlFor="cc-name">{u("nama")}</Label>
             <Input
               id="cc-name"
               value={name}
@@ -111,19 +113,19 @@ function CostCenterCard() {
             />
           </div>
           <Button type="submit" disabled={create.isPending || !code.trim() || !name.trim()}>
-            {create.isPending ? <Spinner /> : null} Tambah
+            {create.isPending ? <Spinner /> : null} {u("tambah")}
           </Button>
         </form>
         {query.isLoading ? (
           <Spinner />
         ) : items.length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada cost center.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{u("belumAdaCostCenter")}</p>
         ) : (
           <Table>
             <Thead>
               <tr>
                 <Th>Kode</Th>
-                <Th>Nama</Th>
+                <Th>{u("nama")}</Th>
                 <Th></Th>
               </tr>
             </Thead>
@@ -133,7 +135,7 @@ function CostCenterCard() {
                   <Td label="Kode" className="font-mono text-xs">
                     {cc.code}
                   </Td>
-                  <Td label="Nama">{cc.name}</Td>
+                  <Td label={u("nama")}>{cc.name}</Td>
                   <Td className="text-right">
                     <button
                       className="text-xs text-red-600 hover:underline dark:text-red-400"
@@ -149,10 +151,10 @@ function CostCenterCard() {
         )}
         <ConfirmDialog
           open={toArchive !== null}
-          title="Arsipkan cost center?"
+          title={u("arsipkanCostCenter")}
           description={
             toArchive
-              ? `${toArchive.name} tak lagi bisa dipilih. Jurnal lama tetap tertandai.`
+              ? `${toArchive.name} ${u("takLagiBisaDipilih")}`
               : undefined
           }
           confirmLabel="Arsipkan"
@@ -167,6 +169,7 @@ function CostCenterCard() {
 }
 
 function DimensionReportCard() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const [from, setFrom] = useState(monthStart());
   const [to, setTo] = useState(today());
@@ -179,8 +182,8 @@ function DimensionReportCard() {
   return (
     <Card>
       <CardHeader
-        title="Laba-rugi per dimensi"
-        description="Pendapatan & beban dikelompokkan per cost center pada rentang tanggal terpilih."
+        title={u("labaRugiPerDimensi")}
+        description={u("descLabaRugiDimensi")}
         action={
           rows.length > 0 ? (
             <Button
@@ -202,7 +205,7 @@ function DimensionReportCard() {
       <CardBody className="space-y-4">
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <Label htmlFor="dim-from">Dari</Label>
+            <Label htmlFor="dim-from">{u("dari")}</Label>
             <Input
               id="dim-from"
               type="date"
@@ -219,7 +222,7 @@ function DimensionReportCard() {
           <Spinner />
         ) : rows.length === 0 ? (
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Belum ada transaksi pendapatan/beban pada periode ini.
+            {u("belumAdaTransaksiPeriode")}
           </p>
         ) : (
           <Table>
@@ -228,7 +231,7 @@ function DimensionReportCard() {
                 <Th>Dimensi</Th>
                 <Th numeric>Pendapatan</Th>
                 <Th numeric>Beban</Th>
-                <Th numeric>Laba/Rugi</Th>
+                <Th numeric>{u("labaRugiKolom")}</Th>
               </tr>
             </Thead>
             <tbody>
@@ -248,7 +251,7 @@ function DimensionReportCard() {
                   </Td>
                   <Td
                     numeric
-                    label="Laba/Rugi"
+                    label={u("labaRugiKolom")}
                     className={`font-medium ${r.net < 0 ? "text-red-600 dark:text-red-400" : ""}`}
                   >
                     {formatIDR(r.net)}
@@ -264,6 +267,7 @@ function DimensionReportCard() {
 }
 
 function BankRuleCard() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -318,8 +322,8 @@ function BankRuleCard() {
   return (
     <Card>
       <CardHeader
-        title="Rekonsiliasi bank v2 — aturan auto-match"
-        description="Simpan aturan pencocokan berdasarkan kata kunci deskripsi + toleransi tanggal, untuk mempercepat rekonsiliasi impor rekening koran."
+        title={u("rekonsiliasiV2")}
+        description={u("descRekonsiliasiV2")}
       />
       <CardBody className="space-y-4">
         <form
@@ -330,9 +334,9 @@ function BankRuleCard() {
           }}
         >
           <div>
-            <Label htmlFor="br-acc">Akun bank</Label>
+            <Label htmlFor="br-acc">{u("akunBank")}</Label>
             <Select id="br-acc" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-              <option value="">— pilih akun —</option>
+              <option value="">{u("pilihAkunOpsi")}</option>
               {bankAccounts.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.code} · {a.name}
@@ -341,12 +345,12 @@ function BankRuleCard() {
             </Select>
           </div>
           <div>
-            <Label htmlFor="br-kw">Kata kunci deskripsi</Label>
+            <Label htmlFor="br-kw">{u("kataKunciDeskripsi")}</Label>
             <Input
               id="br-kw"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              placeholder="mis. TRSF / BIAYA ADM"
+              placeholder={u("contohKataKunciBank")}
             />
           </div>
           <div>
@@ -361,7 +365,7 @@ function BankRuleCard() {
             />
           </div>
           <Button type="submit" disabled={create.isPending || !accountId || !keyword.trim()}>
-            {create.isPending ? <Spinner /> : null} Simpan aturan
+            {create.isPending ? <Spinner /> : null} {u("simpanAturan")}
           </Button>
         </form>
         {rules.length > 0 ? (
@@ -373,25 +377,26 @@ function BankRuleCard() {
               >
                 <span>
                   <Badge tone="neutral">{accName(r.accountId)}</Badge>
-                  kata kunci "<strong>{r.keyword}</strong>" · ±{r.dateTolerance} hari
+                  {u("kataKunciPrefix")} "<strong>{r.keyword}</strong>" · ±{r.dateTolerance}{" "}
+                  {u("hariSuffixTol")}
                 </span>
                 <button
                   className="text-xs text-red-600 hover:underline dark:text-red-400"
                   onClick={() => del.mutate(r.id)}
                 >
-                  Hapus
+                  {u("hapus")}
                 </button>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada aturan tersimpan.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{u("belumAdaAturanTersimpan")}</p>
         )}
         <div className="rounded-xl bg-slate-50 p-4 text-sm dark:bg-slate-800/40">
-          <p className="font-medium">Format impor rekening koran didukung</p>
+          <p className="font-medium">{u("formatImporKoran")}</p>
           <p className="mt-1 text-slate-500 dark:text-slate-400">
-            Saat impor mutasi (menu Kas &amp; Bank), pilih format bank agar kolom terpetakan
-            otomatis: {BANK_CSV_PRESETS.map((p) => p.label.split(" (")[0]).join(", ")}.
+            {u("descFormatImpor")}{" "}
+            {BANK_CSV_PRESETS.map((p) => p.label.split(" (")[0]).join(", ")}.
           </p>
         </div>
       </CardBody>
