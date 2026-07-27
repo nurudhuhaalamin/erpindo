@@ -900,6 +900,36 @@ try {
     `→ EN=${adaAlEn} tanpaID=${tanpaAlId}`,
   );
 
+  // F1s — Fase 19r: Dukungan & dashboard admin platform.
+  // Rute diverifikasi ke main.tsx: /app/dukungan dan /app/admin.
+  //
+  // Untuk /app/admin penandanya adalah pesan "khusus admin platform": akun
+  // simulasi BUKAN admin platform, jadi itulah satu-satunya keadaan halaman
+  // yang benar-benar dirender. Memakai penanda tab admin akan merah walaupun
+  // terjemahannya benar (pelajaran F1c/F1o).
+  await gotoRoute("/app/dukungan", 900);
+  const dkEn = await page.innerText("body");
+  await gotoRoute("/app/admin", 900);
+  const adEn = await page.innerText("body");
+  const adaDkEn =
+    dkEn.includes("Send feedback") &&
+    dkEn.includes("My feedback") &&
+    // Lencana kategori datang dari peta label `shared` yang tetap Indonesia;
+    // sisi web memetakannya sendiri. Tanpa penanda ini kebocoran itu tak
+    // terukur — persis jenis kebocoran yang lolos sapuan teks.
+    dkEn.includes("Feature suggestion") &&
+    adEn.includes("platform admins only");
+  const tanpaDkId =
+    !dkEn.includes("Kirim masukan") &&
+    !dkEn.includes("Masukan saya") &&
+    !dkEn.includes("Saran fitur") &&
+    !adEn.includes("khusus admin platform");
+  check(
+    "F1s isi Dukungan & Admin ikut EN: kartu masukan + label kategori, tanpa teks Indonesia",
+    adaDkEn && tanpaDkId,
+    `→ EN=${adaDkEn} tanpaID=${tanpaDkId}`,
+  );
+
   // Fase 16n — pelunasan utang 16e. Rute diverifikasi ke main.tsx:
   // /app/keuangan/arus-kas dan /app/keuangan/neraca. Baris ringkasan arus kas
   // selalu tampil begitu data termuat (tak bergantung ada/tidaknya mutasi).
