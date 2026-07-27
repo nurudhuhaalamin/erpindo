@@ -26,6 +26,7 @@ import {
   Spinner,
   useToast,
 } from "../components/ui";
+import { useUi } from "../i18n/ui";
 import { useWorkspace } from "./app";
 
 type ContactRow = { id: string; name: string; type: string };
@@ -57,6 +58,7 @@ function ticketAge(t: ApiTicket): { label: string; tone: "green" | "amber" | "re
 }
 
 export function HelpdeskPage() {
+  const u = useUi();
   const h = useHeading("helpdesk");
   const { tenant } = useWorkspace();
   const isAdmin = tenant.role !== "viewer";
@@ -113,7 +115,7 @@ export function HelpdeskPage() {
         priority: form.priority,
       }),
     onSuccess: () => {
-      toast("success", "Tiket dibuat.");
+      toast("success", u("toastTiketDibuat"));
       setForm({ contactId: "", subject: "", description: "", priority: "medium" });
       setFormError(null);
       invalidate();
@@ -161,13 +163,13 @@ export function HelpdeskPage() {
           <CardBody className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-3">
               <div>
-                <Label htmlFor="tk-contact">Pelanggan</Label>
+                <Label htmlFor="tk-contact">{u("pelanggan")}</Label>
                 <Select
                   id="tk-contact"
                   value={form.contactId}
                   onChange={(e) => setForm({ ...form, contactId: e.target.value })}
                 >
-                  <option value="">— pilih —</option>
+                  <option value="">{u("pilihOpsi")}</option>
                   {contacts.map((k) => (
                     <option key={k.id} value={k.id}>
                       {k.name}
@@ -216,7 +218,7 @@ export function HelpdeskPage() {
                 }
               >
                 {createTicket.isPending ? <Spinner /> : <Plus className="size-4" aria-hidden />}{" "}
-                Buat Tiket
+                {u("buatTiket")}
               </Button>
             </div>
             {formError ? <Alert tone="error">{formError}</Alert> : null}
@@ -226,15 +228,15 @@ export function HelpdeskPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <CardHeader title="Daftar tiket" />
+          <CardHeader title={u("daftarTiket")} />
           <CardBody>
             {ticketsQuery.isLoading ? (
               <Spinner />
             ) : tickets.length === 0 ? (
               <EmptyState
                 icon={<LifeBuoy className="size-6" aria-hidden />}
-                title="Belum ada tiket"
-                description="Tiket dukungan akan muncul di sini."
+                title={u("belumAdaTiket")}
+                description={u("descBelumAdaTiket")}
               />
             ) : (
               <div className="space-y-2">
@@ -264,8 +266,8 @@ export function HelpdeskPage() {
                     <div className="mt-1 font-medium">{t.subject}</div>
                     <div className="text-xs text-slate-500 dark:text-slate-400">
                       {t.contactName}
-                      {t.assignedName ? ` · ditugaskan ke ${t.assignedName}` : ""}
-                      {t.replyCount > 0 ? ` · ${t.replyCount} balasan` : ""}
+                      {t.assignedName ? ` ${u("ditugaskanKeSuffix")} ${t.assignedName}` : ""}
+                      {t.replyCount > 0 ? ` · ${t.replyCount} ${u("balasanSuffix")}` : ""}
                     </div>
                   </button>
                 ))}
@@ -279,7 +281,7 @@ export function HelpdeskPage() {
           <CardBody>
             {!selectedId ? (
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Pilih tiket untuk melihat detail.
+                {u("pilihTiketDetail")}
               </p>
             ) : detailQuery.isLoading || !detail ? (
               <Spinner />
@@ -303,7 +305,7 @@ export function HelpdeskPage() {
                 {isAdmin ? (
                   <div className="flex flex-wrap items-end gap-3">
                     <div className="w-40">
-                      <Label htmlFor="tk-status">Status</Label>
+                      <Label htmlFor="tk-status">{u("status")}</Label>
                       <Select
                         id="tk-status"
                         value={detail.status}
@@ -317,13 +319,13 @@ export function HelpdeskPage() {
                       </Select>
                     </div>
                     <div className="w-48">
-                      <Label htmlFor="tk-assign">Ditugaskan ke</Label>
+                      <Label htmlFor="tk-assign">{u("ditugaskanKe")}</Label>
                       <Select
                         id="tk-assign"
                         value={detail.assignedTo ?? ""}
                         onChange={(e) => update.mutate({ assignedTo: e.target.value || null })}
                       >
-                        <option value="">— belum ditugaskan —</option>
+                        <option value="">{u("belumDitugaskanOpsi")}</option>
                         {members.map((m) => (
                           <option key={m.userId} value={m.userId}>
                             {m.name}
@@ -339,7 +341,7 @@ export function HelpdeskPage() {
                     Balasan
                   </h3>
                   {detail.replies.length === 0 ? (
-                    <p className="text-sm text-slate-400">Belum ada balasan.</p>
+                    <p className="text-sm text-slate-400">{u("belumAdaBalasan")}</p>
                   ) : (
                     detail.replies.map((r) => (
                       <div
@@ -352,7 +354,7 @@ export function HelpdeskPage() {
                       >
                         <div className="mb-1 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                           <span className="font-medium">{r.authorName}</span>
-                          {r.internal ? <Badge tone="amber">catatan internal</Badge> : null}
+                          {r.internal ? <Badge tone="amber">{u("catatanInternalKecil")}</Badge> : null}
                           <span>{r.createdAt.slice(0, 16).replace("T", " ")}</span>
                         </div>
                         <p className="whitespace-pre-wrap">{r.body}</p>
@@ -377,7 +379,7 @@ export function HelpdeskPage() {
                           checked={replyInternal}
                           onChange={(e) => setReplyInternal(e.target.checked)}
                         />
-                        Catatan internal (tak terlihat pelanggan)
+                        {u("catatanInternalLabel")}
                       </label>
                       <Button
                         onClick={() => sendReply.mutate()}
