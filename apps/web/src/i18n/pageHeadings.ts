@@ -246,6 +246,13 @@ export const PAGE_HEADINGS = {
       en: "A staged flow: order (SO) → delivery note (goods out) → invoice. A down payment can be taken before invoicing.",
     },
   },
+  persetujuan: {
+    title: { id: "Persetujuan", en: "Approvals" },
+    desc: {
+      id: "Alur persetujuan berjenjang — atur aturan per jenis dokumen & nominal, lalu setujui berurutan sesuai peran.",
+      en: "Multi-step approval flows — set rules per document type and amount, then approve in sequence by role.",
+    },
+  },
   pengadaan: {
     title: { id: "Pengadaan (Procurement)", en: "Procurement" },
     desc: {

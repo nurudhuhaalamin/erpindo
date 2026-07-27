@@ -1540,6 +1540,93 @@ const UI: Record<string, Dual> = {
   toastWorkCenterDitambah: { id: "Work center ditambahkan.", en: "Work center added." },
   toastTahapRoutingDitambah: { id: "Tahap routing ditambahkan.", en: "Routing stage added." },
   toastBiayaAktualDicatat: { id: "Biaya aktual dicatat.", en: "Actual cost recorded." },
+
+  // Persetujuan (Fase 19i).
+  antreanSaya: { id: "Antrean saya", en: "My queue" },
+  riwayatTab: { id: "Riwayat", en: "History" },
+  aturanTab: { id: "Aturan", en: "Rules" },
+  pembelianAmbang: { id: "Pembelian (ambang)", en: "Purchases (threshold)" },
+  descAntrean: {
+    id: "Alur yang langkah aktifnya menunggu peran Anda.",
+    en: "Flows whose current step is waiting on your role.",
+  },
+  antreanKosong: { id: "Antrean kosong", en: "Queue is empty" },
+  descAntreanKosong: {
+    id: "Tak ada alur yang menunggu persetujuan Anda saat ini.",
+    en: "Nothing is waiting on your approval right now.",
+  },
+  descAjukanDokumen: {
+    id: "Ajukan dokumen untuk disetujui sesuai aturan berlaku.",
+    en: "Submit a document for approval under the applicable rules.",
+  },
+  jenisDokumen: { id: "Jenis dokumen", en: "Document type" },
+  judulKeterangan: { id: "Judul / keterangan", en: "Title / description" },
+  contohPembelianLaptop: {
+    id: "mis. Pembelian laptop tim",
+    en: "e.g. Team laptop purchase",
+  },
+  isiNominalUntukAturan: {
+    id: "Isi nominal untuk melihat aturan yang berlaku.",
+    en: "Enter an amount to see which rule applies.",
+  },
+  takAdaAturanCocok: {
+    id: "Tak ada aturan cocok — akan langsung disetujui (tanpa persetujuan).",
+    en: "No matching rule — this will be approved immediately (no approval needed).",
+  },
+  descSemuaPengajuan: {
+    id: "Semua pengajuan + jejak langkah per approver.",
+    en: "All submissions plus the step trail per approver.",
+  },
+  belumAdaPengajuan: { id: "Belum ada pengajuan.", en: "No submissions yet." },
+  otomatisDisetujui: {
+    id: "Otomatis disetujui (tanpa aturan).",
+    en: "Auto-approved (no rule matched).",
+  },
+  descTetapkanAlur: {
+    id: "Tetapkan alur untuk jenis dokumen di atas ambang tertentu — disetujui berurutan sesuai peran.",
+    en: "Define a flow for a document type above a threshold — approved in sequence by role.",
+  },
+  namaAturan: { id: "Nama aturan", en: "Rule name" },
+  contohPembelianBesar: { id: "mis. Pembelian besar", en: "e.g. Large purchase" },
+  belumAdaAturan: { id: "Belum ada aturan", en: "No rules yet" },
+  hapusAturan: { id: "Hapus aturan", en: "Delete rule" },
+  permintaanPembelianAmbang: {
+    id: "Permintaan pembelian (ambang tunggal)",
+    en: "Purchase requests (single threshold)",
+  },
+  descPermintaanAmbang: {
+    id: "Pembelian di atas ambang oleh non-Owner — jurnal & stok baru diproses saat disetujui.",
+    en: "Above-threshold purchases by non-Owners — journal and stock are only processed once approved.",
+  },
+  tidakAdaPermintaan: { id: "Tidak ada permintaan.", en: "No requests." },
+  statusMenunggu: { id: "menunggu", en: "pending" },
+  statusDisetujui: { id: "disetujui", en: "approved" },
+  // `statusDitolak` sudah ada sejak Fase 16 dengan isi sama — dipakai ulang.
+  // Jenis dokumen persetujuan — peta shared → kunci web (pola 16t/19e).
+  docPembelian: { id: "Pembelian", en: "Purchase" },
+  docPesananPembelian: { id: "Pesanan pembelian", en: "Purchase order" },
+  docPengeluaran: { id: "Pengeluaran kas", en: "Cash disbursement" },
+  docJurnal: { id: "Jurnal", en: "Journal entry" },
+  toastAlurSelesai: { id: "Disetujui — alur selesai.", en: "Approved — flow complete." },
+  toastDitolakTitik: { id: "Ditolak.", en: "Rejected." },
+  toastLangkahDisetujui: {
+    id: "Langkah disetujui, lanjut ke approver berikutnya.",
+    en: "Step approved, moving on to the next approver.",
+  },
+  toastDiajukanPrefix: { id: "Diajukan", en: "Submitted" },
+  toastTanpaPersetujuan: {
+    id: "— tak perlu persetujuan, langsung disetujui.",
+    en: "— no approval needed, approved immediately.",
+  },
+  toastMenungguPersetujuan: {
+    id: "— menunggu persetujuan.",
+    en: "— awaiting approval.",
+  },
+  toastAturanDibuat: { id: "Aturan dibuat.", en: "Rule created." },
+  toastAturanDihapus: { id: "Aturan dihapus.", en: "Rule deleted." },
+  toastDisetujuiFakturPrefix: { id: "Disetujui — faktur", en: "Approved — invoice" },
+  toastDiposting: { id: "diposting", en: "posted" },
+  toastPermintaanDitolakTitik: { id: "Permintaan ditolak.", en: "Request rejected." },
 };
 
 export type UiKey = keyof typeof UI;
