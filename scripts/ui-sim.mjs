@@ -737,6 +737,30 @@ try {
     `→ EN=${adaSoEn} tanpaID=${tanpaSoId}`,
   );
 
+  // F1h — Fase 19h: Manufaktur & Pemeliharaan. Dua rute diperiksa dalam satu
+  // cek karena keduanya sub-fase yang sama.
+  //
+  // Penandanya judul kartu yang dirender tanpa syarat data: kartu BoM dan
+  // routing di Manufaktur, kartu jadwal servis di Pemeliharaan.
+  //
+  // Rute diverifikasi ke audit-routes.mjs: /app/manufaktur dan /app/maintenance
+  // (BUKAN /app/aset/pemeliharaan — sempat saya tebak dari nama menunya).
+  await gotoRoute("/app/manufaktur", 900);
+  const mfEn = await page.innerText("body");
+  await gotoRoute("/app/maintenance", 900);
+  const mtEn = await page.innerText("body");
+  const adaMfEn =
+    mfEn.includes("Bill of materials (BoM)") && mfEn.includes("Production routing");
+  const tanpaMfId =
+    !mfEn.includes("Resep produk (BoM)") && !mfEn.includes("Routing produksi");
+  const adaMtEn = mtEn.includes("Service work orders are raised automatically");
+  const tanpaMtId = !mtEn.includes("Servis otomatis diterbitkan");
+  check(
+    "F1h isi Manufaktur & Pemeliharaan ikut EN: kartu BoM/routing/jadwal, tanpa teks Indonesia",
+    adaMfEn && tanpaMfId && adaMtEn && tanpaMtId,
+    `→ manufaktur EN=${adaMfEn}/tanpaID=${tanpaMfId} pemeliharaan EN=${adaMtEn}/tanpaID=${tanpaMtId}`,
+  );
+
   // Fase 16n — pelunasan utang 16e. Rute diverifikasi ke main.tsx:
   // /app/keuangan/arus-kas dan /app/keuangan/neraca. Baris ringkasan arus kas
   // selalu tampil begitu data termuat (tak bergantung ada/tidaknya mutasi).
