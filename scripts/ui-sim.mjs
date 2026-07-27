@@ -688,6 +688,25 @@ try {
     `→ EN=${adaCtEn} tanpaID=${tanpaCtId}`,
   );
 
+  // F1e — Fase 19e: halaman Pajak. Rute diverifikasi ke main.tsx:
+  // /app/keuangan/pajak. Tab bawaan "PPh Final" langsung terbuka.
+  //
+  // Penandanya judul tab + judul kartu setoran — keduanya dirender tanpa syarat
+  // data. Penanda negatifnya memakai kalimat panjang ("Setor PPh Final masa"),
+  // BUKAN kata "Pajak"/"Masa" yang tetap muncul dalam bahasa Inggris sekalipun
+  // karena "PPh" dan "SPT Masa PPN" memang nama resmi yang tidak diterjemahkan.
+  await gotoRoute("/app/keuangan/pajak", 900);
+  const pjEn = await page.innerText("body");
+  const adaPjEn =
+    pjEn.includes("Pay PPh Final for a period") && pjEn.includes("PPh Final payment history");
+  const tanpaPjId =
+    !pjEn.includes("Setor PPh Final masa") && !pjEn.includes("Riwayat setoran PPh Final");
+  check(
+    "F1e isi halaman Pajak ikut EN: kartu setoran + riwayat, tanpa teks Indonesia",
+    adaPjEn && tanpaPjId,
+    `→ EN=${adaPjEn} tanpaID=${tanpaPjId}`,
+  );
+
   // Fase 16n — pelunasan utang 16e. Rute diverifikasi ke main.tsx:
   // /app/keuangan/arus-kas dan /app/keuangan/neraca. Baris ringkasan arus kas
   // selalu tampil begitu data termuat (tak bergantung ada/tidaknya mutasi).

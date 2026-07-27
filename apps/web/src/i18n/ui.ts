@@ -1219,6 +1219,103 @@ const UI: Record<string, Dual> = {
   pratinjauUntuk: { id: "untuk", en: "for" },
   pratinjauDipindahDari: { id: "dipindahkan dari", en: "moved from" },
   pratinjauKe: { id: "ke", en: "to" },
+
+  // Pajak (Fase 19e).
+  //
+  // Batas yang dipakai: **nama resmi tidak diterjemahkan, konsep diterjemahkan.**
+  // "PPh Final", "PPh 23", "SPT Masa PPN 1111", "Bukti Potong" adalah nama
+  // dokumen/pungutan resmi Direktorat Jenderal Pajak — menerjemahkannya justru
+  // menyulitkan pembaca yang harus mencocokkannya dengan formulir asli.
+  // Sebaliknya "Pajak Keluaran"/"Pajak Masukan" adalah konsep yang punya padanan
+  // baku (output/input VAT), dan `tanpaPpn` sejak Fase 16 memang sudah
+  // menerjemahkan PPN menjadi "VAT" — jadi diikuti agar konsisten.
+  //
+  // `masaPajak` sengaja BUKAN memakai kunci `masa` yang sudah ada: isinya
+  // "masa"/"life" untuk masa manfaat aset — nama cocok, makna tidak (Fase 16u).
+  tabPphFinal: { id: "PPh Final 0,5%", en: "PPh Final 0.5%" },
+  tabPph23: { id: "PPh 23 (Bukti Potong)", en: "PPh 23 (withholding slip)" },
+  tabSptPpn: { id: "SPT Masa PPN", en: "Periodic VAT return (SPT Masa PPN)" },
+  setorPphFinalMasa: { id: "Setor PPh Final masa", en: "Pay PPh Final for a period" },
+  descSetorPphFinal: {
+    id: "Omzet (peredaran bruto) dihitung otomatis dari faktur penjualan bulan terpilih × 0,5%.",
+    en: "Gross revenue is computed automatically from the selected month's sales invoices × 0.5%.",
+  },
+  masaPajak: { id: "Masa (bulan)", en: "Period (month)" },
+  bayarDari: { id: "Bayar dari", en: "Pay from" },
+  pilihAkunKasBank: { id: "— pilih akun kas/bank —", en: "— pick a cash/bank account —" },
+  tanggalSetor: { id: "Tanggal setor", en: "Payment date" },
+  catatSetoran: { id: "Catat setoran", en: "Record payment" },
+  omzetMasa: { id: "Omzet masa", en: "Revenue for" },
+  masaSudahDicatat: { id: "Masa ini sudah dicatat.", en: "This period is already recorded." },
+  belumAdaOmzetMasa: {
+    id: "Belum ada omzet pada masa ini.",
+    en: "No revenue in this period yet.",
+  },
+  riwayatSetoranPphFinal: {
+    id: "Riwayat setoran PPh Final",
+    en: "PPh Final payment history",
+  },
+  belumAdaSetoran: { id: "Belum ada setoran tercatat.", en: "No payments recorded yet." },
+  masaKolom: { id: "Masa", en: "Period" },
+  tarif: { id: "Tarif", en: "Rate" },
+  tglSetor: { id: "Tgl setor", en: "Paid on" },
+  // PPh 23
+  buatBuktiPotong23: { id: "Buat bukti potong PPh 23", en: "Create a PPh 23 withholding slip" },
+  descBuktiPotong23: {
+    id: "Potong PPh 23 atas jasa/sewa/royalti/dll dari rekanan. Menciptakan Hutang PPh 23 untuk disetor.",
+    en: "Withhold PPh 23 on services/rent/royalties/etc. from a counterparty. Creates a PPh 23 payable to remit.",
+  },
+  pilihRekanan: { id: "— pilih rekanan —", en: "— pick a counterparty —" },
+  contohNominalBesar: { id: "mis. 10000000", en: "e.g. 10000000" },
+  akunSumber: { id: "Akun sumber", en: "Source account" },
+  hutangUsahaAtauKas: { id: "— hutang usaha / kas —", en: "— trade payable / cash —" },
+  buatBuktiPotong: { id: "Buat bukti potong", en: "Create slip" },
+  belumAdaBuktiPotong: { id: "Belum ada bukti potong.", en: "No withholding slips yet." },
+  // `nomor` sudah ada sejak Fase 16 dengan isi sama — tidak ditambah ulang.
+  belumSetor: { id: "Belum setor", en: "Not yet remitted" },
+  kasBankSingkat: { id: "kas/bank", en: "cash/bank" },
+  setorAksi: { id: "Setor", en: "Remit" },
+  objekPajak: { id: "Objek", en: "Object" },
+  // Objek PPh 23 — peta kode → kunci di sisi web (pola Fase 16t: packages/shared
+  // tetap berbahasa Indonesia karena apps/api ikut memakainya).
+  pph23Jasa: {
+    id: "Jasa (teknik/manajemen/konsultan/lainnya)",
+    en: "Services (engineering/management/consulting/other)",
+  },
+  pph23Sewa: {
+    id: "Sewa & penghasilan lain terkait harta",
+    en: "Rent & other property-related income",
+  },
+  pph23Royalti: { id: "Royalti", en: "Royalties" },
+  pph23Bunga: { id: "Bunga", en: "Interest" },
+  pph23Dividen: { id: "Dividen", en: "Dividends" },
+  // SPT Masa PPN
+  ppnKurangBayar: { id: "PPN Kurang Bayar (setor)", en: "VAT payable (to remit)" },
+  sptMasaPpn1111: { id: "SPT Masa PPN 1111", en: "SPT Masa PPN 1111 (periodic VAT return)" },
+  descSptMasaPpn: {
+    id: "Rekap Pajak Keluaran (A: faktur penjualan ber-PPN) vs Pajak Masukan (B: pembelian ber-PPN).",
+    en: "Summary of output VAT (A: sales invoices with VAT) vs input VAT (B: purchases with VAT).",
+  },
+  pajakKeluaranA: {
+    id: "A. Pajak Keluaran (faktur penjualan)",
+    en: "A. Output VAT (sales invoices)",
+  },
+  pajakMasukanB: { id: "B. Pajak Masukan (pembelian)", en: "B. Input VAT (purchases)" },
+  tidakAdaTransaksiPpn: {
+    id: "Tidak ada transaksi ber-PPN pada masa ini.",
+    en: "No VAT transactions in this period.",
+  },
+  lawanTransaksi: { id: "Lawan Transaksi", en: "Counterparty" },
+  // Pesan toast. Program 16b–16k sengaja mengecualikan toast, tetapi sejak 19c
+  // pesan umpan-balik ikut diterjemahkan — halaman yang antarmukanya Inggris
+  // tetapi konfirmasinya Indonesia terasa setengah jadi.
+  toastSetoranPphTercatat: {
+    id: "Setoran PPh Final tercatat & terjurnal.",
+    en: "PPh Final payment recorded and journalised.",
+  },
+  toastBuktiPotongDibuat: { id: "dibuat.", en: "created." },
+  toastBuktiPotongPrefix: { id: "Bukti potong", en: "Withholding slip" },
+  toastPph23Disetor: { id: "PPh 23 disetor.", en: "PPh 23 remitted." },
 };
 
 export type UiKey = keyof typeof UI;
