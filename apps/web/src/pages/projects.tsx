@@ -32,7 +32,12 @@ import {
   PageHeading,
   Select,
   Spinner,
+  Table,
   Tabs,
+  Td,
+  Th,
+  Thead,
+  Tr,
   useToast,
 } from "../components/ui";
 import { useWorkspace } from "./app";
@@ -378,41 +383,39 @@ function ProjectRow({ project, isAdmin }: { project: ApiProject; isAdmin: boolea
                         {u("belumAdaTransaksiProyek")}
                       </p>
                     ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                              <th className="pb-1 pr-3 font-medium">{u("jurnal")}</th>
-                              <th className="pb-1 pr-3 font-medium">{u("tanggal")}</th>
-                              <th className="pb-1 pr-3 font-medium">{u("keterangan")}</th>
-                              <th className="pb-1 pr-3 text-right font-medium">
-                                {u("pendapatan")}
-                              </th>
-                              <th className="pb-1 text-right font-medium">{u("biaya")}</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {detail.entries.map((e, i) => (
-                              <tr
-                                key={i}
-                                className="border-b border-slate-100 last:border-0 dark:border-slate-800/60"
-                              >
-                                <td className="py-1 pr-3 font-mono text-xs">{e.entryNo}</td>
-                                <td className="py-1 pr-3 text-slate-400">
-                                  {formatDate(e.entryDate)}
-                                </td>
-                                <td className="py-1 pr-3">{e.memo ?? "—"}</td>
-                                <td className="py-1 pr-3 text-right tabular-nums">
-                                  {e.revenue ? formatIDR(e.revenue) : "—"}
-                                </td>
-                                <td className="py-1 text-right tabular-nums">
-                                  {e.cost ? formatIDR(e.cost) : "—"}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                      // Judul kolom datang dari `u()`, jadi `label` kartu wajib
+                      // ikut `u()` juga — bukan string Indonesia keras
+                      // (pelajaran 18r).
+                      <Table>
+                        <Thead>
+                          <tr>
+                            <Th>{u("jurnal")}</Th>
+                            <Th>{u("tanggal")}</Th>
+                            <Th>{u("keterangan")}</Th>
+                            <Th numeric>{u("pendapatan")}</Th>
+                            <Th numeric>{u("biaya")}</Th>
+                          </tr>
+                        </Thead>
+                        <tbody>
+                          {detail.entries.map((e, i) => (
+                            <Tr key={i}>
+                              <Td label={u("jurnal")} className="font-mono text-xs">
+                                {e.entryNo}
+                              </Td>
+                              <Td label={u("tanggal")} className="text-slate-400">
+                                {formatDate(e.entryDate)}
+                              </Td>
+                              <Td label={u("keterangan")}>{e.memo ?? "—"}</Td>
+                              <Td numeric label={u("pendapatan")}>
+                                {e.revenue ? formatIDR(e.revenue) : "—"}
+                              </Td>
+                              <Td numeric label={u("biaya")}>
+                                {e.cost ? formatIDR(e.cost) : "—"}
+                              </Td>
+                            </Tr>
+                          ))}
+                        </tbody>
+                      </Table>
                     )}
                   </div>
                 </>

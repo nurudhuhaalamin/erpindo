@@ -3,7 +3,19 @@ import { useHeading } from "../i18n/pageHeadings";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { api, downloadCsv, formatIDR } from "../api/client";
-import { Badge, Card, CardBody, Label, Input, Spinner } from "../components/ui";
+import {
+  Badge,
+  Card,
+  CardBody,
+  Label,
+  Input,
+  Spinner,
+  Table,
+  Td,
+  Th,
+  Thead,
+  Tr,
+} from "../components/ui";
 import { ExportButton } from "./reports";
 
 function today(): string {
@@ -32,8 +44,6 @@ function ConsolidatedTable({
   perCompanyTotals: Record<string, number>;
   totalLabel: string;
 }) {
-  const th = "pb-2 pr-4 text-left font-medium text-slate-500 dark:text-slate-400";
-  const td = "border-b border-slate-100 py-2 pr-4 dark:border-slate-800/60";
   const grand = companies.reduce((s, c) => s + (perCompanyTotals[c.tenantId] ?? 0), 0);
 
   return (
@@ -41,58 +51,64 @@ function ConsolidatedTable({
       <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
         {title}
       </h3>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[560px] text-sm">
-          <thead>
-            <tr className="border-b border-slate-200 dark:border-slate-800">
-              <th className={th}>Akun</th>
-              {companies.map((c) => (
-                <th key={c.tenantId} className={`${th} text-right`}>
-                  {c.name}
-                </th>
-              ))}
-              <th className={`${th} text-right`}>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td className="py-3 text-slate-400" colSpan={companies.length + 2}>
-                  Tidak ada data.
-                </td>
-              </tr>
-            ) : (
-              rows.map((r) => (
-                <tr key={r.code}>
-                  <td className={td}>
-                    <span className="font-mono text-xs text-slate-400">{r.code}</span> {r.name}
-                  </td>
-                  {companies.map((c) => {
-                    const v = r.amounts[c.tenantId] ?? 0;
-                    return (
-                      <td key={c.tenantId} className={`${td} text-right tabular-nums`}>
-                        {v ? formatIDR(v) : "—"}
-                      </td>
-                    );
-                  })}
-                  <td className={`${td} text-right font-medium tabular-nums`}>
-                    {formatIDR(r.total)}
-                  </td>
-                </tr>
-              ))
-            )}
-            <tr className="font-semibold">
-              <td className="py-2 pr-4">{totalLabel}</td>
-              {companies.map((c) => (
-                <td key={c.tenantId} className="py-2 pr-4 text-right tabular-nums">
-                  {formatIDR(perCompanyTotals[c.tenantId] ?? 0)}
-                </td>
-              ))}
-              <td className="py-2 text-right tabular-nums">{formatIDR(grand)}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      {/* Kolom tabel ini DINAMIS — satu kolom per perusahaan. Karena itu
+          `label` kartu tidak bisa ditulis tetap seperti tabel lain: ia harus
+          ikut `c.name`, kalau tidak pembaca di HP melihat deretan angka tanpa
+          tahu angka siapa. Inilah satu-satunya bentuk tabel di aplikasi ini
+          yang jumlah kolomnya ditentukan data, bukan kode. */}
+      <Table>
+        <Thead>
+          <tr>
+            <Th>Akun</Th>
+            {companies.map((c) => (
+              <Th key={c.tenantId} numeric>
+                {c.name}
+              </Th>
+            ))}
+            <Th numeric>Total</Th>
+          </tr>
+        </Thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <Tr>
+              <Td className="text-slate-400" colSpan={companies.length + 2}>
+                Tidak ada data.
+              </Td>
+            </Tr>
+          ) : (
+            rows.map((r) => (
+              <Tr key={r.code}>
+                {/* Bukan `numeric`: selnya memuat kode DAN nama akun. */}
+                <Td label="Akun">
+                  <span className="font-mono text-xs text-slate-400">{r.code}</span> {r.name}
+                </Td>
+                {companies.map((c) => {
+                  const v = r.amounts[c.tenantId] ?? 0;
+                  return (
+                    <Td key={c.tenantId} numeric label={c.name}>
+                      {v ? formatIDR(v) : "—"}
+                    </Td>
+                  );
+                })}
+                <Td numeric label="Total" className="font-medium">
+                  {formatIDR(r.total)}
+                </Td>
+              </Tr>
+            ))
+          )}
+          <Tr className="font-semibold">
+            <Td>{totalLabel}</Td>
+            {companies.map((c) => (
+              <Td key={c.tenantId} numeric label={c.name}>
+                {formatIDR(perCompanyTotals[c.tenantId] ?? 0)}
+              </Td>
+            ))}
+            <Td numeric label="Total">
+              {formatIDR(grand)}
+            </Td>
+          </Tr>
+        </tbody>
+      </Table>
     </div>
   );
 }
