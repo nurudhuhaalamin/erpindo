@@ -861,6 +861,23 @@ try {
     `→ EN=${adaMlEn} tanpaID=${tanpaMlId}`,
   );
 
+  // F1o — Fase 19o: halaman Migrasi (saldo awal).
+  // Rute diverifikasi ke audit-routes.mjs: /app/migrasi.
+  //
+  // Penandanya kalimat yang tampil pada KEDUA keadaan halaman: perusahaan demo
+  // sudah punya jurnal terposting, jadi yang dirender adalah peringatan buku
+  // terkunci — bukan formulir impor. Memakai penanda formulir akan merah
+  // walaupun terjemahannya benar (pelajaran F1c).
+  await gotoRoute("/app/migrasi", 900);
+  const mgEn = await page.innerText("body");
+  const adaMgEn = mgEn.includes("The books already contain");
+  const tanpaMgId = !mgEn.includes("Buku sudah berisi");
+  check(
+    "F1o isi halaman Migrasi ikut EN: peringatan buku terkunci, tanpa teks Indonesia",
+    adaMgEn && tanpaMgId,
+    `→ EN=${adaMgEn} tanpaID=${tanpaMgId}`,
+  );
+
   // Fase 16n — pelunasan utang 16e. Rute diverifikasi ke main.tsx:
   // /app/keuangan/arus-kas dan /app/keuangan/neraca. Baris ringkasan arus kas
   // selalu tampil begitu data termuat (tak bergantung ada/tidaknya mutasi).

@@ -13,6 +13,7 @@ import {
   Spinner,
   useToast,
 } from "../components/ui";
+import { useUi } from "../i18n/ui";
 import { useWorkspace } from "./app";
 
 /**
@@ -30,6 +31,7 @@ const ACCOUNTS_SAMPLE =
 const STOCK_SAMPLE = "sku,gudang,qty,biaya\nRTL-001,Utama,100,2000\nRTL-002,Utama,50,2500";
 
 export function MigrationPage() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -63,7 +65,7 @@ export function MigrationPage() {
       const validCodes = new Set((accounts.data?.accounts ?? []).map((a: AccountRow) => a.code));
       const accountsInput = accRows.map((r) => {
         const code = r.kode ?? r.code ?? "";
-        if (!validCodes.has(code)) throw new Error(`Kode akun tidak dikenal: ${code}`);
+        if (!validCodes.has(code)) throw new Error(`${u("kodeAkunTakDikenal")} ${code}`);
         return {
           accountCode: code,
           debit: Math.round(Number(r.debit) || 0),
@@ -74,9 +76,9 @@ export function MigrationPage() {
       const byWh = new Map((warehouses.data?.items ?? []).map((w) => [w.name.toLowerCase(), w.id]));
       const stockInput = stkRows.map((r) => {
         const pid = bySku.get((r.sku ?? "").toLowerCase());
-        if (!pid) throw new Error(`SKU tidak ditemukan: ${r.sku}`);
+        if (!pid) throw new Error(`${u("skuTakDitemukan")} ${r.sku}`);
         const wid = byWh.get((r.gudang ?? "").toLowerCase());
-        if (!wid) throw new Error(`Gudang tidak ditemukan: ${r.gudang}`);
+        if (!wid) throw new Error(`${u("gudangTakDitemukan")} ${r.gudang}`);
         return {
           productId: pid,
           warehouseId: wid,
@@ -93,7 +95,7 @@ export function MigrationPage() {
     onSuccess: (res) => {
       toast(
         "success",
-        `Saldo awal tersimpan (jurnal ${res.entryNo}, nilai stok ${formatIDR(res.stockValue)}).`
+        `${u("toastSaldoAwalPrefix")} ${res.entryNo}, ${u("toastNilaiStok")} ${formatIDR(res.stockValue)}).`
       );
       setAccountsCsv("");
       setStockCsv("");
@@ -122,18 +124,17 @@ export function MigrationPage() {
 
       {!canSet ? (
         <Alert tone="info">
-          Buku sudah berisi {status.data?.postedEntries ?? 0} jurnal terposting. Saldo awal hanya
-          bisa diisi saat buku masih kosong (perusahaan baru) untuk menjaga integritas pembukuan.
+          {u("bukuSudahBerisi")} {status.data?.postedEntries ?? 0} {u("descBukuTerkunci")}
         </Alert>
       ) : (
         <Card>
           <CardHeader
-            title="Impor saldo awal"
-            description="Tempel data CSV dari sistem lama. Persediaan diambil dari bagian Stok — jangan diisi di saldo akun."
+            title={u("imporSaldoAwal")}
+            description={u("descImporSaldoAwal")}
           />
           <CardBody className="space-y-4">
             <div>
-              <Label htmlFor="asof">Tanggal saldo awal</Label>
+              <Label htmlFor="asof">{u("tanggalSaldoAwal")}</Label>
               <input
                 id="asof"
                 type="date"
@@ -143,7 +144,7 @@ export function MigrationPage() {
               />
             </div>
             <div>
-              <Label htmlFor="acc">Saldo akun — CSV: kode, debit, kredit</Label>
+              <Label htmlFor="acc">{u("labelCsvAkun")}</Label>
               <textarea
                 id="acc"
                 rows={5}
@@ -161,7 +162,7 @@ export function MigrationPage() {
               </button>
             </div>
             <div>
-              <Label htmlFor="stk">Stok awal — CSV: sku, gudang, qty, biaya</Label>
+              <Label htmlFor="stk">{u("labelCsvStok")}</Label>
               <textarea
                 id="stk"
                 rows={4}
@@ -184,12 +185,10 @@ export function MigrationPage() {
               disabled={submit.isPending || (!accountsCsv.trim() && !stockCsv.trim())}
             >
               {submit.isPending ? <Spinner /> : <UploadCloud className="size-4" aria-hidden />}{" "}
-              Simpan saldo awal
+              {u("simpanSaldoAwal")}
             </Button>
             <p className="text-xs text-slate-400">
-              Jurnal pembuka dijamin seimbang: jika total debit ≠ kredit, selisihnya otomatis
-              ditempatkan di Ekuitas Saldo Awal. Nilai persediaan disetel agar cocok dengan buku
-              besar.
+              {u("descJurnalPembuka")}
             </p>
           </CardBody>
         </Card>

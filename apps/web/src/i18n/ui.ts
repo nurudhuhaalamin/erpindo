@@ -1946,6 +1946,37 @@ const UI = {
     en: "Toko Berkah / PT Sumber Rezeki",
   },
 
+  // Migrasi saldo awal (Fase 19o).
+  kodeAkunTakDikenal: { id: "Kode akun tidak dikenal:", en: "Unknown account code:" },
+  skuTakDitemukan: { id: "SKU tidak ditemukan:", en: "SKU not found:" },
+  gudangTakDitemukan: { id: "Gudang tidak ditemukan:", en: "Warehouse not found:" },
+  bukuSudahBerisi: { id: "Buku sudah berisi", en: "The books already contain" },
+  descBukuTerkunci: {
+    id: "jurnal terposting. Saldo awal hanya bisa diisi saat buku masih kosong (perusahaan baru) untuk menjaga integritas pembukuan.",
+    en: "posted journal entries. Opening balances can only be entered while the books are still empty (a new company), to keep the bookkeeping sound.",
+  },
+  imporSaldoAwal: { id: "Impor saldo awal", en: "Import opening balances" },
+  descImporSaldoAwal: {
+    id: "Tempel data CSV dari sistem lama. Persediaan diambil dari bagian Stok — jangan diisi di saldo akun.",
+    en: "Paste CSV data from your old system. Inventory comes from the Stock section — do not enter it under account balances.",
+  },
+  tanggalSaldoAwal: { id: "Tanggal saldo awal", en: "Opening balance date" },
+  labelCsvAkun: {
+    id: "Saldo akun — CSV: kode, debit, kredit",
+    en: "Account balances — CSV: code, debit, credit",
+  },
+  labelCsvStok: {
+    id: "Stok awal — CSV: sku, gudang, qty, biaya",
+    en: "Opening stock — CSV: sku, warehouse, qty, cost",
+  },
+  simpanSaldoAwal: { id: "Simpan saldo awal", en: "Save opening balances" },
+  toastSaldoAwalPrefix: { id: "Saldo awal tersimpan (jurnal", en: "Opening balances saved (entry" },
+  toastNilaiStok: { id: "nilai stok", en: "stock value" },
+  descJurnalPembuka: {
+    id: "Jurnal pembuka dijamin seimbang: jika total debit ≠ kredit, selisihnya otomatis ditempatkan di Ekuitas Saldo Awal. Nilai persediaan disetel agar cocok dengan buku besar.",
+    en: "The opening journal is always balanced: if total debit ≠ credit, the difference is placed automatically in Opening Balance Equity. Inventory value is adjusted to match the ledger.",
+  },
+
 } satisfies Record<string, Dual>;
 
 export type UiKey = keyof typeof UI;
