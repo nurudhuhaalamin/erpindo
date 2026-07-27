@@ -707,6 +707,21 @@ try {
     `→ EN=${adaPjEn} tanpaID=${tanpaPjId}`,
   );
 
+  // F1f — Fase 19f: halaman Pengadaan. Rute diverifikasi ke audit-routes.mjs:
+  // /app/pengadaan. Ketiga judul kartu tahapan (PR → PO → GRN) selalu dirender,
+  // tidak bergantung data maupun peran.
+  await gotoRoute("/app/pengadaan", 900);
+  const pgEn = await page.innerText("body");
+  const adaPgEn =
+    pgEn.includes("1. Purchase requisition (PR)") && pgEn.includes("3. Goods receipt (GRN)");
+  const tanpaPgId =
+    !pgEn.includes("1. Permintaan pembelian (PR)") && !pgEn.includes("3. Penerimaan barang (GRN)");
+  check(
+    "F1f isi halaman Pengadaan ikut EN: kartu PR/PO/GRN, tanpa teks Indonesia",
+    adaPgEn && tanpaPgId,
+    `→ EN=${adaPgEn} tanpaID=${tanpaPgId}`,
+  );
+
   // Fase 16n — pelunasan utang 16e. Rute diverifikasi ke main.tsx:
   // /app/keuangan/arus-kas dan /app/keuangan/neraca. Baris ringkasan arus kas
   // selalu tampil begitu data termuat (tak bergantung ada/tidaknya mutasi).

@@ -579,7 +579,7 @@ function SptPpnSection() {
   const netLabel = useMemo(() => {
     if (!data) return "";
     return data.net >= 0 ? u("ppnKurangBayar") : u("ppnLebihBayar");
-  }, [data]);
+  }, [data, u]);
 
   return (
     <div className="space-y-6">

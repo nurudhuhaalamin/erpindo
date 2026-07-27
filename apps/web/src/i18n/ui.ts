@@ -1316,6 +1316,73 @@ const UI: Record<string, Dual> = {
   toastBuktiPotongDibuat: { id: "dibuat.", en: "created." },
   toastBuktiPotongPrefix: { id: "Bukti potong", en: "Withholding slip" },
   toastPph23Disetor: { id: "PPh 23 disetor.", en: "PPh 23 remitted." },
+
+  // Pengadaan (Fase 19f).
+  //
+  // Dua kunci sengaja dibuat baru meski namanya "sudah ada" — persis jebakan
+  // Fase 16u, dan di berkas ini muncul dua kali sekaligus:
+  //   `diterima`  = "Diterima"/"Accepted" (persetujuan)  ≠ barang DITERIMA
+  //   `jumlah`    = "Jumlah"/"Amount" (nominal rupiah)   ≠ jumlah UNIT barang
+  // Memakainya di sini akan menghasilkan terjemahan yang sekilas benar tetapi
+  // salah arti.
+  qtyBarang: { id: "Jumlah", en: "Qty" },
+  barangDiterima: { id: "Diterima", en: "Received" },
+  prJudul: { id: "1. Permintaan pembelian (PR)", en: "1. Purchase requisition (PR)" },
+  descPr: {
+    id: "Ajukan daftar barang yang dibutuhkan — belum ada harga/pemasok. Perlu disetujui sebelum jadi pesanan.",
+    en: "Submit a list of items needed — no prices or supplier yet. Needs approval before becoming an order.",
+  },
+  // `pilihProdukOpsi` sudah ada (Fase 16) dengan isi sama — dipakai ulang.
+  catatanBaris: { id: "Catatan baris", en: "Line note" },
+  catatanPermintaan: { id: "Catatan permintaan", en: "Requisition note" },
+  catatanPermintaanOpsional: {
+    id: "Catatan permintaan (opsional)",
+    en: "Requisition note (optional)",
+  },
+  barisAksi: { id: "Baris", en: "Line" },
+  belumAdaPermintaan: { id: "Belum ada permintaan pembelian.", en: "No purchase requisitions yet." },
+  poJudul: { id: "2. Pesanan pembelian (PO)", en: "2. Purchase order (PO)" },
+  descPo: {
+    id: "Buat pesanan ke pemasok — pilih pemasok, gudang tujuan, harga per barang. Bisa menarik dari permintaan yang disetujui.",
+    en: "Create an order to a supplier — pick the supplier, destination warehouse, and unit prices. Can be pulled from an approved requisition.",
+  },
+  dariPermintaanOpsional: { id: "Dari permintaan (opsional)", en: "From requisition (optional)" },
+  barangSuffix: { id: "barang)", en: "items)" },
+  pilihPemasokOpsi: { id: "— pilih pemasok —", en: "— pick a supplier —" },
+  gudangTujuan: { id: "Gudang tujuan", en: "Destination warehouse" },
+  pilihGudangOpsi: { id: "— pilih gudang —", en: "— pick a warehouse —" },
+  tanggalPesan: { id: "Tanggal pesan", en: "Order date" },
+  buatPesanan: { id: "Buat pesanan", en: "Create order" },
+  belumAdaPesanan: { id: "Belum ada pesanan", en: "No orders yet" },
+  descBelumAdaPesanan: {
+    id: "Buat pesanan pembelian ke pemasok untuk mulai.",
+    en: "Create a purchase order to a supplier to get started.",
+  },
+  jumlahBarangDiterima: { id: "Jumlah barang diterima:", en: "Quantity received:" },
+  tanggalTerima: { id: "Tanggal terima", en: "Receipt date" },
+  terimaBuatFaktur: { id: "Terima & buat faktur", en: "Receive & create invoice" },
+  terimaBarang: { id: "Terima barang", en: "Receive goods" },
+  // Sengaja BUKAN `batalkan` yang sudah ada: kunci itu berarti "Void"
+  // (membatalkan faktur), sedangkan di sini yang dibatalkan adalah PESANAN.
+  batalkanPesanan: { id: "Batalkan", en: "Cancel order" },
+  grnJudul: { id: "3. Penerimaan barang (GRN)", en: "3. Goods receipt (GRN)" },
+  descGrn: {
+    id: "Riwayat penerimaan — tiap penerimaan otomatis menjadi faktur pembelian & menambah stok.",
+    en: "Receipt history — each receipt automatically becomes a purchase invoice and adds stock.",
+  },
+  belumAdaPenerimaan: { id: "Belum ada penerimaan barang.", en: "No goods receipts yet." },
+  toastPermintaanPrefix: { id: "Permintaan", en: "Requisition" },
+  toastDiajukan: { id: "diajukan.", en: "submitted." },
+  toastPermintaanDisetujui: { id: "Permintaan disetujui.", en: "Requisition approved." },
+  toastPermintaanDitolak: { id: "Permintaan ditolak.", en: "Requisition rejected." },
+  toastPesananPrefix: { id: "Pesanan", en: "Order" },
+  toastDibuat: { id: "dibuat.", en: "created." },
+  toastPesananDibatalkan: { id: "Pesanan dibatalkan.", en: "Order cancelled." },
+  toastBarangDiterimaPrefix: { id: "Barang diterima — faktur", en: "Goods received — invoice" },
+  toastTerbentukStokMasuk: {
+    id: "terbentuk (stok masuk).",
+    en: "created (stock added).",
+  },
 };
 
 export type UiKey = keyof typeof UI;
