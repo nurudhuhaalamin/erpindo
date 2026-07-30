@@ -3,6 +3,8 @@ import {
   fixedAssetSchema,
   runDepreciationSchema,
   type ApiFixedAsset,
+  revalueAssetSchema,
+  type ApiAssetRevaluation,
 } from "@erpindo/shared";
 import type { SqlExecutor } from "@erpindo/db";
 import { Hono } from "hono";
@@ -25,6 +27,7 @@ const AKUM_PENYUSUTAN = "1-1510";
 const BEBAN_PENYUSUTAN = "5-5000";
 const PENDAPATAN_LAIN = "4-2000";
 const BEBAN_LAIN = "5-4000";
+const SURPLUS_REVALUASI = "3-3000";
 
 const monthlyDep = (cost: number, residual: number, lifeMonths: number) =>
   Math.round((cost - residual) / lifeMonths);
@@ -134,6 +137,56 @@ export function buildDisposalJournal(params: {
     ...(gain > 0 ? [{ accountId: accounts.pendLain, description: `Laba pelepasan ${assetName}`, debit: 0, credit: gain }] : []),
   ].filter((l) => l.debit > 0 || l.credit > 0);
   return { bookValue, gain, lines };
+}
+
+/**
+ * Jurnal revaluasi aset tetap (Fase 20e) — model revaluasi PSAK 16, metode
+ * ELIMINASI: akumulasi penyusutan dinolkan, harga perolehan disetel ke nilai
+ * wajar. Penyusutan setelahnya berjalan lurus dari nilai baru.
+ *
+ * Aljabarnya (C = perolehan, A = akumulasi, B = C − A nilai buku, F = nilai
+ * wajar, D = F − B selisih revaluasi):
+ *
+ *   Dr Akum. Penyusutan   A            (menolkan akumulasi)
+ *   Dr/Cr Aset Tetap      F − C        (menyetel perolehan ke nilai wajar)
+ *   Cr Surplus Revaluasi  D            bila D > 0
+ *   Dr Rugi Revaluasi     −D           bila D < 0
+ *
+ * Seimbang karena D = F − C + A, jadi A + (F − C) − D = 0 identik nol —
+ * bukan kebetulan yang harus dicek satu per satu, melainkan sifat rumusnya.
+ *
+ * KENAIKAN masuk EKUITAS (surplus revaluasi), bukan pendapatan: kenaikan nilai
+ * wajar belum terealisasi. PENURUNAN masuk beban, karena kehati-hatian menuntut
+ * rugi diakui begitu diketahui.
+ */
+export function buildRevaluationJournal(params: {
+  assetName: string;
+  acquisitionCost: number;
+  accumulatedDepreciation: number;
+  fairValue: number;
+  accounts: { asetTetap: string; akum: string; surplus: string; bebanLain: string };
+}): { bookValue: number; difference: number; lines: DisposalLine[] } {
+  const { assetName, acquisitionCost: C, accumulatedDepreciation: A, fairValue: F, accounts } = params;
+  const bookValue = C - A;
+  const difference = F - bookValue;
+  const selisihPerolehan = F - C;
+  const lines: DisposalLine[] = [
+    { accountId: accounts.akum, description: `Revaluasi ${assetName} — nol-kan akumulasi`, debit: A, credit: 0 },
+    {
+      accountId: accounts.asetTetap,
+      description: `Revaluasi ${assetName} — setel ke nilai wajar`,
+      debit: selisihPerolehan > 0 ? selisihPerolehan : 0,
+      credit: selisihPerolehan < 0 ? -selisihPerolehan : 0,
+    },
+    {
+      accountId: difference >= 0 ? accounts.surplus : accounts.bebanLain,
+      description:
+        difference >= 0 ? `Surplus revaluasi ${assetName}` : `Rugi penurunan nilai ${assetName}`,
+      debit: difference < 0 ? -difference : 0,
+      credit: difference > 0 ? difference : 0,
+    },
+  ].filter((l) => l.debit > 0 || l.credit > 0);
+  return { bookValue, difference, lines };
 }
 
 async function listAssets(db: SqlExecutor): Promise<ApiFixedAsset[]> {
@@ -325,4 +378,107 @@ export const assetRoutes = new Hono<AppEnv>()
       ip: clientIp(c),
     });
     return c.json({ ok: true, bookValue, gain, journalNo: journal.entryNo }, 201);
+  })
+
+  /**
+   * Revaluasi aset (Fase 20e) — model revaluasi PSAK 16, metode eliminasi.
+   *
+   * Menolak aset yang sudah dilepas dan menghormati periode terkunci, sama
+   * seperti pelepasan: revaluasi menulis jurnal bertanggal, jadi ia tunduk
+   * pada aturan tutup buku yang sama.
+   */
+  .post("/:tenantId/assets/:id/revaluation", requireAuth, requireTenantRole("admin"), async (c) => {
+    const parsed = revalueAssetSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) {
+      return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
+    }
+    const tenant = c.get("tenant");
+    const db = getTenantDb(c.env, tenant.dbRef);
+    const id = c.req.param("id");
+    const input = parsed.data;
+
+    const { results } = await db
+      .prepare(`SELECT name, acquisition_cost, accumulated_depreciation, status FROM fixed_assets WHERE id = ?`)
+      .bind(id)
+      .all<{ name: string; acquisition_cost: number; accumulated_depreciation: number; status: string }>();
+    const asset = results[0];
+    if (!asset) return c.json({ error: "Aset tidak ditemukan." }, 404);
+    if (asset.status === "disposed") return c.json({ error: "Aset sudah dilepas, tidak bisa direvaluasi." }, 400);
+    const lockError = await getLockedBefore(db);
+    if (lockError && input.revalDate <= lockError) {
+      return c.json({ error: `Periode sampai ${lockError} sudah ditutup.` }, 400);
+    }
+
+    const [asetTetap, akum, surplus, bebanLain] = await Promise.all([
+      accountIdByCode(db, ASET_TETAP),
+      accountIdByCode(db, AKUM_PENYUSUTAN),
+      accountIdByCode(db, SURPLUS_REVALUASI),
+      accountIdByCode(db, BEBAN_LAIN),
+    ]);
+    const { bookValue, difference, lines } = buildRevaluationJournal({
+      assetName: asset.name,
+      acquisitionCost: asset.acquisition_cost,
+      accumulatedDepreciation: asset.accumulated_depreciation,
+      fairValue: input.fairValue,
+      accounts: { asetTetap, akum, surplus, bebanLain },
+    });
+
+    const journal =
+      lines.length > 0
+        ? await postJournal(db, {
+            entryDate: input.revalDate,
+            memo: `Revaluasi aset: ${asset.name}`,
+            createdBy: c.get("user").id,
+            lines,
+          })
+        : null;
+
+    // Metode eliminasi: perolehan disetel ke nilai wajar, akumulasi dinolkan.
+    // Penyusutan berikutnya berjalan lurus dari nilai baru — konsisten dengan
+    // jurnal di atas, bukan dua kebenaran yang harus disamakan manual.
+    await db
+      .prepare(`UPDATE fixed_assets SET acquisition_cost = ?, accumulated_depreciation = 0 WHERE id = ?`)
+      .bind(input.fairValue, id)
+      .run();
+
+    const revalId = crypto.randomUUID();
+    await db
+      .prepare(
+        `INSERT INTO asset_revaluations
+           (id, asset_id, reval_date, cost_before, accumulated_before, book_value_before, fair_value, difference, journal_entry_id, note, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(revalId, id, input.revalDate, asset.acquisition_cost, asset.accumulated_depreciation, bookValue, input.fairValue, difference, journal ? journal.id : null, input.note ?? null, c.get("user").id)
+      .run();
+
+    await audit(c.env, {
+      action: "asset.revalued",
+      userId: c.get("user").id,
+      tenantId: tenant.id,
+      detail: { id, name: asset.name, bookValue, fairValue: input.fairValue, difference },
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true, id: revalId, bookValue, difference }, 201);
+  })
+
+  .get("/:tenantId/assets/:id/revaluations", requireAuth, requireTenantRole("viewer"), async (c) => {
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+    const { results } = await db
+      .prepare(
+        `SELECT id, reval_date, cost_before, accumulated_before, book_value_before, fair_value, difference, note
+           FROM asset_revaluations WHERE asset_id = ? ORDER BY reval_date DESC, created_at DESC`,
+      )
+      .bind(c.req.param("id"))
+      .all<{ id: string; reval_date: string; cost_before: number; accumulated_before: number; book_value_before: number; fair_value: number; difference: number; note: string | null }>();
+    const items: ApiAssetRevaluation[] = results.map((r) => ({
+      id: r.id,
+      revalDate: r.reval_date,
+      costBefore: r.cost_before,
+      accumulatedBefore: r.accumulated_before,
+      bookValueBefore: r.book_value_before,
+      fairValue: r.fair_value,
+      difference: r.difference,
+      note: r.note,
+    }));
+    return c.json({ items });
   });

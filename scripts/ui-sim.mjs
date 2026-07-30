@@ -972,6 +972,32 @@ try {
     `→ EN=${adaPphEn} tanpaID=${tanpaPphId}`,
   );
 
+  // F1w — Fase 20e: panel revaluasi aset.
+  //
+  // Panelnya baru terlihat SETELAH tombol "Revalue" ditekan, jadi ia tak
+  // pernah tersentuh sapuan innerText halaman mana pun — kelas yang sama
+  // dengan panel Asisten AI (F1u). Penandanya keterangan metodenya, yang
+  // dirender tanpa syarat data begitu panel terbuka.
+  await gotoRoute("/app/keuangan/aset", 900);
+  const tombolReval = page.getByRole("button", { name: "Revalue", exact: true });
+  const adaTombolReval = (await tombolReval.count()) > 0;
+  if (adaTombolReval) {
+    await tombolReval.first().click();
+    await page.waitForTimeout(400);
+  }
+  const rvEn = await page.innerText("body");
+  const adaRvEn =
+    adaTombolReval &&
+    rvEn.includes("Fair value (appraised)") &&
+    rvEn.includes("Revaluation Surplus (equity)");
+  const tanpaRvId =
+    !rvEn.includes("Nilai wajar (hasil penilaian)") && !rvEn.includes("Surplus Revaluasi (ekuitas)");
+  check(
+    "F1w panel revaluasi aset ikut EN: nilai wajar + keterangan metode, tanpa teks Indonesia",
+    adaRvEn && tanpaRvId,
+    `→ tombol=${adaTombolReval} EN=${adaRvEn} tanpaID=${tanpaRvId}`,
+  );
+
   // F1t — Fase 19s: kerangka aplikasi (topbar/spanduk) + panel Asisten AI.
   //
   // Kerangka muncul di SETIAP halaman, jadi satu kalimat yang tertinggal

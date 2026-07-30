@@ -280,6 +280,31 @@ export const disposeAssetSchema = z.object({
 });
 export type DisposeAssetInput = z.infer<typeof disposeAssetSchema>;
 
+/**
+ * Revaluasi aset tetap (Fase 20e) — model revaluasi PSAK 16.
+ *
+ * `fairValue` boleh 0 (aset dinilai habis) tetapi tidak boleh negatif; itu
+ * sebabnya `amountSchema` dipakai, bukan angka bebas.
+ */
+export const revalueAssetSchema = z.object({
+  revalDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+  fairValue: amountSchema,
+  note: z.string().max(200).optional(),
+});
+export type RevalueAssetInput = z.infer<typeof revalueAssetSchema>;
+
+export type ApiAssetRevaluation = {
+  id: string;
+  revalDate: string;
+  costBefore: number;
+  accumulatedBefore: number;
+  bookValueBefore: number;
+  fairValue: number;
+  /** Positif = surplus (ekuitas); negatif = rugi penurunan nilai (beban). */
+  difference: number;
+  note: string | null;
+};
+
 export type ApiFixedAsset = {
   id: string;
   name: string;
