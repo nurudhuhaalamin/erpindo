@@ -62,6 +62,7 @@ import { createContext, useContext, useEffect, useRef, useState,  } from "react"
 import { api, ApiRequestError,  } from "../api/client";
 import { useLang } from "../i18n";
 import { LangSwitcher } from "../i18n/LangSwitcher";
+import { dalamTenggang, sisaTenggang } from "../lib/tenggang";
 import { useUi } from "../i18n/ui";
 import {
   Alert,
@@ -790,6 +791,22 @@ export function AppShell() {
           ) : tenant.tenantStatus === "trial" && tenant.trialEndsAt ? (
             (() => {
               const daysLeft = Math.ceil((Date.parse(tenant.trialEndsAt) - Date.now()) / 86_400_000);
+              // Fase 20c: jatuh tempo sudah lewat tetapi akun MASIH BISA
+              // MENULIS selama masa tenggang. Spanduknya sengaja dibedakan —
+              // oranye, bukan merah — karena merah dipakai `past_due` yang
+              // artinya sudah benar-benar terkunci. Menyamakan keduanya
+              // membuat pemilik mengira sudah terlambat padahal belum.
+              if (dalamTenggang(tenant.trialEndsAt)) {
+                return (
+                  <div className="border-b border-orange-200 bg-orange-50 px-4 py-2 text-sm text-orange-900 dark:border-orange-900 dark:bg-orange-950 dark:text-orange-200">
+                    {u("shTenggangPrefix")}{" "}
+                    <strong>
+                      {sisaTenggang(tenant.trialEndsAt)} {u("shHari")}
+                    </strong>{" "}
+                    {u("shTenggangSuffix")}
+                  </div>
+                );
+              }
               return daysLeft <= 7 ? (
                 <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
                   {u("shMasaTrialTersisa")} <strong>{Math.max(daysLeft, 0)} {u("shHari")}</strong>.

@@ -151,6 +151,15 @@ export const PLAN_LIMITS: Record<
 /** Biaya per entitas tambahan di atas kuota paket Enterprise (Fase 13a). */
 export const EXTRA_ENTITY_PRICE = 750_000;
 
+/**
+ * Masa tenggang (Fase 20c): hari akun MASIH BISA MENULIS setelah masa
+ * berlakunya habis, sebelum jatuh ke baca-saja. Keputusan pemilik: 3 hari.
+ *
+ * Diletakkan di `shared` karena dipakai TIGA sisi: cron (menurunkan status),
+ * web (spanduk), dan uji. Satu angka, satu tempat.
+ */
+export const GRACE_DAYS = 3;
+
 export const PLAN_LABELS: Record<Plan, string> = {
   trial: PLAN_LIMITS.trial.label,
   starter: PLAN_LIMITS.starter.label,

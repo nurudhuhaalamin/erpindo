@@ -1,3 +1,4 @@
+import { GRACE_DAYS } from "@erpindo/shared";
 /**
  * Dunning — jadwal pengingat sebelum akun jatuh ke mode baca-saja (Fase 20a).
  *
@@ -16,6 +17,25 @@ export const DUNNING_MILESTONES = [
 export type DunningTag = (typeof DUNNING_MILESTONES)[number]["tag"];
 
 const HARI_MS = 86_400_000;
+
+/** Masa tenggang — satu sumber di `@erpindo/shared` (dipakai cron, web, uji). */
+export { GRACE_DAYS };
+
+/** Kapan tenant benar-benar jadi baca-saja, dihitung dari tanggal habisnya. */
+export function batasBacaSaja(habisPada: string): string {
+  return new Date(Date.parse(habisPada) + GRACE_DAYS * HARI_MS).toISOString();
+}
+
+/** Sisa hari tenggang (0 bila sudah lewat). Dipakai spanduk aplikasi. */
+export function sisaTenggang(habisPada: string, nowMs: number = Date.now()): number {
+  return Math.max(Math.ceil((Date.parse(batasBacaSaja(habisPada)) - nowMs) / HARI_MS), 0);
+}
+
+/** Sedang dalam masa tenggang: sudah lewat jatuh tempo, belum baca-saja. */
+export function dalamTenggang(habisPada: string, nowMs: number = Date.now()): boolean {
+  const t = Date.parse(habisPada);
+  return nowMs >= t && nowMs < Date.parse(batasBacaSaja(habisPada));
+}
 
 /**
  * Jendela satu hari yang berakhir tepat H-`hari`.

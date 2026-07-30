@@ -2,7 +2,7 @@ import { applyMigrations, CONTROL_PLANE_MIGRATIONS } from "@erpindo/db";
 import { Hono } from "hono";
 import { secureHeaders } from "hono/secure-headers";
 import type { AppEnv, Env } from "./env";
-import { DUNNING_MILESTONES, dunningWindow } from "./lib/dunning";
+import { DUNNING_MILESTONES, GRACE_DAYS, dunningWindow } from "./lib/dunning";
 import { getMailer } from "./lib/mailer";
 import { getTenantDb, migrateAllTenants } from "./lib/tenantDb";
 import { accountingRoutes } from "./routes/accounting";
@@ -214,6 +214,10 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
 
   const mailer = getMailer(env);
   const nowIso = new Date().toISOString();
+  // Ambang baca-saja (Fase 20c): tenant baru diturunkan setelah jatuh tempo
+  // DITAMBAH masa tenggang. Selama tenggang statusnya tak disentuh, jadi
+  // seluruh penegakan tulis yang sudah ada otomatis tetap mengizinkan.
+  const batasBacaSajaIso = new Date(Date.now() - GRACE_DAYS * 86_400_000).toISOString();
   // Anggaran wall-clock lunak: Worker punya batas waktu/subrequest — lebih baik
   // berhenti rapi (tenant sisa dilanjutkan run berikutnya via marker/idempotensi).
   const startedMs = Date.now();
@@ -223,7 +227,7 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
   const { results: expired } = await env.DB.prepare(
     `SELECT id, name FROM tenants WHERE status = 'trial' AND trial_ends_at IS NOT NULL AND trial_ends_at < ?`,
   )
-    .bind(nowIso)
+    .bind(batasBacaSajaIso)
     .all<{ id: string; name: string }>();
 
   for (const tenant of expired) {
@@ -252,7 +256,7 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
   const { results: lapsed } = await env.DB.prepare(
     `SELECT id, name FROM tenants WHERE status = 'active' AND subscription_ends_at IS NOT NULL AND subscription_ends_at < ?`,
   )
-    .bind(nowIso)
+    .bind(batasBacaSajaIso)
     .all<{ id: string; name: string }>();
   for (const tenant of lapsed) {
     await env.DB.prepare(`UPDATE tenants SET status = 'past_due' WHERE id = ?`).bind(tenant.id).run();
@@ -271,6 +275,37 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
     }
   }
   if (lapsed.length > 0) console.log(`[cron] ${lapsed.length} langganan berakhir → past_due`);
+
+  // 1c) Masa tenggang dimulai (Fase 20c): jatuh tempo sudah lewat tetapi akun
+  //      MASIH BISA MENULIS. Ini email yang paling menentukan — pemiliknya
+  //      masih punya jalan keluar, dan justru di sinilah nada "belum terlambat"
+  //      masih benar. Sekali per tenant.
+  {
+    const { bawah, atas } = dunningWindow(0);
+    const { results: tenggang } = await env.DB.prepare(
+      `SELECT id, name, status FROM tenants
+        WHERE (status = 'trial'  AND trial_ends_at        IS NOT NULL AND trial_ends_at        > ? AND trial_ends_at        <= ?)
+           OR (status = 'active' AND subscription_ends_at IS NOT NULL AND subscription_ends_at > ? AND subscription_ends_at <= ?)`,
+    )
+      .bind(bawah, atas, bawah, atas)
+      .all<{ id: string; name: string; status: string }>();
+
+    for (const tenant of tenggang) {
+      const kvKey = `notified:dunning:tenggang:${tenant.id}`;
+      if (await env.RATE_KV.get(kvKey)) continue;
+      const apa = tenant.status === "trial" ? "Masa trial" : "Langganan";
+      const tautan = env.APP_URL ? `\n\n${env.APP_URL}/app/pengaturan` : "\n\nBuka menu Pengaturan.";
+      for (const owner of await ownerEmails(env, tenant.id)) {
+        await mailer.send({
+          to: owner.email,
+          subject: `${apa} ${tenant.name} berakhir — masa tenggang ${GRACE_DAYS} hari`,
+          text: `Halo ${owner.name},\n\n${apa} ${tenant.name} di erpindo sudah berakhir. Kabar baiknya: Anda masih punya masa tenggang ${GRACE_DAYS} hari — pencatatan transaksi TETAP BISA dilakukan seperti biasa selama itu.\n\nSetelah ${GRACE_DAYS} hari akun beralih ke mode baca-saja (data tetap aman dan bisa diekspor).${tautan}\n\n— Tim erpindo`,
+        });
+      }
+      await env.RATE_KV.put(kvKey, "1", { expirationTtl: (GRACE_DAYS + 4) * 86_400 });
+      console.log(`[cron] tenggang dimulai → ${tenant.name} (${tenant.status})`);
+    }
+  }
 
   // 2) Dunning: rangkaian pengingat SEBELUM akun jatuh ke baca-saja.
   //
@@ -331,7 +366,11 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
   //     mengingatkan, melainkan mengganggu — dan itu cara tercepat masuk folder
   //     spam, yang justru merugikan pengingat H-7/H-1 yang benar-benar penting.
   {
-    const { bawah, atas } = dunningWindow(-3);
+    // Fase 20c: digeser -3 → -(GRACE_DAYS + 3). Dengan masa tenggang, tenant
+    // baru jadi baca-saja di H+3; susulan "masih baca-saja" karena itu jatuh
+    // di H+6. Tanpa pergeseran ini susulannya akan tiba di hari yang sama
+    // dengan email transisi — dua email sekaligus, keduanya terasa mendadak.
+    const { bawah, atas } = dunningWindow(-(GRACE_DAYS + 3));
     const { results: tertunggak } = await env.DB.prepare(
       // Sengaja TIDAK mengambil tanggal jatuhnya. Tenant yang dulu trial lalu
       // berbayar punya KEDUA kolom terisi, jadi `CASE WHEN trial_ends_at IS

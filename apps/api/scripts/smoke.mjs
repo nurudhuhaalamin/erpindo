@@ -50,7 +50,13 @@ const child = spawn(
     // Untuk memicu cron via /__scheduled dan menyimulasikan trial kedaluwarsa.
     "--test-scheduled",
     "--var",
-    "TRIAL_DAYS_OVERRIDE:0",
+    // Fase 20c: dulu 0 (trial habis tepat saat dibuat). Setelah masa tenggang
+    // 3 hari diperkenalkan, nilai 0 berarti tenant masih DALAM tenggang dan
+    // tidak diturunkan cron — belasan asersi baca-saja di bawah akan merah.
+    // Diubah ke -4 supaya trial-nya benar-benar habis 4 hari lalu, yakni
+    // SUDAH lewat tenggang. Perubahan disengaja, bukan pelonggaran: yang
+    // diuji tetap perilaku baca-saja yang sama persis.
+    "TRIAL_DAYS_OVERRIDE:-4",
     // Uji jalur akun comped (Fase 4a): email Dewi mendapat tenant aktif permanen.
     "--var",
     "COMPED_EMAILS:dewi@majujaya.co.id",
@@ -4017,7 +4023,10 @@ try {
   check("laporan laba rugi tetap 200 di bawah pembatas per pengguna", rlReport.status === 200);
 
   console.log("14. Siklus langganan (trial berakhir)");
-  // Semua tenant dibuat dengan TRIAL_DAYS_OVERRIDE=0 → trial sudah lewat.
+  // Semua tenant dibuat dengan TRIAL_DAYS_OVERRIDE=-4 → trial habis 4 hari
+  // lalu, jadi sudah melewati masa tenggang 3 hari (Fase 20c) dan cron berhak
+  // menurunkannya. Dengan nilai 0 tenant masih di dalam tenggang dan TETAP
+  // boleh menulis — itu perilaku yang benar, bukan kegagalan.
   const cron = await fetch(`${BASE}/__scheduled?cron=17+1+*+*+*`);
   check("cron trigger dieksekusi", cron.status === 200);
 

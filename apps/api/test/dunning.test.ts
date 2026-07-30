@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DUNNING_MILESTONES, dalamJendela, dunningWindow } from "../src/lib/dunning";
+import { DUNNING_MILESTONES, GRACE_DAYS, dalamJendela, dalamTenggang, dunningWindow, sisaTenggang } from "../src/lib/dunning";
 
 /**
  * Fase 20a — jadwal pengingat sebelum akun jatuh ke baca-saja.
@@ -59,5 +59,47 @@ describe("jadwal dunning (Fase 20a)", () => {
     const habis = new Date(NOW + 3 * HARI).toISOString();
     expect(dalamJendela(habis, 7, NOW)).toBe(false);
     expect(dalamJendela(habis, 1, NOW + 2 * HARI + 3_600_000)).toBe(true);
+  });
+
+  /**
+   * Masa tenggang (Fase 20c). Yang dijaga di sini adalah BATAS-nya, karena
+   * salah satu hari di sini berarti pelanggan kehilangan akses tulis sehari
+   * lebih cepat — dan itu jenis kesalahan yang baru ketahuan dari komplain,
+   * bukan dari galat.
+   */
+  describe("masa tenggang", () => {
+    const HARI = 86_400_000;
+    const habis = new Date(NOW).toISOString();
+
+    it("tepat pada jatuh tempo sudah masuk tenggang, belum baca-saja", () => {
+      expect(dalamTenggang(habis, NOW)).toBe(true);
+      expect(sisaTenggang(habis, NOW)).toBe(GRACE_DAYS);
+    });
+
+    it("hari terakhir tenggang masih boleh menulis", () => {
+      const detikSebelumHabis = NOW + GRACE_DAYS * HARI - 1_000;
+      expect(dalamTenggang(habis, detikSebelumHabis)).toBe(true);
+    });
+
+    it("tepat setelah tenggang habis, TIDAK lagi dalam tenggang", () => {
+      expect(dalamTenggang(habis, NOW + GRACE_DAYS * HARI)).toBe(false);
+      expect(sisaTenggang(habis, NOW + GRACE_DAYS * HARI)).toBe(0);
+    });
+
+    it("sebelum jatuh tempo belum masuk tenggang", () => {
+      expect(dalamTenggang(habis, NOW - HARI)).toBe(false);
+    });
+
+    it("susulan H+6 tidak bertabrakan dengan hari transisi H+3", () => {
+      // Transisi ke baca-saja terjadi di H+3. Susulan memakai jendela
+      // -(GRACE_DAYS + 3) = -6, jadi tidak boleh menangkap H+3.
+      const jatuhTempoLalu = (hari: number) => new Date(NOW - hari * HARI).toISOString();
+      // Jendela -(3+3) mencakup rentang (H+6, H+7] dihitung mundur, jadi yang
+      // masuk adalah jatuh tempo 6,5 hari lalu — BUKAN 5,5. Asersi pertama
+      // saya sendiri salah di sini dan uji inilah yang menangkapnya.
+      expect(dalamJendela(jatuhTempoLalu(3), -(GRACE_DAYS + 3), NOW)).toBe(false);
+      expect(dalamJendela(jatuhTempoLalu(5.5), -(GRACE_DAYS + 3), NOW)).toBe(false);
+      expect(dalamJendela(jatuhTempoLalu(6.5), -(GRACE_DAYS + 3), NOW)).toBe(true);
+    });
   });
 });

@@ -2405,6 +2405,8 @@ export const UI = {
   shPengaturan: { id: "Pengaturan", en: "Settings" },
   shMasaTrialTersisa: { id: "Masa trial tersisa", en: "Trial time left" },
   shHari: { id: "hari", en: "days" },
+  shTenggangPrefix: { id: "Masa berlaku sudah habis — Anda masih bisa mencatat", en: "Your plan has ended — you can still record entries for" },
+  shTenggangSuffix: { id: "lagi sebelum akun jadi baca-saja.", en: "more before the account becomes read-only." },
 
   // — Komponen bersama & Asisten AI (Fase 19s). Awalan `cp` (komponen). —
   cpKetikCari: { id: "Ketik untuk mencari…", en: "Type to search…" },
