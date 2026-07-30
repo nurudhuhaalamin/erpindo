@@ -319,6 +319,46 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
     }
   }
 
+  // 2b) Dunning lanjutan H+3: satu susulan untuk tenant yang SUDAH baca-saja.
+  //
+  //     Tidak butuh kolom baru — blok 1/1b hanya mengubah `status`, jadi
+  //     `trial_ends_at`/`subscription_ends_at` tetap menyimpan tanggal
+  //     jatuhnya. `dunningWindow(-3)` memberi jendela [H-4, H-3] ke belakang,
+  //     memakai aritmetika yang sama persis dengan tonggak maju.
+  //
+  //     SATU susulan saja, bukan rangkaian: akun past_due sudah menampilkan
+  //     spanduk merah tiap kali dibuka. Mengirimi mereka email berulang bukan
+  //     mengingatkan, melainkan mengganggu — dan itu cara tercepat masuk folder
+  //     spam, yang justru merugikan pengingat H-7/H-1 yang benar-benar penting.
+  {
+    const { bawah, atas } = dunningWindow(-3);
+    const { results: tertunggak } = await env.DB.prepare(
+      `SELECT id, name,
+              CASE WHEN trial_ends_at IS NOT NULL THEN trial_ends_at ELSE subscription_ends_at END AS habis_pada
+         FROM tenants
+        WHERE status = 'past_due'
+          AND ( (trial_ends_at        IS NOT NULL AND trial_ends_at        > ? AND trial_ends_at        <= ?)
+             OR (subscription_ends_at IS NOT NULL AND subscription_ends_at > ? AND subscription_ends_at <= ?) )`,
+    )
+      .bind(bawah, atas, bawah, atas)
+      .all<{ id: string; name: string; habis_pada: string }>();
+
+    for (const tenant of tertunggak) {
+      const kvKey = `notified:dunning:p3:${tenant.id}`;
+      if (await env.RATE_KV.get(kvKey)) continue;
+      const tautan = env.APP_URL ? `\n\n${env.APP_URL}/app/pengaturan` : "\n\nBuka menu Pengaturan untuk mengaktifkan kembali.";
+      for (const owner of await ownerEmails(env, tenant.id)) {
+        await mailer.send({
+          to: owner.email,
+          subject: `${tenant.name} masih dalam mode baca-saja`,
+          text: `Halo ${owner.name},\n\n${tenant.name} sudah tiga hari dalam mode baca-saja. Pencatatan transaksi baru terhenti, tetapi seluruh data Anda tetap aman — masih bisa dibuka, dibaca, dan diekspor kapan saja.\n\nAktifkan kembali langganan untuk melanjutkan operasional.${tautan}\n\n— Tim erpindo`,
+        });
+      }
+      await env.RATE_KV.put(kvKey, "1", { expirationTtl: 30 * 86_400 });
+      console.log(`[cron] dunning p3 → ${tenant.name} (masih past_due)`);
+    }
+  }
+
   // 3) Tugas bulanan (penyusutan, rekap, backup Drive) — jendela tanggal 1–3.
   //    Fase 9a: beban disebar per grup tenant (tanggal 1/2/3) + marker KV
   //    idempoten, sehingga run yang mati di tengah dilanjutkan tanpa mengulang
