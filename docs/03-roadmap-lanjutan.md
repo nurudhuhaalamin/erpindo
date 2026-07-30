@@ -133,7 +133,7 @@ notifikasi, kartu stok.
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
 | **Peramalan stok (AI)** — proyeksi kebutuhan per produk dari riwayat penjualan → saran jumlah & waktu beli ulang | T | S | ✓ |
-| **Picking multi-gudang** — satu faktur mengambil stok dari beberapa gudang sekaligus (kini satu faktur satu gudang) | S | S | – |
+| ✅ **Picking multi-gudang** — satu faktur mengambil stok dari beberapa gudang sekaligus (Fase 20g; HPP dihitung per gudang asal) | S | S | – |
 | Satuan ganda (beli per dus, jual per pcs, konversi otomatis) | T | T | – |
 | Reorder point otomatis: ambang dihitung dari kecepatan jual, bukan angka statis | S | S | ✓ |
 | Stok konsinyasi (barang titipan terpisah dari milik sendiri) | R | T | – |

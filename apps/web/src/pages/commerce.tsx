@@ -53,6 +53,9 @@ const MODE_CFG = {
   },
 };
 
+/** Satu sumber pengambilan stok untuk baris faktur (Fase 20g). */
+type DraftPick = { warehouseId: string; qty: string };
+
 type DraftLine = {
   productId: string;
   /** Label produk terpilih (cache dari hasil pencarian) untuk ditampilkan di combobox. */
@@ -63,6 +66,11 @@ type DraftLine = {
   discountPct: string;
   lotNo: string;
   expiryDate: string;
+  /**
+   * Picking multi-gudang (Fase 20g). Kosong = stok diambil seluruhnya dari
+   * gudang faktur, persis seperti sebelum fase ini.
+   */
+  picks: DraftPick[];
 };
 const emptyLine = (): DraftLine => ({
   productId: "",
@@ -73,7 +81,22 @@ const emptyLine = (): DraftLine => ({
   discountPct: "",
   lotNo: "",
   expiryDate: "",
+  picks: [],
 });
+
+/** Total qty yang sudah dialokasikan ke gudang-gudang pada satu baris. */
+function totalPicked(l: DraftLine): number {
+  return l.picks.reduce((s, p) => s + (Number(p.qty) || 0), 0);
+}
+
+/**
+ * Baris dengan picking yang jumlahnya belum pas. Backend menolaknya (aturan ada
+ * di skema `createInvoiceSchema`); di sini dipakai untuk mematikan tombol
+ * posting supaya penolakan itu tak pernah sampai ke pengguna.
+ */
+function pickingTimpang(l: DraftLine): boolean {
+  return l.picks.length > 0 && totalPicked(l) !== (Number(l.qty) || 0);
+}
 
 /** Nilai baris setelah diskon — meniru pembulatan backend. */
 function lineAmount(l: { qty: string; unitPrice: string; discountPct: string }): number {
@@ -204,6 +227,35 @@ export function CommercePage({ mode }: { mode: Mode }) {
     setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
   }
 
+  /** Ubah baris `i` dengan daftar picking hasil transformasi (Fase 20g). */
+  function setPicks(i: number, ubah: (picks: DraftPick[], line: DraftLine) => DraftPick[]) {
+    setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, picks: ubah(l.picks, l) } : l)));
+  }
+
+  /**
+   * Nyalakan/matikan picking multi-gudang untuk satu baris. Saat dinyalakan,
+   * seluruh qty langsung ditaruh di gudang faktur supaya jumlahnya sudah pas
+   * dan pengguna tinggal memindah sebagian ke gudang lain.
+   */
+  function togglePicking(i: number) {
+    setPicks(i, (picks, line) =>
+      picks.length > 0
+        ? []
+        : [{ warehouseId: warehouseId || warehouses[0]?.id || "", qty: line.qty }]
+    );
+  }
+
+  /**
+   * Gudang default untuk baris picking BARU: yang pertama belum terpakai di
+   * baris itu. Kalau isian awalnya sama dengan baris di atasnya, layarnya
+   * menyarankan hal yang tak masuk akal — mengambil dua kali dari gudang yang
+   * sama — dan itu yang paling mungkin ter-posting tanpa diperhatikan.
+   */
+  function gudangBerikutnya(picks: DraftPick[]): string {
+    const terpakai = new Set(picks.map((p) => p.warehouseId));
+    return (warehouses.find((w) => !terpakai.has(w.id)) ?? warehouses[0])?.id ?? "";
+  }
+
   function pickProduct(i: number, opt: { value: string; label: string }) {
     const product = productCache.current.get(opt.value);
     setLine(i, {
@@ -235,6 +287,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
         discountPct: l.discountPct > 0 ? String(l.discountPct) : "",
         lotNo: "",
         expiryDate: "",
+        picks: [],
       }))
     );
     setError(null);
@@ -259,6 +312,9 @@ export function CommercePage({ mode }: { mode: Mode }) {
           ...(Number(l.discountPct) > 0 ? { discountPct: Number(l.discountPct) } : {}),
           ...(mode === "purchase" && l.lotNo ? { lotNo: l.lotNo } : {}),
           ...(mode === "purchase" && l.expiryDate ? { expiryDate: l.expiryDate } : {}),
+          ...(mode === "sale" && l.picks.length > 0
+            ? { picks: l.picks.map((p) => ({ warehouseId: p.warehouseId, qty: Number(p.qty) || 0 })) }
+            : {}),
         })),
     });
   }
@@ -444,6 +500,95 @@ export function CommercePage({ mode }: { mode: Mode }) {
                         </span>
                       </div>
                     ) : null}
+                    {mode === "sale" && warehouses.length > 1 && line.productId ? (
+                      <div className="space-y-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="text-xs"
+                          onClick={() => togglePicking(i)}
+                        >
+                          {line.picks.length > 0 ? u("ambilSatuGudang") : u("ambilBeberapaGudang")}
+                        </Button>
+                        {line.picks.length > 0 ? (
+                          <div className="space-y-2 rounded-lg bg-sky-50 p-2 dark:bg-sky-950/40">
+                            {line.picks.map((p, j) => (
+                              <div
+                                key={j}
+                                className="grid grid-cols-[1fr_5rem_2.5rem] gap-2 sm:items-center"
+                              >
+                                <Select
+                                  aria-label={`${u("gudangBaris")} ${i + 1}-${j + 1}`}
+                                  value={p.warehouseId}
+                                  onChange={(e) =>
+                                    setPicks(i, (picks) =>
+                                      picks.map((q, qj) =>
+                                        qj === j ? { ...q, warehouseId: e.target.value } : q
+                                      )
+                                    )
+                                  }
+                                >
+                                  {warehouses.map((w) => (
+                                    <option key={w.id} value={w.id}>
+                                      {w.name}
+                                    </option>
+                                  ))}
+                                </Select>
+                                <Input
+                                  aria-label={`${u("qtyGudangBaris")} ${i + 1}-${j + 1}`}
+                                  type="number"
+                                  min={1}
+                                  value={p.qty}
+                                  onChange={(e) =>
+                                    setPicks(i, (picks) =>
+                                      picks.map((q, qj) =>
+                                        qj === j ? { ...q, qty: e.target.value } : q
+                                      )
+                                    )
+                                  }
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  aria-label={`${u("hapusGudangPicking")} ${i + 1}-${j + 1}`}
+                                  onClick={() =>
+                                    setPicks(i, (picks) => picks.filter((_, qj) => qj !== j))
+                                  }
+                                >
+                                  ✕
+                                </Button>
+                              </div>
+                            ))}
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                className="text-xs"
+                                onClick={() =>
+                                  setPicks(i, (picks) => [
+                                    ...picks,
+                                    { warehouseId: gudangBerikutnya(picks), qty: "" },
+                                  ])
+                                }
+                              >
+                                + {u("tambahGudangPicking")}
+                              </Button>
+                              <span
+                                data-testid={`picking-sum-${i}`}
+                                className={
+                                  pickingTimpang(line)
+                                    ? "text-xs text-rose-700 dark:text-rose-300"
+                                    : "text-xs text-sky-700 dark:text-sky-300"
+                                }
+                              >
+                                {totalPicked(line)} / {Number(line.qty) || 0} ·{" "}
+                                {pickingTimpang(line) ? u("hintPickingBeda") : u("hintPickingSama")}
+                              </span>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
@@ -485,7 +630,12 @@ export function CommercePage({ mode }: { mode: Mode }) {
                   </>
                 )}
               </div>
-              <Button onClick={submit} disabled={create.isPending || !contactId || subtotal === 0}>
+              <Button
+                onClick={submit}
+                disabled={
+                  create.isPending || !contactId || subtotal === 0 || lines.some(pickingTimpang)
+                }
+              >
                 {create.isPending ? <Spinner /> : null} {u("postingFaktur")}
               </Button>
             </div>

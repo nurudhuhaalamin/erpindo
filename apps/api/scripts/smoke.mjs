@@ -3965,6 +3965,93 @@ try {
     `→ total ${roundDoc?.total} paid ${roundDoc?.paidAmount} returned ${roundDoc?.returnedAmount}`,
   );
 
+  console.log("13y2. Picking multi-gudang (Fase 20g)");
+  // Dua gudang dengan harga pokok BERBEDA. Kalau picking mengambil dari gudang
+  // yang keliru, total fakturnya tetap terlihat wajar — hanya angka HPP-nya
+  // yang salah, dan itu tidak muncul di layar mana pun. Karena itu diuji lewat
+  // buku besar HPP, bukan lewat total faktur.
+  const pickProd = await owner("POST", `/api/tenants/${tenantId}/products`, {
+    sku: "PICK-001", name: "Produk Uji Picking", unit: "pcs", sellPrice: 5_000, buyPrice: 1_000,
+  });
+  const pickBuyA = await owner("POST", `/api/tenants/${tenantId}/purchases`, {
+    contactId: supplier.json.id, invoiceDate: "2027-06-04", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: pickProd.json.id, qty: 10, unitPrice: 1_000 }],
+  });
+  const pickBuyB = await owner("POST", `/api/tenants/${tenantId}/purchases`, {
+    contactId: supplier.json.id, invoiceDate: "2027-06-04", taxRate: 0, warehouseId: wh2.json.id,
+    lines: [{ productId: pickProd.json.id, qty: 5, unitPrice: 3_000 }],
+  });
+  check(
+    "stok awal picking: 10 @1.000 di Gudang Utama, 5 @3.000 di Gudang Cabang",
+    pickBuyA.status === 201 && pickBuyB.status === 201,
+    `→ ${pickBuyA.status} / ${pickBuyB.status}`,
+  );
+
+  const pickMismatch = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id, invoiceDate: "2027-06-05", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{
+      productId: pickProd.json.id, qty: 12, unitPrice: 5_000,
+      picks: [{ warehouseId: whUtama.id, qty: 10 }, { warehouseId: wh2.json.id, qty: 1 }],
+    }],
+  });
+  check(
+    "picking yang jumlahnya ≠ qty baris DITOLAK 400",
+    pickMismatch.status === 400,
+    `→ ${pickMismatch.status}`,
+  );
+
+  const pickShort = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id, invoiceDate: "2027-06-05", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{
+      productId: pickProd.json.id, qty: 16, unitPrice: 5_000,
+      picks: [{ warehouseId: whUtama.id, qty: 10 }, { warehouseId: wh2.json.id, qty: 6 }],
+    }],
+  });
+  check("picking melebihi stok gudang KEDUA DITOLAK 400", pickShort.status === 400, `→ ${pickShort.status}`);
+  const stockAfterShort = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  const utamaShort = stockAfterShort.json?.levels?.find(
+    (l) => l.sku === "PICK-001" && l.warehouseId === whUtama.id,
+  );
+  check(
+    "penolakan picking TIDAK mengurangi gudang pertama (tetap 10)",
+    utamaShort?.qty === 10,
+    `→ ${utamaShort?.qty}`,
+  );
+
+  const hppBeforePick = await owner("GET", `/api/tenants/${tenantId}/ledger/${hppAcc.id}`);
+  const pickInv = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id, invoiceDate: "2027-06-05", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{
+      productId: pickProd.json.id, qty: 12, unitPrice: 5_000,
+      picks: [{ warehouseId: whUtama.id, qty: 10 }, { warehouseId: wh2.json.id, qty: 2 }],
+    }],
+  });
+  check("faktur picking multi-gudang diposting", pickInv.status === 201, `→ ${JSON.stringify(pickInv.json)}`);
+  const hppAfterPick = await owner("GET", `/api/tenants/${tenantId}/ledger/${hppAcc.id}`);
+  check(
+    "HPP dihitung per gudang: 10×1.000 + 2×3.000 = 16.000",
+    hppAfterPick.json?.balance - hppBeforePick.json?.balance === 16_000,
+    `→ selisih ${hppAfterPick.json?.balance - hppBeforePick.json?.balance}`,
+  );
+  const stockAfterPick = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  const utamaPick = stockAfterPick.json?.levels?.find(
+    (l) => l.sku === "PICK-001" && l.warehouseId === whUtama.id,
+  );
+  const cabangPick = stockAfterPick.json?.levels?.find(
+    (l) => l.sku === "PICK-001" && l.warehouseId === wh2.json.id,
+  );
+  check(
+    "stok berkurang di KEDUA gudang (Utama 0, Cabang 3)",
+    (utamaPick?.qty ?? 0) === 0 && cabangPick?.qty === 3,
+    `→ utama ${utamaPick?.qty} cabang ${cabangPick?.qty}`,
+  );
+  const tbAfterPick = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check(
+    "neraca saldo TETAP seimbang setelah picking multi-gudang",
+    tbAfterPick.json?.balanced === true,
+    `→ debit ${tbAfterPick.json?.totalDebit} vs kredit ${tbAfterPick.json?.totalCredit}`,
+  );
+
   console.log("13z. Deteksi anomali beban (Fase 15c)");
   const accsAnom = await owner("GET", `/api/tenants/${tenantId}/accounts`);
   const sewaAcc = accsAnom.json?.accounts?.find((a) => a.code === "5-3000");

@@ -629,6 +629,21 @@ export const UI = {
     id: "Produk ini melacak kedaluwarsa — tanggal exp wajib diisi (keluar otomatis FEFO).",
     en: "This product tracks expiry — the exp date is required (issued automatically by FEFO).",
   },
+  // Picking multi-gudang (Fase 20g)
+  ambilBeberapaGudang: { id: "Ambil dari beberapa gudang", en: "Pick from several warehouses" },
+  ambilSatuGudang: { id: "Ambil dari satu gudang saja", en: "Pick from a single warehouse" },
+  tambahGudangPicking: { id: "Tambah gudang", en: "Add warehouse" },
+  gudangBaris: { id: "Gudang baris", en: "Warehouse line" },
+  qtyGudangBaris: { id: "Qty gudang baris", en: "Warehouse qty line" },
+  hapusGudangPicking: { id: "Hapus gudang picking", en: "Remove picking warehouse" },
+  hintPickingSama: {
+    id: "Jumlah qty per gudang harus sama dengan qty baris.",
+    en: "The per-warehouse quantities must add up to the line quantity.",
+  },
+  hintPickingBeda: {
+    id: "Jumlah qty per gudang belum sama dengan qty baris — faktur akan ditolak.",
+    en: "The per-warehouse quantities do not add up to the line quantity yet — the invoice will be rejected.",
+  },
   descCariDokumenKosong: {
     id: "Coba kata kunci lain — pencarian mencocokkan nomor dokumen dan nama kontak.",
     en: "Try another keyword — the search matches document numbers and contact names.",

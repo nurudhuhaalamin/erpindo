@@ -313,6 +313,65 @@ export async function stockIn(
 export class InsufficientStockError extends Error {}
 
 /**
+ * Barang keluar dari BEBERAPA gudang sekaligus (Fase 20g).
+ *
+ * Tiap gudang punya `avg_cost` sendiri, jadi HPP-nya dijumlahkan per sumber —
+ * bukan dihitung dari satu rata-rata gabungan. Ini yang membuat angkanya benar:
+ * mengambil 10 unit dari gudang berbiaya 12rb dan 5 unit dari gudang berbiaya
+ * 20rb menghasilkan HPP 220rb, bukan 15 × rata-rata mana pun.
+ *
+ * Validasi seluruh pengambilan dilakukan LEBIH DULU sebelum satu pun stok
+ * dikurangi. Tanpa itu, permintaan yang gagal di gudang kedua akan meninggalkan
+ * gudang pertama sudah berkurang — stok hilang tanpa dokumen apa pun.
+ *
+ * Gudang yang sama boleh disebut lebih dari sekali; permintaannya DIJUMLAHKAN
+ * dulu. Tanpa penjumlahan itu, dua permintaan 3 unit ke gudang bersisa 4 akan
+ * lolos pemeriksaan awal (keduanya dibandingkan dengan sisa yang sama) lalu
+ * gagal di tengah pengurangan — persis keadaan yang hendak dicegah fungsi ini.
+ */
+export async function stockOutMulti(
+  db: SqlExecutor,
+  input: {
+    productId: string;
+    picks: { warehouseId: string; qty: number }[];
+    refType: string;
+    refId: string;
+  },
+): Promise<number> {
+  const perGudang = new Map<string, number>();
+  for (const p of input.picks) {
+    if (p.qty > 0) perGudang.set(p.warehouseId, (perGudang.get(p.warehouseId) ?? 0) + p.qty);
+  }
+  if (perGudang.size === 0) return 0;
+
+  // Pemeriksaan awal untuk SEMUA gudang — sebelum ada yang dikurangi.
+  for (const [warehouseId, qty] of perGudang) {
+    const { results } = await db
+      .prepare(`SELECT qty FROM stock_levels WHERE product_id = ? AND warehouse_id = ?`)
+      .bind(input.productId, warehouseId)
+      .all<{ qty: number }>();
+    const tersedia = results[0]?.qty ?? 0;
+    if (tersedia < qty) {
+      throw new InsufficientStockError(
+        `Stok tidak mencukupi di salah satu gudang (tersedia ${tersedia}, diminta ${qty}).`,
+      );
+    }
+  }
+
+  let total = 0;
+  for (const [warehouseId, qty] of perGudang) {
+    total += await stockOut(db, {
+      productId: input.productId,
+      warehouseId,
+      qty,
+      refType: input.refType,
+      refId: input.refId,
+    });
+  }
+  return total;
+}
+
+/**
  * Barang keluar dengan biaya rata-rata berjalan. Mengembalikan total HPP.
  * Menolak bila stok tidak mencukupi.
  */

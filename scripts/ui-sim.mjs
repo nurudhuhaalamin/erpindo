@@ -395,6 +395,26 @@ try {
     adaAddItem && tanpaSisaId,
     `→ tombol=${adaAddItem} tanpaID=${tanpaSisaId}`,
   );
+  // F1y — Fase 20g: panel picking multi-gudang baru muncul setelah produk
+  // dipilih, jadi tidak terbaca dari innerText halaman kosong seperti cek di
+  // atas. Layar baru wajib dwibahasa sejak awal (aturan Fase 19).
+  await page.getByPlaceholder("Search product (SKU/name)…").first().fill("Kopi");
+  await page.waitForTimeout(700);
+  await page.locator("div.absolute.z-30 button").first().click();
+  await page.waitForTimeout(300);
+  await page.getByRole("button", { name: "Pick from several warehouses" }).first().click();
+  await page.waitForTimeout(400);
+  const pickEn = await page.innerText("body");
+  const adaPickEn =
+    pickEn.includes("Add warehouse") &&
+    pickEn.includes("The per-warehouse quantities must add up to the line quantity.");
+  const tanpaPickId =
+    !pickEn.includes("Tambah gudang") && !pickEn.includes("Jumlah qty per gudang");
+  check(
+    "F1y panel picking multi-gudang ikut EN: tombol + petunjuk jumlah, tanpa teks Indonesia",
+    adaPickEn && tanpaPickId,
+    `→ EN=${adaPickEn} tanpaID=${tanpaPickId}`,
+  );
   await gotoRoute("/app/stok", 800);
   const stokEn = await page.innerText("body");
   const adaStockLevels = stokEn.includes("Stock levels per warehouse");
@@ -1257,6 +1277,63 @@ try {
   await payPost;
   check("F7 penjualan: terima pembayaran faktur outstanding → 201", true);
   check("F7 pembayaran bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
+
+  // F7b — Fase 20g: picking multi-gudang pada form faktur penjualan.
+  // Yang diuji bukan sekadar "panelnya muncul", tapi PENJAGA-nya: begitu jumlah
+  // qty per gudang tidak sama dengan qty baris, tombol posting harus mati —
+  // supaya penolakan dari skema tak pernah sampai ke pengguna.
+  resetErrors();
+  await gotoRoute("/app/penjualan", 1000);
+  // Pelanggan wajib dipilih — tanpa itu tombol posting mati karena alasan lain
+  // dan pemeriksaan di bawah kehilangan artinya.
+  await page.getByPlaceholder("Cari pelanggan…").first().fill("a");
+  await page.waitForTimeout(700);
+  await page.locator("div.absolute.z-30 button").first().click();
+  await page.waitForTimeout(300);
+  await page.getByPlaceholder("Cari produk (SKU/nama)…").first().fill("Kopi");
+  await page.waitForTimeout(700);
+  await page.locator("div.absolute.z-30 button").first().click();
+  await page.waitForTimeout(300);
+  await page.getByRole("button", { name: "Ambil dari beberapa gudang" }).first().click();
+  await page.waitForTimeout(300);
+  const pickSum = page.locator('[data-testid="picking-sum-0"]');
+  await pickSum.first().waitFor({ timeout: 10_000 });
+  check(
+    "F7b picking multi-gudang: panel terbuka & jumlah awal sudah pas (1 / 1)",
+    (await pickSum.first().innerText()).startsWith("1 / 1"),
+    `→ ${await pickSum.first().innerText()}`,
+  );
+  // Tambah gudang kedua tanpa mengisi qty → jumlah jadi timpang.
+  await page.getByRole("button", { name: "+ Tambah gudang" }).first().click();
+  await page.waitForTimeout(300);
+  // Baris picking baru harus menunjuk gudang LAIN. Isian yang menyarankan
+  // gudang yang sama dua kali ditemukan lewat pemeriksaan mata di fase ini —
+  // asersi di bawahnya tetap hijau saat itu, jadi dijadikan cek sendiri.
+  const gudang1 = await page.getByLabel("Gudang baris 1-1", { exact: true }).inputValue();
+  const gudang2 = await page.getByLabel("Gudang baris 1-2", { exact: true }).inputValue();
+  check(
+    "F7b baris picking baru menunjuk gudang BERBEDA, bukan mengulang gudang pertama",
+    gudang1 !== gudang2 && gudang2 !== "",
+    `→ ${gudang1} vs ${gudang2}`,
+  );
+  await page.getByLabel("Qty gudang baris 1-2").fill("3");
+  await page.waitForTimeout(300);
+  const postDisabled = await page.getByRole("button", { name: "Posting Faktur" }).isDisabled();
+  check(
+    "F7b jumlah picking timpang → tombol 'Posting Faktur' NONAKTIF",
+    postDisabled,
+    `→ disabled=${postDisabled}`,
+  );
+  // Samakan qty baris dengan total picking → tombol hidup lagi.
+  await page.getByLabel("Qty baris 1").fill("4");
+  await page.waitForTimeout(300);
+  const postEnabledLagi = !(await page.getByRole("button", { name: "Posting Faktur" }).isDisabled());
+  check(
+    "F7b qty baris disamakan (4) → tombol posting AKTIF kembali",
+    postEnabledLagi,
+    `→ ${await pickSum.first().innerText()}`,
+  );
+  check("F7b picking multi-gudang bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
 
   // F8 — CRM: tambah lead → muncul di papan funnel.
   resetErrors();

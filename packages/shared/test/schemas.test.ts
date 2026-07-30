@@ -81,6 +81,46 @@ describe("createInvoiceSchema", () => {
   it("menolak tanggal bukan format YYYY-MM-DD", () => {
     expect(createInvoiceSchema.safeParse({ ...base, invoiceDate: "17/07/2026" }).success).toBe(false);
   });
+
+  // Fase 20g — picking multi-gudang. Aturannya sengaja diletakkan di SKEMA,
+  // bukan di route, supaya seluruh pemanggil (UI, API publik, impor
+  // marketplace) tunduk pada pemeriksaan yang sama.
+  it("menerima picking multi-gudang yang jumlahnya pas", () => {
+    const res = createInvoiceSchema.safeParse({
+      ...base,
+      lines: [
+        {
+          productId: "p1",
+          qty: 5,
+          unitPrice: 100,
+          picks: [
+            { warehouseId: "w1", qty: 3 },
+            { warehouseId: "w2", qty: 2 },
+          ],
+        },
+      ],
+    });
+    expect(res.success).toBe(true);
+  });
+
+  it("menolak picking yang jumlahnya kurang ATAU lebih dari qty baris", () => {
+    const dengan = (picks: { warehouseId: string; qty: number }[]) =>
+      createInvoiceSchema.safeParse({
+        ...base,
+        lines: [{ productId: "p1", qty: 5, unitPrice: 100, picks }],
+      }).success;
+    expect(dengan([{ warehouseId: "w1", qty: 4 }])).toBe(false);
+    expect(
+      dengan([
+        { warehouseId: "w1", qty: 3 },
+        { warehouseId: "w2", qty: 3 },
+      ]),
+    ).toBe(false);
+  });
+
+  it("baris tanpa picking tetap sah (perilaku lama tidak berubah)", () => {
+    expect(createInvoiceSchema.safeParse(base).success).toBe(true);
+  });
 });
 
 describe("marketplaceImportSchema (Fase 11e)", () => {
