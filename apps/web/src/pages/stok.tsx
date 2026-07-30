@@ -469,6 +469,134 @@ function ReorderCard() {
   );
 }
 
+/**
+ * Peramalan stok (Fase 20h). Deterministik — rata-rata bergerak atas riwayat
+ * penjualan, bukan AI.
+ *
+ * Kolom "Keyakinan" sengaja tidak disembunyikan di balik tooltip. Pembagian
+ * menghasilkan angka yang sama rapinya entah datanya 60 hari atau 2 hari, dan
+ * pemilik yang membeli berdasarkan angka kedua akan menyalahkan sistemnya,
+ * bukan datanya.
+ */
+function ForecastCard() {
+  const u = useUi();
+  const { tenant } = useWorkspace();
+  const [leadTime, setLeadTime] = useState("7");
+  const [perluSaja, setPerluSaja] = useState(true);
+  const lead = Math.max(Number(leadTime) || 0, 1);
+  const query = useQuery({
+    queryKey: ["stock-forecast", tenant.tenantId, lead],
+    queryFn: () => api.stockForecast(tenant.tenantId, { leadTime: lead }),
+  });
+
+  const semua = query.data?.forecasts ?? [];
+  const adaPenjualan = semua.filter((f) => f.rataHarian > 0);
+  const baris = perluSaja ? adaPenjualan.filter((f) => f.perluPesan) : adaPenjualan;
+  const adaKeyakinanRendah = baris.some((f) => f.keyakinan === "rendah");
+
+  const labelTren: Record<string, UiKey> = {
+    naik: "trenNaik",
+    turun: "trenTurun",
+    stabil: "trenStabil",
+  };
+  const labelKeyakinan: Record<string, UiKey> = {
+    tinggi: "keyakinanTinggi",
+    sedang: "keyakinanSedang",
+    rendah: "keyakinanRendah",
+  };
+
+  return (
+    <Card>
+      <CardHeader title={u("peramalanStok")} description={u("descPeramalanStok")} />
+      <CardBody className="space-y-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="w-56">
+            <Label htmlFor="fc-lead">{u("waktuTungguHari")}</Label>
+            <Input
+              id="fc-lead"
+              type="number"
+              min={1}
+              value={leadTime}
+              onChange={(e) => setLeadTime(e.target.value)}
+            />
+          </div>
+          <label className="flex h-9 items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={perluSaja}
+              onChange={(e) => setPerluSaja(e.target.checked)}
+            />
+            {u("hanyaPerluPesan")}
+          </label>
+        </div>
+        {query.isLoading ? (
+          <Spinner />
+        ) : adaPenjualan.length === 0 ? (
+          <Alert tone="info">{u("belumAdaRiwayatJual")}</Alert>
+        ) : (
+          <>
+            {adaKeyakinanRendah ? <Alert tone="warning">{u("hintKeyakinanRendah")}</Alert> : null}
+            {/* Pembungkus ber-testid: komponen `Tr` sengaja tidak meneruskan
+                prop sembarangan, jadi penanda untuk ui-sim dipasang di wadahnya. */}
+            <div data-testid="tabel-ramalan">
+            <Table>
+              <Thead>
+                <tr>
+                  <Th>SKU</Th>
+                  <Th>{u("produk")}</Th>
+                  <Th numeric>{u("stok")}</Th>
+                  <Th numeric>{u("rataJualHarian")}</Th>
+                  <Th numeric>{u("sisaHariHabis")}</Th>
+                  <Th numeric>{u("titikPesanDihitung")}</Th>
+                  <Th numeric>{u("usulanBeli")}</Th>
+                  <Th>{u("tren")}</Th>
+                  <Th>{u("keyakinan")}</Th>
+                </tr>
+              </Thead>
+              <tbody>
+                {baris.map((f) => (
+                  <Tr key={f.productId}>
+                    <Td label="SKU" className="font-mono text-xs">
+                      {f.sku}
+                    </Td>
+                    <Td label={u("produk")}>{f.name}</Td>
+                    <Td numeric label={u("stok")}>
+                      {f.stok}
+                    </Td>
+                    <Td numeric label={u("rataJualHarian")}>
+                      {f.rataHarian.toFixed(2)}
+                    </Td>
+                    <Td numeric label={u("sisaHariHabis")}>
+                      {f.hariHabis === null ? "—" : `${f.hariHabis} ${u("hariSuffix")}`}
+                    </Td>
+                    <Td numeric label={u("titikPesanDihitung")}>
+                      {f.titikPesan}
+                    </Td>
+                    <Td numeric label={u("usulanBeli")} className="font-medium">
+                      {f.qtyDisarankan > 0 ? `${f.qtyDisarankan} ${f.unit}` : "—"}
+                    </Td>
+                    <Td label={u("tren")}>
+                      <Badge tone={f.tren === "naik" ? "green" : f.tren === "turun" ? "amber" : "neutral"}>
+                        {u(labelTren[f.tren]!)}
+                      </Badge>
+                    </Td>
+                    <Td label={u("keyakinan")}>
+                      <Badge tone={f.keyakinan === "tinggi" ? "green" : f.keyakinan === "sedang" ? "amber" : "red"}>
+                        {u(labelKeyakinan[f.keyakinan]!)}
+                      </Badge>
+                    </Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
+            </div>
+          </>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
 export function StockPage() {
   const u = useUi();
   const { tenant } = useWorkspace();
@@ -493,6 +621,7 @@ export function StockPage() {
     <div className="space-y-6">
       <PageHeading k="stok" />
       {isAdmin ? <ReorderCard /> : null}
+      {isAdmin ? <ForecastCard /> : null}
       {isAdmin ? <StockAdjustmentForm /> : null}
       {isAdmin ? <StockTransferForm /> : null}
       <LotsCard />

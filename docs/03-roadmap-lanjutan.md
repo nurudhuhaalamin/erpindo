@@ -73,7 +73,7 @@ dengan hitung kas fisik + selisih berjurnal, struk dengan logo, pembayaran tunai
 
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
-| **Barcode scanner via kamera HP (zxing di browser)** — scan langsung menambah item ke keranjang | T | S | – |
+| 🟡 **Barcode scanner via kamera HP** — scan langsung menambah item ke keranjang (Fase 20i; **sebagian**: memakai `BarcodeDetector` bawaan peramban, jadi Safari iOS belum dapat — cadangan wasm sengaja tidak dipasang karena tak ada gerbang yang bisa mengujinya, lihat log fasenya) | T | S | – |
 | ~~Pembayaran non-tunai tercatat (QRIS statis/transfer, pilih metode → jurnal ke akun bank)~~ ✅ **sudah ada sejak Fase 7a** (koreksi Fase 12e) | T | R | – |
 | Mode offline penuh POS: antre transaksi di IndexedDB, sinkron saat online (PWA sudah ada — tinggal antrean) | T | T | – |
 | Member/pelanggan di POS + riwayat belanja & poin sederhana | S | S | – |
@@ -132,7 +132,7 @@ notifikasi, kartu stok.
 
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
-| **Peramalan stok (AI)** — proyeksi kebutuhan per produk dari riwayat penjualan → saran jumlah & waktu beli ulang | T | S | ✓ |
+| ✅ **Peramalan stok** — proyeksi kebutuhan per produk dari riwayat penjualan → saran jumlah & waktu beli ulang (Fase 20h; **deterministik**, bukan AI — lihat log fasenya) | T | S | – |
 | ✅ **Picking multi-gudang** — satu faktur mengambil stok dari beberapa gudang sekaligus (Fase 20g; HPP dihitung per gudang asal) | S | S | – |
 | Satuan ganda (beli per dus, jual per pcs, konversi otomatis) | T | T | – |
 | Reorder point otomatis: ambang dihitung dari kecepatan jual, bukan angka statis | S | S | ✓ |

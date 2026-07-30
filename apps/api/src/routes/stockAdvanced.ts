@@ -1,8 +1,11 @@
 import {
+  FORECAST_DEFAULTS,
+  ramalStok,
   serialSchema,
   serialStatusSchema,
   type ApiProductSerial,
   type ApiReorderSuggestion,
+  type ApiStockForecast,
   type SerialStatus,
 } from "@erpindo/shared";
 import { Hono } from "hono";
@@ -56,6 +59,77 @@ export const stockAdvancedRoutes = new Hono<AppEnv>()
       };
     });
     return c.json({ suggestions });
+  })
+
+  // --- Peramalan stok (Fase 20h) --------------------------------------------
+  //
+  // Menumpang titik pesan di atas, bukan menggantikannya. Bedanya: titik pesan
+  // membandingkan stok dengan ambang STATIS yang diketik pemilik; ramalan ini
+  // menurunkan ambangnya dari kecepatan jual yang sebenarnya. Keduanya berguna
+  // — yang satu untuk barang yang ambangnya memang sudah dipikirkan, yang lain
+  // untuk barang yang tidak.
+  .get("/:tenantId/stock-forecast", requireAuth, requireTenantRole("viewer"), async (c) => {
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+    const angka = (nama: string, bawaan: number, maks: number) => {
+      const v = Number(c.req.query(nama));
+      return Number.isFinite(v) && v > 0 ? Math.min(Math.floor(v), maks) : bawaan;
+    };
+    const periodeHari = angka("days", FORECAST_DEFAULTS.periodeHari, 365);
+    const leadTimeHari = angka("leadTime", FORECAST_DEFAULTS.leadTimeHari, 180);
+    const cadanganHari = angka("safety", FORECAST_DEFAULTS.cadanganHari, 180);
+
+    const hariMs = 86_400_000;
+    const mulai = new Date(Date.now() - periodeHari * hariMs).toISOString().slice(0, 19).replace("T", " ");
+    const tengah = new Date(Date.now() - (periodeHari / 2) * hariMs).toISOString().slice(0, 19).replace("T", " ");
+
+    // Penjualan = baris `sale` bernilai negatif. Retur penjualan masuk sebagai
+    // baris `sale` POSITIF, jadi `SUM(-qty)` menghasilkan permintaan BERSIH —
+    // bukan kotor. Meramal dari angka kotor akan menyarankan beli lebih banyak
+    // justru untuk barang yang paling sering dikembalikan.
+    const { results } = await db
+      .prepare(
+        `SELECT p.id, p.sku, p.name, p.unit, p.buy_price,
+                COALESCE((SELECT SUM(qty) FROM stock_levels s WHERE s.product_id = p.id), 0) AS stok,
+                COALESCE(SUM(-m.qty), 0) AS terjual,
+                COALESCE(SUM(CASE WHEN m.created_at < ? THEN -m.qty ELSE 0 END), 0) AS paruh_awal,
+                COALESCE(SUM(CASE WHEN m.created_at >= ? THEN -m.qty ELSE 0 END), 0) AS paruh_akhir,
+                COUNT(DISTINCT CASE WHEN m.qty < 0 THEN date(m.created_at) END) AS hari_jual
+         FROM products p
+         LEFT JOIN stock_movements m
+           ON m.product_id = p.id AND m.ref_type = 'sale' AND m.created_at >= ?
+         WHERE p.is_archived = 0 AND p.is_service = 0
+         GROUP BY p.id
+         ORDER BY terjual DESC, p.name`,
+      )
+      .bind(tengah, tengah, mulai)
+      .all<{
+        id: string; sku: string; name: string; unit: string; buy_price: number;
+        stok: number; terjual: number; paruh_awal: number; paruh_akhir: number; hari_jual: number;
+      }>();
+
+    const forecasts: ApiStockForecast[] = results.map((r) => {
+      const hasil = ramalStok({
+        stok: r.stok,
+        terjual: Math.max(r.terjual, 0),
+        terjualParuhAwal: Math.max(r.paruh_awal, 0),
+        terjualParuhAkhir: Math.max(r.paruh_akhir, 0),
+        hariAdaPenjualan: r.hari_jual,
+        periodeHari,
+        leadTimeHari,
+        cadanganHari,
+      });
+      return {
+        productId: r.id,
+        sku: r.sku,
+        name: r.name,
+        unit: r.unit,
+        stok: r.stok,
+        terjual: Math.max(r.terjual, 0),
+        buyPrice: r.buy_price,
+        ...hasil,
+      };
+    });
+    return c.json({ forecasts, periodeHari, leadTimeHari, cadanganHari });
   })
 
   // --- Pindai barcode → produk ----------------------------------------------

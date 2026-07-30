@@ -264,6 +264,139 @@ export type ApiReorderSuggestion = {
   buyPrice: number;
 };
 
+// --- Peramalan stok (Fase 20h) ----------------------------------------------
+
+/**
+ * Seberapa jauh angka ramalan boleh dipercaya. Sengaja jadi bagian dari hasil,
+ * bukan catatan kaki di layar: rata-rata bergerak atas data tipis menghasilkan
+ * angka yang kelihatan sama meyakinkannya dengan angka atas data tebal, dan
+ * itulah cara ramalan menyesatkan orang.
+ */
+export const FORECAST_CONFIDENCE = ["tinggi", "sedang", "rendah"] as const;
+export type ForecastConfidence = (typeof FORECAST_CONFIDENCE)[number];
+
+export const FORECAST_TRENDS = ["naik", "turun", "stabil"] as const;
+export type ForecastTrend = (typeof FORECAST_TRENDS)[number];
+
+/** Parameter peramalan yang bisa disetel pemakai (semuanya dalam hari). */
+export const FORECAST_DEFAULTS = {
+  /** Panjang jendela riwayat yang dibaca. */
+  periodeHari: 90,
+  /** Jeda dari memesan sampai barang datang. */
+  leadTimeHari: 7,
+  /** Cadangan pengaman di atas lead time. */
+  cadanganHari: 7,
+  /** Satu siklus pemesanan — berapa lama sekali pemilik belanja. */
+  siklusHari: 30,
+} as const;
+
+export type ForecastInput = {
+  /** Sisa stok saat ini (seluruh gudang). */
+  stok: number;
+  /** Total qty terjual sepanjang jendela. */
+  terjual: number;
+  /** Qty terjual pada PARUH AWAL jendela — dipakai menghitung tren. */
+  terjualParuhAwal: number;
+  /** Qty terjual pada PARUH AKHIR jendela. */
+  terjualParuhAkhir: number;
+  /** Berapa hari berbeda yang benar-benar ada penjualannya. */
+  hariAdaPenjualan: number;
+  periodeHari?: number;
+  leadTimeHari?: number;
+  cadanganHari?: number;
+  siklusHari?: number;
+};
+
+export type ForecastResult = {
+  rataHarian: number;
+  /** Perkiraan sisa hari sampai stok habis; `null` bila tidak pernah terjual. */
+  hariHabis: number | null;
+  /** Ambang pemesanan = rata-rata harian × (lead time + cadangan). */
+  titikPesan: number;
+  perluPesan: boolean;
+  /** Qty usulan beli; 0 bila belum perlu. */
+  qtyDisarankan: number;
+  tren: ForecastTrend;
+  keyakinan: ForecastConfidence;
+};
+
+/**
+ * Peramalan kebutuhan stok — **deterministik**, rata-rata bergerak sederhana.
+ * Bukan AI, sejalan dengan pilihan yang sudah diambil untuk deteksi anomali:
+ * angka yang bisa ditelusuri pemilik dengan kalkulator lebih berguna daripada
+ * angka yang lebih pintar tetapi tak bisa dibantah.
+ *
+ * Keyakinan diturunkan dari **ketebalan data**, bukan dari besarnya angka:
+ * produk yang terjual di 2 hari dari 90 tidak punya "rata-rata harian" yang
+ * berarti, betapapun rapi hasil pembagiannya.
+ */
+export function ramalStok(input: ForecastInput): ForecastResult {
+  const periodeHari = input.periodeHari ?? FORECAST_DEFAULTS.periodeHari;
+  const leadTimeHari = input.leadTimeHari ?? FORECAST_DEFAULTS.leadTimeHari;
+  const cadanganHari = input.cadanganHari ?? FORECAST_DEFAULTS.cadanganHari;
+  const siklusHari = input.siklusHari ?? FORECAST_DEFAULTS.siklusHari;
+
+  const rataHarian = periodeHari > 0 ? input.terjual / periodeHari : 0;
+
+  // Tren dari perbandingan dua paruh jendela. Ambang ±20% supaya riak kecil
+  // tidak dilaporkan sebagai perubahan arah.
+  let tren: ForecastTrend = "stabil";
+  if (input.terjualParuhAwal > 0) {
+    const rasio = input.terjualParuhAkhir / input.terjualParuhAwal;
+    if (rasio >= 1.2) tren = "naik";
+    else if (rasio <= 0.8) tren = "turun";
+  } else if (input.terjualParuhAkhir > 0) {
+    tren = "naik";
+  }
+
+  // Data tipis → keyakinan rendah, apa pun angkanya.
+  const cakupan = periodeHari > 0 ? input.hariAdaPenjualan / periodeHari : 0;
+  const keyakinan: ForecastConfidence =
+    input.hariAdaPenjualan < 5 || cakupan < 0.05
+      ? "rendah"
+      : cakupan < 0.2
+        ? "sedang"
+        : "tinggi";
+
+  if (rataHarian <= 0) {
+    return {
+      rataHarian: 0,
+      hariHabis: null,
+      titikPesan: 0,
+      perluPesan: false,
+      qtyDisarankan: 0,
+      tren,
+      keyakinan: "rendah",
+    };
+  }
+
+  const hariHabis = Math.floor(input.stok / rataHarian);
+  const titikPesan = Math.ceil(rataHarian * (leadTimeHari + cadanganHari));
+  const perluPesan = input.stok <= titikPesan;
+  const target = rataHarian * (leadTimeHari + cadanganHari + siklusHari);
+  const qtyDisarankan = perluPesan ? Math.max(Math.ceil(target - input.stok), 1) : 0;
+
+  return { rataHarian, hariHabis, titikPesan, perluPesan, qtyDisarankan, tren, keyakinan };
+}
+
+/** Satu baris ramalan stok yang dikirim ke web (Fase 20h). */
+export type ApiStockForecast = {
+  productId: string;
+  sku: string;
+  name: string;
+  unit: string;
+  stok: number;
+  terjual: number;
+  rataHarian: number;
+  hariHabis: number | null;
+  titikPesan: number;
+  perluPesan: boolean;
+  qtyDisarankan: number;
+  tren: ForecastTrend;
+  keyakinan: ForecastConfidence;
+  buyPrice: number;
+};
+
 // --- Pajak UMKM (Fase 7d) ---------------------------------------------------
 const TAX_PERIOD_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 

@@ -152,6 +152,56 @@ export const UI = {
     id: "Usulan pembelian otomatis",
     en: "Automatic purchase suggestions",
   },
+  // Pemindai barcode kamera (Fase 20i)
+  pindaiBarcode: { id: "Pindai barcode", en: "Scan barcode" },
+  tutupPemindai: { id: "Tutup pemindai", en: "Close scanner" },
+  pindaiArahkan: {
+    id: "Arahkan kamera ke barcode produk — begitu terbaca, barangnya langsung masuk keranjang.",
+    en: "Point the camera at the product barcode — once read, the item goes straight into the cart.",
+  },
+  pindaiTanpaDetektor: {
+    id: "Peramban ini belum mendukung pemindaian barcode lewat kamera. Pakai Chrome di Android, atau ketik SKU di kotak pencarian.",
+    en: "This browser does not support camera barcode scanning yet. Use Chrome on Android, or type the SKU in the search box.",
+  },
+  pindaiTanpaKamera: {
+    id: "Perangkat ini tidak menyediakan akses kamera. Kotak pencarian di atas tetap bisa dipakai.",
+    en: "This device offers no camera access. The search box above still works.",
+  },
+  pindaiTanpaIzin: {
+    id: "Kamera tidak bisa dipakai — izinnya ditolak atau sedang dipakai aplikasi lain. Kotak pencarian tetap bisa dipakai.",
+    en: "The camera is unavailable — permission was denied or another app is using it. The search box still works.",
+  },
+  barcodeTidakDikenal: {
+    id: "Barcode tidak dikenali",
+    en: "Barcode not recognised",
+  },
+  // Peramalan stok (Fase 20h)
+  peramalanStok: { id: "Peramalan stok", en: "Stock forecast" },
+  descPeramalanStok: {
+    id: "Perkiraan kebutuhan dari kecepatan jual 90 hari terakhir. Hitungannya rata-rata bergerak biasa — bukan AI — jadi angkanya bisa Anda telusuri sendiri.",
+    en: "Demand estimate from the last 90 days of sales velocity. Plain moving average — not AI — so you can retrace every number yourself.",
+  },
+  rataJualHarian: { id: "Rata-rata/hari", en: "Avg/day" },
+  sisaHariHabis: { id: "Habis dalam", en: "Runs out in" },
+  titikPesanDihitung: { id: "Titik pesan", en: "Reorder point" },
+  tren: { id: "Tren", en: "Trend" },
+  keyakinan: { id: "Keyakinan", en: "Confidence" },
+  trenNaik: { id: "Naik", en: "Rising" },
+  trenTurun: { id: "Turun", en: "Falling" },
+  trenStabil: { id: "Stabil", en: "Steady" },
+  keyakinanTinggi: { id: "Tinggi", en: "High" },
+  keyakinanSedang: { id: "Sedang", en: "Medium" },
+  keyakinanRendah: { id: "Rendah", en: "Low" },
+  hanyaPerluPesan: { id: "Hanya yang perlu dipesan", en: "Only those needing an order" },
+  waktuTungguHari: { id: "Waktu tunggu pemasok (hari)", en: "Supplier lead time (days)" },
+  belumAdaRiwayatJual: {
+    id: "Belum ada penjualan pada periode ini — tidak ada yang bisa diramalkan.",
+    en: "No sales in this period — there is nothing to forecast yet.",
+  },
+  hintKeyakinanRendah: {
+    id: "Baris berkeyakinan rendah dihitung dari penjualan yang terlalu jarang; perlakukan sebagai perkiraan kasar.",
+    en: "Low-confidence rows come from sales that are too infrequent; treat them as rough estimates.",
+  },
   // Laporan — Fase 16e
   faktur: { id: "Faktur", en: "Invoice" },
   nomor: { id: "Nomor", en: "Number" },

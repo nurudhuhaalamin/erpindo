@@ -1150,6 +1150,15 @@ try {
   check("pindai barcode menemukan produk", lookup.status === 200 && lookup.json?.product?.id === prodSerial.json.id && lookup.json?.product?.sku === "SER-7C", `→ ${JSON.stringify(lookup.json?.product)}`);
   const lookupMiss = await owner("GET", `/api/tenants/${tenantId}/products/lookup?barcode=0000000000000`);
   check("pindai barcode tak dikenal → 404", lookupMiss.status === 404);
+  // Fase 20i: pemindai kamera memasukkan hasil lookup LANGSUNG ke keranjang POS,
+  // jadi harga & satuannya harus ikut terbawa — bukan hanya id/sku. Tanpa ini,
+  // barang bisa masuk keranjang berharga Rp 0 tanpa ada yang menyadarinya.
+  check(
+    "hasil pindai memuat harga jual & satuan (dipakai keranjang POS)",
+    lookup.json?.product?.sellPrice === 12_000_000 && lookup.json?.product?.unit === "unit" &&
+      lookup.json?.product?.name === "Mesin Espresso",
+    `→ ${JSON.stringify(lookup.json?.product)}`,
+  );
 
   const ser1 = await owner("POST", `/api/tenants/${tenantId}/products/${prodSerial.json.id}/serials`, { serialNo: "SN-0001" });
   check("tambah nomor seri SN-0001 201", ser1.status === 201);
@@ -1179,6 +1188,55 @@ try {
     note: "Usulan otomatis titik pesan", lines: [{ productId: prodReorder.json.id, qty: roRow.suggestedQty }],
   });
   check("buat permintaan pembelian dari usulan 201", roPr.status === 201 && Boolean(roPr.json?.reqNo), `→ ${JSON.stringify(roPr.json)}`);
+
+  // --- Peramalan stok (Fase 20h) --------------------------------------------
+  // Produk khusus supaya angkanya deterministik: beli 100, jual 30, sisa 70.
+  const prodFc = await owner("POST", `/api/tenants/${tenantId}/products`, {
+    sku: "FCAST-20H", name: "Produk Uji Peramalan", unit: "pcs", sellPrice: 5_000, buyPrice: 2_000,
+  });
+  await owner("POST", `/api/tenants/${tenantId}/purchases`, {
+    contactId: supplier.json.id, invoiceDate: "2026-09-25", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: prodFc.json.id, qty: 100, unitPrice: 2_000 }],
+  });
+  const fcSale = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id, invoiceDate: "2026-09-25", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: prodFc.json.id, qty: 30, unitPrice: 5_000 }],
+  });
+  check("penjualan uji peramalan diposting (30 pcs)", fcSale.status === 201, `→ ${fcSale.status}`);
+
+  // Jendela 90 hari, lead time 7 + cadangan 7 → titik pesan hanya 5, jadi
+  // stok 70 masih jauh di atasnya: tidak boleh menyarankan pembelian.
+  const fc = await owner("GET", `/api/tenants/${tenantId}/stock-forecast?days=90&leadTime=7&safety=7`);
+  const fcRow = fc.json?.forecasts?.find((f) => f.sku === "FCAST-20H");
+  check(
+    "ramalan: rata-rata 30/90 hari, sisa 70, titik pesan 5, belum perlu pesan",
+    fc.status === 200 && fcRow?.stok === 70 && fcRow?.terjual === 30 && fcRow?.titikPesan === 5 &&
+      fcRow?.perluPesan === false && fcRow?.qtyDisarankan === 0,
+    `→ ${JSON.stringify(fcRow)}`,
+  );
+  // Seluruh penjualan smoke terjadi pada SATU hari, jadi datanya tipis —
+  // ramalannya wajib ditandai berkeyakinan rendah walau angkanya rapi.
+  check("ramalan dari penjualan satu hari ditandai keyakinan 'rendah'", fcRow?.keyakinan === "rendah", `→ ${fcRow?.keyakinan}`);
+
+  // Waktu tunggu pemasok yang panjang menaikkan titik pesan sampai melewati
+  // stok — dan usulan qty-nya harus ikut muncul.
+  const fcLama = await owner("GET", `/api/tenants/${tenantId}/stock-forecast?days=90&leadTime=180&safety=180`);
+  const fcLamaRow = fcLama.json?.forecasts?.find((f) => f.sku === "FCAST-20H");
+  check(
+    "waktu tunggu 180 hari → titik pesan 120 > stok 70 → usulan beli 60",
+    fcLamaRow?.titikPesan === 120 && fcLamaRow?.perluPesan === true && fcLamaRow?.qtyDisarankan === 60,
+    `→ ${JSON.stringify(fcLamaRow)}`,
+  );
+
+  // Produk yang tak pernah terjual tidak boleh diramalkan angka apa pun.
+  const fcKosong = fc.json?.forecasts?.find((f) => f.sku === "RORDER-7C");
+  check(
+    "produk tanpa penjualan: rata-rata 0, tanpa perkiraan habis, tanpa usulan",
+    fcKosong?.rataHarian === 0 && fcKosong?.hariHabis === null && fcKosong?.qtyDisarankan === 0,
+    `→ ${JSON.stringify(fcKosong)}`,
+  );
+  const fcViewer = await viewer("GET", `/api/tenants/${tenantId}/stock-forecast`);
+  check("viewer boleh membaca peramalan stok (200)", fcViewer.status === 200);
 
   // --- Pajak UMKM (Fase 7d): PPh Final 0,5% + PPh 23 + SPT Masa PPN ----------------
   console.log("11d5. Pajak UMKM (PPh Final + PPh 23 + SPT PPN)");

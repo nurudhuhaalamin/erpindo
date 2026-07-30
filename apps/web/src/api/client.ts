@@ -21,6 +21,7 @@ import type {
   SalesOrderInput,
   SoDownPaymentInput,
   ApiReorderSuggestion,
+  ApiStockForecast,
   ApiProductSerial,
   SerialInput,
   ApiPphFinal,
@@ -696,6 +697,16 @@ export const api = {
   // --- Stok lanjut (titik pesan, barcode, nomor seri) ----------------------------
   reorderSuggestions: (tenantId: string) =>
     request<{ suggestions: ApiReorderSuggestion[] }>("GET", `/api/tenants/${tenantId}/reorder-suggestions`),
+  stockForecast: (tenantId: string, opts?: { days?: number; leadTime?: number; safety?: number }) =>
+    request<{
+      forecasts: ApiStockForecast[];
+      periodeHari: number;
+      leadTimeHari: number;
+      cadanganHari: number;
+    }>(
+      "GET",
+      `/api/tenants/${tenantId}/stock-forecast?days=${opts?.days ?? 90}&leadTime=${opts?.leadTime ?? 7}&safety=${opts?.safety ?? 7}`,
+    ),
   lookupBarcode: (tenantId: string, barcode: string) =>
     request<{ product: { id: string; sku: string; name: string; unit: string; sellPrice: number; buyPrice: number } }>("GET", `/api/tenants/${tenantId}/products/lookup?barcode=${encodeURIComponent(barcode)}`),
   productSerials: (tenantId: string, productId: string) =>

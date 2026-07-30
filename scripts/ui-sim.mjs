@@ -425,6 +425,23 @@ try {
     adaStockLevels && adaBalance && tanpaLevelId,
     `→ stockLevels=${adaStockLevels} balance=${adaBalance} tanpaID=${tanpaLevelId}`,
   );
+  // F1z — Fase 20h: kartu Peramalan stok, termasuk lencana tren & keyakinan
+  // yang isinya datang dari kode server (naik/turun, tinggi/sedang/rendah) —
+  // kelas teks yang berkali-kali tertinggal berbahasa Indonesia di Fase 19.
+  const adaRamalEn =
+    stokEn.includes("Stock forecast") &&
+    stokEn.includes("Confidence") &&
+    stokEn.includes("Supplier lead time (days)");
+  const tanpaRamalId =
+    !stokEn.includes("Peramalan stok") &&
+    !stokEn.includes("Keyakinan") &&
+    !stokEn.includes("Rendah") &&
+    !stokEn.includes("Naik");
+  check(
+    "F1z kartu Peramalan stok ikut EN termasuk lencana tren & keyakinan",
+    adaRamalEn && tanpaRamalId,
+    `→ EN=${adaRamalEn} tanpaID=${tanpaRamalId}`,
+  );
   await gotoRoute("/app/keuangan/laba-rugi", 800);
   const lrEn = await page.innerText("body");
   const adaIncome = lrEn.includes("Income");
@@ -1266,6 +1283,71 @@ try {
   check("F6b POS: kartu 'Rekap hari ini' terbuka berisi rekap per jam/shift/metode", true);
   check("F6b POS quick wins bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
 
+  // F6c — Fase 20i: pemindai barcode kamera.
+  //
+  // Chromium yang menjalankan suite ini TIDAK punya `BarcodeDetector` (sudah
+  // diverifikasi langsung, bukan diasumsikan), sehingga yang bisa diuji di sini
+  // justru bagian yang paling penting: DEGRADASI-nya. Jalur pemindaian yang
+  // berhasil hanya bisa dibuktikan di perangkat nyata — dan itu dinyatakan
+  // apa adanya di log fase, bukan disamarkan jadi cek yang seolah menguji.
+  resetErrors();
+  const dukungan = await page.evaluate(() => ({
+    detector: "BarcodeDetector" in window,
+    media: Boolean(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+  }));
+  check(
+    "F6c prasyarat cek ini benar: Chromium suite memang tanpa BarcodeDetector",
+    dukungan.detector === false,
+    `→ ${JSON.stringify(dukungan)}`,
+  );
+  await page.getByRole("button", { name: "Pindai barcode" }).click();
+  await page.locator('[data-testid="panel-pindai"]').waitFor({ timeout: 10_000 });
+  const pindaiBody = await page.innerText("body");
+  check(
+    "F6c peramban tanpa detektor: panel menjelaskan sebabnya, bukan gagal diam",
+    pindaiBody.includes("belum mendukung pemindaian barcode"),
+  );
+  // Kotak pencarian HARUS tetap bisa dipakai — inilah arti "degradasi anggun"
+  // di sini: kasir tetap bisa berjualan meski pemindainya tidak tersedia.
+  await page.getByPlaceholder("Cari produk / SKU…").fill("Kopi Arabika");
+  await page.waitForTimeout(500);
+  const masihBisaCari = await page.locator("button", { hasText: "Rp" }).filter({ hasNotText: "Rp 0" }).count();
+  check(
+    "F6c pencarian produk tetap berfungsi saat pemindai tak tersedia",
+    masihBisaCari > 0,
+    `→ ${masihBisaCari} kartu produk`,
+  );
+  await page.getByRole("button", { name: "Tutup pemindai" }).click();
+  await page.waitForTimeout(300);
+  check(
+    "F6c panel pemindai bisa ditutup lagi",
+    (await page.locator('[data-testid="panel-pindai"]').count()) === 0,
+  );
+  // F2a — pesan degradasinya ikut EN. Diperiksa DI SINI, bukan di sapuan EN di
+  // awal suite: tombol pindai hanya ada saat shift terbuka, dan sapuan itu
+  // berjalan sebelum F6 membuka shift. Menuntutnya di sana adalah kesalahan
+  // asersi, bukan bukti bug — pelajaran yang sudah tertulis di F0i.
+  await page.locator("aside").getByRole("button", { name: "EN", exact: true }).first().click();
+  await page.waitForTimeout(400);
+  await page.getByRole("button", { name: "Scan barcode" }).click();
+  await page.locator('[data-testid="panel-pindai"]').waitFor({ timeout: 10_000 });
+  const pindaiEnBody = await page.innerText("body");
+  const adaPindaiEn =
+    pindaiEnBody.includes("does not support camera barcode scanning") &&
+    pindaiEnBody.includes("Close scanner");
+  const tanpaPindaiId =
+    !pindaiEnBody.includes("belum mendukung pemindaian") && !pindaiEnBody.includes("Tutup pemindai");
+  check(
+    "F2a pemindai barcode ikut EN: tombol + pesan degradasi, tanpa teks Indonesia",
+    adaPindaiEn && tanpaPindaiId,
+    `→ EN=${adaPindaiEn} tanpaID=${tanpaPindaiId}`,
+  );
+  await page.getByRole("button", { name: "Close scanner" }).click();
+  await page.locator("aside").getByRole("button", { name: "ID", exact: true }).first().click();
+  await page.waitForTimeout(400);
+
+  check("F6c pemindai barcode bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
+
   // F7 — Penjualan: terima pembayaran faktur outstanding → lunas.
   resetErrors();
   await gotoRoute("/app/penjualan", 1000);
@@ -1334,6 +1416,28 @@ try {
     `→ ${await pickSum.first().innerText()}`,
   );
   check("F7b picking multi-gudang bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
+
+  // F7c — Fase 20h: kartu Peramalan stok di halaman Stok.
+  resetErrors();
+  await gotoRoute("/app/stok", 1200);
+  const ramalBody = await page.innerText("body");
+  check(
+    "F7c kartu Peramalan stok render (judul + kolom keyakinan)",
+    ramalBody.includes("Peramalan stok") && ramalBody.includes("Keyakinan"),
+  );
+  // Saringan "hanya yang perlu dipesan" menyala secara bawaan; mematikannya
+  // harus MENAMBAH baris, bukan sekadar tidak error.
+  const barisRamalan = page.locator('[data-testid="tabel-ramalan"] tbody tr');
+  const barisTersaring = await barisRamalan.count();
+  await page.getByText("Hanya yang perlu dipesan").click();
+  await page.waitForTimeout(500);
+  const barisSemua = await barisRamalan.count();
+  check(
+    "F7c mematikan saringan 'hanya yang perlu dipesan' menambah baris ramalan",
+    barisSemua > barisTersaring,
+    `→ tersaring=${barisTersaring} semua=${barisSemua}`,
+  );
+  check("F7c peramalan stok bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
 
   // F8 — CRM: tambah lead → muncul di papan funnel.
   resetErrors();

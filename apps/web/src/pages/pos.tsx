@@ -2,10 +2,11 @@ import {
   POS_PAYMENT_METHODS,
   type PosPaymentMethod,
 } from "@erpindo/shared";
+import { ScanLine } from "lucide-react";
 import { useHeading } from "../i18n/pageHeadings";
 import { useUi, type UiKey } from "../i18n/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, formatIDR } from "../api/client";
 import {
   Alert,
@@ -20,6 +21,7 @@ import {
   Spinner,
   useToast,
 } from "../components/ui";
+import { dukunganPindai, mulaiPindai, type DukunganPindai, type PemindaiAktif } from "../lib/barcode";
 import { useWorkspace } from "./app";
 import { useDebounced } from "./commerce";
 
@@ -546,6 +548,70 @@ export function PosPage() {
     });
   }
 
+  // --- Pemindai barcode kamera (Fase 20i) ----------------------------------
+  //
+  // `api.lookupBarcode` sudah ada sejak Fase 7c tetapi TIDAK pernah dipanggil
+  // dari mana pun sampai fase ini — kelas utang yang sama dengan `useT()` di
+  // Fase 19q. Di sinilah ia akhirnya terhubung.
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const pemindaiRef = useRef<PemindaiAktif | null>(null);
+  const [pindaiTerbuka, setPindaiTerbuka] = useState(false);
+  // Sengaja mengecualikan "siap": keadaan itu bukan kegagalan, dan
+  // membiarkannya di tipe berarti ada cabang pesan yang tak pernah terpakai.
+  type SebabGagalPindai = Exclude<DukunganPindai, "siap">;
+  const [pindaiGagal, setPindaiGagal] = useState<SebabGagalPindai | null>(null);
+
+  const PESAN_PINDAI: Record<SebabGagalPindai, UiKey> = {
+    "tanpa-detektor": "pindaiTanpaDetektor",
+    "tanpa-kamera": "pindaiTanpaKamera",
+    "tanpa-izin": "pindaiTanpaIzin",
+  };
+
+  function hentikanPindai() {
+    pemindaiRef.current?.hentikan();
+    pemindaiRef.current = null;
+    setPindaiTerbuka(false);
+  }
+
+  // Kamera wajib mati saat komponen dilepas — tanpa ini lampu kamera tetap
+  // menyala setelah kasir pindah halaman.
+  useEffect(() => () => pemindaiRef.current?.hentikan(), []);
+
+  async function bukaPindai() {
+    setPindaiGagal(null);
+    setPindaiTerbuka(true);
+    const dukungan = dukunganPindai();
+    if (dukungan !== "siap") {
+      setPindaiGagal(dukungan);
+      return;
+    }
+    // Menunggu satu putaran render supaya elemen <video>-nya sudah ada.
+    await new Promise((r) => setTimeout(r, 0));
+    const video = videoRef.current;
+    if (!video) return;
+    try {
+      pemindaiRef.current = await mulaiPindai(video, (kode) => {
+        void (async () => {
+          try {
+            const res = await api.lookupBarcode(tenant.tenantId, kode);
+            addToCart({
+              id: res.product.id,
+              sku: res.product.sku,
+              name: res.product.name,
+              unit: res.product.unit,
+              sell_price: res.product.sellPrice,
+            });
+            toast("success", `${res.product.sku} · ${res.product.name}`);
+          } catch {
+            toast("error", `${u("barcodeTidakDikenal")}: ${kode}`);
+          }
+        })();
+      });
+    } catch (sebab) {
+      setPindaiGagal(sebab as SebabGagalPindai);
+    }
+  }
+
   function setQty(productId: string, qty: number) {
     setCart((c) =>
       qty <= 0
@@ -673,11 +739,39 @@ export function PosPage() {
         {/* Grid produk */}
         <Card>
           <CardBody className="space-y-3">
-            <Input
-              placeholder={u("cariProdukSku")}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+            <div className="flex gap-2">
+              <Input
+                className="flex-1"
+                placeholder={u("cariProdukSku")}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => (pindaiTerbuka ? hentikanPindai() : void bukaPindai())}
+              >
+                <ScanLine className="size-4" aria-hidden />{" "}
+                {pindaiTerbuka ? u("tutupPemindai") : u("pindaiBarcode")}
+              </Button>
+            </div>
+            {pindaiTerbuka ? (
+              <div data-testid="panel-pindai" className="space-y-2">
+                {pindaiGagal ? (
+                  <Alert tone="warning">{u(PESAN_PINDAI[pindaiGagal])}</Alert>
+                ) : (
+                  <>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{u("pindaiArahkan")}</p>
+                    <video
+                      ref={videoRef}
+                      className="w-full max-w-sm rounded-lg bg-slate-900"
+                      muted
+                      playsInline
+                    />
+                  </>
+                )}
+              </div>
+            ) : null}
             <div className="grid max-h-[60vh] grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3 xl:grid-cols-4">
               {products.map((p) => (
                 <button
