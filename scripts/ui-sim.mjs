@@ -1711,6 +1711,46 @@ try {
     perusahaanBody.includes("Starter") && perusahaanBody.includes("Business") && perusahaanBody.includes("Enterprise") && /Rp\s?999\.000/.test(perusahaanBody),
     `→ ${/Rp\s?999\.000/.test(perusahaanBody)}`,
   );
+  // F2d — Fase 20m: halaman Pengaturan ikut EN.
+  //
+  // Enam berkas `pages/settings/` tak pernah masuk program dwibahasa Fase 19
+  // karena glob gerbangnya tidak turun ke subfolder. Cek ini yang menjaga
+  // penutupannya — termasuk tab, kartu Langganan, dan kartu Profil perusahaan.
+  await page.locator("aside").getByRole("button", { name: "EN", exact: true }).first().click();
+  await page.waitForTimeout(500);
+  const setelanEn = await page.innerText("body");
+  const adaSetelanEn =
+    setelanEn.includes("Account & Display") &&
+    setelanEn.includes("Subscription") &&
+    setelanEn.includes("Company profile") &&
+    setelanEn.includes("Document numbering");
+  const tanpaSetelanId =
+    !setelanEn.includes("Akun & Tampilan") &&
+    !setelanEn.includes("Langganan") &&
+    !setelanEn.includes("Profil perusahaan") &&
+    !setelanEn.includes("Penomoran dokumen");
+  check(
+    "F2d halaman Pengaturan ikut EN: tab, Langganan, Profil perusahaan, Penomoran dokumen",
+    adaSetelanEn && tanpaSetelanId,
+    `→ EN=${adaSetelanEn} tanpaID=${tanpaSetelanId}`,
+  );
+  // Tab Data & Keamanan memuat label audit — kelas teks yang datang dari peta
+  // kode→label, bukan dari kamus utama.
+  await page.getByRole("tab", { name: "Data & Security" }).click();
+  await page.waitForTimeout(700);
+  const auditEn = await page.innerText("body");
+  const adaAuditEn = auditEn.includes("Export & Backup") && auditEn.includes("Activity history");
+  const tanpaAuditId = !auditEn.includes("Ekspor & Cadangan") && !auditEn.includes("Riwayat aktivitas");
+  check(
+    "F2d tab Data & Keamanan ikut EN termasuk kartu audit log",
+    adaAuditEn && tanpaAuditId,
+    `→ EN=${adaAuditEn} tanpaID=${tanpaAuditId}`,
+  );
+  await page.locator("aside").getByRole("button", { name: "ID", exact: true }).first().click();
+  await page.waitForTimeout(500);
+  await page.getByRole("tab", { name: "Perusahaan" }).click();
+  await page.waitForTimeout(500);
+
   // F2b — Fase 20k: penjaga tombol ganti paket.
   //
   // Tenant ui-sim adalah akun comped: paketnya enterprise TANPA periode

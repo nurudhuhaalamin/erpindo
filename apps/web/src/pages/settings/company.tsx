@@ -22,6 +22,7 @@ import { useUi, type UiKey } from "../../i18n/ui";
 import { useWorkspace } from "../app";
 
 export function DocNumberingCard({ tenantId }: { tenantId: string }) {
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["doc-numbering", tenantId], queryFn: () => api.docNumbering(tenantId) });
@@ -53,8 +54,8 @@ export function DocNumberingCard({ tenantId }: { tenantId: string }) {
   return (
     <Card>
       <CardHeader
-        title="Penomoran dokumen"
-        description="Sesuaikan format nomor faktur, pembelian, dan pembayaran. Kosongkan untuk format bawaan."
+        title={u("penomoranDokumen")}
+        description={u("descPenomoranDokumen")}
       />
       <CardBody className="space-y-4">
         {query.isLoading ? (
@@ -72,27 +73,28 @@ export function DocNumberingCard({ tenantId }: { tenantId: string }) {
                   <Input
                     value={value}
                     onChange={(e) => setPatterns((p) => ({ ...p, [key]: e.target.value }))}
-                    placeholder={`Bawaan · contoh: ${d.example}`}
+                    placeholder={`${u("bawaanContoh")} ${d.example}`}
                   />
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                     {valid ? (
                       <>
-                        Pratinjau: <code>{renderDocNumber(effective, today, 1)}</code>
-                        {value.trim() ? "" : " (format bawaan)"}
+                        {u("pratinjauLabel")} <code>{renderDocNumber(effective, today, 1)}</code>
+                        {value.trim() ? "" : ` ${u("formatBawaan")}`}
                       </>
                     ) : (
-                      <span className="text-rose-600 dark:text-rose-400">Pola harus memuat token {"{SEQ}"}.</span>
+                      <span className="text-rose-600 dark:text-rose-400">{u("polaHarusSeq")} {"{SEQ}"}.</span>
                     )}
                   </p>
                 </div>
               );
             })}
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Token: <code>{"{YYYY}"}</code> tahun · <code>{"{MM}"}</code> bulan · <code>{"{SEQ:4}"}</code> nomor urut
-              (4 digit). Bila memuat <code>{"{YYYY}"}</code>/<code>{"{MM}"}</code>, urutan otomatis reset tiap periode.
+              Token: <code>{"{YYYY}"}</code> {u("tokenTahun")} · <code>{"{MM}"}</code> {u("tokenBulan")} ·{" "}
+              <code>{"{SEQ:4}"}</code> {u("tokenNomorUrut")} <code>{"{YYYY}"}</code>/<code>{"{MM}"}</code>
+              {u("tokenResetPeriode")}
             </p>
             <Button onClick={() => save.mutate()} disabled={save.isPending || invalid}>
-              {save.isPending ? "Menyimpan…" : "Simpan format"}
+              {save.isPending ? u("menyimpanEllipsis") : u("simpanFormat")}
             </Button>
           </>
         )}
@@ -106,11 +108,13 @@ export function DocNumberingCard({ tenantId }: { tenantId: string }) {
 // API key (Bearer) + webhook langganan peristiwa. 403 → kartu upsell.
 // ---------------------------------------------------------------------------
 
-const INVOICE_STATUS_LABEL: Record<string, string> = {
-  pending: "Menunggu bayar",
-  paid: "Lunas",
-  failed: "Gagal",
-  expired: "Kedaluwarsa",
+// Status tagihan datang dari server sebagai kode; label diterjemahkan di sisi
+// web lewat kunci kamus — pola tetap sejak Fase 16t.
+const INVOICE_STATUS_KEY: Record<string, UiKey> = {
+  pending: "statusMenungguBayar",
+  paid: "statusLunas",
+  failed: "statusGagal",
+  expired: "statusKedaluwarsa",
 };
 
 export function SubscriptionCard() {
@@ -165,19 +169,19 @@ export function SubscriptionCard() {
 
   return (
     <Card>
-      <CardHeader title="Langganan" description="Paket, status, dan pembayaran akun perusahaan Anda." />
+      <CardHeader title={u("langgananJudul")} description={u("descLangganan")} />
       <CardBody className="space-y-4 text-sm">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-slate-500 dark:text-slate-400">Paket:</span>
+          <span className="text-slate-500 dark:text-slate-400">{u("paketLabel")}</span>
           <Badge tone="brand">{PLAN_LABELS[tenant.plan]}</Badge>
           {tenant.tenantStatus === "past_due" ? (
-            <Badge tone="amber">baca-saja — langganan berakhir</Badge>
+            <Badge tone="amber">{u("bacaSajaBerakhir")}</Badge>
           ) : tenant.tenantStatus === "trial" && daysLeft !== null ? (
-            <Badge tone="amber">trial, sisa {daysLeft} hari</Badge>
+            <Badge tone="amber">{u("trialSisa")} {daysLeft} {u("hariTersisa")}</Badge>
           ) : (
-            <Badge>aktif{subUntil ? ` s/d ${formatDate(subUntil.slice(0, 10))}` : ""}</Badge>
+            <Badge>{u("aktifKecil")}{subUntil ? ` ${u("sampaiDengan")} ${formatDate(subUntil.slice(0, 10))}` : ""}</Badge>
           )}
-          {legacy ? <Badge tone="brand">akses penuh (pelanggan awal)</Badge> : null}
+          {legacy ? <Badge tone="brand">{u("aksesPenuhPelangganAwal")}</Badge> : null}
           {/* Fase 20k: penurunan paket yang menunggu akhir periode. Ditampilkan
               supaya pemilik tidak mengira permintaannya tidak tercatat. */}
           {b?.pendingPlan ? (
@@ -190,8 +194,8 @@ export function SubscriptionCard() {
 
         {legacy ? (
           <p className="text-slate-500 dark:text-slate-400">
-            Sebagai pelanggan awal, akun Anda mendapat <span className="font-medium">akses semua modul</span> tanpa
-            perubahan harga. Terima kasih sudah bergabung sejak awal. 🙏
+            {u("descPelangganAwal1")} <span className="font-medium">{u("aksesSemuaModul")}</span>{" "}
+            {u("descPelangganAwal2")}
           </p>
         ) : null}
 
@@ -212,22 +216,22 @@ export function SubscriptionCard() {
               >
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-slate-800 dark:text-slate-100">{info.label}</span>
-                  {popular ? <Badge tone="brand">Populer</Badge> : null}
+                  {popular ? <Badge tone="brand">{u("populer")}</Badge> : null}
                 </div>
                 <div className="mt-1 text-lg font-bold tabular-nums">
                   Rp {info.pricePerMonth.toLocaleString("id-ID")}
                   <span className="text-xs font-normal text-slate-400">/bln</span>
                 </div>
                 <ul className="mt-2 flex-1 space-y-0.5 text-xs text-slate-500 dark:text-slate-400">
-                  <li>Pengguna tak terbatas</li>
+                  <li>{u("penggunaTakTerbatas")}</li>
                   <li>
                     {plan === "starter"
-                      ? "Akuntansi, penjualan, POS, stok, pajak"
+                      ? u("fiturStarter")
                       : plan === "business"
-                        ? "+ HR, proyek, manufaktur, pengadaan, CRM"
-                        : "+ multi-entitas, konsolidasi, API, keamanan"}
+                        ? u("fiturBusiness")
+                        : u("fiturEnterprise")}
                   </li>
-                  <li>AI {info.aiDailyLimit}/hari{info.maxEntities > 1 ? ` · ${info.maxEntities} entitas` : ""}</li>
+                  <li>{u("aiPerHari")} {info.aiDailyLimit}/{u("hariSuffix")}{info.maxEntities > 1 ? ` · ${info.maxEntities} ${u("entitasSatuan")}` : ""}</li>
                 </ul>
                 {isOwner && !current && langgananAktif ? (
                   // Sudah berlangganan → pindah paket dihitung prorata, bukan
@@ -250,10 +254,10 @@ export function SubscriptionCard() {
                     onClick={() => checkout.mutate(plan)}
                     disabled={checkout.isPending}
                   >
-                    {checkout.isPending ? "Mengalihkan…" : "Pilih paket"}
+                    {checkout.isPending ? u("mengalihkanEllipsis") : u("pilihPaket")}
                   </Button>
                 ) : current ? (
-                  <div className="mt-2 text-center text-xs font-medium text-brand-600 dark:text-brand-400">Paket Anda</div>
+                  <div className="mt-2 text-center text-xs font-medium text-brand-600 dark:text-brand-400">{u("paketAnda")}</div>
                 ) : null}
               </div>
             );
@@ -297,20 +301,19 @@ export function SubscriptionCard() {
 
         {!b?.configured ? (
           <p className="text-slate-500 dark:text-slate-400">
-            Pembayaran langganan online sedang disiapkan — untuk saat ini hubungi kami untuk aktivasi paket.
+            {u("descBillingBelumSiap")}
           </p>
         ) : !isOwner ? (
-          <p className="text-slate-500 dark:text-slate-400">Hubungi Pemilik perusahaan untuk mengatur pembayaran langganan.</p>
+          <p className="text-slate-500 dark:text-slate-400">{u("hubungiPemilikLangganan")}</p>
         ) : (
           <p className="text-xs text-slate-400">
-            Pembayaran aman via Midtrans (QRIS, transfer bank, kartu, e-wallet). Akun aktif otomatis setelah pembayaran
-            terkonfirmasi. Tim &amp; grup perusahaan dapat menghubungi kami untuk penawaran khusus.
+            {u("descPembayaranAman")}
           </p>
         )}
 
         {b && b.invoices.length > 0 ? (
           <div className="pt-1">
-            <div className="mb-1 font-medium text-slate-600 dark:text-slate-300">Riwayat tagihan</div>
+            <div className="mb-1 font-medium text-slate-600 dark:text-slate-300">{u("riwayatTagihan")}</div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <tbody>
@@ -320,7 +323,7 @@ export function SubscriptionCard() {
                       <td className="py-1.5 pr-3 tabular-nums">Rp {inv.amount.toLocaleString("id-ID")}</td>
                       <td className="py-1.5">
                         <Badge tone={inv.status === "paid" ? "green" : inv.status === "pending" ? "amber" : "neutral"}>
-                          {INVOICE_STATUS_LABEL[inv.status] ?? inv.status}
+                          {INVOICE_STATUS_KEY[inv.status] ? u(INVOICE_STATUS_KEY[inv.status]!) : inv.status}
                         </Badge>
                       </td>
                     </tr>
@@ -517,6 +520,7 @@ export function CustomFieldsCard({ tenantId }: { tenantId: string }) {
 }
 
 export function CompanySettingsCard({ tenantId, readOnly }: { tenantId: string; readOnly: boolean }) {
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["settings", tenantId], queryFn: () => api.settings(tenantId) });
@@ -540,18 +544,18 @@ export function CompanySettingsCard({ tenantId, readOnly }: { tenantId: string; 
   const s = query.data?.settings ?? {};
   return (
     <Card>
-      <CardHeader title="Profil perusahaan" description="Data ini tersimpan di database khusus perusahaan Anda." />
+      <CardHeader title={u("profilPerusahaan")} description={u("descProfilPerusahaanDb")} />
       <CardBody>
         {query.isLoading ? (
           <Spinner />
         ) : (
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="displayName">Nama tampilan</Label>
+              <Label htmlFor="displayName">{u("namaTampilan")}</Label>
               <Input id="displayName" name="displayName" defaultValue={s.display_name ?? ""} disabled={readOnly} />
             </div>
             <div>
-              <Label htmlFor="address">Alamat</Label>
+              <Label htmlFor="address">{u("alamat")}</Label>
               <Input id="address" name="address" defaultValue={s.address ?? ""} disabled={readOnly} />
             </div>
             <div>
@@ -561,11 +565,11 @@ export function CompanySettingsCard({ tenantId, readOnly }: { tenantId: string; 
             <LogoUploader tenantId={tenantId} current={s.logo_data_url ?? ""} readOnly={readOnly} />
             {readOnly ? (
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Hanya Owner/Admin yang dapat mengubah pengaturan.
+                {u("hanyaOwnerAdminUbah")}
               </p>
             ) : (
               <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? <Spinner /> : null} Simpan
+                {mutation.isPending ? <Spinner /> : null} {u("simpan")}
               </Button>
             )}
           </form>
@@ -581,6 +585,7 @@ export function CompanySettingsCard({ tenantId, readOnly }: { tenantId: string; 
  * DB tenant — tanpa butuh object storage.
  */
 function LogoUploader({ tenantId, current, readOnly }: { tenantId: string; current: string; readOnly: boolean }) {
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -628,7 +633,7 @@ function LogoUploader({ tenantId, current, readOnly }: { tenantId: string; curre
 
   return (
     <div>
-      <Label>Logo kop faktur &amp; struk</Label>
+      <Label>{u("logoKop")}</Label>
       <div className="flex flex-wrap items-center gap-3">
         {current ? (
           <img
@@ -637,29 +642,30 @@ function LogoUploader({ tenantId, current, readOnly }: { tenantId: string; curre
             className="h-12 w-auto max-w-28 rounded border border-slate-200 bg-white object-contain p-1 dark:border-slate-700"
           />
         ) : (
-          <span className="text-sm text-slate-400">Belum ada logo.</span>
+          <span className="text-sm text-slate-400">{u("belumAdaLogo")}</span>
         )}
         {readOnly ? null : (
           <>
             <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="hidden" onChange={onFile} />
             <Button type="button" variant="secondary" className="h-9" onClick={() => fileRef.current?.click()} disabled={save.isPending}>
-              {save.isPending ? <Spinner /> : null} {current ? "Ganti logo" : "Unggah logo"}
+              {save.isPending ? <Spinner /> : null} {current ? u("gantiLogo") : u("unggahLogo")}
             </Button>
             {current ? (
               <Button type="button" variant="ghost" className="h-9" onClick={() => save.mutate("")} disabled={save.isPending}>
-                Hapus
+                {u("hapus")}
               </Button>
             ) : null}
           </>
         )}
       </div>
-      <p className="mt-1 text-xs text-slate-400">PNG/JPEG/WebP/SVG — otomatis dikecilkan; tampil di kop faktur cetak & struk POS.</p>
+      <p className="mt-1 text-xs text-slate-400">{u("descLogo")}</p>
     </div>
   );
 }
 
 
 export function NewCompanyCard() {
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [companyName, setCompanyName] = useState("");
@@ -679,21 +685,21 @@ export function NewCompanyCard() {
   return (
     <Card>
       <CardHeader
-        title="Perusahaan lain"
-        description="Kelola beberapa badan usaha dari satu akun. Setiap perusahaan punya pembukuan terpisah — laporan gabungannya tersedia di menu Konsolidasi."
+        title={u("perusahaanLain")}
+        description={u("descPerusahaanLain")}
       />
       <CardBody className="flex flex-wrap items-end gap-3">
         <div className="flex-1 sm:max-w-xs">
-          <Label htmlFor="new-company">Nama perusahaan baru</Label>
+          <Label htmlFor="new-company">{u("namaPerusahaanBaru")}</Label>
           <Input
             id="new-company"
-            placeholder="mis. PT Cabang Kedua"
+            placeholder={u("contohCabangKedua")}
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
           />
         </div>
         <Button onClick={() => create.mutate()} disabled={create.isPending || companyName.trim().length < 2}>
-          {create.isPending ? <Spinner /> : null} Tambah Perusahaan
+          {create.isPending ? <Spinner /> : null} {u("tambahPerusahaan")}
         </Button>
       </CardBody>
     </Card>

@@ -5,9 +5,32 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api } from "../../api/client";
 import { Alert, Badge, Button, Card, CardBody, CardHeader, ConfirmDialog, Input, Label, Select, Spinner, useToast } from "../../components/ui";
+import { useUi, type UiKey } from "../../i18n/ui";
+
+/**
+ * Label izin modul datang dari `packages/shared` (dipakai apps/api juga) dan
+ * tetap berbahasa Indonesia. Pemetaan kode→kunci kamus dilakukan di sisi web —
+ * pola tetap sejak Fase 16t.
+ */
+const IZIN_KEY: Record<PermissionKey, UiKey> = {
+  penjualan: "izinPenjualan",
+  pembelian: "izinPembelian",
+  kasir: "izinKasir",
+  stok: "izinStok",
+  keuangan: "izinKeuangan",
+  pajak: "izinPajak",
+  laporan: "izinLaporan",
+  hr: "izinHr",
+  proyek: "izinProyek",
+  crm: "izinCrm",
+  persetujuan: "izinPersetujuan",
+  pengaturan: "izinPengaturan",
+  pengguna: "izinPengguna",
+};
 import { useWorkspace } from "../app";
 
 export function ApprovalThresholdCard({ tenantId }: { tenantId: string }) {
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const settingsQuery = useQuery({ queryKey: ["settings", tenantId], queryFn: () => api.settings(tenantId) });
@@ -26,26 +49,26 @@ export function ApprovalThresholdCard({ tenantId }: { tenantId: string }) {
   return (
     <Card>
       <CardHeader
-        title="Persetujuan pembelian"
-        description="Pembelian oleh Admin dengan nilai ≥ ambang ini harus Anda setujui dulu sebelum diproses. Isi 0 untuk menonaktifkan."
+        title={u("persetujuanPembelian")}
+        description={u("descPersetujuanPembelian")}
       />
       <CardBody className="flex flex-wrap items-end gap-3">
         <div className="sm:w-64">
-          <Label htmlFor="apr-amount">Ambang (Rp)</Label>
+          <Label htmlFor="apr-amount">{u("ambangRp")}</Label>
           <Input
             id="apr-amount"
             type="number"
             min={0}
-            placeholder={current > 0 ? String(current) : "mis. 5000000"}
+            placeholder={current > 0 ? String(current) : u("contohLimaJuta")}
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
           />
         </div>
         <Button variant="secondary" onClick={() => save.mutate()} disabled={save.isPending || amount === ""}>
-          {save.isPending ? <Spinner /> : null} Simpan
+          {save.isPending ? <Spinner /> : null} {u("simpan")}
         </Button>
         <span className="text-sm text-slate-500 dark:text-slate-400">
-          Saat ini: {current > 0 ? `Rp ${current.toLocaleString("id-ID")}` : "nonaktif"}
+          {u("saatIni")} {current > 0 ? `Rp ${current.toLocaleString("id-ID")}` : u("nonaktifKecil")}
         </span>
       </CardBody>
     </Card>
@@ -57,6 +80,7 @@ const ROLE_LABELS: Record<string, string> = { owner: "Pemilik", admin: "Admin", 
 
 /** Kelola peran kustom (Fase 7e): nama + peran dasar + centang modul yang diizinkan. */
 export function RolesCard({ tenantId }: { tenantId: string }) {
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["roles", tenantId], queryFn: () => api.roles(tenantId) });
@@ -102,7 +126,7 @@ export function RolesCard({ tenantId }: { tenantId: string }) {
   const roles = query.data?.roles ?? [];
   return (
     <Card>
-      <CardHeader title="Peran kustom" description="Buat peran dengan akses modul terbatas — mis. Kasir (hanya POS & Penjualan). Peran dasar menentukan hak baca/tulis." />
+      <CardHeader title={u("peranKustom")} description={u("descPeranKustom")} />
       <CardBody className="space-y-5">
         {roles.length > 0 ? (
           <div className="space-y-2">
@@ -110,55 +134,54 @@ export function RolesCard({ tenantId }: { tenantId: string }) {
               <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800">
                 <div>
                   <span className="font-medium">{r.name}</span>
-                  <Badge tone="neutral" >{r.baseRole === "admin" ? "Dasar: Admin" : "Dasar: Viewer"}</Badge>
-                  <span className="ml-1 text-xs text-slate-400">{r.permissions.length} modul · {r.memberCount} anggota</span>
+                  <Badge tone="neutral" >{r.baseRole === "admin" ? u("dasarAdmin") : u("dasarViewer")}</Badge>
+                  <span className="ml-1 text-xs text-slate-400">{r.permissions.length} {u("modulSatuan")} · {r.memberCount} {u("anggotaSatuan")}</span>
                   {r.scopeCostCenterIds ? (
-                    <Badge tone="amber">terbatas {r.scopeCostCenterIds.length} cost center</Badge>
+                    <Badge tone="amber">{u("terbatasCostCenter")} {r.scopeCostCenterIds.length} {u("costCenterSatuan")}</Badge>
                   ) : null}
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="secondary" className="h-8" onClick={() => startEdit(r)}>Ubah</Button>
-                  <Button variant="ghost" className="h-8 text-red-600 dark:text-red-400" onClick={() => setToDelete(r)}>Hapus</Button>
+                  <Button variant="secondary" className="h-8" onClick={() => startEdit(r)}>{u("ubah")}</Button>
+                  <Button variant="ghost" className="h-8 text-red-600 dark:text-red-400" onClick={() => setToDelete(r)}>{u("hapus")}</Button>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada peran kustom. Buat di bawah.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{u("belumAdaPeranKustom")}</p>
         )}
 
         <div className="space-y-3 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-          <h4 className="text-sm font-semibold">{editing ? `Ubah peran — ${editing.name}` : "Buat peran kustom"}</h4>
+          <h4 className="text-sm font-semibold">{editing ? `${u("ubahPeran")} ${editing.name}` : u("buatPeranKustom")}</h4>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <Label htmlFor="role-name">Nama peran</Label>
-              <Input id="role-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="mis. Kasir Toko" />
+              <Label htmlFor="role-name">{u("namaPeran")}</Label>
+              <Input id="role-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={u("contohKasirToko")} />
             </div>
             <div>
-              <Label htmlFor="role-base">Peran dasar (hak baca/tulis)</Label>
+              <Label htmlFor="role-base">{u("peranDasarHak")}</Label>
               <Select id="role-base" value={baseRole} onChange={(e) => setBaseRole(e.target.value as "admin" | "viewer")}>
-                <option value="admin">Admin (boleh menulis)</option>
-                <option value="viewer">Viewer (baca-saja)</option>
+                <option value="admin">{u("adminBolehMenulis")}</option>
+                <option value="viewer">{u("viewerBacaSaja")}</option>
               </Select>
             </div>
           </div>
           <div>
-            <p className="mb-2 text-sm font-medium">Modul yang boleh diakses</p>
+            <p className="mb-2 text-sm font-medium">{u("modulBolehDiakses")}</p>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {PERMISSIONS.map((p) => (
                 <label key={p.key} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                   <input type="checkbox" className="h-4 w-4 rounded border-slate-300" checked={perms.includes(p.key)} onChange={() => togglePerm(p.key)} />
-                  {p.label}
+                  {u(IZIN_KEY[p.key])}
                 </label>
               ))}
             </div>
           </div>
           {costCenters.length > 0 ? (
             <div>
-              <p className="mb-1 text-sm font-medium">Batasi data ke cost center (opsional)</p>
+              <p className="mb-1 text-sm font-medium">{u("batasiCostCenter")}</p>
               <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">
-                Bila dipilih, peran ini hanya melihat & membukukan ke cost center tersebut (daftar dimensi,
-                laporan per dimensi, dan jurnal). Kosongkan untuk akses semua.
+                {u("descBatasiCostCenter")} {u("kosongkanUntukSemua")}
               </p>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {costCenters.map((cc) => (
@@ -172,17 +195,17 @@ export function RolesCard({ tenantId }: { tenantId: string }) {
           ) : null}
           <div className="flex gap-2">
             <Button onClick={() => save.mutate()} disabled={save.isPending || name.trim().length < 2 || perms.length === 0}>
-              {save.isPending ? <Spinner /> : null} {editing ? "Simpan" : "Buat peran"}
+              {save.isPending ? <Spinner /> : null} {editing ? u("simpan") : u("buatPeran")}
             </Button>
-            {editing ? <Button variant="secondary" onClick={reset}>Batal</Button> : null}
+            {editing ? <Button variant="secondary" onClick={reset}>{u("batal")}</Button> : null}
           </div>
         </div>
 
         <ConfirmDialog
           open={toDelete !== null}
-          title="Hapus peran kustom?"
-          description={toDelete ? `Peran "${toDelete.name}" akan dihapus. Pastikan tidak ada anggota yang memakainya.` : undefined}
-          confirmLabel="Hapus"
+          title={u("konfirmHapusPeran")}
+          description={toDelete ? `"${toDelete.name}" ${u("descHapusPeran")}` : undefined}
+          confirmLabel={u("hapus")}
           danger
           busy={del.isPending}
           onConfirm={() => toDelete && del.mutate(toDelete.id)}
@@ -195,6 +218,7 @@ export function RolesCard({ tenantId }: { tenantId: string }) {
 
 
 export function MembersCard({ tenantId }: { tenantId: string }) {
+  const u = useUi();
   const { me, tenant } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -252,15 +276,15 @@ export function MembersCard({ tenantId }: { tenantId: string }) {
 
   return (
     <Card>
-      <CardHeader title="Anggota tim" description="Undang rekan kerja, atur peran, atau keluarkan anggota. Pemilik dapat mengubah peran." />
+      <CardHeader title={u("anggotaTim")} description={u("descAnggotaTim")} />
       <CardBody className="space-y-5">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                <th className="pb-2 pr-4 font-medium">Nama</th>
-                <th className="hidden pb-2 pr-4 font-medium sm:table-cell">Email</th>
-                <th className="pb-2 pr-4 font-medium">Peran</th>
+                <th className="pb-2 pr-4 font-medium">{u("nama")}</th>
+                <th className="hidden pb-2 pr-4 font-medium sm:table-cell">{u("email")}</th>
+                <th className="pb-2 pr-4 font-medium">{u("peranKolom")}</th>
                 {isOwner ? <th className="pb-2 font-medium"></th> : null}
               </tr>
             </thead>
@@ -272,7 +296,7 @@ export function MembersCard({ tenantId }: { tenantId: string }) {
                   <tr key={m.userId} className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
                     <td className="py-2.5 pr-4">
                       {m.name}
-                      {isSelf ? <span className="ml-1 text-xs text-slate-400">(Anda)</span> : null}
+                      {isSelf ? <span className="ml-1 text-xs text-slate-400">{u("andaKecil")}</span> : null}
                       <div className="text-xs text-slate-400 sm:hidden">{m.email}</div>
                     </td>
                     <td className="hidden py-2.5 pr-4 text-slate-500 dark:text-slate-400 sm:table-cell">{m.email}</td>
@@ -289,7 +313,7 @@ export function MembersCard({ tenantId }: { tenantId: string }) {
                           <option value="preset:admin">Admin</option>
                           <option value="preset:viewer">Viewer</option>
                           {customRoles.length > 0 ? (
-                            <optgroup label="Peran kustom">
+                            <optgroup label={u("peranKustom")}>
                               {customRoles.map((r) => (
                                 <option key={r.id} value={`custom:${r.id}`}>{r.name}</option>
                               ))}
@@ -321,9 +345,9 @@ export function MembersCard({ tenantId }: { tenantId: string }) {
 
         <ConfirmDialog
           open={removing !== null}
-          title="Keluarkan anggota?"
-          description={`${removing?.name ?? ""} akan kehilangan akses ke perusahaan ini. Tindakan ini bisa diulang dengan mengundang kembali.`}
-          confirmLabel="Keluarkan"
+          title={u("konfirmKeluarkanAnggota")}
+          description={`${removing?.name ?? ""} ${u("descKeluarkanAnggota")}`}
+          confirmLabel={u("keluarkan")}
           danger
           onCancel={() => setRemoving(null)}
           onConfirm={() => removing && remove.mutate(removing.userId)}
@@ -332,24 +356,24 @@ export function MembersCard({ tenantId }: { tenantId: string }) {
 
         <form onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex-1">
-            <Label htmlFor="invite-email">Email</Label>
-            <Input id="invite-email" name="email" type="email" placeholder="rekan@perusahaan.co.id" required />
+            <Label htmlFor="invite-email">{u("email")}</Label>
+            <Input id="invite-email" name="email" type="email" placeholder={u("emailRekan")} required />
           </div>
           <div className="sm:w-36">
-            <Label htmlFor="invite-role">Peran</Label>
+            <Label htmlFor="invite-role">{u("peranKolom")}</Label>
             <Select id="invite-role" name="role" defaultValue="viewer">
               <option value="admin">Admin</option>
               <option value="viewer">Viewer</option>
             </Select>
           </div>
           <Button type="submit" disabled={invite.isPending}>
-            {invite.isPending ? <Spinner /> : null} Undang
+            {invite.isPending ? <Spinner /> : null} {u("undang")}
           </Button>
         </form>
 
         {inviteUrl ? (
           <Alert tone="info">
-            Tautan undangan (bagikan bila email belum terkirim):{" "}
+            {u("tautanUndangan")}{" "}
             <span className="break-all font-mono text-xs">{inviteUrl}</span>
           </Alert>
         ) : null}

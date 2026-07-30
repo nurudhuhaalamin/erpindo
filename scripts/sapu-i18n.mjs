@@ -193,6 +193,33 @@ function zonaTabelDwibahasa(src) {
       }
     }
   }
+  // 3. Peta label berpasangan `const X = { … }` + `const X_EN = { … }`
+  //    (Fase 20m). Peta semacam ini berisi KODE → label, bukan kalimat layar,
+  //    dan sudah dwibahasa. Yang diperiksa bukan keberadaan pasangannya saja
+  //    melainkan CAKUPANNYA: kunci yang ada di sisi Indonesia tetapi hilang di
+  //    sisi Inggris dilaporkan sebagai bug, karena pengguna Inggris akan
+  //    melihat kode mentah tanpa ada yang tahu.
+  const petaEn = new Map();
+  for (const t of tabelEn) {
+    const kunci = new Set();
+    for (const k of t.isi.matchAll(/(?:^|[{,]\s*)"?([A-Za-z0-9_.]+)"?\s*:/g)) kunci.add(k[1].trim());
+    petaEn.set(t.nama, kunci);
+  }
+  for (const t of blok(/\bconst\s+([A-Z0-9_]+)\b[^=]*=\s*\{/g, "{", "}")) {
+    const pasangan = petaEn.get(`${t.nama}_EN`);
+    if (!pasangan) continue;
+    const kurang = [];
+    for (const k of t.isi.matchAll(/(?:^|[{,]\s*)"?([A-Za-z0-9_.]+)"?\s*:/g)) {
+      if (!pasangan.has(k[1].trim())) kurang.push(k[1].trim());
+    }
+    if (kurang.length === 0) sah.push({ a: t.a, b: t.b });
+    else
+      bolong.push({
+        baris: src.slice(0, t.a).split("\n").length,
+        pesan: `${t.nama} — ${kurang.length} kunci tanpa padanan di ${t.nama}_EN (${kurang.slice(0, 4).join(", ")})`,
+      });
+  }
+
   return { sah, bolong };
 }
 

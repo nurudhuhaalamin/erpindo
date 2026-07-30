@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { BrandWordmark, Button, useDarkMode } from "../../components/ui";
+import { pick, useLang } from "../../i18n";
 import { GUIDE_CATEGORIES, GUIDE_MODULES, guideBySlug, type GuideModule } from "./content";
 
 /**
@@ -115,6 +116,7 @@ export function GuideSections({ mod }: { mod: GuideModule }) {
 
 function GuideHeader() {
   const { dark, toggle } = useDarkMode();
+  const lang = useLang();
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-slate-50/80 backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
@@ -125,7 +127,7 @@ function GuideHeader() {
           <button
             onClick={toggle}
             className="rounded-lg p-2 text-slate-500 hover:bg-slate-200/60 dark:text-slate-400 dark:hover:bg-slate-800"
-            aria-label="Ganti tema terang/gelap"
+            aria-label={pick({ id: "Ganti tema terang/gelap", en: "Toggle light/dark theme" }, lang)}
           >
             {dark ? "☀" : "☾"}
           </button>
@@ -142,6 +144,7 @@ function GuideHeader() {
 }
 
 export function PanduanIndexPage() {
+  const lang = useLang();
   const [q, setQ] = useState("");
   const query = q.trim().toLowerCase();
   const matches = (m: GuideModule) =>
@@ -165,7 +168,7 @@ export function PanduanIndexPage() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Cari panduan… (mis. PPN, gaji, stok)"
+              placeholder={pick({ id: "Cari panduan… (mis. PPN, gaji, stok)", en: "Search guides… (e.g. VAT, payroll, stock)" }, lang)}
               className="h-11 w-full rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-slate-700 dark:bg-slate-900"
             />
           </div>

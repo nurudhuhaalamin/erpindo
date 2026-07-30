@@ -92,6 +92,13 @@ jobs:
       # (struk POS sempat tercetak dengan tulisan `{u("subtotal")}`). Skrip
       # keluar dengan kode 1 HANYA untuk bug ini; sisa utang terjemahan cuma
       # dilaporkan dan tidak menggagalkan CI.
+      # Fase 20m: glob DITURUNKAN ke subfolder. Sebelumnya `pages/*.tsx` saja,
+      # sehingga `pages/settings/`, `pages/landing/`, dan `pages/panduan/` tidak
+      # pernah tersapu sama sekali — 219 utang teks di halaman Pengaturan lolos
+      # tanpa terlihat selama seluruh program dwibahasa Fase 19.
       - name: Penjaga i18n (panggilan u() harfiah)
-        run: node scripts/sapu-i18n.mjs "apps/web/src/pages/"*.tsx "apps/web/src/components/"*.tsx > /dev/null
+        run: |
+          shopt -s globstar
+          node scripts/sapu-i18n.mjs apps/web/src/pages/**/*.tsx apps/web/src/components/**/*.tsx > /dev/null
+        shell: bash
 

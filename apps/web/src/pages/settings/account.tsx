@@ -4,15 +4,17 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../../api/client";
 import { Badge, Button, Card, CardBody, CardHeader, ConfirmDialog, Input, Label, Spinner, useToast } from "../../components/ui";
+import { useUi } from "../../i18n/ui";
 import { useWorkspace, isSimpleMode, setSimpleMode } from "../app";
 
 export function DisplayModeCard() {
+  const u = useUi();
   const [simple, setSimple] = useState(isSimpleMode);
   return (
     <Card>
       <CardHeader
-        title="Tampilan"
-        description="Sesuaikan menu dengan tingkat kenyamanan Anda terhadap istilah akuntansi."
+        title={u("tampilanJudul")}
+        description={u("descTampilan")}
       />
       <CardBody>
         <label className="flex cursor-pointer items-start gap-3">
@@ -27,11 +29,9 @@ export function DisplayModeCard() {
             className="mt-1 size-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
           />
           <span>
-            <span className="font-medium">Mode Sederhana</span>
+            <span className="font-medium">{u("modeSederhana")}</span>
             <span className="mt-0.5 block text-sm text-slate-500 dark:text-slate-400">
-              Sembunyikan menu akuntansi teknis (Jurnal Umum, Buku Besar, Neraca Saldo, Bagan Akun). Catat
-              transaksi lewat halaman "Catat Transaksi" berbahasa sehari-hari; laporan tetap tersedia. Bisa
-              dinyalakan/dimatikan kapan saja — hanya memengaruhi tampilan Anda, bukan data.
+              {u("sembunyikanMenuAkuntansi")}
             </span>
           </span>
         </label>
@@ -42,6 +42,7 @@ export function DisplayModeCard() {
 
 
 export function ProfileCard() {
+  const u = useUi();
   const { me } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -69,28 +70,28 @@ export function ProfileCard() {
 
   return (
     <Card>
-      <CardHeader title="Profil saya" description={me.user.email} />
+      <CardHeader title={u("profilSaya")} description={me.user.email} />
       <CardBody className="space-y-5">
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex-1 sm:max-w-xs">
-            <Label htmlFor="prof-name">Nama</Label>
+            <Label htmlFor="prof-name">{u("nama")}</Label>
             <Input id="prof-name" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <Button variant="secondary" onClick={() => saveName.mutate()} disabled={saveName.isPending || name.trim().length < 2}>
-            {saveName.isPending ? <Spinner /> : null} Simpan Nama
+            {saveName.isPending ? <Spinner /> : null} {u("simpanNama")}
           </Button>
         </div>
         <div className="flex flex-wrap items-end gap-3">
           <div className="sm:w-56">
-            <Label htmlFor="prof-cur">Password saat ini</Label>
+            <Label htmlFor="prof-cur">{u("passwordSaatIni")}</Label>
             <Input id="prof-cur" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
           </div>
           <div className="sm:w-56">
-            <Label htmlFor="prof-new">Password baru</Label>
+            <Label htmlFor="prof-new">{u("passwordBaru")}</Label>
             <Input
               id="prof-new"
               type="password"
-              placeholder="Minimal 8 karakter"
+              placeholder={u("minimal8Karakter")}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
             />
@@ -100,7 +101,7 @@ export function ProfileCard() {
             onClick={() => savePassword.mutate()}
             disabled={savePassword.isPending || !currentPassword || newPassword.length < 8}
           >
-            {savePassword.isPending ? <Spinner /> : null} Ganti Password
+            {savePassword.isPending ? <Spinner /> : null} {u("gantiPassword")}
           </Button>
         </div>
       </CardBody>
@@ -110,6 +111,7 @@ export function ProfileCard() {
 
 
 export function SecurityCard() {
+  const u = useUi();
   const { me } = useWorkspace();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -149,36 +151,36 @@ export function SecurityCard() {
   return (
     <Card>
       <CardHeader
-        title="Keamanan — verifikasi dua langkah (2FA)"
-        description="Lapisan perlindungan ekstra: selain password, login membutuhkan kode 6 digit dari aplikasi authenticator (Google Authenticator, Authy, dsb.)."
+        title={u("keamanan2fa")}
+        description={u("desc2fa")}
       />
       <CardBody className="space-y-3 text-sm">
         {me.user.totpEnabled ? (
           <>
             <div className="flex items-center gap-2">
-              <Badge tone="brand">2FA aktif ✓</Badge>
+              <Badge tone="brand">{u("duaFaAktif")}</Badge>
             </div>
             <div className="flex flex-wrap items-end gap-3">
               <div>
-                <Label htmlFor="totp-off">Kode authenticator untuk menonaktifkan</Label>
+                <Label htmlFor="totp-off">{u("kodeUntukMenonaktifkan")}</Label>
                 <Input
                   id="totp-off"
                   inputMode="numeric"
                   maxLength={6}
-                  placeholder="6 digit"
+                  placeholder={u("enamDigit")}
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                 />
               </div>
               <Button variant="danger" disabled={code.length !== 6 || disable.isPending} onClick={() => setDisableOpen(true)}>
-                Nonaktifkan 2FA
+                {u("nonaktifkan2fa")}
               </Button>
             </div>
             <ConfirmDialog
               open={disableOpen}
-              title="Nonaktifkan verifikasi dua langkah?"
-              description="Akun Anda kembali hanya dilindungi password. Anda bisa mengaktifkan 2FA lagi kapan saja."
-              confirmLabel="Ya, nonaktifkan"
+              title={u("konfirmNonaktif2fa")}
+              description={u("descNonaktif2fa")}
+              confirmLabel={u("yaNonaktifkan")}
               danger
               busy={disable.isPending}
               onConfirm={() => disable.mutate()}
@@ -188,20 +190,19 @@ export function SecurityCard() {
         ) : setupData ? (
           <>
             <p>
-              1. Buka aplikasi authenticator → tambah akun → <strong>masukkan kunci manual</strong> berikut (atau buka
-              tautan di perangkat yang sama):
+              {u("langkah2faSatu")} <strong>{u("masukkanKunciManual")}</strong> {u("atauBukaTautan")}
             </p>
             <p className="break-all rounded-lg bg-slate-100 px-3 py-2 font-mono text-xs dark:bg-slate-800">
               {setupData.secret}
             </p>
             <p>
               <a href={setupData.otpauthUrl} className="text-brand-700 underline dark:text-brand-400">
-                Buka langsung di aplikasi authenticator
+                {u("bukaDiAuthenticator")}
               </a>
             </p>
             <div className="flex flex-wrap items-end gap-3">
               <div>
-                <Label htmlFor="totp-code">2. Masukkan kode 6 digit yang muncul</Label>
+                <Label htmlFor="totp-code">{u("langkah2faDua")}</Label>
                 <Input
                   id="totp-code"
                   inputMode="numeric"
@@ -212,15 +213,15 @@ export function SecurityCard() {
                 />
               </div>
               <Button disabled={code.length !== 6 || enable.isPending} onClick={() => enable.mutate()}>
-                {enable.isPending ? <Spinner /> : null} Konfirmasi & Aktifkan
+                {enable.isPending ? <Spinner /> : null} {u("konfirmasiAktifkan")}
               </Button>
             </div>
           </>
         ) : (
           <div className="flex items-center justify-between gap-3">
-            <span className="text-slate-500 dark:text-slate-400">2FA belum aktif.</span>
+            <span className="text-slate-500 dark:text-slate-400">{u("duaFaBelumAktif")}</span>
             <Button variant="secondary" onClick={() => setup.mutate()} disabled={setup.isPending}>
-              {setup.isPending ? <Spinner /> : null} Aktifkan 2FA
+              {setup.isPending ? <Spinner /> : null} {u("aktifkan2fa")}
             </Button>
           </div>
         )}
