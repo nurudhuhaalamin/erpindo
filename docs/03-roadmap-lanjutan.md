@@ -10,6 +10,19 @@
 > Konteks arsitektur & rencana induk: [02-rencana-pengembangan.md](./02-rencana-pengembangan.md) ·
 > Status terkini: [STATUS.md](./STATUS.md)
 
+> **Aturan penandaan (Fase 21a).** Berkas ini pernah tiga kali menyesatkan
+> keputusan pembangunan karena barisnya tidak mencerminkan kode. Karena itu:
+>
+> - **✅ wajib membawa jejak** — nama berkas atau nomor fase, supaya klaimnya bisa
+>   diperiksa sendiri alih-alih dipercaya begitu saja.
+> - **🟡 dipakai bila hanya sebagian**, dengan menyebut apa yang ada dan apa yang
+>   belum. Kolom database yang ada tetapi **tidak dipakai saat transaksi** adalah
+>   🟡, bukan ✅.
+> - **⏸️ dipakai bila ditunda**, beserta alasannya.
+> - Yang **belum dikerjakan dibiarkan tanpa tanda**.
+>
+> Penandaan diverifikasi terhadap kode, bukan terhadap ingatan.
+
 ## Daftar Isi
 
 1. [Dashboard & Onboarding](#1-dashboard--onboarding)
@@ -56,7 +69,7 @@ berprogres, lonceng notifikasi.
 |---|:---:|:---:|:---:|
 | Dashboard bisa dikustomisasi (pilih & susun widget per pengguna) | S | S | – |
 | ~~Ringkasan bisnis mingguan berbahasa alami di dashboard ("penjualan naik 12%, margin turun karena…")~~ ✅ **Fase 12f** | T | S | ✓ |
-| Perbandingan periode otomatis (bulan ini vs bulan lalu vs tahun lalu) pada semua KPI — *sebagian di Fase 12d: delta bulan lalu pada KPI Penjualan & Laba* | T | R | – |
+| Perbandingan periode otomatis (bulan ini vs bulan lalu vs tahun lalu) pada semua KPI — 🟡 **SEBAGIAN** — delta vs bulan lalu sudah ada (Fase 12d, `pages/dashboard.tsx`); pembanding tahun lalu belum | T | R | – |
 | Target bulanan owner + progress bar (terhubung modul Anggaran) | S | R | – |
 
 ## 2. POS / Kasir
@@ -97,7 +110,7 @@ faktur valas, faktur berulang dari kontrak.
 | **Sinkronisasi marketplace Tokopedia/Shopee** — tarik pesanan jadi faktur + potong stok otomatis (butuh API key seller, pending pemilik) | T | T | – |
 | Pengingat tagihan otomatis ke pelanggan (email; WhatsApp lihat §22) dengan eskalasi H-3/H/H+7 | T | S | – |
 | Harga bertingkat per pelanggan/grup (harga grosir vs ecer) | S | S | – |
-| Sales order terpisah dari faktur (pesan dulu, kirim & tagih bertahap) | S | T | – |
+| ✅ **Sales order terpisah dari faktur (pesan dulu, kirim & tagih bertahap)** — `routes/salesOrders.ts` (SO → surat jalan → faktur bertahap) | S | T | – |
 | Draf email penagihan sopan yang dihasilkan AI dari data faktur | S | R | ✓ |
 
 ## 4. Pembelian & Persetujuan
@@ -114,9 +127,9 @@ faktur valas, faktur berulang dari kontrak.
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
 | ⏸️ **OCR nota/faktur pemasok (AI vision)** — **ditunda** (keputusan pemilik Fase 20: "yang berdampak nyata saja"). Model vision gratis terbatas untuk teks Indonesia rapat, jadi akurasinya harus diukur dulu sebelum layak dijanjikan ke pemilik UKM | T | T | ✓ |
-| Purchase order (PO) formal terpisah → penerimaan barang bertahap → faktur | T | T | – |
+| ✅ **Purchase order (PO) formal terpisah → penerimaan barang bertahap → faktur** — `routes/procurement.ts` (PR → PO → GRN → faktur) | T | T | – |
 | Perbandingan penawaran multi-pemasok per produk | S | S | – |
-| Approval multi-level (ambang bertingkat: supervisor → owner) | S | S | – |
+| ✅ **Approval multi-level (ambang bertingkat: supervisor → owner)** — `routes/approvalsEngine.ts`, tabel `approval_flow_steps` ber-`step_order` | S | S | – |
 
 ## 5. Stok & Gudang
 
@@ -134,7 +147,7 @@ notifikasi, kartu stok.
 |---|:---:|:---:|:---:|
 | ✅ **Peramalan stok** — proyeksi kebutuhan per produk dari riwayat penjualan → saran jumlah & waktu beli ulang (Fase 20h; **deterministik**, bukan AI — lihat log fasenya) | T | S | – |
 | ✅ **Picking multi-gudang** — satu faktur mengambil stok dari beberapa gudang sekaligus (Fase 20g; HPP dihitung per gudang asal) | S | S | – |
-| Satuan ganda (beli per dus, jual per pcs, konversi otomatis) | T | T | – |
+| Satuan ganda (beli per dus, jual per pcs, konversi otomatis) — 🟡 **SEBAGIAN** — kolom `uom_secondary`/`uom_factor` ada di master produk, tetapi konversinya **tidak dipakai saat transaksi** (`lib/commercePosting.ts` tak menyentuhnya) | T | T | – |
 | ✅ **Reorder point otomatis** — ambang dihitung dari kecepatan jual, bukan angka statis (Fase 20h: `titikPesan = rata-rata harian × (lead time + cadangan)`) | S | S | – |
 | Stok konsinyasi (barang titipan terpisah dari milik sendiri) | R | T | – |
 
@@ -153,10 +166,10 @@ periode), audit log, draf jurnal dari bahasa alami via Asisten AI.
 
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
-| Jurnal berulang terjadwal otomatis via Cron (dari template di atas) | S | R | – |
+| Jurnal berulang terjadwal otomatis via Cron (dari template di atas) — 🟡 **SEBAGIAN** — template jurnal ada (`routes/financeExtras.ts`), tetapi **tidak dijadwalkan Cron** | S | R | – |
 | ✅ **Deteksi anomali jurnal** — tandai entri tak lazim untuk direview (`lib/reports.ts`; **deterministik**, bukan AI — angkanya bisa ditelusuri pemilik) | S | S | – |
-| Jurnal penutup tahunan otomatis (laba berjalan → laba ditahan) | S | S | – |
-| Departemen/kelas sebagai dimensi tambahan pelaporan (di samping Proyek) | S | T | – |
+| Jurnal penutup tahunan otomatis (laba berjalan → laba ditahan) — 🟡 **SEBAGIAN** — jurnal penutup ada (`routes/financeExtras.ts`) tetapi **ditekan manual** dari Pengaturan, belum otomatis | S | S | – |
+| ✅ **Departemen/kelas sebagai dimensi tambahan pelaporan (di samping Proyek)** — cost center di `routes/dimensions.ts` + laporan per dimensi | S | T | – |
 
 ## 7. Kas & Bank
 
@@ -171,7 +184,7 @@ rekonsiliasi terhadap rekening koran.
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
 | ✅ **Rekonsiliasi bank** — impor mutasi rekening koran → cocokkan otomatis dengan jurnal, sisanya manual; status "sudah rekon" per baris. **Sudah v2** dengan aturan auto-match (`routes/dimensions.ts`) | T | T | – |
-| Auto-match cerdas (AI): pencocokan deskripsi mutasi bebas-format ke faktur/kontak ("TRSF DR PT MAJU JAYA" → faktur INV-0042) | T | S | ✓ |
+| Auto-match cerdas (AI): pencocokan deskripsi mutasi bebas-format ke faktur/kontak ("TRSF DR PT MAJU JAYA" → faktur INV-0042) — 🟡 **SEBAGIAN** — auto-match **deterministik** berbasis aturan kata kunci sudah ada (`routes/dimensions.ts`); pencocokan bebas-format belum | T | S | ✓ |
 | Kas kecil (petty cash) dengan pengisian ulang berjurnal | S | R | – |
 | Proyeksi arus kas 30–90 hari dari piutang/hutang jatuh tempo + kontrak berulang | T | S | – |
 
@@ -189,11 +202,11 @@ semua ekspor CSV, sebagian bisa dicetak.
 
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
-| Laporan penjualan analitik: per produk, per pelanggan, per kasir/pengguna, margin per produk | T | S | – |
-| Laporan terjadwal via email bulanan (PDF Laba Rugi + ringkasan) ke owner | S | S | – |
+| ✅ **Laporan penjualan analitik: per produk, per pelanggan, per kasir/pengguna, margin per produk** — `routes/reports.ts` `sales-analytics` (Fase 5h/7h) | T | S | – |
+| Laporan terjadwal via email bulanan (PDF Laba Rugi + ringkasan) ke owner — 🟡 **SEBAGIAN** — rekap bulanan **dibuat otomatis Cron** & tersimpan (`routes/scheduledReports.ts`), tetapi **tidak dikirim email** dan tanpa PDF | S | S | – |
 | Narasi otomatis di bawah laporan ("beban naik terutama dari…") | S | R | ✓ |
-| Ekspor Excel (.xlsx) berformat, bukan hanya CSV | S | S | – |
-| Rasio keuangan otomatis (margin kotor, lancar, perputaran persediaan) + penjelasan | S | R | ✓ |
+| ✅ **Ekspor Excel (.xlsx) berformat, bukan hanya CSV** — penulis OOXML mandiri di `api/client.ts` (Fase 7h) | S | S | – |
+| Rasio keuangan otomatis (margin kotor, lancar, perputaran persediaan) + penjelasan — 🟡 **SEBAGIAN** — baru margin kotor (`pages/reports.tsx`); rasio lancar & perputaran persediaan belum | S | R | ✓ |
 
 ## 9. Pajak
 
@@ -209,7 +222,7 @@ otomatis), PPh 21 TER di payroll.
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
 | ✅ **Laporan SPT Masa PPN siap lapor** — kurang/lebih bayar per masa (keluaran − masukan) dengan kertas kerja (`routes/tax.ts`, `pages/pajak.tsx`) | T | S | – |
-| **PPh unifikasi** — rekap PPh 21/23/4(2) yang dipotong per masa + bukti potong sederhana | T | T | – |
+| ✅ **PPh unifikasi** — rekap PPh 21/23/4(2) yang dipotong per masa + bukti potong sederhana  — Fase 20d, `routes/tax.ts` `pph-unifikasi` | T | T | – |
 | **Integrasi Coretax API langsung** (lapor tanpa unduh-unggah) — menunggu DJP membuka API publik & regulasinya; pantau | T | T | – |
 | Pengingat kalender pajak Indonesia (jatuh tempo lapor/setor PPN, PPh 21, PPh 25) via notifikasi | S | R | – |
 | Penjelasan aturan pajak kontekstual di Asisten AI (mis. "kapan pakai kode 04?") — perluas grounding | S | R | ✓ |
@@ -227,9 +240,9 @@ PPh 21 TER + BPJS (batas upah JP 2026), slip gaji, jurnal beban gaji otomatis.
 
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
-| Bukti potong 1721-A1 tahunan per karyawan | T | S | – |
-| Absensi sederhana (hadir/izin/cuti) yang memengaruhi komponen gaji | S | T | – |
-| Kasbon/pinjaman karyawan dengan cicilan otomatis memotong gaji | S | S | – |
+| ✅ **Bukti potong 1721-A1 tahunan per karyawan** — `routes/tax.ts` (form 1721-A1) | T | S | – |
+| ✅ **Absensi sederhana (hadir/izin/cuti) yang memengaruhi komponen gaji** — `routes/payroll.ts` `/attendance` (Fase 12b) | S | T | – |
+| ✅ **Kasbon/pinjaman karyawan dengan cicilan otomatis memotong gaji** — `routes/payroll.ts` (kasbon + cicilan potong gaji) | S | S | – |
 | Portal karyawan read-only (lihat slip sendiri) — peran baru "employee" | S | T | – |
 
 ## 11. Aset Tetap
@@ -244,7 +257,7 @@ pelepasan dengan laba/rugi, nilai buku berjalan, terhubung modul Pemeliharaan.
 
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
-| **Revaluasi aset** — sesuaikan nilai wajar dengan jurnal selisih revaluasi + jejak riwayat | S | S | – |
+| ✅ **Revaluasi aset** — sesuaikan nilai wajar dengan jurnal selisih revaluasi + jejak riwayat  — Fase 20e, `routes/assets.ts` + tabel `asset_revaluations` | S | S | – |
 | Metode penyusutan saldo menurun (pilihan per aset, relevan untuk fiskal) | S | S | – |
 | Foto & lokasi aset + QR label untuk stock opname aset | R | S | – |
 | Penyusutan fiskal vs komersial berdampingan (kelompok harta pajak) | S | T | – |
@@ -262,10 +275,10 @@ pelanggan, quotation → faktur sekali klik.
 
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
-| Papan kanban funnel drag-and-drop | S | S | – |
+| ✅ **Papan kanban funnel drag-and-drop** — `pages/crm.tsx` (`draggable` + `onDrop`) | S | S | – |
 | Skor prioritas lead (AI dari nilai, umur, aktivitas) | S | S | ✓ |
 | Draf pesan follow-up WA/email dihasilkan AI dari riwayat aktivitas | S | R | ✓ |
-| Form penangkap lead publik (embed di landing/IG bio) langsung masuk CRM | T | S | – |
+| Form penangkap lead publik (embed di landing/IG bio) langsung masuk CRM — 🟡 **SEBAGIAN** — form publik ada (`routes/demo.ts` → `demo_requests`), tetapi **belum masuk CRM leads** | T | S | – |
 
 ## 13. Anggaran
 
@@ -281,7 +294,7 @@ berwarna, ringkasan anggaran vs realisasi, ekspor CSV.
 |---|:---:|:---:|:---:|
 | Peringatan dini saat realisasi beban menembus X% target sebelum akhir bulan | S | R | – |
 | Usulan anggaran otomatis dari rata-rata realisasi 3–6 bulan (AI menyesuaikan musiman) | S | S | ✓ |
-| Anggaran per proyek/departemen (menyusul dimensi §6) | S | S | – |
+| ✅ **Anggaran per proyek/departemen (menyusul dimensi §6)** — anggaran per proyek di `routes/projects.ts` | S | S | – |
 
 ## 14. Proyek
 
@@ -295,8 +308,8 @@ profitabilitas per proyek (pendapatan − biaya, margin).
 
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
-| Timesheet sederhana (jam kerja per proyek) → biaya tenaga kerja terhitung | S | T | – |
-| Penagihan bertahap per termin proyek (uang muka, progres, pelunasan) | T | S | – |
+| ✅ **Timesheet sederhana (jam kerja per proyek) → biaya tenaga kerja terhitung** — `routes/projects.ts` (entri timesheet per proyek) | S | T | – |
+| ✅ **Penagihan bertahap per termin proyek (uang muka, progres, pelunasan)** — `routes/projects.ts` (milestone → faktur termin) | T | S | – |
 | RAB proyek (anggaran per proyek) vs realisasi | S | S | – |
 
 ## 15. Multi Mata Uang
@@ -327,7 +340,7 @@ pengingat, produk jasa tanpa stok.
 
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
-| Prorata saat mulai/berhenti di tengah periode | S | S | – |
+| ✅ **Prorata saat mulai/berhenti di tengah periode** — Fase 20k, `hitungProrata()` di `packages/shared/src/core.ts` | S | S | – |
 | Email/WA faktur otomatis ke pelanggan saat kontrak menerbitkan faktur | T | S | – |
 | Analisis churn kontrak (kontrak berhenti per bulan + alasannya) | R | S | – |
 
@@ -343,7 +356,7 @@ dengan rincian per perusahaan, filter perusahaan, ekspor CSV.
 
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
-| **Eliminasi transaksi antar-perusahaan** — tandai akun/transaksi inter-company agar tidak dobel di laporan gabungan | S | T | – |
+| ✅ **Eliminasi transaksi antar-perusahaan** — tandai akun/transaksi inter-company agar tidak dobel di laporan gabungan  — Fase 20f, penanda `is_intercompany` + eliminasi di `routes/consolidation.ts` | S | T | – |
 | Transaksi antar-perusahaan sekali input (faktur di A otomatis jadi pembelian di B) | S | T | – |
 
 ## 18. Manufaktur & QC
@@ -358,7 +371,7 @@ gabungan), inspeksi QC lulus/karantina ke gudang khusus.
 
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
-| Biaya overhead & tenaga kerja ke dalam HPP produksi (bukan hanya bahan) | S | S | – |
+| Biaya overhead & tenaga kerja ke dalam HPP produksi (bukan hanya bahan) — 🟡 **SEBAGIAN** — baru kalkulator HPP di `pages/alat.tsx`; overhead belum masuk jurnal produksi | S | S | – |
 | BoM bertingkat (produk setengah jadi sebagai komponen) | S | T | – |
 | Perencanaan produksi dari pesanan + peramalan (kaitan §5 AI) | S | T | ✓ |
 
@@ -408,7 +421,7 @@ kuota 50 permintaan/hari/perusahaan; degradasi anggun bila AI tak tersedia. Prin
 
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
-| ✅ **Ringkasan bulanan otomatis** — narasi kinerja dikirim email tiap awal bulan (`runMonthlyRecap` di handler cron) | T | S | ✓ |
+| 🟡 **Ringkasan bulanan otomatis** — **SEBAGIAN**: rekap kinerja **dibuat otomatis Cron tiap awal bulan** dan tersimpan sebagai snapshot (`routes/scheduledReports.ts` → tabel `report_snapshots`), **tetapi tidak dikirim email ke pemilik**. Koreksi Fase 21a: baris ini sempat saya centang penuh di Fase 20l atas dasar keberadaan `runMonthlyRecap`, tanpa memeriksa bahwa fungsi itu tidak memanggil mailer sama sekali | T | S | ✓ |
 | **Deteksi anomali jurnal** (lihat §6) sebagai laporan mingguan Asisten | S | S | ✓ |
 | Tanya-data ("berapa penjualan minggu lalu?") — AI memilih dari daftar query aman yang sudah ditentukan (bukan SQL bebas), hasil dari database | T | T | ✓ |
 | Draf dokumen lain dari bahasa alami: penawaran, produk baru, kontak — pola sama dengan draf jurnal | S | S | ✓ |
@@ -466,10 +479,10 @@ tabel perbandingan **kategori** (tanpa merek), form **Jadwalkan Demo**, halaman 
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
 | **Payment gateway Midtrans** — checkout QRIS/VA/e-wallet aktif (**menunggu Server Key dari pemilik**; kode siap sejak 11b/13b) | T | T | – |
-| **Dunning otomatis** — rangkaian pengingat gagal bayar/berakhir (H-7/H-1/H+3) + masa tenggang sebelum read-only | T | S | – |
+| ✅ **Dunning otomatis** — rangkaian pengingat gagal bayar/berakhir (H-7/H-1/H+3) + masa tenggang sebelum read-only  — Fase 20a–20c, `lib/dunning.ts` + blok cron 1c/2/2b | T | S | – |
 | ✅ **Upgrade/downgrade paket mandiri dengan prorata** (Fase 20k; naik berlaku seketika ditagih selisih × sisa hari, turun berlaku akhir periode tanpa refund) | S | S | – |
 | ✅ **Custom field per modul** (lanjutan 13i) — definisi field kustom (faktur/kontak/produk) yang tampil di form + cetakan + ekspor (Fase 20j; empat tipe, hapus = arsip) | S | S | – |
-| Tulis penuh via API publik (faktur/pembayaran, dengan kurasi posting jurnal) | S | S | – |
+| ✅ **Tulis penuh via API publik (faktur/pembayaran, dengan kurasi posting jurnal)** — `routes/publicApi.ts`, API key ber-scope `write` | S | S | – |
 | ⏸️ Kupon/referral untuk akuisisi awal — **ditunda** (keputusan pemilik Fase 20: dampaknya rendah sebelum ada arus pelanggan berbayar) | R | S | – |
 
 ---
