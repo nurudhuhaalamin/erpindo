@@ -1,9 +1,10 @@
-import { PPH23_OBJECTS, PPH23_OBJECT_LABELS, type Pph23ObjectCode } from "@erpindo/shared";
+import { PPH23_OBJECTS, PPH23_OBJECT_LABELS, type Pph23ObjectCode, type PphJenis } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { useMemo, useState } from "react";
 import { api, downloadCsv, formatDate, formatIDR } from "../api/client";
 import {
+  Alert,
   Badge,
   Button,
   Card,
@@ -27,7 +28,7 @@ import { useWorkspace } from "./app";
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const thisMonth = () => new Date().toISOString().slice(0, 7);
 
-type Tab = "pph-final" | "pph23" | "spt-ppn";
+type Tab = "pph-final" | "pph23" | "spt-ppn" | "pph-unifikasi";
 
 /**
  * Peta kode objek PPh 23 → kunci kamus web (pola Fase 16t).
@@ -38,6 +39,13 @@ type Tab = "pph-final" | "pph23" | "spt-ppn";
  * kunci: menambah objek baru di shared tanpa menambah terjemahannya di sini
  * akan gagal saat kompilasi, bukan tampil sebagai teks kosong.
  */
+/** Jenis PPh → kunci kamus (Fase 20d). `satisfies` menjaga kelengkapannya. */
+const PPH_JENIS_KEY = {
+  pph21: "pphJenisPph21",
+  pph23: "pphJenisPph23",
+  pphFinal: "pphJenisFinal",
+} satisfies Record<PphJenis, UiKey>;
+
 const PPH23_OBJECT_KEY = {
   jasa: "pph23Jasa",
   sewa: "pph23Sewa",
@@ -58,6 +66,7 @@ export function PajakPage() {
     { key: "pph-final", label: u("tabPphFinal") },
     { key: "pph23", label: u("tabPph23") },
     { key: "spt-ppn", label: u("tabSptPpn") },
+    { key: "pph-unifikasi", label: u("tabPphUnifikasi") },
   ] satisfies { key: Tab; label: string }[];
 
   return (
@@ -83,6 +92,7 @@ export function PajakPage() {
       {tab === "pph-final" ? <PphFinalSection isAdmin={isAdmin} /> : null}
       {tab === "pph23" ? <Pph23Section isAdmin={isAdmin} /> : null}
       {tab === "spt-ppn" ? <SptPpnSection /> : null}
+      {tab === "pph-unifikasi" ? <PphUnifikasiSection /> : null}
     </div>
   );
 }
@@ -747,5 +757,136 @@ function SptTable({
         </Table>
       )}
     </div>
+  );
+}
+
+// --- PPh unifikasi (Fase 20d) ----------------------------------------------
+// Murni baca: seluruh angkanya sudah dijurnal saat PPh-nya dibuat. Yang belum
+// ada sebelumnya hanyalah SATU tempat untuk melihatnya sekaligus saat mengisi
+// SPT Masa unifikasi — sebelumnya harus membuka tiga tab dan menjumlah manual.
+function PphUnifikasiSection() {
+  const u = useUi();
+  const { tenant } = useWorkspace();
+  const [period, setPeriod] = useState(thisMonth());
+  const query = useQuery({
+    queryKey: ["pph-unifikasi", tenant.tenantId, period],
+    queryFn: () => api.pphUnifikasi(tenant.tenantId, period),
+    enabled: /^\d{4}-\d{2}$/.test(period),
+  });
+  const data = query.data;
+
+  return (
+    <Card>
+      <CardHeader
+        title={u("pphUnifikasiJudul")}
+        description={u("descPphUnifikasi")}
+        action={
+          data && data.rows.length > 0 ? (
+            <Button
+              variant="secondary"
+              className="h-9"
+              onClick={() =>
+                downloadCsv(
+                  `pph-unifikasi-${period}.csv`,
+                  ["Jenis", "Nomor", "Tanggal", "Lawan Transaksi", "NPWP", "Bruto", "Tarif", "PPh", "Disetor"],
+                  data.rows.map((r) => [
+                    r.jenis,
+                    r.docNo,
+                    r.date,
+                    r.partnerName ?? "",
+                    r.partnerNpwp ?? "",
+                    r.gross,
+                    r.rate,
+                    r.amount,
+                    r.deposited ? "ya" : "belum",
+                  ]),
+                )
+              }
+            >
+              {u("eksporCsv")}
+            </Button>
+          ) : null
+        }
+      />
+      <CardBody className="space-y-4">
+        <div className="max-w-xs">
+          <Label htmlFor="pphu-period">{u("masaPajak")}</Label>
+          <Input id="pphu-period" type="month" value={period} onChange={(e) => setPeriod(e.target.value)} />
+        </div>
+
+        {query.isLoading ? (
+          <Spinner />
+        ) : !data || data.rows.length === 0 ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">{u("pphBelumAdaData")}</p>
+        ) : (
+          <>
+            <div className="grid gap-3 sm:grid-cols-4">
+              {(
+                [
+                  [u("pphJenisPph21"), data.totalPph21],
+                  [u("pphJenisPph23"), data.totalPph23],
+                  [u("pphJenisFinal"), data.totalPphFinal],
+                  [u("pphTotalMasa"), data.total],
+                ] as const
+              ).map(([label, nilai], i) => (
+                <div
+                  key={label}
+                  className={`rounded-xl p-3 ring-1 ring-inset ${
+                    i === 3
+                      ? "bg-brand-50 ring-brand-200 dark:bg-brand-950/40 dark:ring-brand-900"
+                      : "bg-slate-50 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800"
+                  }`}
+                >
+                  <div className="text-xs text-slate-500 dark:text-slate-400">{label}</div>
+                  <div className="mt-1 text-lg font-bold tabular-nums">{formatIDR(nilai)}</div>
+                </div>
+              ))}
+            </div>
+
+            {data.belumDisetor > 0 ? (
+              <Alert tone="warning">
+                {u("pphBelumDisetor")}: <strong>{formatIDR(data.belumDisetor)}</strong>
+              </Alert>
+            ) : null}
+
+            <Table>
+              <Thead>
+                <tr>
+                  <Th>{u("pphKolomJenis")}</Th>
+                  <Th>{u("nomor")}</Th>
+                  <Th>{u("tanggal")}</Th>
+                  <Th>{u("pphKolomBruto")}</Th>
+                  <Th numeric>{u("pphKolomPph")}</Th>
+                  <Th>{u("status")}</Th>
+                </tr>
+              </Thead>
+              <tbody>
+                {data.rows.map((r) => (
+                  <Tr key={`${r.jenis}-${r.docNo}`}>
+                    <Td label={u("pphKolomJenis")}>{u(PPH_JENIS_KEY[r.jenis])}</Td>
+                    <Td label={u("nomor")} className="font-mono text-xs">
+                      {r.docNo}
+                      {r.partnerName ? (
+                        <div className="font-sans text-slate-500 dark:text-slate-400">{r.partnerName}</div>
+                      ) : null}
+                    </Td>
+                    <Td label={u("tanggal")}>{formatDate(r.date)}</Td>
+                    <Td label={u("pphKolomBruto")}>{formatIDR(r.gross)}</Td>
+                    <Td numeric label={u("pphKolomPph")}>
+                      {formatIDR(r.amount)}
+                    </Td>
+                    <Td label={u("status")}>
+                      <Badge tone={r.deposited ? "green" : "amber"}>
+                        {r.deposited ? u("pphSudahDisetor") : u("pphBelumDisetor")}
+                      </Badge>
+                    </Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
+          </>
+        )}
+      </CardBody>
+    </Card>
   );
 }

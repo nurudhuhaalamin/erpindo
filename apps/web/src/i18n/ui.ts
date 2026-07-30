@@ -2408,6 +2408,27 @@ export const UI = {
   shTenggangPrefix: { id: "Masa berlaku sudah habis — Anda masih bisa mencatat", en: "Your plan has ended — you can still record entries for" },
   shTenggangSuffix: { id: "lagi sebelum akun jadi baca-saja.", en: "more before the account becomes read-only." },
 
+  // — PPh unifikasi (Fase 20d) —
+  tabPphUnifikasi: { id: "PPh Unifikasi", en: "Unified WHT" },
+  pphUnifikasiJudul: { id: "Rekap PPh per masa", en: "Withholding tax recap per period" },
+  descPphUnifikasi: {
+    id: "Semua PPh yang dipotong atau disetor pada satu masa: PPh 21 dari penggajian, PPh 23 dari bukti potong, dan PPh Final 4(2). Dihitung dari data yang sudah ada — tidak ada input ulang.",
+    en: "Every withholding tax withheld or paid in one period: PPh 21 from payroll, PPh 23 from withholding slips, and Final PPh 4(2). Computed from existing data — nothing to re-enter.",
+  },
+  pphKolomJenis: { id: "Jenis", en: "Type" },
+  pphKolomBruto: { id: "Bruto", en: "Gross" },
+  pphKolomPph: { id: "PPh", en: "WHT" },
+  pphJenisPph21: { id: "PPh 21", en: "PPh 21" },
+  pphJenisPph23: { id: "PPh 23", en: "PPh 23" },
+  pphJenisFinal: { id: "PPh Final 4(2)", en: "Final PPh 4(2)" },
+  pphTotalMasa: { id: "Total PPh masa ini", en: "Total WHT this period" },
+  pphBelumDisetor: { id: "Belum disetor", en: "Not yet deposited" },
+  pphSudahDisetor: { id: "Disetor", en: "Deposited" },
+  pphBelumAdaData: {
+    id: "Belum ada PPh yang tercatat pada masa ini.",
+    en: "No withholding tax recorded for this period yet.",
+  },
+
   // — Komponen bersama & Asisten AI (Fase 19s). Awalan `cp` (komponen). —
   cpKetikCari: { id: "Ketik untuk mencari…", en: "Type to search…" },
   cpMencari: { id: "Mencari…", en: "Searching…" },

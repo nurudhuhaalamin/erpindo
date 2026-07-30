@@ -7,6 +7,8 @@ import {
   type ApiPphFinalPreview,
   type ApiSptPpn,
   type ApiSptPpnRow,
+  type ApiPphUnifikasi,
+  type ApiPphUnifikasiRow,
 } from "@erpindo/shared";
 import type { SqlExecutor } from "@erpindo/db";
 import { Hono } from "hono";
@@ -261,6 +263,107 @@ export const taxRoutes = new Hono<AppEnv>()
       totalInputDpp: input.reduce((s, r) => s + r.dpp, 0),
       totalInputPpn,
       net: totalOutputPpn - totalInputPpn,
+    };
+    return c.json(body);
+  })
+
+  /**
+   * PPh unifikasi (Fase 20d) — rekap SEMUA PPh dalam satu masa.
+   *
+   * Murni agregasi: PPh 21 dari `payslips`, PPh 23 dari `tax_pph23`, PPh Final
+   * dari `tax_pph_final`. Tidak ada tabel baru dan tidak ada jurnal baru —
+   * ketiganya sudah menjurnal saat dibuat. Yang belum ada hanyalah satu tempat
+   * untuk melihatnya sekaligus saat mengisi SPT Masa unifikasi.
+   *
+   * PPh 21 direkap PER MASA, bukan per karyawan: bukti potong 1721-A1 bersifat
+   * tahunan, dan memecahnya per karyawan di sini hanya menambah baris tanpa
+   * menambah informasi yang dibutuhkan formulir masa.
+   */
+  .get("/:tenantId/tax/pph-unifikasi", requireAuth, requireTenantRole("viewer"), requirePermission("pajak"), async (c) => {
+    const period = c.req.query("period") ?? "";
+    if (!PERIOD_RE.test(period)) return c.json({ error: "Masa pajak harus format YYYY-MM." }, 400);
+    const db = getTenantDb(c.env, c.get("tenant").dbRef);
+    const rows: ApiPphUnifikasiRow[] = [];
+
+    // PPh 21 — satu baris ringkas per payroll run pada masa ini.
+    const { results: p21 } = await db
+      .prepare(
+        `SELECT r.run_no, r.period, SUM(s.pph21) AS total, SUM(s.gross) AS bruto
+           FROM payroll_runs r JOIN payslips s ON s.run_id = r.id
+          WHERE r.period = ?
+          GROUP BY r.id
+         HAVING SUM(s.pph21) > 0`,
+      )
+      .bind(period)
+      .all<{ run_no: string; period: string; total: number; bruto: number }>();
+    for (const r of p21) {
+      rows.push({
+        jenis: "pph21",
+        docNo: r.run_no,
+        date: `${r.period}-01`,
+        partnerName: null,
+        partnerNpwp: null,
+        gross: r.bruto,
+        rate: r.bruto > 0 ? Number(((r.total / r.bruto) * 100).toFixed(2)) : 0,
+        amount: r.total,
+        deposited: true,
+      });
+    }
+
+    // PPh 23 — tiap bukti potong jadi satu baris, lengkap dengan status setor.
+    const { results: p23 } = await db
+      .prepare(
+        `SELECT t.doc_no, t.tax_date, t.gross, t.rate, t.amount, t.deposited,
+                k.name AS partner_name, k.npwp AS partner_npwp
+           FROM tax_pph23 t JOIN contacts k ON k.id = t.contact_id
+          WHERE substr(t.tax_date, 1, 7) = ?
+          ORDER BY t.tax_date, t.doc_no`,
+      )
+      .bind(period)
+      .all<{ doc_no: string; tax_date: string; gross: number; rate: number; amount: number; deposited: number; partner_name: string; partner_npwp: string | null }>();
+    for (const r of p23) {
+      rows.push({
+        jenis: "pph23",
+        docNo: r.doc_no,
+        date: r.tax_date,
+        partnerName: r.partner_name,
+        partnerNpwp: r.partner_npwp,
+        gross: r.gross,
+        rate: r.rate,
+        amount: r.amount,
+        deposited: r.deposited === 1,
+      });
+    }
+
+    // PPh Final 4(2) — satu baris per masa (tabelnya UNIQUE per period).
+    const final = await db
+      .prepare(`SELECT period, omzet, rate, amount, paid_date FROM tax_pph_final WHERE period = ?`)
+      .bind(period)
+      .first<{ period: string; omzet: number; rate: number; amount: number; paid_date: string }>();
+    if (final) {
+      rows.push({
+        jenis: "pphFinal",
+        docNo: `PPh Final ${final.period}`,
+        date: final.paid_date,
+        partnerName: null,
+        partnerNpwp: null,
+        gross: final.omzet,
+        rate: final.rate,
+        amount: final.amount,
+        deposited: true,
+      });
+    }
+
+    const jumlah = (j: ApiPphUnifikasiRow["jenis"]) =>
+      rows.filter((r) => r.jenis === j).reduce((s, r) => s + r.amount, 0);
+    const body: ApiPphUnifikasi = {
+      period,
+      rows,
+      totalPph21: jumlah("pph21"),
+      totalPph23: jumlah("pph23"),
+      totalPphFinal: jumlah("pphFinal"),
+      total: rows.reduce((s, r) => s + r.amount, 0),
+      belumDisetor: rows.filter((r) => !r.deposited).reduce((s, r) => s + r.amount, 0),
     };
     return c.json(body);
   });

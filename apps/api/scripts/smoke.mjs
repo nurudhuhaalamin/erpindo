@@ -1222,6 +1222,29 @@ try {
     `→ ${JSON.stringify(spt.json && { o: spt.json.totalOutputPpn, i: spt.json.totalInputPpn, net: spt.json.net })}`,
   );
 
+  // PPh unifikasi (Fase 20d) — rekap semua PPh masa Oktober. Bukti potong
+  // PPh 23 di atas sudah DISETOR, jadi belumDisetor harus 0. Ini penting
+  // diperiksa: kalau kolom `deposited` salah dibaca, angkanya akan terlihat
+  // wajar tetapi menyesatkan saat mengisi SPT.
+  const pphu = await owner("GET", `/api/tenants/${tenantId}/tax/pph-unifikasi?period=2026-10`);
+  check(
+    "PPh unifikasi Oktober: memuat bukti potong PPh 23 yang sudah disetor",
+    pphu.status === 200 &&
+      pphu.json?.totalPph23 > 0 &&
+      pphu.json?.belumDisetor === 0 &&
+      pphu.json?.rows?.some((r) => r.jenis === "pph23" && r.deposited === true),
+    `→ ${JSON.stringify(pphu.json && { p23: pphu.json.totalPph23, belum: pphu.json.belumDisetor, n: pphu.json.rows?.length })}`,
+  );
+  check(
+    "PPh unifikasi: total = jumlah ketiga jenisnya",
+    pphu.json?.total === pphu.json?.totalPph21 + pphu.json?.totalPph23 + pphu.json?.totalPphFinal,
+    `→ total=${pphu.json?.total}`,
+  );
+  const pphuBadPeriod = await owner("GET", `/api/tenants/${tenantId}/tax/pph-unifikasi?period=2026-13`);
+  check("PPh unifikasi masa tak valid DITOLAK 400", pphuBadPeriod.status === 400);
+  const pphuViewer = await viewer("GET", `/api/tenants/${tenantId}/tax/pph-unifikasi?period=2026-10`);
+  check("PPh unifikasi boleh dibaca viewer (laporan, bukan aksi)", pphuViewer.status === 200);
+
   const tbAfterTax = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah alur pajak", tbAfterTax.json?.balanced === true);
 

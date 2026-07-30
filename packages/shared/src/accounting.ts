@@ -337,6 +337,39 @@ export type ApiSptPpn = {
   net: number;
 };
 
+/**
+ * PPh unifikasi (Fase 20d): rekap SEMUA PPh yang dipotong/disetor dalam satu
+ * masa — PPh 21 (dari penggajian), PPh 23 (bukti potong), dan PPh Final 4(2).
+ *
+ * Murni agregasi dari tabel yang sudah ada; tidak ada tabel baru. Ini yang
+ * dibutuhkan saat mengisi SPT Masa unifikasi: satu halaman, satu masa, semua
+ * jenis, plus penanda mana yang belum disetor.
+ */
+export type PphJenis = "pph21" | "pph23" | "pphFinal";
+export type ApiPphUnifikasiRow = {
+  jenis: PphJenis;
+  docNo: string;
+  date: string;
+  /** Lawan transaksi. PPh 21 direkap per masa, jadi tidak per-karyawan. */
+  partnerName: string | null;
+  partnerNpwp: string | null;
+  gross: number;
+  rate: number;
+  amount: number;
+  /** PPh 23 punya status setor; PPh 21 & Final dianggap disetor saat diposting. */
+  deposited: boolean;
+};
+export type ApiPphUnifikasi = {
+  period: string;
+  rows: ApiPphUnifikasiRow[];
+  totalPph21: number;
+  totalPph23: number;
+  totalPphFinal: number;
+  total: number;
+  /** Total PPh 23 yang bukti potongnya belum disetor — yang perlu ditindaklanjuti. */
+  belumDisetor: number;
+};
+
 /** Notifikasi operasional (lonceng di topbar) — dihitung on-demand dari data nyata. */
 export type ApiNotification = {
   type: "low_stock" | "overdue_invoice" | "open_ticket" | "pending_approval" | "crm_followup_due" | "crm_stale_lead";
