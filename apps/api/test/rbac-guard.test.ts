@@ -77,6 +77,11 @@ const USER_SCOPED_ALLOWLIST = new Set([
   // (requireTenantRole memblokir tulis saat past_due).
   'billing.ts GET "/:tenantId/billing"',
   'billing.ts POST "/:tenantId/billing/checkout"',
+  // Ganti paket prorata (Fase 20k): alasannya sama persis — tenant past_due
+  // justru PERLU bisa pindah paket sebagai jalan keluar, dan requireTenantRole
+  // akan memblokirnya. Peran owner diperiksa manual di dalam handler-nya.
+  'billing.ts GET "/:tenantId/billing/prorata"',
+  'billing.ts POST "/:tenantId/billing/change-plan"',
   // Payment collection (Fase 11d): sama seperti billing — cek keanggotaan/peran
   // manual agar tenant past_due tetap boleh menagih pelanggannya.
   'collections.ts GET "/:tenantId/invoices/:id/payment-link"',

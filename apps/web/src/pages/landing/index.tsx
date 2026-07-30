@@ -60,8 +60,8 @@ function Header() {
           <button
             onClick={toggle}
             className="rounded p-1.5 text-slate-500 hover:bg-slate-200/60 dark:text-slate-400 dark:hover:bg-slate-800"
-            aria-label="Ganti tema terang/gelap"
-            title="Ganti tema terang/gelap"
+            aria-label={L(lang, "Ganti tema terang/gelap", "Toggle light/dark theme")}
+            title={L(lang, "Ganti tema terang/gelap", "Toggle light/dark theme")}
           >
             {dark ? <Sun className="size-4" aria-hidden /> : <Moon className="size-4" aria-hidden />}
           </button>
@@ -656,12 +656,12 @@ function DemoRequest() {
           </div>
         ) : (
           <form onSubmit={submit} className="mt-6 grid gap-2 sm:grid-cols-2">
-            <input className={field} placeholder={L(lang, "Nama Anda", "Your name")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} aria-label="Nama" />
-            <input className={field} placeholder={L(lang, "Nama perusahaan", "Company name")} value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} aria-label="Perusahaan" />
+            <input className={field} placeholder={L(lang, "Nama Anda", "Your name")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} aria-label={L(lang, "Nama", "Name")} />
+            <input className={field} placeholder={L(lang, "Nama perusahaan", "Company name")} value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} aria-label={L(lang, "Perusahaan", "Company")} />
             <input className={field} type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} aria-label="Email" />
-            <input className={field} placeholder={L(lang, "No. WhatsApp (opsional)", "WhatsApp no. (optional)")} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} aria-label="Telepon" />
-            <input className={`${field} sm:col-span-2`} placeholder={L(lang, "Perkiraan jumlah karyawan (opsional)", "Approx. number of employees (optional)")} value={form.employees} onChange={(e) => setForm({ ...form, employees: e.target.value })} aria-label="Jumlah karyawan" />
-            <textarea className={`${field} sm:col-span-2`} rows={3} placeholder={L(lang, "Pesan / kebutuhan (opsional)", "Message / needs (optional)")} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} aria-label="Pesan" />
+            <input className={field} placeholder={L(lang, "No. WhatsApp (opsional)", "WhatsApp no. (optional)")} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} aria-label={L(lang, "Telepon", "Phone")} />
+            <input className={`${field} sm:col-span-2`} placeholder={L(lang, "Perkiraan jumlah karyawan (opsional)", "Approx. number of employees (optional)")} value={form.employees} onChange={(e) => setForm({ ...form, employees: e.target.value })} aria-label={L(lang, "Jumlah karyawan", "Number of employees")} />
+            <textarea className={`${field} sm:col-span-2`} rows={3} placeholder={L(lang, "Pesan / kebutuhan (opsional)", "Message / needs (optional)")} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} aria-label={L(lang, "Pesan", "Message")} />
             {error ? <p className="text-sm text-red-600 sm:col-span-2 dark:text-red-400">{error}</p> : null}
             <div className="sm:col-span-2">
               <Button type="submit" disabled={busy} className="w-full sm:w-auto">

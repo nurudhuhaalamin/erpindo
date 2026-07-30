@@ -4281,6 +4281,143 @@ try {
   const rlReport = await owner("GET", `/api/tenants/${tenantId}/reports/income-statement?from=2026-01-01&to=2026-12-31`);
   check("laporan laba rugi tetap 200 di bawah pembatas per pengguna", rlReport.status === 200);
 
+  console.log("13j. Field kustom per modul (Fase 20j)");
+  // Definisi
+  const cfBadPilihan = await owner("POST", `/api/tenants/${tenantId}/custom-fields`, {
+    module: "contact", fieldKey: "wilayah", label: "Wilayah", type: "pilihan",
+  });
+  check("definisi tipe 'pilihan' tanpa daftar pilihan DITOLAK 400", cfBadPilihan.status === 400, `→ ${cfBadPilihan.status}`);
+  const cfBadKey = await owner("POST", `/api/tenants/${tenantId}/custom-fields`, {
+    module: "contact", fieldKey: "Nomor PO", label: "Nomor PO", type: "teks",
+  });
+  check("kunci field yang tak aman jadi judul kolom ekspor DITOLAK 400", cfBadKey.status === 400, `→ ${cfBadKey.status}`);
+
+  const cfKontak = await owner("POST", `/api/tenants/${tenantId}/custom-fields`, {
+    module: "contact", fieldKey: "nomor_po", label: "Nomor PO Pelanggan", type: "teks", required: true,
+  });
+  check("buat field kustom kontak (wajib) 201", cfKontak.status === 201, `→ ${cfKontak.status}`);
+  const cfDupe = await owner("POST", `/api/tenants/${tenantId}/custom-fields`, {
+    module: "contact", fieldKey: "nomor_po", label: "Lain", type: "teks",
+  });
+  check("kunci field yang sudah dipakai di modul yang sama DITOLAK 409", cfDupe.status === 409, `→ ${cfDupe.status}`);
+  const cfWilayah = await owner("POST", `/api/tenants/${tenantId}/custom-fields`, {
+    module: "contact", fieldKey: "wilayah", label: "Wilayah", type: "pilihan", options: ["Jawa", "Sumatra"],
+  });
+  check("buat field kustom tipe pilihan 201", cfWilayah.status === 201);
+
+  const cfViewerBuat = await viewer("POST", `/api/tenants/${tenantId}/custom-fields`, {
+    module: "product", fieldKey: "x", label: "X", type: "teks",
+  });
+  check("viewer DITOLAK membuat definisi field kustom (403)", cfViewerBuat.status === 403);
+  const cfViewerBaca = await viewer("GET", `/api/tenants/${tenantId}/custom-fields?module=contact`);
+  check("viewer boleh membaca definisi (form & cetakan butuh)", cfViewerBaca.status === 200 && cfViewerBaca.json?.defs?.length === 2, `→ ${JSON.stringify(cfViewerBaca.json?.defs?.length)}`);
+
+  // Nilai pada kontak
+  const kontakTanpaWajib = await owner("POST", `/api/tenants/${tenantId}/contacts`, {
+    type: "customer", name: "Kontak Uji Field Kustom",
+  });
+  check("kontak tanpa field kustom WAJIB DITOLAK 400", kontakTanpaWajib.status === 400, `→ ${kontakTanpaWajib.status} ${kontakTanpaWajib.json?.error ?? ""}`);
+  const kontakSalahPilihan = await owner("POST", `/api/tenants/${tenantId}/contacts`, {
+    type: "customer", name: "Kontak Uji", customFields: { nomor_po: "PO-1", wilayah: "Papua" },
+  });
+  check("nilai di luar daftar pilihan DITOLAK 400", kontakSalahPilihan.status === 400, `→ ${kontakSalahPilihan.status}`);
+  const kontakSalahKetik = await owner("POST", `/api/tenants/${tenantId}/contacts`, {
+    type: "customer", name: "Kontak Uji", customFields: { nomor_po: "PO-1", nomer_po: "PO-2" },
+  });
+  check(
+    "kunci field kustom salah ketik DITOLAK 400, bukan diabaikan diam-diam",
+    kontakSalahKetik.status === 400,
+    `→ ${kontakSalahKetik.status} ${kontakSalahKetik.json?.error ?? ""}`,
+  );
+
+  const kontakOk = await owner("POST", `/api/tenants/${tenantId}/contacts`, {
+    type: "customer", name: "Kontak Uji Field Kustom",
+    customFields: { nomor_po: "PO-2026-001", wilayah: "Jawa" },
+  });
+  check("kontak dengan field kustom lengkap 201", kontakOk.status === 201, `→ ${kontakOk.status}`);
+  const kontakList = await owner("GET", `/api/tenants/${tenantId}/contacts?q=Kontak Uji Field Kustom`);
+  const kontakRow = kontakList.json?.items?.find((k) => k.id === kontakOk.json.id);
+  const nilaiPo = kontakRow?.customFields?.find((f) => f.fieldKey === "nomor_po");
+  check(
+    "nilai field kustom terbaca kembali di daftar kontak (siap dicetak & diekspor)",
+    nilaiPo?.value === "PO-2026-001" && nilaiPo?.label === "Nomor PO Pelanggan",
+    `→ ${JSON.stringify(kontakRow?.customFields)}`,
+  );
+
+  // Nilai pada faktur — yang paling berbahaya: penolakan TIDAK BOLEH menyisakan jurnal.
+  const cfFaktur = await owner("POST", `/api/tenants/${tenantId}/custom-fields`, {
+    module: "invoice", fieldKey: "no_pesanan", label: "No. Pesanan Pembeli", type: "teks", required: true,
+  });
+  check("buat field kustom faktur (wajib) 201", cfFaktur.status === 201);
+
+  const tbSebelumCf = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  const invSebelumCf = await owner("GET", `/api/tenants/${tenantId}/invoices?limit=500`);
+  const fakturDitolak = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id, invoiceDate: "2027-07-01", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: prodBarang.json.id, qty: 1, unitPrice: 100_000 }],
+  });
+  check("faktur tanpa field kustom WAJIB DITOLAK 400", fakturDitolak.status === 400, `→ ${fakturDitolak.status}`);
+  const tbSesudahTolak = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  const invSesudahTolak = await owner("GET", `/api/tenants/${tenantId}/invoices?limit=500`);
+  check(
+    "faktur yang ditolak field kustom TIDAK meninggalkan jurnal maupun dokumen",
+    tbSesudahTolak.json?.totalDebit === tbSebelumCf.json?.totalDebit &&
+      invSesudahTolak.json?.docs?.length === invSebelumCf.json?.docs?.length,
+    `→ debit ${tbSebelumCf.json?.totalDebit}→${tbSesudahTolak.json?.totalDebit}, dokumen ${invSebelumCf.json?.docs?.length}→${invSesudahTolak.json?.docs?.length}`,
+  );
+
+  const fakturCf = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id, invoiceDate: "2027-07-01", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: prodBarang.json.id, qty: 1, unitPrice: 100_000 }],
+    customFields: { no_pesanan: "PB-777" },
+  });
+  check("faktur dengan field kustom terisi diposting 201", fakturCf.status === 201, `→ ${fakturCf.status} ${fakturCf.json?.error ?? ""}`);
+  const invCfList = await owner("GET", `/api/tenants/${tenantId}/invoices?limit=500`);
+  const invCfDoc = invCfList.json?.docs?.find((d) => d.id === fakturCf.json.id);
+  check(
+    "nilai field kustom ikut pada faktur di daftar",
+    invCfDoc?.customFields?.find((f) => f.fieldKey === "no_pesanan")?.value === "PB-777",
+    `→ ${JSON.stringify(invCfDoc?.customFields)}`,
+  );
+
+  // Cetakan & ekspor membaca dari daftar faktur — sumber yang SAMA. Karena itu
+  // yang dikunci di sini adalah bentuk datanya (label + fieldKey + value),
+  // bukan hanya nilainya: halaman cetak menampilkan `label`, ekspor memakai
+  // `fieldKey`, dan salah satu hilang berarti janji di layar tidak ditepati.
+  const bentukCf = invCfDoc?.customFields?.[0];
+  check(
+    "bentuk data field kustom lengkap untuk cetakan (label) dan ekspor (fieldKey)",
+    Boolean(bentukCf?.label && bentukCf?.fieldKey && bentukCf?.type && bentukCf?.defId),
+    `→ ${JSON.stringify(bentukCf)}`,
+  );
+
+  // Arsip: definisi hilang dari daftar, dan nilainya berhenti ikut terekspor —
+  // TANPA menghapus data yang sudah dicatat pemilik.
+  const cfArsip = await owner("DELETE", `/api/tenants/${tenantId}/custom-fields/${cfFaktur.json.id}`);
+  check("arsipkan definisi field kustom 200", cfArsip.status === 200);
+  const invSetelahArsip = await owner("GET", `/api/tenants/${tenantId}/invoices?limit=500`);
+  const invArsipDoc = invSetelahArsip.json?.docs?.find((d) => d.id === fakturCf.json.id);
+  check(
+    "definisi terarsip: nilainya tak lagi ikut, dan faktur baru tak lagi menuntutnya",
+    (invArsipDoc?.customFields?.length ?? 0) === 0,
+    `→ ${JSON.stringify(invArsipDoc?.customFields)}`,
+  );
+  const cfArsipUlang = await owner("DELETE", `/api/tenants/${tenantId}/custom-fields/${cfFaktur.json.id}`);
+  check("mengarsipkan definisi yang sudah terarsip → 404", cfArsipUlang.status === 404);
+
+  // Bersihkan definisi kontak agar bagian smoke setelah ini tidak terhalang
+  // field wajib yang baru saja dibuat.
+  await owner("DELETE", `/api/tenants/${tenantId}/custom-fields/${cfKontak.json.id}`);
+  await owner("DELETE", `/api/tenants/${tenantId}/custom-fields/${cfWilayah.json.id}`);
+  const kontakSetelahBersih = await owner("POST", `/api/tenants/${tenantId}/contacts`, {
+    type: "customer", name: "Kontak Setelah Arsip",
+  });
+  check(
+    "setelah definisi diarsipkan, kontak tanpa field kustom kembali diterima 201",
+    kontakSetelahBersih.status === 201,
+    `→ ${kontakSetelahBersih.status}`,
+  );
+
   console.log("14. Siklus langganan (trial berakhir)");
   // Semua tenant dibuat dengan TRIAL_DAYS_OVERRIDE=-4 → trial habis 4 hari
   // lalu, jadi sudah melewati masa tenggang 3 hari (Fase 20c) dan cron berhak
@@ -4838,6 +4975,82 @@ try {
   // Webhook tanpa kunci → diabaikan sopan (200), tak mengubah apa pun.
   const billWebhook = await makeClient()("POST", "/api/billing/notification", { order_id: "x", transaction_status: "settlement" });
   check("webhook billing tanpa kunci → 200 diabaikan", billWebhook.status === 200 && billWebhook.json?.ignored === true, `→ HTTP ${billWebhook.status}`);
+
+  // --- Fase 20k: ganti paket dengan prorata ---------------------------------
+  // Tanpa siklus berjalan, prorata tidak berlaku — dan yang penting BUKAN
+  // sekadar "angkanya 0" melainkan `bisaProrata:false`, karena 0 tanpa penanda
+  // itu berarti naik paket GRATIS.
+  const proTrial = await owner("GET", `/api/tenants/${tenantId}/billing/prorata?plan=business`);
+  check(
+    "prorata tanpa langganan aktif: bisaProrata=false, tidak menagih",
+    proTrial.status === 200 && proTrial.json?.bisaProrata === false && proTrial.json?.bayarSekarang === 0,
+    `→ ${JSON.stringify(proTrial.json)}`,
+  );
+  const proTrialChange = await owner("POST", `/api/tenants/${tenantId}/billing/change-plan`, { plan: "business" });
+  check(
+    "ganti paket tanpa langganan aktif DITOLAK 400 (diarahkan ke pembelian biasa)",
+    proTrialChange.status === 400,
+    `→ ${proTrialChange.status} ${proTrialChange.json?.error ?? ""}`,
+  );
+
+  // Aktifkan siklus berjalan 15 hari pada paket starter lewat admin platform.
+  const akhirPeriode = new Date(Date.now() + 15 * 86_400_000).toISOString();
+  const setPeriode = await owner("POST", `/api/admin/tenants/${tenantId}/plan`, {
+    plan: "starter", status: "active", subscriptionEndsAt: akhirPeriode,
+  });
+  check("admin platform menyetel akhir periode langganan 200", setPeriode.status === 200);
+
+  const proNaik = await owner("GET", `/api/tenants/${tenantId}/billing/prorata?plan=business`);
+  check(
+    "prorata naik starter→business, sisa 15 hari: ditagih 250.000 (selisih × 15/30)",
+    proNaik.json?.arah === "naik" && proNaik.json?.sisaHari === 15 &&
+      proNaik.json?.bayarSekarang === 250_000 && proNaik.json?.berlakuMulai === "sekarang",
+    `→ ${JSON.stringify(proNaik.json)}`,
+  );
+  // Pratinjau TIDAK boleh mengubah apa pun — ini yang membuatnya aman ditekan.
+  const billSetelahPratinjau = await owner("GET", `/api/tenants/${tenantId}/billing`);
+  check(
+    "pratinjau prorata tidak mengubah paket maupun tagihan apa pun",
+    billSetelahPratinjau.json?.plan === "starter" && billSetelahPratinjau.json?.pendingPlan === null,
+    `→ ${JSON.stringify({ plan: billSetelahPratinjau.json?.plan, pending: billSetelahPratinjau.json?.pendingPlan })}`,
+  );
+  const proNaikExec = await owner("POST", `/api/tenants/${tenantId}/billing/change-plan`, { plan: "business" });
+  check("naik paket tanpa konfigurasi Midtrans → 503 (degradasi anggun)", proNaikExec.status === 503, `→ ${proNaikExec.status}`);
+  const proSama = await owner("POST", `/api/tenants/${tenantId}/billing/change-plan`, { plan: "starter" });
+  check("ganti ke paket yang sudah aktif DITOLAK 400", proSama.status === 400, `→ ${proSama.status}`);
+
+  // Turun paket: dijadwalkan, TIDAK menagih, dan paket berjalan tidak berubah.
+  await owner("POST", `/api/admin/tenants/${tenantId}/plan`, {
+    plan: "enterprise", status: "active", subscriptionEndsAt: akhirPeriode,
+  });
+  const proTurun = await owner("GET", `/api/tenants/${tenantId}/billing/prorata?plan=starter`);
+  check(
+    "prorata turun: tanpa tagihan, berlaku akhir periode",
+    proTurun.json?.arah === "turun" && proTurun.json?.bayarSekarang === 0 &&
+      proTurun.json?.berlakuMulai === "akhir-periode",
+    `→ ${JSON.stringify(proTurun.json)}`,
+  );
+  const proTurunExec = await owner("POST", `/api/tenants/${tenantId}/billing/change-plan`, { plan: "starter" });
+  check(
+    "turun paket dijadwalkan 200 tanpa Midtrans (tak butuh pembayaran)",
+    proTurunExec.status === 200 && proTurunExec.json?.pendingPlan === "starter",
+    `→ ${proTurunExec.status} ${JSON.stringify(proTurunExec.json)}`,
+  );
+  const billTurun = await owner("GET", `/api/tenants/${tenantId}/billing`);
+  check(
+    "paket BERJALAN tetap enterprise sampai akhir periode; penurunan tercatat sebagai pendingPlan",
+    billTurun.json?.plan === "enterprise" && billTurun.json?.pendingPlan === "starter",
+    `→ ${JSON.stringify({ plan: billTurun.json?.plan, pending: billTurun.json?.pendingPlan })}`,
+  );
+  const proTurunAdmin = await admin("POST", `/api/tenants/${tenantId}/billing/change-plan`, { plan: "starter" });
+  check("ganti paket oleh non-Pemilik → 403", proTurunAdmin.status === 403, `→ ${proTurunAdmin.status}`);
+  const proBadPlan = await owner("GET", `/api/tenants/${tenantId}/billing/prorata?plan=gratis`);
+  check("pratinjau prorata paket tak dikenal → 400", proBadPlan.status === 400, `→ ${proBadPlan.status}`);
+
+  // Kembalikan tenant ke trial agar asersi lain di bawah tidak terganggu.
+  await owner("POST", `/api/admin/tenants/${tenantId}/plan`, {
+    plan: "trial", status: "trial", subscriptionEndsAt: null,
+  });
 
   // Fase 11d: payment collection link (tanpa Midtrans → degradasi anggun).
   const plStatus = await owner("GET", `/api/tenants/${tenantId}/invoices/inv-x/payment-link`);

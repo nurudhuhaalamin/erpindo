@@ -305,6 +305,23 @@ export const CONTROL_PLANE_MIGRATIONS: Migration[] = [
       `CREATE INDEX webhook_deliveries_pending ON webhook_deliveries (status, next_attempt_at)`,
     ],
   },
+  {
+    // Fase 20k: ganti paket mandiri dengan prorata.
+    //
+    // `pending_plan` menampung penurunan paket yang BERLAKU DI AKHIR PERIODE —
+    // tenant sudah membayar sisa periode ini, jadi paketnya tidak boleh turun
+    // seketika. Cron yang memperpanjang/menurunkan status ikut menerapkannya.
+    //
+    // `is_prorata` menandai invoice selisih harga: webhook TIDAK boleh
+    // memperpanjang `subscription_ends_at` untuk invoice semacam ini — yang
+    // dibeli hanyalah kenaikan paket untuk sisa periode yang sudah berjalan,
+    // bukan satu bulan tambahan.
+    id: "0015_plan_change_prorata",
+    statements: [
+      `ALTER TABLE tenants ADD COLUMN pending_plan TEXT`,
+      `ALTER TABLE subscription_invoices ADD COLUMN is_prorata INTEGER NOT NULL DEFAULT 0`,
+    ],
+  },
 ];
 
 /**
@@ -1564,6 +1581,44 @@ export const TENANT_MIGRATIONS: Migration[] = [
     id: "0040_intercompany",
     statements: [
       `ALTER TABLE accounts ADD COLUMN is_intercompany INTEGER NOT NULL DEFAULT 0`,
+    ],
+  },
+  {
+    // Fase 20j: field kustom per modul.
+    //
+    // Nilainya disimpan sebagai TEXT dan dikonversi menurut `type` definisinya.
+    // Kolom bertipe kuat per jenis akan memaksa satu kolom per tipe (atau satu
+    // tabel per tipe) tanpa memberi jaminan tambahan — validasi tetap harus
+    // terjadi di skema zod, karena di situlah SELURUH pemanggil lewat.
+    //
+    // `field_key` unik per modul supaya kolom ekspor tidak pernah bertabrakan.
+    // `ON DELETE CASCADE` pada nilai: definisi yang dihapus tidak boleh
+    // meninggalkan nilai yatim yang tetap ikut terekspor.
+    id: "0041_custom_fields",
+    statements: [
+      `CREATE TABLE custom_field_defs (
+        id TEXT PRIMARY KEY,
+        module TEXT NOT NULL CHECK (module IN ('contact','product','invoice')),
+        field_key TEXT NOT NULL,
+        label TEXT NOT NULL,
+        type TEXT NOT NULL CHECK (type IN ('teks','angka','tanggal','pilihan')),
+        options TEXT,
+        required INTEGER NOT NULL DEFAULT 0,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        is_archived INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE UNIQUE INDEX custom_field_defs_key ON custom_field_defs (module, field_key)`,
+      `CREATE TABLE custom_field_values (
+        id TEXT PRIMARY KEY,
+        def_id TEXT NOT NULL REFERENCES custom_field_defs(id) ON DELETE CASCADE,
+        ref_type TEXT NOT NULL,
+        ref_id TEXT NOT NULL,
+        value TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE UNIQUE INDEX custom_field_values_unik ON custom_field_values (def_id, ref_type, ref_id)`,
+      `CREATE INDEX custom_field_values_ref ON custom_field_values (ref_type, ref_id)`,
     ],
   },
 ];

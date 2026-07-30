@@ -5,8 +5,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, ApiRequestError } from "../../api/client";
 import { Alert, Button, Card, CardBody, CardHeader, ConfirmDialog, Input, Label, Select, Spinner, useToast } from "../../components/ui";
+import { useUi } from "../../i18n/ui";
 
 export function ApiIntegrationCard({ tenantId }: { tenantId: string }) {
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const keys = useQuery({ queryKey: ["api-keys", tenantId], queryFn: () => api.apiKeys(tenantId), retry: false });
@@ -58,14 +60,14 @@ export function ApiIntegrationCard({ tenantId }: { tenantId: string }) {
   if (err && err.status === 403) {
     return (
       <Card>
-        <CardHeader title="API & Integrasi" description="API publik & webhook untuk menghubungkan sistem lain." />
+        <CardHeader title={u("apiIntegrasi")} description={u("descApiIntegrasiUpsell")} />
         <CardBody>
           <Alert tone="info">
-            <div className="font-medium">Tersedia di paket Enterprise</div>
+            <div className="font-medium">{u("tersediaEnterprise")}</div>
             <p className="mt-1 text-sm">
-              Buat API key (Bearer) untuk membaca &amp; menulis data lewat API terkurasi, dan terima webhook saat faktur
-              atau pembayaran terjadi. Lihat <a className="underline" href="/api-docs" target="_blank" rel="noreferrer">dokumentasi API</a>.
-              Tingkatkan ke Enterprise untuk mengaktifkannya.
+              {u("descApiUpsell")}{" "}
+              <a className="underline" href="/api-docs" target="_blank" rel="noreferrer">{u("dokumentasiApi")}</a>
+              {u("tingkatkanEnterprise")}
             </p>
           </Alert>
         </CardBody>
@@ -78,12 +80,12 @@ export function ApiIntegrationCard({ tenantId }: { tenantId: string }) {
   return (
     <Card>
       <CardHeader
-        title="API & Integrasi"
-        description="Hubungkan toko online / sistem lain lewat API publik & webhook."
+        title={u("apiIntegrasi")}
+        description={u("descApiIntegrasi")}
       />
       <CardBody className="space-y-6">
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Panduan lengkap ada di <a className="text-brand-600 underline" href="/api-docs" target="_blank" rel="noreferrer">/api-docs</a>.
+          {u("panduanLengkapDi")} <a className="text-brand-600 underline" href="/api-docs" target="_blank" rel="noreferrer">/api-docs</a>.
         </p>
 
         {/* --- API keys --- */}
@@ -91,44 +93,44 @@ export function ApiIntegrationCard({ tenantId }: { tenantId: string }) {
           <div className="text-sm font-semibold">API key</div>
           <div className="mt-2 flex flex-wrap items-end gap-2">
             <div className="flex-1 min-w-[10rem]">
-              <Label>Nama kunci</Label>
-              <Input value={keyName} onChange={(e) => setKeyName(e.target.value)} placeholder="mis. Integrasi toko online" />
+              <Label>{u("namaKunci")}</Label>
+              <Input value={keyName} onChange={(e) => setKeyName(e.target.value)} placeholder={u("contohIntegrasiToko")} />
             </div>
             <div>
-              <Label>Skop</Label>
+              <Label>{u("skop")}</Label>
               <Select value={keyScope} onChange={(e) => setKeyScope(e.target.value as "read" | "write")}>
-                <option value="read">Baca saja</option>
-                <option value="write">Baca &amp; tulis</option>
+                <option value="read">{u("bacaSaja")}</option>
+                <option value="write">{u("bacaTulis")}</option>
               </Select>
             </div>
             <Button onClick={() => createKey.mutate()} disabled={createKey.isPending || keyName.trim().length < 2}>
-              {createKey.isPending ? "Membuat…" : "Buat kunci"}
+              {createKey.isPending ? u("membuatEllipsis") : u("buatKunci")}
             </Button>
           </div>
           {newKey ? (
             <Alert tone="success">
-              <div className="text-sm font-medium">Salin kunci ini sekarang — hanya ditampilkan sekali:</div>
+              <div className="text-sm font-medium">{u("salinKunciSekarang")}</div>
               <code className="mt-1 block break-all rounded bg-white/70 px-2 py-1 text-xs dark:bg-slate-900/60">{newKey}</code>
-              <button className="mt-1 text-xs underline" onClick={() => setNewKey(null)}>Sudah saya salin</button>
+              <button className="mt-1 text-xs underline" onClick={() => setNewKey(null)}>{u("sudahSayaSalin")}</button>
             </Alert>
           ) : null}
           <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800/60">
             {keys.isLoading ? (
               <Spinner />
             ) : activeKeys.length === 0 ? (
-              <p className="py-2 text-xs text-slate-500 dark:text-slate-400">Belum ada API key aktif.</p>
+              <p className="py-2 text-xs text-slate-500 dark:text-slate-400">{u("belumAdaApiKey")}</p>
             ) : (
               activeKeys.map((k: ApiApiKey) => (
                 <div key={k.id} className="flex items-center justify-between gap-3 py-2">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{k.name}</div>
                     <div className="text-xs text-slate-500 dark:text-slate-400">
-                      <code>{k.prefix}</code> · {k.scope === "write" ? "baca & tulis" : "baca"} ·{" "}
-                      {k.lastUsedAt ? `dipakai ${k.lastUsedAt.slice(0, 10)}` : "belum dipakai"}
+                      <code>{k.prefix}</code> · {k.scope === "write" ? u("bacaTulisKecil") : u("bacaKecil")} ·{" "}
+                      {k.lastUsedAt ? `${u("dipakaiPada")} ${k.lastUsedAt.slice(0, 10)}` : u("belumDipakai")}
                     </div>
                   </div>
                   <Button variant="secondary" className="h-8" onClick={() => revokeKey.mutate(k.id)} disabled={revokeKey.isPending}>
-                    Cabut
+                    {u("cabut")}
                   </Button>
                 </div>
               ))
@@ -141,8 +143,8 @@ export function ApiIntegrationCard({ tenantId }: { tenantId: string }) {
           <div className="text-sm font-semibold">Webhook</div>
           <div className="mt-2 space-y-2">
             <div>
-              <Label>URL penerima</Label>
-              <Input value={hookUrl} onChange={(e) => setHookUrl(e.target.value)} placeholder="https://sistem-anda.co.id/webhook" />
+              <Label>{u("urlPenerima")}</Label>
+              <Input value={hookUrl} onChange={(e) => setHookUrl(e.target.value)} placeholder={u("urlWebhookContoh")} />
             </div>
             <div className="flex flex-wrap gap-3">
               {WEBHOOK_EVENTS.map((ev) => (
@@ -160,21 +162,21 @@ export function ApiIntegrationCard({ tenantId }: { tenantId: string }) {
               ))}
             </div>
             <Button onClick={() => createHook.mutate()} disabled={createHook.isPending || hookUrl.trim().length < 8 || hookEvents.length === 0}>
-              {createHook.isPending ? "Menyimpan…" : "Tambah webhook"}
+              {createHook.isPending ? u("menyimpanEllipsis") : u("tambahWebhook")}
             </Button>
           </div>
           {newSecret ? (
             <Alert tone="success">
-              <div className="text-sm font-medium">Secret HMAC (untuk verifikasi tanda tangan) — simpan sekarang:</div>
+              <div className="text-sm font-medium">{u("secretHmac")}</div>
               <code className="mt-1 block break-all rounded bg-white/70 px-2 py-1 text-xs dark:bg-slate-900/60">{newSecret}</code>
-              <button className="mt-1 text-xs underline" onClick={() => setNewSecret(null)}>Sudah saya salin</button>
+              <button className="mt-1 text-xs underline" onClick={() => setNewSecret(null)}>{u("sudahSayaSalin")}</button>
             </Alert>
           ) : null}
           <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800/60">
             {hooks.isLoading ? (
               <Spinner />
             ) : (hooks.data?.webhooks ?? []).length === 0 ? (
-              <p className="py-2 text-xs text-slate-500 dark:text-slate-400">Belum ada webhook.</p>
+              <p className="py-2 text-xs text-slate-500 dark:text-slate-400">{u("belumAdaWebhook")}</p>
             ) : (
               (hooks.data?.webhooks ?? []).map((w: ApiWebhook) => (
                 <div key={w.id} className="flex items-center justify-between gap-3 py-2">
@@ -182,11 +184,11 @@ export function ApiIntegrationCard({ tenantId }: { tenantId: string }) {
                     <div className="truncate text-sm font-medium">{w.url}</div>
                     <div className="text-xs text-slate-500 dark:text-slate-400">
                       {w.events.join(", ")}
-                      {w.lastStatus ? ` · terakhir: ${w.lastStatus}` : ""}
+                      {w.lastStatus ? ` · ${u("terakhirKecil")} ${w.lastStatus}` : ""}
                     </div>
                   </div>
                   <Button variant="secondary" className="h-8" onClick={() => deleteHook.mutate(w.id)} disabled={deleteHook.isPending}>
-                    Hapus
+                    {u("hapus")}
                   </Button>
                 </div>
               ))
@@ -200,6 +202,7 @@ export function ApiIntegrationCard({ tenantId }: { tenantId: string }) {
 
 
 export function CloseBooksCard({ tenantId }: { tenantId: string }) {
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const settingsQuery = useQuery({ queryKey: ["settings", tenantId], queryFn: () => api.settings(tenantId) });
@@ -235,31 +238,31 @@ export function CloseBooksCard({ tenantId }: { tenantId: string }) {
   return (
     <Card>
       <CardHeader
-        title="Tutup buku"
-        description="Semua transaksi bertanggal pada atau sebelum tanggal ini akan dikunci — tidak bisa ditambah jurnal, faktur, maupun pembayaran. Tanggal kunci hanya bisa maju."
+        title={u("tutupBuku")}
+        description={u("descTutupBuku")}
       />
       <CardBody className="space-y-3">
         {lockedBefore ? (
           <p className="text-sm">
-            Pembukuan saat ini terkunci sampai <strong>{lockedBefore}</strong>.
+            {u("pembukuanTerkunciSampai")} <strong>{lockedBefore}</strong>.
           </p>
         ) : (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada periode yang ditutup.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{u("belumAdaPeriodeDitutup")}</p>
         )}
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <Label htmlFor="close-date">Kunci sampai tanggal</Label>
+            <Label htmlFor="close-date">{u("kunciSampaiTanggal")}</Label>
             <Input id="close-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           <Button variant="danger" disabled={!date || close.isPending} onClick={() => setConfirmOpen(true)}>
-            Tutup Buku
+            {u("tutupBukuAksi")}
           </Button>
         </div>
         <ConfirmDialog
           open={confirmOpen}
-          title={`Tutup buku sampai ${date}?`}
-          description="Semua transaksi bertanggal pada atau sebelum tanggal ini akan terkunci permanen — jurnal, faktur, pembayaran, dan retur tidak bisa lagi ditambahkan. Tanggal kunci tidak bisa dimundurkan."
-          confirmLabel="Ya, kunci pembukuan"
+          title={`${u("konfirmTutupBuku")} ${date}?`}
+          description={u("descKunciPermanen")}
+          confirmLabel={u("yaKunciPembukuan")}
           danger
           busy={close.isPending}
           onConfirm={() => close.mutate()}
@@ -268,19 +271,18 @@ export function CloseBooksCard({ tenantId }: { tenantId: string }) {
 
         <div className="border-t border-slate-200 pt-3 dark:border-slate-700">
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Jurnal penutup tahunan: pindahkan laba/rugi berjalan sampai tanggal di atas ke akun Laba Ditahan —
-            biasanya dilakukan sekali di akhir tahun buku, sebelum mengunci periode.
+            {u("descJurnalPenutup")}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <Button variant="secondary" disabled={!date || closing.isPending} onClick={() => setClosingOpen(true)}>
-              Posting Jurnal Penutup
+              {u("postingJurnalPenutup")}
             </Button>
           </div>
           <ConfirmDialog
             open={closingOpen}
-            title={`Posting jurnal penutup per ${date}?`}
-            description="Semua saldo pendapatan dan beban sampai tanggal itu dinolkan; laba/rugi bersihnya dipindahkan ke Laba Ditahan. Ini jurnal biasa (bisa dilihat di Jurnal Umum), tapi sebaiknya hanya dilakukan di akhir tahun buku."
-            confirmLabel="Ya, posting jurnal penutup"
+            title={`${u("konfirmJurnalPenutup")} ${date}?`}
+            description={u("descKonfirmJurnalPenutup")}
+            confirmLabel={u("yaPostingJurnalPenutup")}
             busy={closing.isPending}
             onConfirm={() => closing.mutate()}
             onCancel={() => setClosingOpen(false)}

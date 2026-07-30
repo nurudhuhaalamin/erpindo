@@ -4,9 +4,12 @@ import { type ApiAuditLog } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, ApiRequestError, formatDate, formatIDR } from "../../api/client";
+import { useLang } from "../../i18n";
+import { useUi } from "../../i18n/ui";
 import { Alert, Button, Card, CardBody, CardHeader, Label, Skeleton, Spinner, useToast } from "../../components/ui";
 
 export function ExportBackupCard({ tenantId }: { tenantId: string }) {
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const status = useQuery({
@@ -36,16 +39,15 @@ export function ExportBackupCard({ tenantId }: { tenantId: string }) {
   return (
     <Card>
       <CardHeader
-        title="Ekspor & Cadangan"
-        description="Data Anda milik Anda — unduh kapan pun, termasuk setelah langganan berakhir."
+        title={u("eksporCadangan")}
+        description={u("descEksporCadangan")}
       />
       <CardBody className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-sm font-medium">Unduh semua data (ZIP)</div>
+            <div className="text-sm font-medium">{u("unduhSemuaZip")}</div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Seluruh tabel diekspor sebagai CSV standar + manifest — siap dibuka di Excel atau dipindahkan ke
-              aplikasi lain.
+              {u("descUnduhSemua")}
             </p>
           </div>
           <a
@@ -53,45 +55,44 @@ export function ExportBackupCard({ tenantId }: { tenantId: string }) {
             className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-400 dark:text-slate-900"
             download
           >
-            Unduh Semua Data
+            {u("unduhSemuaData")}
           </a>
         </div>
 
         <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
-          <div className="text-sm font-medium">Backup otomatis ke Google Drive</div>
+          <div className="text-sm font-medium">{u("backupDrive")}</div>
           {status.isLoading ? (
             <Skeleton className="mt-2 h-10 w-full" />
           ) : !drive?.configured ? (
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Integrasi Google Drive belum dikonfigurasi oleh operator (butuh OAuth Client ID/Secret Google
-              Cloud). Fitur unduh di atas tetap berfungsi penuh.
+              {u("descDriveBelumSiap")}
             </p>
           ) : !drive.connected ? (
             <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Sambungkan akun Google Anda — cadangan bulanan otomatis tersimpan di Drive Anda sendiri.
+                {u("descSambungkanDrive")}
               </p>
               <a
                 href={api.driveConnectUrl(tenantId)}
                 className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
               >
-                Sambungkan Google Drive
+                {u("sambungkanDrive")}
               </a>
             </div>
           ) : (
             <div className="mt-2 space-y-2">
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Tersambung{drive.accountEmail ? ` sebagai ${drive.accountEmail}` : ""}.{" "}
+                {u("tersambung")}{drive.accountEmail ? ` ${u("sebagaiAkun")} ${drive.accountEmail}` : ""}.{" "}
                 {drive.lastBackupAt
-                  ? `Cadangan terakhir: ${formatDate(drive.lastBackupAt.slice(0, 10))} (${drive.lastBackupStatus ?? "ok"}).`
-                  : "Belum ada cadangan — Cron mencadangkan otomatis tiap awal bulan."}
+                  ? `${u("cadanganTerakhir")} ${formatDate(drive.lastBackupAt.slice(0, 10))} (${drive.lastBackupStatus ?? "ok"}).`
+                  : u("belumAdaCadangan")}
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button onClick={() => backupNow.mutate()} disabled={backupNow.isPending}>
-                  {backupNow.isPending ? "Mencadangkan…" : "Cadangkan sekarang"}
+                  {backupNow.isPending ? u("mencadangkanEllipsis") : u("cadangkanSekarang")}
                 </Button>
                 <Button variant="secondary" onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
-                  Putuskan sambungan
+                  {u("putuskanSambungan")}
                 </Button>
               </div>
             </div>
@@ -242,6 +243,140 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "billing.trial_expired": "Trial berakhir",
 };
 
+/**
+ * Padanan Inggris label audit (Fase 20m).
+ *
+ * Tabel terpisah, bukan ~130 kunci di kamus utama: isinya adalah PETA KODE →
+ * label, bukan kalimat layar, dan `AUDIT_ACTION_LABELS` sendiri masih
+ * di-re-export untuk dashboard.tsx. Dua tabel berdampingan membuat entri yang
+ * tertinggal langsung terlihat saat dibaca.
+ */
+export const AUDIT_ACTION_LABELS_EN: Record<string, string> = {
+  "auth.register": "Company registered",
+  "auth.login": "Sign-in",
+  "auth.demo_login": "Demo mode sign-in",
+  "auth.login_failed": "Sign-in failed",
+  "auth.totp_failed": "Wrong 2FA code",
+  "auth.email_verified": "Email verified",
+  "auth.password_reset": "Password reset",
+  "auth.password_changed": "Password changed",
+  "auth.profile_updated": "Profile updated",
+  "auth.totp_enabled": "2FA enabled",
+  "auth.totp_disabled": "2FA disabled",
+  "tenant.company_created": "Company created",
+  "tenant.invite_sent": "Invitation sent",
+  "tenant.invite_accepted": "Invitation accepted",
+  "tenant.settings_updated": "Settings changed",
+  "tenant.member_role_changed": "Member role changed",
+  "tenant.role_created": "Custom role created",
+  "tenant.role_updated": "Custom role updated",
+  "tenant.role_deleted": "Custom role deleted",
+  "tenant.security_updated": "Security policy changed",
+  "tenant.audit_exported": "Audit log exported",
+  "tenant.doc_numbering_updated": "Document number format changed",
+  "api.key_created": "API key created",
+  "api.key_revoked": "API key revoked",
+  "api.webhook_created": "Webhook added",
+  "api.webhook_deleted": "Webhook deleted",
+  "dimension.cost_center.created": "Cost centre created",
+  "dimension.cost_center.archived": "Cost centre archived",
+  "dimension.bank_rule.created": "Bank auto-match rule created",
+  "dimension.bank_rule.deleted": "Bank auto-match rule deleted",
+  "manufacturing.work_center.created": "Work centre created",
+  "manufacturing.work_center.archived": "Work centre archived",
+  "manufacturing.routing.added": "Routing step added",
+  "manufacturing.routing.completed": "Routing step completed",
+  "tenant.member_removed": "Member removed",
+  "accounting.account_created": "COA account created",
+  "accounting.account_renamed": "COA account renamed",
+  "accounting.account_archived": "COA account archived",
+  "accounting.journal_posted": "Journal posted",
+  "accounting.books_closed": "Books closed",
+  "accounting.template_created": "Journal template created",
+  "accounting.bank_imported": "Bank statement imported",
+  "accounting.closing_entry": "Closing entry",
+  "sales.invoice_posted": "Sales invoice",
+  "sales.invoice_voided": "Sales invoice voided",
+  "purchase.posted": "Purchase invoice",
+  "purchase.voided": "Purchase invoice voided",
+  "payment.recorded": "Payment recorded",
+  "inventory.adjusted": "Stock adjustment",
+  "inventory.transferred": "Inter-warehouse stock transfer",
+  "approval.requested": "Approval requested",
+  "approval.threshold_set": "Approval threshold set",
+  "approval.approved": "Purchase approved",
+  "approval.rejected": "Purchase rejected",
+  "approval.rule.created": "Approval rule created",
+  "approval.rule.updated": "Approval rule updated",
+  "approval.rule.deleted": "Approval rule deleted",
+  "approval.flow.submitted": "Approval flow submitted",
+  "approval.flow.decided": "Approval flow decided",
+  "procurement.requisition.created": "Purchase requisition created",
+  "procurement.requisition.decided": "Purchase requisition decided",
+  "procurement.po.created": "Purchase order created",
+  "procurement.po.cancelled": "Purchase order cancelled",
+  "procurement.goods_received": "Goods received (GRN)",
+  "sales.so.created": "Sales order created",
+  "sales.so.cancelled": "Sales order cancelled",
+  "sales.so.down_payment": "Down payment received",
+  "sales.so.delivered": "Delivery note issued (goods out)",
+  "sales.so.invoiced": "Order invoiced",
+  "stock.serial.added": "Serial number added",
+  "stock.serial.status": "Serial number status changed",
+  "tax.pph_final.paid": "Final income tax payment recorded",
+  "tax.pph23.withheld": "PPh 23 withholding slip created",
+  "tax.pph23.deposited": "PPh 23 deposited",
+  "pos.shift_opened": "Cashier shift opened",
+  "pos.sale": "Cashier sale (POS)",
+  "pos.shift_closed": "Cashier shift closed",
+  "crm.lead.created": "Lead created",
+  "crm.lead.updated": "Lead updated",
+  "crm.activity.logged": "Lead activity logged",
+  "crm.lead.converted": "Lead converted to customer",
+  "crm.quotation.created": "Quotation created",
+  "crm.quotation.status": "Quotation status changed",
+  "crm.quotation.converted": "Quotation converted to invoice",
+  "hr.employee.created": "Employee added",
+  "hr.employee.updated": "Employee updated",
+  "hr.payroll.run": "Payroll run",
+  "hr.adjustment.created": "Payroll component added",
+  "hr.adjustment.deleted": "Payroll component deleted",
+  "hr.loan.created": "Salary advance disbursed",
+  "hr.leave.requested": "Leave requested",
+  "hr.leave.decided": "Leave decided",
+  "hr.attendance.recorded": "Attendance recorded",
+  "hr.attendance.deleted": "Attendance deleted",
+  "project.created": "Project created",
+  "project.status": "Project status changed",
+  "project.milestone.invoiced": "Project milestone invoiced",
+  "asset.registered": "Asset registered",
+  "asset.depreciated": "Asset depreciation",
+  "asset.disposed": "Asset disposed",
+  "contract.created": "Contract created",
+  "contract.status": "Contract status changed",
+  "contract.billed": "Contract billed",
+  "currency.set": "Exchange rate set",
+  "budget.set": "Budget set",
+  "manufacturing.bom_saved": "BoM saved",
+  "manufacturing.order_created": "Production order created",
+  "manufacturing.produced": "Production completed",
+  "manufacturing.qc_inspected": "QC inspection",
+  "maintenance.schedule_created": "Service schedule created",
+  "maintenance.generated": "Work order auto-created",
+  "maintenance.work_order_created": "Work order created",
+  "maintenance.work_order_completed": "Work order completed",
+  "helpdesk.ticket_created": "Support ticket created",
+  "helpdesk.ticket_replied": "Ticket replied",
+  "helpdesk.ticket_updated": "Ticket updated",
+  "billing.trial_expired": "Trial ended",
+};
+
+/** Label audit menurut bahasa aktif; jatuh balik ke kode bila tak dikenal. */
+export function labelAudit(action: string, lang: "id" | "en"): string {
+  const peta = lang === "en" ? AUDIT_ACTION_LABELS_EN : AUDIT_ACTION_LABELS;
+  return peta[action] ?? AUDIT_ACTION_LABELS[action] ?? action;
+}
+
 /** Kunci detail JSON → label ramah untuk ringkasan audit log. */
 const AUDIT_DETAIL_LABELS: Record<string, string> = {
   docNo: "No", invoiceNo: "No", entryNo: "Jurnal", runNo: "No", shiftNo: "Shift",
@@ -252,10 +387,20 @@ const AUDIT_DETAIL_LABELS: Record<string, string> = {
   count: "Jumlah baris", autoMatched: "Cocok otomatis", targetUserId: "Anggota", stage: "Tahap",
 };
 
+/** Padanan Inggris label detail audit (Fase 20m). */
+const AUDIT_DETAIL_LABELS_EN: Record<string, string> = {
+  docNo: "No", invoiceNo: "No", entryNo: "Journal", runNo: "No", shiftNo: "Shift",
+  requestNo: "No", quoteNo: "Quotation", ticketNo: "Ticket", code: "Code", name: "Name",
+  total: "Total", amount: "Amount", netProfit: "Net profit", totalGross: "Gross",
+  totalNet: "Net", period: "Period", role: "Role", email: "Email", status: "Status",
+  employees: "Employees", type: "Type", days: "Days", principal: "Principal",
+  count: "Rows", autoMatched: "Auto-matched", targetUserId: "Member", stage: "Stage",
+};
+
 const AUDIT_RUPIAH_KEYS = new Set(["total", "amount", "netProfit", "totalGross", "totalNet", "principal", "outstanding", "value"]);
 
 /** Ubah detail JSON mentah audit menjadi teks ramah, mis. "No INV-00031 · Total Rp832.500". */
-export function friendlyAuditDetail(raw: string | null): string {
+export function friendlyAuditDetail(raw: string | null, lang: "id" | "en" = "id"): string {
   if (!raw) return "";
   let obj: Record<string, unknown>;
   try {
@@ -267,7 +412,8 @@ export function friendlyAuditDetail(raw: string | null): string {
   for (const [key, val] of Object.entries(obj)) {
     if (val === null || val === undefined || typeof val === "object") continue;
     if (key === "id" || key === "ip") continue;
-    const label = AUDIT_DETAIL_LABELS[key] ?? key;
+    const peta = lang === "en" ? AUDIT_DETAIL_LABELS_EN : AUDIT_DETAIL_LABELS;
+    const label = peta[key] ?? AUDIT_DETAIL_LABELS[key] ?? key;
     const value = typeof val === "number" && AUDIT_RUPIAH_KEYS.has(key) ? formatIDR(val) : String(val);
     parts.push(`${label} ${value}`);
     if (parts.length >= 3) break;
@@ -282,6 +428,7 @@ export function friendlyAuditDetail(raw: string | null): string {
 // ---------------------------------------------------------------------------
 
 export function TenantSecurityCard({ tenantId }: { tenantId: string }) {
+  const u = useUi();
   const toast = useToast();
   const queryClient = useQueryClient();
   const query = useQuery({
@@ -320,13 +467,12 @@ export function TenantSecurityCard({ tenantId }: { tenantId: string }) {
   if (err && err.status === 403) {
     return (
       <Card>
-        <CardHeader title="Keamanan lanjutan" description="Kontrol keamanan tingkat perusahaan." />
+        <CardHeader title={u("keamananLanjutan")} description={u("descKeamananUpsellSingkat")} />
         <CardBody>
           <Alert tone="info">
-            <div className="font-medium">Tersedia di paket Enterprise</div>
+            <div className="font-medium">{u("tersediaEnterprise")}</div>
             <p className="mt-1 text-sm">
-              Wajibkan verifikasi 2 langkah (2FA) untuk semua anggota, batasi akses ke rentang IP kantor, dan
-              ekspor audit log ke CSV. Tingkatkan ke Enterprise untuk mengaktifkannya.
+              {u("descKeamananUpsell")}{u("tingkatkanEnterprise")}
             </p>
           </Alert>
         </CardBody>
@@ -337,8 +483,8 @@ export function TenantSecurityCard({ tenantId }: { tenantId: string }) {
   return (
     <Card>
       <CardHeader
-        title="Keamanan lanjutan"
-        description="Wajibkan 2FA, batasi akses per IP, dan ekspor audit log — kontrol keamanan tingkat perusahaan."
+        title={u("keamananLanjutan")}
+        description={u("descKeamananLanjutan")}
       />
       <CardBody className="space-y-5">
         {query.isLoading ? (
@@ -353,15 +499,15 @@ export function TenantSecurityCard({ tenantId }: { tenantId: string }) {
                 onChange={(e) => setRequire2fa(e.target.checked)}
               />
               <span>
-                <span className="text-sm font-medium">Wajibkan verifikasi 2 langkah (2FA)</span>
+                <span className="text-sm font-medium">{u("wajibkan2fa")}</span>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Anggota tanpa 2FA aktif diminta menyiapkannya di Profil sebelum bisa mengakses perusahaan ini.
+                  {u("descWajibkan2fa")}
                 </p>
               </span>
             </label>
 
             <div>
-              <Label>Pembatasan IP (CIDR/IP, satu per baris)</Label>
+              <Label>{u("pembatasanIp")}</Label>
               <textarea
                 className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-900"
                 rows={4}
@@ -370,14 +516,14 @@ export function TenantSecurityCard({ tenantId }: { tenantId: string }) {
                 onChange={(e) => setIpsText(e.target.value)}
               />
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Kosongkan untuk mengizinkan semua IP. Hati-hati: hanya IP dalam daftar yang bisa mengakses.
-                {query.data?.currentIp ? ` IP Anda saat ini: ${query.data.currentIp}.` : ""}
+                {u("descPembatasanIp")}
+                {query.data?.currentIp ? ` ${u("ipAndaSaatIni")} ${query.data.currentIp}.` : ""}
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
               <Button onClick={() => save.mutate()} disabled={save.isPending}>
-                {save.isPending ? "Menyimpan…" : "Simpan kebijakan"}
+                {save.isPending ? u("menyimpanEllipsis") : u("simpanKebijakan")}
               </Button>
               <a
                 href={api.securityAuditCsvUrl(tenantId)}
@@ -400,6 +546,8 @@ export function TenantSecurityCard({ tenantId }: { tenantId: string }) {
 // ---------------------------------------------------------------------------
 
 export function AuditLogCard({ tenantId }: { tenantId: string }) {
+  const u = useUi();
+  const lang = useLang();
   const query = useQuery({ queryKey: ["audit-logs", tenantId], queryFn: () => api.auditLogs(tenantId) });
   // Halaman lebih lama via kursor (Fase 9a) — sebelumnya hanya 100 terakhir.
   const [older, setOlder] = useState<{ logs: ApiAuditLog[]; nextCursor: string | null } | null>(null);
@@ -419,8 +567,8 @@ export function AuditLogCard({ tenantId }: { tenantId: string }) {
   return (
     <Card>
       <CardHeader
-        title="Riwayat aktivitas (audit log)"
-        description="Aktivitas di perusahaan ini — siapa melakukan apa dan kapan."
+        title={u("riwayatAktivitas")}
+        description={u("descRiwayatAktivitas")}
       />
       <CardBody>
         {query.isLoading ? (
@@ -428,7 +576,7 @@ export function AuditLogCard({ tenantId }: { tenantId: string }) {
         ) : (
           <div className="max-h-96 divide-y divide-slate-100 overflow-y-auto dark:divide-slate-800/60">
             {[...(query.data?.logs ?? []), ...(older?.logs ?? [])].map((log) => {
-              const detail = friendlyAuditDetail(log.detail);
+              const detail = friendlyAuditDetail(log.detail, lang);
               return (
                 <div key={log.id} className="flex flex-col gap-0.5 py-2.5 sm:flex-row sm:items-baseline sm:gap-3">
                   <span className="order-2 shrink-0 text-xs text-slate-400 dark:text-slate-500 sm:order-1 sm:w-28">
@@ -436,7 +584,7 @@ export function AuditLogCard({ tenantId }: { tenantId: string }) {
                   </span>
                   <div className="order-1 min-w-0 flex-1 sm:order-2">
                     <div className="flex flex-wrap items-baseline gap-x-2">
-                      <span className="font-medium">{AUDIT_ACTION_LABELS[log.action] ?? log.action}</span>
+                      <span className="font-medium">{labelAudit(log.action, lang)}</span>
                       <span className="text-xs text-slate-500 dark:text-slate-400">oleh {log.userName ?? "sistem"}</span>
                     </div>
                     {detail ? <div className="text-xs text-slate-500 dark:text-slate-400">{detail}</div> : null}

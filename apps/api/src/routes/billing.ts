@@ -1,5 +1,5 @@
 import type { ApiSubscriptionInvoice, BillingStatus, Plan, Role, TenantStatus } from "@erpindo/shared";
-import { checkoutSchema, PLAN_LABELS, PLAN_LIMITS } from "@erpindo/shared";
+import { changePlanSchema, checkoutSchema, hitungProrata, PLAN_LABELS, PLAN_LIMITS } from "@erpindo/shared";
 import { Hono } from "hono";
 import type { AppEnv, Env } from "../env";
 import { audit } from "../lib/audit";
@@ -130,13 +130,15 @@ async function loadMembership(
     legacy_full_access: number;
     trial_ends_at: string | null;
     subscription_ends_at: string | null;
+    pending_plan: Plan | null;
     role: Role;
   };
 } | null> {
   const tenantId = c.req.param("tenantId");
   if (!tenantId) return null;
   const row = await c.env.DB.prepare(
-    `SELECT t.id, t.status, t.plan, t.legacy_full_access, t.trial_ends_at, t.subscription_ends_at, m.role
+    `SELECT t.id, t.status, t.plan, t.legacy_full_access, t.trial_ends_at, t.subscription_ends_at,
+            t.pending_plan, m.role
      FROM memberships m JOIN tenants t ON t.id = m.tenant_id
      WHERE m.user_id = ? AND m.tenant_id = ?`,
   )
@@ -148,6 +150,7 @@ async function loadMembership(
       legacy_full_access: number;
       trial_ends_at: string | null;
       subscription_ends_at: string | null;
+      pending_plan: Plan | null;
       role: Role;
     }>();
   return row ? { tenantId, row } : null;
@@ -173,6 +176,9 @@ export const billingRoutes = new Hono<AppEnv>()
       subscriptionEndsAt: m.row.subscription_ends_at,
       pricePerMonth: PLAN_LIMITS[m.row.plan].pricePerMonth,
       legacyFullAccess: m.row.legacy_full_access === 1,
+      // Fase 20k: penurunan paket yang menunggu akhir periode. Ditampilkan
+      // supaya pemilik tidak bingung melihat paket lamanya masih aktif.
+      pendingPlan: m.row.pending_plan,
       invoices: results.map(toApiInvoice),
     };
     return c.json(body);
@@ -221,6 +227,106 @@ export const billingRoutes = new Hono<AppEnv>()
       ip: clientIp(c),
     });
     return c.json({ orderId, redirectUrl }, 201);
+  })
+
+  // --- Ganti paket dengan prorata (Fase 20k) --------------------------------
+  //
+  // Dua endpoint dengan sengaja: pratinjau yang TIDAK menagih apa pun, lalu
+  // eksekusi. Pemilik harus bisa melihat angkanya sebelum memutuskan — layar
+  // yang baru menampilkan tagihan setelah tombolnya ditekan akan membuat orang
+  // takut menekan tombolnya sama sekali.
+  .get("/:tenantId/billing/prorata", requireAuth, async (c) => {
+    const m = await loadMembership(c);
+    if (!m) return c.json({ error: "Anda bukan anggota perusahaan ini." }, 403);
+    const parsed = changePlanSchema.safeParse({ plan: c.req.query("plan") });
+    if (!parsed.success) return c.json({ error: "Paket tidak valid." }, 400);
+    const hasil = hitungProrata({
+      planSekarang: m.row.plan,
+      planBaru: parsed.data.plan,
+      berakhirPada: m.row.subscription_ends_at,
+    });
+    return c.json({ ...hasil, planSekarang: m.row.plan, planBaru: parsed.data.plan });
+  })
+
+  .post("/:tenantId/billing/change-plan", requireAuth, async (c) => {
+    const m = await loadMembership(c);
+    if (!m) return c.json({ error: "Anda bukan anggota perusahaan ini." }, 403);
+    if (m.row.role !== "owner") return c.json({ error: "Hanya Pemilik yang dapat mengatur langganan." }, 403);
+    const parsed = changePlanSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: "Paket tidak valid." }, 400);
+    const planBaru = parsed.data.plan;
+    const user = c.get("user");
+
+    const hasil = hitungProrata({
+      planSekarang: m.row.plan,
+      planBaru,
+      berakhirPada: m.row.subscription_ends_at,
+    });
+
+    // Tanpa siklus berjalan tidak ada yang bisa diprorata — arahkan ke
+    // pembelian biasa daripada memberi kenaikan paket gratis.
+    if (!hasil.bisaProrata) {
+      return c.json(
+        { error: "Belum ada langganan aktif untuk diprorata. Gunakan pembelian paket biasa." },
+        400,
+      );
+    }
+    if (hasil.arah === "sama") return c.json({ error: "Paket tersebut sudah aktif." }, 400);
+
+    // Turun paket: dijadwalkan, tanpa tagihan, tanpa refund. Tenant tetap
+    // memakai paket lamanya sampai periode yang sudah dibayar habis.
+    if (hasil.arah === "turun") {
+      await c.env.DB.prepare(`UPDATE tenants SET pending_plan = ? WHERE id = ?`)
+        .bind(planBaru, m.tenantId)
+        .run();
+      await audit(c.env, {
+        action: "billing.plan.scheduled",
+        userId: user.id,
+        tenantId: m.tenantId,
+        detail: { dari: m.row.plan, ke: planBaru, mulai: m.row.subscription_ends_at },
+        ip: clientIp(c),
+      });
+      return c.json({
+        arah: hasil.arah,
+        berlakuMulai: "akhir-periode",
+        pendingPlan: planBaru,
+        efektifPada: m.row.subscription_ends_at,
+      });
+    }
+
+    // Naik paket: ditagih selisihnya untuk sisa hari.
+    if (!billingConfigured(c.env)) {
+      return c.json({ error: "Pembayaran online belum dikonfigurasi. Hubungi kami untuk aktivasi." }, 503);
+    }
+    const orderId = `upg-${m.tenantId.slice(0, 8)}-${Date.now()}`;
+    const snap = await createSnapTransaction(c.env, {
+      orderId,
+      amount: hasil.bayarSekarang,
+      itemId: `upgrade-${planBaru}`,
+      itemName: `Naik paket ke ${PLAN_LABELS[planBaru]} (${hasil.sisaHari} hari tersisa)`,
+      customerEmail: user.email,
+      customerName: user.name,
+      finishUrl: `${appOrigin(c)}/app/pengaturan`,
+    });
+    if (!snap.ok) return c.json({ error: snap.error }, 502);
+
+    await c.env.DB.prepare(
+      `INSERT INTO subscription_invoices (id, tenant_id, order_id, amount, period_months, status, plan, redirect_url, created_by, is_prorata)
+       VALUES (?, ?, ?, ?, 0, 'pending', ?, ?, ?, 1)`,
+    )
+      .bind(crypto.randomUUID(), m.tenantId, orderId, hasil.bayarSekarang, planBaru, snap.redirectUrl, user.id)
+      .run();
+    await audit(c.env, {
+      action: "billing.plan.upgrade",
+      userId: user.id,
+      tenantId: m.tenantId,
+      detail: { dari: m.row.plan, ke: planBaru, orderId, amount: hasil.bayarSekarang, sisaHari: hasil.sisaHari },
+      ip: clientIp(c),
+    });
+    return c.json(
+      { arah: hasil.arah, orderId, redirectUrl: snap.redirectUrl, amount: hasil.bayarSekarang, sisaHari: hasil.sisaHari },
+      201,
+    );
   });
 
 // Webhook Midtrans (publik) — di-mount di /api/billing.
@@ -239,12 +345,12 @@ export const billingWebhookRoutes = new Hono<AppEnv>().post("/notification", asy
   if (!valid) return c.json({ error: "Tanda tangan tidak sah." }, 403);
 
   const invoice = await c.env.DB.prepare(
-    `SELECT si.id, si.tenant_id, si.status, si.period_months, si.plan, t.subscription_ends_at
+    `SELECT si.id, si.tenant_id, si.status, si.period_months, si.plan, si.is_prorata, t.subscription_ends_at
      FROM subscription_invoices si JOIN tenants t ON t.id = si.tenant_id
      WHERE si.order_id = ?`,
   )
     .bind(n.order_id)
-    .first<{ id: string; tenant_id: string; status: string; period_months: number; plan: Plan; subscription_ends_at: string | null }>();
+    .first<{ id: string; tenant_id: string; status: string; period_months: number; plan: Plan; is_prorata: number; subscription_ends_at: string | null }>();
   if (!invoice) {
     // Order langganan tak dikenal → coba payment link faktur (Fase 11d).
     const link = await c.env.DB.prepare(
@@ -278,7 +384,12 @@ export const billingWebhookRoutes = new Hono<AppEnv>().post("/notification", asy
   if (settled && invoice.status !== "paid") {
     const now = new Date().toISOString();
     const base = invoice.subscription_ends_at && invoice.subscription_ends_at > now ? invoice.subscription_ends_at : now;
-    const newEnd = addMonths(base, invoice.period_months);
+    // Fase 20k: invoice prorata membeli KENAIKAN PAKET untuk sisa periode yang
+    // sudah berjalan — bukan satu bulan tambahan. Memperpanjang tanggal akhir
+    // di sini akan memberi tenant sebulan gratis setiap kali ia naik paket,
+    // dan tidak ada laporan yang akan menunjukkannya.
+    const newEnd =
+      invoice.is_prorata === 1 ? (invoice.subscription_ends_at ?? base) : addMonths(base, invoice.period_months);
     // Paket yang diaktifkan = paket yang dibeli di checkout (Fase 13b).
     const newPlan: Plan = invoice.plan;
     await c.env.DB.prepare(
@@ -286,8 +397,11 @@ export const billingWebhookRoutes = new Hono<AppEnv>().post("/notification", asy
     )
       .bind(ts ?? "settlement", now, invoice.id)
       .run();
+    // Pembayaran apa pun membatalkan penurunan paket yang terjadwal: pemilik
+    // yang menjadwalkan turun lalu berubah pikiran dan membayar naik tidak
+    // boleh tetap diturunkan diam-diam di akhir periode.
     await c.env.DB.prepare(
-      `UPDATE tenants SET status = 'active', plan = ?, subscription_ends_at = ? WHERE id = ?`,
+      `UPDATE tenants SET status = 'active', plan = ?, subscription_ends_at = ?, pending_plan = NULL WHERE id = ?`,
     )
       .bind(newPlan, newEnd, invoice.tenant_id)
       .run();

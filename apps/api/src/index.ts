@@ -41,6 +41,7 @@ import { masterDataRoutes } from "./routes/masterdata";
 import { payrollRoutes } from "./routes/payroll";
 import { procurementRoutes } from "./routes/procurement";
 import { salesOrderRoutes } from "./routes/salesOrders";
+import { customFieldRoutes } from "./routes/customFields";
 import { stockAdvancedRoutes } from "./routes/stockAdvanced";
 import { taxRoutes } from "./routes/tax";
 import { dimensionRoutes } from "./routes/dimensions";
@@ -130,6 +131,7 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", approvalEngineRoutes)
   .route("/api/tenants", salesOrderRoutes)
   .route("/api/tenants", stockAdvancedRoutes)
+  .route("/api/tenants", customFieldRoutes)
   .route("/api/tenants", taxRoutes)
   .route("/api/tenants", dimensionRoutes)
   .route("/api/tenants", currencyRoutes)
@@ -275,6 +277,38 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
     }
   }
   if (lapsed.length > 0) console.log(`[cron] ${lapsed.length} langganan berakhir → past_due`);
+
+  // 1b2) Penurunan paket terjadwal (Fase 20k): tenant yang menjadwalkan turun
+  //      paket tetap memakai paket lamanya sampai periode yang SUDAH DIBAYAR
+  //      habis. Di sinilah penurunannya benar-benar diterapkan.
+  //
+  //      Dijalankan tanpa memandang status: tenant yang sudah jatuh ke past_due
+  //      pun periodenya sudah lewat, jadi penurunannya tetap harus berlaku —
+  //      kalau tidak, ia akan membayar perpanjangan pada paket yang sudah
+  //      diminta ditinggalkan.
+  const { results: turun } = await env.DB.prepare(
+    `SELECT id, name, plan, pending_plan FROM tenants
+     WHERE pending_plan IS NOT NULL AND subscription_ends_at IS NOT NULL AND subscription_ends_at <= ?`,
+  )
+    .bind(nowIso)
+    .all<{ id: string; name: string; plan: string; pending_plan: string }>();
+  for (const tenant of turun) {
+    await env.DB.prepare(`UPDATE tenants SET plan = ?, pending_plan = NULL WHERE id = ?`)
+      .bind(tenant.pending_plan, tenant.id)
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO audit_logs (id, tenant_id, user_id, action, detail, ip, created_at)
+       VALUES (?, ?, NULL, 'billing.plan.downgraded', ?, NULL, ?)`,
+    )
+      .bind(
+        crypto.randomUUID(),
+        tenant.id,
+        JSON.stringify({ dari: tenant.plan, ke: tenant.pending_plan }),
+        nowIso,
+      )
+      .run();
+  }
+  if (turun.length > 0) console.log(`[cron] ${turun.length} penurunan paket terjadwal diterapkan`);
 
   // 1c) Masa tenggang dimulai (Fase 20c): jatuh tempo sudah lewat tetapi akun
   //      MASIH BISA MENULIS. Ini email yang paling menentukan — pemiliknya

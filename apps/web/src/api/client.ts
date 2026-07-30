@@ -1,4 +1,9 @@
 import type {
+  ApiCustomFieldDef,
+  CustomFieldDefInput,
+  CustomFieldModule,
+  PaidPlan,
+  ProrataResult,
   ApiAccount,
   IntercompanyInput,
   ApiAgingRow,
@@ -231,6 +236,20 @@ export const api = {
   billing: (tenantId: string) => request<BillingStatus>("GET", `/api/tenants/${tenantId}/billing`),
   billingCheckout: (tenantId: string, plan: "starter" | "business" | "enterprise") =>
     request<{ orderId: string; redirectUrl: string }>("POST", `/api/tenants/${tenantId}/billing/checkout`, { plan }),
+  // Fase 20k — pratinjau prorata (tanpa efek samping) lalu eksekusinya.
+  billingProrata: (tenantId: string, plan: PaidPlan) =>
+    request<ProrataResult & { planSekarang: string; planBaru: string }>(
+      "GET",
+      `/api/tenants/${tenantId}/billing/prorata?plan=${plan}`,
+    ),
+  billingChangePlan: (tenantId: string, plan: PaidPlan) =>
+    request<{
+      arah: "naik" | "turun";
+      redirectUrl?: string;
+      amount?: number;
+      pendingPlan?: string;
+      efektifPada?: string | null;
+    }>("POST", `/api/tenants/${tenantId}/billing/change-plan`, { plan }),
 
   submitFeedback: (input: FeedbackInput) => request<{ ok: true; id: string }>("POST", "/api/feedback", input),
   myFeedback: () => request<{ feedback: ApiFeedback[] }>("GET", "/api/feedback/mine"),
@@ -693,6 +712,17 @@ export const api = {
     request<{ ok: true; doNo: string }>("POST", `/api/tenants/${tenantId}/sales-orders/${id}/deliver`, input),
   invoiceSalesOrder: (tenantId: string, id: string, input: InvoiceFromSoInput) =>
     request<{ ok: true; invoiceNo: string; total: number }>("POST", `/api/tenants/${tenantId}/sales-orders/${id}/invoice`, input),
+
+  // --- Field kustom per modul (Fase 20j) -----------------------------------------
+  customFieldDefs: (tenantId: string, module?: CustomFieldModule) =>
+    request<{ defs?: ApiCustomFieldDef[]; byModule?: Record<CustomFieldModule, ApiCustomFieldDef[]> }>(
+      "GET",
+      `/api/tenants/${tenantId}/custom-fields${module ? `?module=${module}` : ""}`,
+    ),
+  createCustomFieldDef: (tenantId: string, input: CustomFieldDefInput) =>
+    request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/custom-fields`, input),
+  archiveCustomFieldDef: (tenantId: string, id: string) =>
+    request<{ ok: true }>("DELETE", `/api/tenants/${tenantId}/custom-fields/${id}`),
 
   // --- Stok lanjut (titik pesan, barcode, nomor seri) ----------------------------
   reorderSuggestions: (tenantId: string) =>

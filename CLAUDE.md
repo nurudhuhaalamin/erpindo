@@ -22,6 +22,10 @@ UI, komentar kode, dokumen, log, dan pesan commit.
 pnpm typecheck && pnpm test && pnpm build && pnpm smoke   # smoke: wrangler dev + D1 lokal
 node scripts/ui-sim.mjs                                    # klik-tembus Chromium nyata
 pnpm lint                                                  # wajib di CI sejak Fase 12a
+# Penyapu i18n — glob WAJIB `**` (Fase 20m): pola `pages/*.tsx` tidak turun ke
+# subfolder, dan karena itu `pages/settings/` lolos tanpa terlihat selama
+# seluruh program dwibahasa Fase 19.
+shopt -s globstar && node scripts/sapu-i18n.mjs apps/web/src/pages/**/*.tsx apps/web/src/components/**/*.tsx
 ```
 
 Jumlah cek hanya boleh **naik**, tidak boleh turun. Fitur baru wajib diberi cek
