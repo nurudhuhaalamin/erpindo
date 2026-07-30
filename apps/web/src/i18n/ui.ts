@@ -629,6 +629,21 @@ export const UI = {
     id: "Produk ini melacak kedaluwarsa — tanggal exp wajib diisi (keluar otomatis FEFO).",
     en: "This product tracks expiry — the exp date is required (issued automatically by FEFO).",
   },
+  // Picking multi-gudang (Fase 20g)
+  ambilBeberapaGudang: { id: "Ambil dari beberapa gudang", en: "Pick from several warehouses" },
+  ambilSatuGudang: { id: "Ambil dari satu gudang saja", en: "Pick from a single warehouse" },
+  tambahGudangPicking: { id: "Tambah gudang", en: "Add warehouse" },
+  gudangBaris: { id: "Gudang baris", en: "Warehouse line" },
+  qtyGudangBaris: { id: "Qty gudang baris", en: "Warehouse qty line" },
+  hapusGudangPicking: { id: "Hapus gudang picking", en: "Remove picking warehouse" },
+  hintPickingSama: {
+    id: "Jumlah qty per gudang harus sama dengan qty baris.",
+    en: "The per-warehouse quantities must add up to the line quantity.",
+  },
+  hintPickingBeda: {
+    id: "Jumlah qty per gudang belum sama dengan qty baris — faktur akan ditolak.",
+    en: "The per-warehouse quantities do not add up to the line quantity yet — the invoice will be rejected.",
+  },
   descCariDokumenKosong: {
     id: "Coba kata kunci lain — pencarian mencocokkan nomor dokumen dan nama kontak.",
     en: "Try another keyword — the search matches document numbers and contact names.",
@@ -2440,6 +2455,26 @@ export const UI = {
   },
   toastSurplusRevaluasi: { id: "Revaluasi tersimpan. Surplus", en: "Revaluation saved. Surplus" },
   toastRugiRevaluasi: { id: "Revaluasi tersimpan. Rugi penurunan nilai", en: "Revaluation saved. Impairment loss" },
+
+  // — Eliminasi antar-perusahaan (Fase 20f) —
+  antarPerusahaan: { id: "Antar-perusahaan", en: "Intercompany" },
+  tandaiAntarPerusahaan: { id: "Tandai antar-perusahaan", en: "Mark intercompany" },
+  lepasTandaAntarPerusahaan: { id: "Lepas tanda", en: "Unmark" },
+  descAntarPerusahaan: {
+    id: "Akun bertanda ini dikeluarkan dari total laporan gabungan, supaya jual-beli internal grup tidak terhitung dua kali.",
+    en: "Accounts marked this way are excluded from consolidated totals, so trade inside the group is not counted twice.",
+  },
+  toastDitandaiAntarPerusahaan: {
+    id: "Akun ditandai antar-perusahaan.",
+    en: "Account marked as intercompany.",
+  },
+  toastTandaAntarPerusahaanDilepas: {
+    id: "Tanda antar-perusahaan dilepas.",
+    en: "Intercompany mark removed.",
+  },
+  dieliminasi: { id: "Dieliminasi", en: "Eliminated" },
+  totalDieliminasi: { id: "Dikeluarkan dari total (antar-perusahaan)", en: "Excluded from totals (intercompany)" },
+  akunSistem: { id: "sistem", en: "system" },
 
   // — Komponen bersama & Asisten AI (Fase 19s). Awalan `cp` (komponen). —
   cpKetikCari: { id: "Ketik untuk mencari…", en: "Type to search…" },

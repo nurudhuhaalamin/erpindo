@@ -22,6 +22,23 @@ export const commerceLineSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal kedaluwarsa tidak valid")
     .optional(),
+  /**
+   * Picking multi-gudang (Fase 20g) — ambil stok dari beberapa gudang untuk
+   * SATU baris faktur. Bila kosong, seluruh qty diambil dari `warehouseId`
+   * faktur seperti sebelumnya; jadi faktur lama dan pemanggil lama tak berubah.
+   *
+   * Jumlah `qty` di sini WAJIB sama dengan `qty` barisnya — kalau tidak,
+   * stok yang keluar berbeda dari yang ditagihkan, dan itu selisih yang tidak
+   * akan pernah terlihat di laporan mana pun.
+   */
+  picks: z
+    .array(
+      z.object({
+        warehouseId: z.string().min(1, "Gudang wajib dipilih"),
+        qty: z.number().int().min(1, "Qty minimal 1"),
+      }),
+    )
+    .optional(),
 });
 
 export const createInvoiceSchema = z.object({
@@ -40,7 +57,15 @@ export const createInvoiceSchema = z.object({
   /** Kurs ke IDR saat posting (IDR per 1 unit valas). Wajib > 0 bila valas. */
   exchangeRate: z.number().positive().optional(),
   lines: z.array(commerceLineSchema).min(1, "Minimal 1 baris barang"),
-});
+})
+  // Fase 20g: jumlah picking harus sama persis dengan qty barisnya. Diperiksa
+  // di SKEMA, bukan di route, supaya seluruh pemanggil — termasuk API publik
+  // dan impor marketplace — tunduk pada aturan yang sama.
+  .refine(
+    (v) =>
+      v.lines.every((l) => !l.picks || l.picks.reduce((s, p) => s + p.qty, 0) === l.qty),
+    { message: "Jumlah qty picking harus sama dengan qty baris.", path: ["lines"] },
+  );
 export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>;
 
 // --- Import pesanan marketplace (Fase 11e) ---------------------------------

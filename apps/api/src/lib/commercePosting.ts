@@ -11,6 +11,7 @@ import {
   reverseJournal,
   stockIn,
   stockOut,
+  stockOutMulti,
   SYS_ACCOUNTS,
 } from "./accounting";
 
@@ -411,13 +412,23 @@ export async function executeInvoice(
     try {
       for (const line of input.lines) {
         if (serviceIds.has(line.productId)) continue;
-        totalCogs += await stockOut(db, {
-          productId: line.productId,
-          warehouseId: input.warehouseId,
-          qty: line.qty,
-          refType: "sale",
-          refId: invoiceId,
-        });
+        // Fase 20g: bila baris menyebut `picks`, stok diambil dari beberapa
+        // gudang sekaligus dan HPP-nya dijumlahkan per sumber. Tanpa `picks`,
+        // perilakunya persis seperti sebelumnya.
+        totalCogs += line.picks?.length
+          ? await stockOutMulti(db, {
+              productId: line.productId,
+              picks: line.picks,
+              refType: "sale",
+              refId: invoiceId,
+            })
+          : await stockOut(db, {
+              productId: line.productId,
+              warehouseId: input.warehouseId,
+              qty: line.qty,
+              refType: "sale",
+              refId: invoiceId,
+            });
       }
     } catch (err) {
       if (err instanceof InsufficientStockError) return { error: err.message };

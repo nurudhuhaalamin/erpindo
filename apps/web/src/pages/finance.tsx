@@ -80,6 +80,16 @@ export function AccountsPage() {
     onError: (err) => toast("error", (err as Error).message),
   });
 
+  const toggleIntercompany = useMutation({
+    mutationFn: (vars: { id: string; on: boolean }) =>
+      api.setAccountIntercompany(tenant.tenantId, vars.id, { isIntercompany: vars.on }),
+    onSuccess: (_r, vars) => {
+      toast("success", vars.on ? u("toastDitandaiAntarPerusahaan") : u("toastTandaAntarPerusahaanDilepas"));
+      queryClient.invalidateQueries({ queryKey: ["accounts", tenant.tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
   const rename = useMutation({
     mutationFn: (vars: { id: string; name: string }) =>
       api.renameAccount(tenant.tenantId, vars.id, vars.name),
@@ -209,7 +219,20 @@ export function AccountsPage() {
                       </Td>
                       <Td className="text-right">
                         <span className="inline-flex items-center gap-2">
-                          {a.isSystem ? <Badge tone="brand">sistem</Badge> : null}
+                          {a.isSystem ? <Badge tone="brand">{u("akunSistem")}</Badge> : null}
+                          {a.isIntercompany ? (
+                            <Badge tone="amber">{u("antarPerusahaan")}</Badge>
+                          ) : null}
+                          {isAdmin && renamingId !== a.id ? (
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              title={u("descAntarPerusahaan")}
+                              onClick={() => toggleIntercompany.mutate({ id: a.id, on: !a.isIntercompany })}
+                            >
+                              {a.isIntercompany ? u("lepasTandaAntarPerusahaan") : u("tandaiAntarPerusahaan")}
+                            </Button>
+                          ) : null}
                           {isAdmin && renamingId !== a.id ? (
                             <Button
                               variant="ghost"
