@@ -113,7 +113,7 @@ faktur valas, faktur berulang dari kontrak.
 
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
-| **OCR nota/faktur pemasok (AI vision)** — foto nota → draf faktur pembelian terisi otomatis, manusia memeriksa lalu simpan. Catatan: model vision gratis (`@cf/llava-hf/llava-1.5-7b-hf`) terbatas untuk teks Indonesia rapat — mulai dari nota tercetak sederhana, ukur akurasinya | T | T | ✓ |
+| ⏸️ **OCR nota/faktur pemasok (AI vision)** — **ditunda** (keputusan pemilik Fase 20: "yang berdampak nyata saja"). Model vision gratis terbatas untuk teks Indonesia rapat, jadi akurasinya harus diukur dulu sebelum layak dijanjikan ke pemilik UKM | T | T | ✓ |
 | Purchase order (PO) formal terpisah → penerimaan barang bertahap → faktur | T | T | – |
 | Perbandingan penawaran multi-pemasok per produk | S | S | – |
 | Approval multi-level (ambang bertingkat: supervisor → owner) | S | S | – |
@@ -135,7 +135,7 @@ notifikasi, kartu stok.
 | ✅ **Peramalan stok** — proyeksi kebutuhan per produk dari riwayat penjualan → saran jumlah & waktu beli ulang (Fase 20h; **deterministik**, bukan AI — lihat log fasenya) | T | S | – |
 | ✅ **Picking multi-gudang** — satu faktur mengambil stok dari beberapa gudang sekaligus (Fase 20g; HPP dihitung per gudang asal) | S | S | – |
 | Satuan ganda (beli per dus, jual per pcs, konversi otomatis) | T | T | – |
-| Reorder point otomatis: ambang dihitung dari kecepatan jual, bukan angka statis | S | S | ✓ |
+| ✅ **Reorder point otomatis** — ambang dihitung dari kecepatan jual, bukan angka statis (Fase 20h: `titikPesan = rata-rata harian × (lead time + cadangan)`) | S | S | – |
 | Stok konsinyasi (barang titipan terpisah dari milik sendiri) | R | T | – |
 
 ## 6. Akuntansi
@@ -154,7 +154,7 @@ periode), audit log, draf jurnal dari bahasa alami via Asisten AI.
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
 | Jurnal berulang terjadwal otomatis via Cron (dari template di atas) | S | R | – |
-| **Deteksi anomali jurnal (AI)** — tandai entri tak lazim (nominal janggal, akun jarang dipakai, pola ganda) untuk direview | S | S | ✓ |
+| ✅ **Deteksi anomali jurnal** — tandai entri tak lazim untuk direview (`lib/reports.ts`; **deterministik**, bukan AI — angkanya bisa ditelusuri pemilik) | S | S | – |
 | Jurnal penutup tahunan otomatis (laba berjalan → laba ditahan) | S | S | – |
 | Departemen/kelas sebagai dimensi tambahan pelaporan (di samping Proyek) | S | T | – |
 
@@ -170,7 +170,7 @@ rekonsiliasi terhadap rekening koran.
 
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
-| **Rekonsiliasi bank** — impor mutasi rekening koran (CSV internet banking) → cocokkan otomatis dengan jurnal (tanggal + nominal), sisanya dicocokkan manual; status "sudah rekon" per baris | T | T | – |
+| ✅ **Rekonsiliasi bank** — impor mutasi rekening koran → cocokkan otomatis dengan jurnal, sisanya manual; status "sudah rekon" per baris. **Sudah v2** dengan aturan auto-match (`routes/dimensions.ts`) | T | T | – |
 | Auto-match cerdas (AI): pencocokan deskripsi mutasi bebas-format ke faktur/kontak ("TRSF DR PT MAJU JAYA" → faktur INV-0042) | T | S | ✓ |
 | Kas kecil (petty cash) dengan pengisian ulang berjurnal | S | R | – |
 | Proyeksi arus kas 30–90 hari dari piutang/hutang jatuh tempo + kontrak berulang | T | S | – |
@@ -208,7 +208,7 @@ otomatis), PPh 21 TER di payroll.
 
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
-| **Laporan SPT Masa PPN siap lapor** — kurang/lebih bayar per masa (keluaran − masukan) dengan kertas kerja | T | S | – |
+| ✅ **Laporan SPT Masa PPN siap lapor** — kurang/lebih bayar per masa (keluaran − masukan) dengan kertas kerja (`routes/tax.ts`, `pages/pajak.tsx`) | T | S | – |
 | **PPh unifikasi** — rekap PPh 21/23/4(2) yang dipotong per masa + bukti potong sederhana | T | T | – |
 | **Integrasi Coretax API langsung** (lapor tanpa unduh-unggah) — menunggu DJP membuka API publik & regulasinya; pantau | T | T | – |
 | Pengingat kalender pajak Indonesia (jatuh tempo lapor/setor PPN, PPh 21, PPh 25) via notifikasi | S | R | – |
@@ -408,7 +408,7 @@ kuota 50 permintaan/hari/perusahaan; degradasi anggun bila AI tak tersedia. Prin
 
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
-| **Ringkasan bulanan otomatis** — narasi kinerja (penjualan, beban, margin, piutang) dikirim email tiap awal bulan | T | S | ✓ |
+| ✅ **Ringkasan bulanan otomatis** — narasi kinerja dikirim email tiap awal bulan (`runMonthlyRecap` di handler cron) | T | S | ✓ |
 | **Deteksi anomali jurnal** (lihat §6) sebagai laporan mingguan Asisten | S | S | ✓ |
 | Tanya-data ("berapa penjualan minggu lalu?") — AI memilih dari daftar query aman yang sudah ditentukan (bukan SQL bebas), hasil dari database | T | T | ✓ |
 | Draf dokumen lain dari bahasa alami: penawaran, produk baru, kontak — pola sama dengan draf jurnal | S | S | ✓ |
@@ -428,9 +428,9 @@ panduan 3 permukaan, seed demo.
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
 | **Notifikasi WhatsApp** (Fonnte / WA Business API) — pengingat tagihan, faktur baru, stok menipis; jauh lebih dibaca daripada email di Indonesia (butuh akun/token dari pemilik) | T | S | – |
-| **Backup/restore per tenant** — ekspor penuh database perusahaan terjadwal ke penyimpanan (R2 bila aktif) + unduh mandiri; nilai jual kepercayaan | T | S | – |
-| **API publik + webhook** — token API per perusahaan (baca faktur/produk/laporan; webhook faktur-dibuat/dibayar) untuk integrasi pihak ketiga | S | T | – |
-| **Wrapper mobile (Capacitor)** — bungkus PWA jadi APK/AAB Play Store (dan iOS menyusul); kehadiran di store = kanal akuisisi | S | S | – |
+| 🟡 **Backup/restore per tenant** — ekspor penuh terjadwal + unduh mandiri **sudah ada** (`runDriveBackup` ke Google Drive pemilik, ekspor ZIP di Pengaturan). **Sebagian**: penyimpanan ke R2 menunggu pemilik mengaktifkan R2 | T | S | – |
+| ✅ **API publik + webhook** — token API per perusahaan + webhook faktur-dibuat/dibayar (`routes/publicApi.ts`, `lib/webhooks.ts`, halaman `/api-docs`) | S | T | – |
+| ⏸️ **Wrapper mobile (Capacitor)** — **ditunda** (keputusan pemilik Fase 20). PWA sudah bisa di-install langsung dari browser, sehingga wrapper hanya menambah kanal distribusi, bukan kemampuan | S | S | – |
 | Manajemen dokumen/lampiran (R2) — **menunggu pemilik mengaktifkan R2** | T | S | – |
 | Domain kustom `erpindo.id` + subdomain per tenant | S | S | – |
 | Provisioning D1 dinamis (lepas dari pool 6 database) via API token — prasyarat skala komersial | T | S | – |
@@ -470,7 +470,7 @@ tabel perbandingan **kategori** (tanpa merek), form **Jadwalkan Demo**, halaman 
 | ✅ **Upgrade/downgrade paket mandiri dengan prorata** (Fase 20k; naik berlaku seketika ditagih selisih × sisa hari, turun berlaku akhir periode tanpa refund) | S | S | – |
 | ✅ **Custom field per modul** (lanjutan 13i) — definisi field kustom (faktur/kontak/produk) yang tampil di form + cetakan + ekspor (Fase 20j; empat tipe, hapus = arsip) | S | S | – |
 | Tulis penuh via API publik (faktur/pembayaran, dengan kurasi posting jurnal) | S | S | – |
-| Kupon/referral untuk akuisisi awal | R | S | – |
+| ⏸️ Kupon/referral untuk akuisisi awal — **ditunda** (keputusan pemilik Fase 20: dampaknya rendah sebelum ada arus pelanggan berbayar) | R | S | – |
 
 ---
 
