@@ -152,6 +152,29 @@ export const UI = {
     id: "Usulan pembelian otomatis",
     en: "Automatic purchase suggestions",
   },
+  // Pemindai barcode kamera (Fase 20i)
+  pindaiBarcode: { id: "Pindai barcode", en: "Scan barcode" },
+  tutupPemindai: { id: "Tutup pemindai", en: "Close scanner" },
+  pindaiArahkan: {
+    id: "Arahkan kamera ke barcode produk — begitu terbaca, barangnya langsung masuk keranjang.",
+    en: "Point the camera at the product barcode — once read, the item goes straight into the cart.",
+  },
+  pindaiTanpaDetektor: {
+    id: "Peramban ini belum mendukung pemindaian barcode lewat kamera. Pakai Chrome di Android, atau ketik SKU di kotak pencarian.",
+    en: "This browser does not support camera barcode scanning yet. Use Chrome on Android, or type the SKU in the search box.",
+  },
+  pindaiTanpaKamera: {
+    id: "Perangkat ini tidak menyediakan akses kamera. Kotak pencarian di atas tetap bisa dipakai.",
+    en: "This device offers no camera access. The search box above still works.",
+  },
+  pindaiTanpaIzin: {
+    id: "Kamera tidak bisa dipakai — izinnya ditolak atau sedang dipakai aplikasi lain. Kotak pencarian tetap bisa dipakai.",
+    en: "The camera is unavailable — permission was denied or another app is using it. The search box still works.",
+  },
+  barcodeTidakDikenal: {
+    id: "Barcode tidak dikenali",
+    en: "Barcode not recognised",
+  },
   // Peramalan stok (Fase 20h)
   peramalanStok: { id: "Peramalan stok", en: "Stock forecast" },
   descPeramalanStok: {

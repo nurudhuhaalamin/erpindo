@@ -1150,6 +1150,15 @@ try {
   check("pindai barcode menemukan produk", lookup.status === 200 && lookup.json?.product?.id === prodSerial.json.id && lookup.json?.product?.sku === "SER-7C", `→ ${JSON.stringify(lookup.json?.product)}`);
   const lookupMiss = await owner("GET", `/api/tenants/${tenantId}/products/lookup?barcode=0000000000000`);
   check("pindai barcode tak dikenal → 404", lookupMiss.status === 404);
+  // Fase 20i: pemindai kamera memasukkan hasil lookup LANGSUNG ke keranjang POS,
+  // jadi harga & satuannya harus ikut terbawa — bukan hanya id/sku. Tanpa ini,
+  // barang bisa masuk keranjang berharga Rp 0 tanpa ada yang menyadarinya.
+  check(
+    "hasil pindai memuat harga jual & satuan (dipakai keranjang POS)",
+    lookup.json?.product?.sellPrice === 12_000_000 && lookup.json?.product?.unit === "unit" &&
+      lookup.json?.product?.name === "Mesin Espresso",
+    `→ ${JSON.stringify(lookup.json?.product)}`,
+  );
 
   const ser1 = await owner("POST", `/api/tenants/${tenantId}/products/${prodSerial.json.id}/serials`, { serialNo: "SN-0001" });
   check("tambah nomor seri SN-0001 201", ser1.status === 201);
