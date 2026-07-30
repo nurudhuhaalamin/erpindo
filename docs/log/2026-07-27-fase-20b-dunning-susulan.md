@@ -34,6 +34,23 @@ sedang menimbang berhenti berhak tahu datanya tidak disandera.
 Marker KV-nya berumur 30 hari (bukan 4 seperti tonggak maju) supaya susulan
 benar-benar sekali per siklus, bukan setiap kali jendelanya tersentuh.
 
+## Koreksi sebelum merge
+
+Saat memeriksa ulang kode yang baru saya tulis, kueri H+3 sempat mengambil
+kolom `habis_pada` lewat `CASE WHEN trial_ends_at IS NOT NULL …`. Dua hal
+salah sekaligus:
+
+1. Tenant yang dulu trial lalu berbayar punya **kedua** kolom terisi, jadi
+   ekspresi itu mengembalikan tanggal trial yang sudah basi — bukan tanggal
+   langganannya.
+2. Kolom itu **tidak dipakai sama sekali** di emailnya.
+
+Klausa `WHERE`-nya sendiri benar (mencocokkan salah satu kolom di dalam
+jendela), jadi tidak ada tenant yang salah dikirimi. Tetapi kolom yang tak
+terpakai **dan** salah arti adalah ranjau bagi pembaca berikutnya — orang
+yang kelak memakainya akan mendapat tanggal yang salah tanpa peringatan
+apa pun. Dihapus, dengan komentar yang menerangkan sebabnya.
+
 ## Validasi
 
 | Gerbang | Hasil | Jumlah cek |

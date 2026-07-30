@@ -333,15 +333,19 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
   {
     const { bawah, atas } = dunningWindow(-3);
     const { results: tertunggak } = await env.DB.prepare(
-      `SELECT id, name,
-              CASE WHEN trial_ends_at IS NOT NULL THEN trial_ends_at ELSE subscription_ends_at END AS habis_pada
+      // Sengaja TIDAK mengambil tanggal jatuhnya. Tenant yang dulu trial lalu
+      // berbayar punya KEDUA kolom terisi, jadi `CASE WHEN trial_ends_at IS
+      // NOT NULL` akan mengembalikan tanggal trial yang sudah basi — dan
+      // emailnya memang tak memerlukannya. Kolom yang tidak dipakai tapi
+      // salah arti adalah ranjau bagi pembaca berikutnya.
+      `SELECT id, name
          FROM tenants
         WHERE status = 'past_due'
           AND ( (trial_ends_at        IS NOT NULL AND trial_ends_at        > ? AND trial_ends_at        <= ?)
              OR (subscription_ends_at IS NOT NULL AND subscription_ends_at > ? AND subscription_ends_at <= ?) )`,
     )
       .bind(bawah, atas, bawah, atas)
-      .all<{ id: string; name: string; habis_pada: string }>();
+      .all<{ id: string; name: string }>();
 
     for (const tenant of tertunggak) {
       const kvKey = `notified:dunning:p3:${tenant.id}`;
