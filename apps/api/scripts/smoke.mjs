@@ -356,7 +356,11 @@ try {
   console.log("6. Bagan Akun (COA)");
   const accountsRes = await owner("GET", `/api/tenants/${tenantId}/accounts`);
   const accounts = accountsRes.json?.accounts ?? [];
-  check("COA template Indonesia tersemai (22 akun)", accountsRes.status === 200 && accounts.length === 22);
+  // 23 sejak Fase 20e: migrasi 0039 menambah akun sistem "3-3000 Surplus
+  // Revaluasi" (ekuitas). Angkanya NAIK karena COA-nya memang bertambah satu,
+  // bukan karena asersinya dilonggarkan — pola yang sama dengan 0011 yang dulu
+  // menambahkan "5-5000 Beban Penyusutan".
+  check("COA template Indonesia tersemai (23 akun)", accountsRes.status === 200 && accounts.length === 23);
   const kas = accounts.find((a) => a.code === "1-1000");
   const modal = accounts.find((a) => a.code === "3-1000");
   const penjualan = accounts.find((a) => a.code === "4-1000");
@@ -2350,13 +2354,57 @@ try {
   const a2 = assets2.json?.assets?.find((x) => x.id === asset.json.id);
   check("setelah susut: akumulasi 1jt, nilai buku 47jt", a2?.accumulatedDepreciation === 1_000_000 && a2?.bookValue === 47_000_000);
 
-  // Lepas dengan hasil 50jt → laba pelepasan 3jt (50 − nilai buku 47).
+  // Revaluasi (Fase 20e) — dilakukan SEBELUM pelepasan, selagi aset masih
+  // aktif. Nilai buku 47jt → nilai wajar 60jt, jadi surplus 13jt masuk EKUITAS.
+  // Yang diperiksa bukan hanya angkanya, tetapi bahwa neraca saldo TETAP
+  // seimbang sesudahnya: jurnal revaluasi menyentuh tiga akun sekaligus dan
+  // salah tanda di salah satunya tidak akan terlihat dari angka surplusnya.
+  const reval = await owner("POST", `/api/tenants/${tenantId}/assets/${asset.json.id}/revaluation`, {
+    revalDate: "2026-08-31",
+    fairValue: 60_000_000,
+    note: "Penilaian appraisal 2026",
+  });
+  check(
+    "revaluasi aset: nilai buku 47jt → wajar 60jt, surplus 13jt",
+    reval.status === 201 && reval.json?.bookValue === 47_000_000 && reval.json?.difference === 13_000_000,
+    `→ ${JSON.stringify(reval.json)}`,
+  );
+
+  const tbAfterReval = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check("neraca saldo TETAP seimbang setelah revaluasi", tbAfterReval.json?.balanced === true);
+
+  const assetsReval = await owner("GET", `/api/tenants/${tenantId}/assets`);
+  const aR = assetsReval.json?.assets?.find((x) => x.id === asset.json.id);
+  check(
+    "metode eliminasi: perolehan jadi 60jt, akumulasi kembali 0, nilai buku 60jt",
+    aR?.acquisitionCost === 60_000_000 && aR?.accumulatedDepreciation === 0 && aR?.bookValue === 60_000_000,
+    `→ ${JSON.stringify(aR && { c: aR.acquisitionCost, a: aR.accumulatedDepreciation, b: aR.bookValue })}`,
+  );
+
+  const revalHist = await owner("GET", `/api/tenants/${tenantId}/assets/${asset.json.id}/revaluations`);
+  check(
+    "riwayat revaluasi tercatat dengan nilai sebelum & sesudah",
+    revalHist.status === 200 && revalHist.json?.items?.[0]?.bookValueBefore === 47_000_000 && revalHist.json?.items?.[0]?.fairValue === 60_000_000,
+  );
+
+  const revalBad = await owner("POST", `/api/tenants/${tenantId}/assets/${asset.json.id}/revaluation`, {
+    revalDate: "2026-08-31",
+    fairValue: -1,
+  });
+  check("revaluasi nilai wajar negatif DITOLAK 400", revalBad.status === 400);
+
+  // Lepas dengan hasil 50jt → RUGI 10jt (50 − nilai buku 60 setelah revaluasi).
+
   const disp = await owner("POST", `/api/tenants/${tenantId}/assets/${asset.json.id}/dispose`, {
     disposalDate: "2026-08-31",
     proceeds: 50_000_000,
     cashAccountId: kas.id,
   });
-  check("lepas aset: nilai buku 47jt, laba pelepasan 3jt", disp.status === 201 && disp.json?.bookValue === 47_000_000 && disp.json?.gain === 3_000_000, `→ ${JSON.stringify(disp.json)}`);
+  check(
+    "lepas aset setelah revaluasi: nilai buku 60jt, RUGI pelepasan 10jt",
+    disp.status === 201 && disp.json?.bookValue === 60_000_000 && disp.json?.gain === -10_000_000,
+    `→ ${JSON.stringify(disp.json)}`,
+  );
 
   const assets3 = await owner("GET", `/api/tenants/${tenantId}/assets`);
   check("aset berstatus dilepas", assets3.json?.assets?.find((x) => x.id === asset.json.id)?.status === "disposed");
@@ -2698,7 +2746,7 @@ try {
   const modal2 = acc2.find((a) => a.code === "3-1000");
   const pend2 = acc2.find((a) => a.code === "4-1000");
   const beban2 = acc2.find((a) => a.code === "5-2000");
-  check("perusahaan kedua tersemai COA (22 akun)", acc2.length === 22 && Boolean(kas2 && modal2 && pend2 && beban2));
+  check("perusahaan kedua tersemai COA (23 akun)", acc2.length === 23 && Boolean(kas2 && modal2 && pend2 && beban2));
 
   // Pembukuan perusahaan kedua (tanpa tutup buku): modal 30jt, pendapatan 20jt, beban 8jt.
   await owner("POST", `/api/tenants/${tenant2}/journal-entries`, {

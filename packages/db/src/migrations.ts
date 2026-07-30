@@ -1522,6 +1522,36 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `CREATE UNIQUE INDEX marketplace_orders_uq ON marketplace_orders (channel, external_order_no)`,
     ],
   },
+  {
+    // Revaluasi aset tetap (Fase 20e) — model revaluasi PSAK 16.
+    //
+    // Metode ELIMINASI: akumulasi penyusutan dinolkan dan harga perolehan
+    // disetel ke nilai wajar. Ini yang membuat penyusutan setelahnya tetap
+    // sederhana (satu garis lurus dari nilai baru), dan yang dipakai mayoritas
+    // UKM. Alternatifnya (proporsional) menuntut menyimpan dua basis angka
+    // untuk tiap aset — mahal dipahami, tanpa manfaat nyata di skala ini.
+    id: "0039_asset_revaluation",
+    statements: [
+      // Surplus revaluasi adalah EKUITAS, bukan pendapatan: kenaikan nilai
+      // wajar belum terealisasi, jadi tidak boleh menyentuh laba rugi.
+      `INSERT INTO accounts (id, code, name, type, is_system) VALUES ('acc-3-3000', '3-3000', 'Surplus Revaluasi', 'equity', 1)`,
+      `CREATE TABLE asset_revaluations (
+        id TEXT PRIMARY KEY,
+        asset_id TEXT NOT NULL REFERENCES fixed_assets(id),
+        reval_date TEXT NOT NULL,
+        cost_before INTEGER NOT NULL,
+        accumulated_before INTEGER NOT NULL,
+        book_value_before INTEGER NOT NULL,
+        fair_value INTEGER NOT NULL,
+        difference INTEGER NOT NULL,
+        journal_entry_id TEXT REFERENCES journal_entries(id),
+        note TEXT,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX asset_revaluations_asset ON asset_revaluations (asset_id, reval_date)`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

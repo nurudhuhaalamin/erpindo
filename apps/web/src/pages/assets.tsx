@@ -314,6 +314,31 @@ function AssetRow({
   const [cashAccountId, setCashAccountId] = useState("");
   const [date, setDate] = useState(today);
 
+  const [revalOpen, setRevalOpen] = useState(false);
+  const [fairValue, setFairValue] = useState("");
+  const [revalDate, setRevalDate] = useState(today);
+
+  const revalue = useMutation({
+    mutationFn: () =>
+      api.revalueAsset(tenant.tenantId, asset.id, {
+        revalDate,
+        fairValue: Number(fairValue) || 0,
+      }),
+    onSuccess: (res) => {
+      // Nada pesannya mengikuti ARAH selisihnya: surplus masuk ekuitas, rugi
+      // masuk beban — dua peristiwa akuntansi yang berbeda, jadi tidak boleh
+      // dilaporkan dengan kalimat yang sama.
+      toast(
+        "success",
+        `${res.difference >= 0 ? u("toastSurplusRevaluasi") : u("toastRugiRevaluasi")} ${formatIDR(Math.abs(res.difference))}.`,
+      );
+      setRevalOpen(false);
+      setFairValue("");
+      queryClient.invalidateQueries({ queryKey: ["assets", tenant.tenantId] });
+    },
+    onError: (err) => toast("error", (err as Error).message),
+  });
+
   const dispose = useMutation({
     mutationFn: () =>
       api.disposeAsset(tenant.tenantId, asset.id, {
@@ -359,9 +384,14 @@ function AssetRow({
           </strong>
         </span>
         {isAdmin && asset.status === "active" ? (
-          <Button variant="ghost" className="h-8" onClick={() => setOpen((o) => !o)}>
-            {open ? u("batal") : u("lepas")}
-          </Button>
+          <>
+            <Button variant="ghost" className="h-8" onClick={() => setRevalOpen((o) => !o)}>
+              {revalOpen ? u("batal") : u("revaluasi")}
+            </Button>
+            <Button variant="ghost" className="h-8" onClick={() => setOpen((o) => !o)}>
+              {open ? u("batal") : u("lepas")}
+            </Button>
+          </>
         ) : null}
       </div>
       <div className="mt-1 text-xs text-slate-400">
@@ -370,6 +400,36 @@ function AssetRow({
         {u("perBlnSingkat")} · {u("tersusut")} {pct}%
         {asset.disposedDate ? ` · ${u("statusDilepas")} ${asset.disposedDate}` : ""}
       </div>
+
+      {revalOpen && asset.status === "active" ? (
+        <div className="mt-3 flex flex-wrap items-end gap-3 rounded-lg bg-brand-50 p-3 dark:bg-brand-950/30">
+          <div>
+            <Label htmlFor={`r-date-${asset.id}`}>{u("tanggalRevaluasi")}</Label>
+            <Input
+              id={`r-date-${asset.id}`}
+              type="date"
+              value={revalDate}
+              onChange={(e) => setRevalDate(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor={`r-fair-${asset.id}`}>{u("nilaiWajar")}</Label>
+            <Input
+              id={`r-fair-${asset.id}`}
+              type="number"
+              min={0}
+              value={fairValue}
+              onChange={(e) => setFairValue(e.target.value)}
+            />
+          </div>
+          <Button onClick={() => revalue.mutate()} disabled={revalue.isPending || !fairValue}>
+            {u("simpanRevaluasi")}
+          </Button>
+          <p className="w-full text-xs text-slate-500 dark:text-slate-400">
+            {u("descRevaluasi")}
+          </p>
+        </div>
+      ) : null}
 
       {open && asset.status === "active" ? (
         <div className="mt-3 flex flex-wrap items-end gap-3 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/40">

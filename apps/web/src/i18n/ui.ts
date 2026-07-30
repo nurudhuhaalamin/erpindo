@@ -2429,6 +2429,18 @@ export const UI = {
     en: "No withholding tax recorded for this period yet.",
   },
 
+  // — Revaluasi aset (Fase 20e) —
+  revaluasi: { id: "Revaluasi", en: "Revalue" },
+  tanggalRevaluasi: { id: "Tanggal revaluasi", en: "Revaluation date" },
+  nilaiWajar: { id: "Nilai wajar (hasil penilaian)", en: "Fair value (appraised)" },
+  simpanRevaluasi: { id: "Simpan revaluasi", en: "Save revaluation" },
+  descRevaluasi: {
+    id: "Nilai buku disetel ke nilai wajar. Kenaikan masuk Surplus Revaluasi (ekuitas), penurunan masuk beban. Akumulasi penyusutan dinolkan dan penyusutan berikutnya dihitung dari nilai baru.",
+    en: "The carrying amount is set to fair value. An increase goes to Revaluation Surplus (equity); a decrease goes to expense. Accumulated depreciation is reset and future depreciation runs from the new value.",
+  },
+  toastSurplusRevaluasi: { id: "Revaluasi tersimpan. Surplus", en: "Revaluation saved. Surplus" },
+  toastRugiRevaluasi: { id: "Revaluasi tersimpan. Rugi penurunan nilai", en: "Revaluation saved. Impairment loss" },
+
   // — Komponen bersama & Asisten AI (Fase 19s). Awalan `cp` (komponen). —
   cpKetikCari: { id: "Ketik untuk mencari…", en: "Type to search…" },
   cpMencari: { id: "Mencari…", en: "Searching…" },

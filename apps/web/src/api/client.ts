@@ -59,6 +59,8 @@ import type {
   ApiEmployee,
   ApiEmployeeLoan,
   ApiFixedAsset,
+  ApiAssetRevaluation,
+  RevalueAssetInput,
   ApiLeaveRequest,
   ApiPayrollAdjustment,
   ApiPayrollRun,
@@ -617,6 +619,10 @@ export const api = {
       `/api/tenants/${tenantId}/assets/${id}/dispose`,
       input,
     ),
+  revalueAsset: (tenantId: string, id: string, input: RevalueAssetInput) =>
+    request<{ ok: true; id: string; bookValue: number; difference: number }>("POST", `/api/tenants/${tenantId}/assets/${id}/revaluation`, input),
+  assetRevaluations: (tenantId: string, id: string) =>
+    request<{ items: ApiAssetRevaluation[] }>("GET", `/api/tenants/${tenantId}/assets/${id}/revaluations`),
 
   // --- Proyek --------------------------------------------------------------------
   projects: (tenantId: string) => request<{ projects: ApiProject[] }>("GET", `/api/tenants/${tenantId}/projects`),
