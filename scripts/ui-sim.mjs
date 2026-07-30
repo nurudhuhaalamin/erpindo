@@ -425,6 +425,23 @@ try {
     adaStockLevels && adaBalance && tanpaLevelId,
     `→ stockLevels=${adaStockLevels} balance=${adaBalance} tanpaID=${tanpaLevelId}`,
   );
+  // F1z — Fase 20h: kartu Peramalan stok, termasuk lencana tren & keyakinan
+  // yang isinya datang dari kode server (naik/turun, tinggi/sedang/rendah) —
+  // kelas teks yang berkali-kali tertinggal berbahasa Indonesia di Fase 19.
+  const adaRamalEn =
+    stokEn.includes("Stock forecast") &&
+    stokEn.includes("Confidence") &&
+    stokEn.includes("Supplier lead time (days)");
+  const tanpaRamalId =
+    !stokEn.includes("Peramalan stok") &&
+    !stokEn.includes("Keyakinan") &&
+    !stokEn.includes("Rendah") &&
+    !stokEn.includes("Naik");
+  check(
+    "F1z kartu Peramalan stok ikut EN termasuk lencana tren & keyakinan",
+    adaRamalEn && tanpaRamalId,
+    `→ EN=${adaRamalEn} tanpaID=${tanpaRamalId}`,
+  );
   await gotoRoute("/app/keuangan/laba-rugi", 800);
   const lrEn = await page.innerText("body");
   const adaIncome = lrEn.includes("Income");
@@ -1334,6 +1351,28 @@ try {
     `→ ${await pickSum.first().innerText()}`,
   );
   check("F7b picking multi-gudang bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
+
+  // F7c — Fase 20h: kartu Peramalan stok di halaman Stok.
+  resetErrors();
+  await gotoRoute("/app/stok", 1200);
+  const ramalBody = await page.innerText("body");
+  check(
+    "F7c kartu Peramalan stok render (judul + kolom keyakinan)",
+    ramalBody.includes("Peramalan stok") && ramalBody.includes("Keyakinan"),
+  );
+  // Saringan "hanya yang perlu dipesan" menyala secara bawaan; mematikannya
+  // harus MENAMBAH baris, bukan sekadar tidak error.
+  const barisRamalan = page.locator('[data-testid="tabel-ramalan"] tbody tr');
+  const barisTersaring = await barisRamalan.count();
+  await page.getByText("Hanya yang perlu dipesan").click();
+  await page.waitForTimeout(500);
+  const barisSemua = await barisRamalan.count();
+  check(
+    "F7c mematikan saringan 'hanya yang perlu dipesan' menambah baris ramalan",
+    barisSemua > barisTersaring,
+    `→ tersaring=${barisTersaring} semua=${barisSemua}`,
+  );
+  check("F7c peramalan stok bebas galat halaman", errors.length === 0, `→ ${errors[0] ?? ""}`);
 
   // F8 — CRM: tambah lead → muncul di papan funnel.
   resetErrors();

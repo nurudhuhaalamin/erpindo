@@ -152,6 +152,33 @@ export const UI = {
     id: "Usulan pembelian otomatis",
     en: "Automatic purchase suggestions",
   },
+  // Peramalan stok (Fase 20h)
+  peramalanStok: { id: "Peramalan stok", en: "Stock forecast" },
+  descPeramalanStok: {
+    id: "Perkiraan kebutuhan dari kecepatan jual 90 hari terakhir. Hitungannya rata-rata bergerak biasa — bukan AI — jadi angkanya bisa Anda telusuri sendiri.",
+    en: "Demand estimate from the last 90 days of sales velocity. Plain moving average — not AI — so you can retrace every number yourself.",
+  },
+  rataJualHarian: { id: "Rata-rata/hari", en: "Avg/day" },
+  sisaHariHabis: { id: "Habis dalam", en: "Runs out in" },
+  titikPesanDihitung: { id: "Titik pesan", en: "Reorder point" },
+  tren: { id: "Tren", en: "Trend" },
+  keyakinan: { id: "Keyakinan", en: "Confidence" },
+  trenNaik: { id: "Naik", en: "Rising" },
+  trenTurun: { id: "Turun", en: "Falling" },
+  trenStabil: { id: "Stabil", en: "Steady" },
+  keyakinanTinggi: { id: "Tinggi", en: "High" },
+  keyakinanSedang: { id: "Sedang", en: "Medium" },
+  keyakinanRendah: { id: "Rendah", en: "Low" },
+  hanyaPerluPesan: { id: "Hanya yang perlu dipesan", en: "Only those needing an order" },
+  waktuTungguHari: { id: "Waktu tunggu pemasok (hari)", en: "Supplier lead time (days)" },
+  belumAdaRiwayatJual: {
+    id: "Belum ada penjualan pada periode ini — tidak ada yang bisa diramalkan.",
+    en: "No sales in this period — there is nothing to forecast yet.",
+  },
+  hintKeyakinanRendah: {
+    id: "Baris berkeyakinan rendah dihitung dari penjualan yang terlalu jarang; perlakukan sebagai perkiraan kasar.",
+    en: "Low-confidence rows come from sales that are too infrequent; treat them as rough estimates.",
+  },
   // Laporan — Fase 16e
   faktur: { id: "Faktur", en: "Invoice" },
   nomor: { id: "Nomor", en: "Number" },

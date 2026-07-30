@@ -132,7 +132,7 @@ notifikasi, kartu stok.
 
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
-| **Peramalan stok (AI)** — proyeksi kebutuhan per produk dari riwayat penjualan → saran jumlah & waktu beli ulang | T | S | ✓ |
+| ✅ **Peramalan stok** — proyeksi kebutuhan per produk dari riwayat penjualan → saran jumlah & waktu beli ulang (Fase 20h; **deterministik**, bukan AI — lihat log fasenya) | T | S | – |
 | ✅ **Picking multi-gudang** — satu faktur mengambil stok dari beberapa gudang sekaligus (Fase 20g; HPP dihitung per gudang asal) | S | S | – |
 | Satuan ganda (beli per dus, jual per pcs, konversi otomatis) | T | T | – |
 | Reorder point otomatis: ambang dihitung dari kecepatan jual, bukan angka statis | S | S | ✓ |
