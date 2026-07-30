@@ -26,6 +26,7 @@ import type {
   ApiPphFinalPreview,
   ApiPph23,
   ApiSptPpn,
+  ApiPphUnifikasi,
   PphFinalInput,
   Pph23Input,
   Pph23DepositInput,
@@ -710,6 +711,8 @@ export const api = {
     request<{ ok: true }>("POST", `/api/tenants/${tenantId}/tax/pph23/${id}/deposit`, input),
   sptPpn: (tenantId: string, period: string) =>
     request<ApiSptPpn>("GET", `/api/tenants/${tenantId}/tax/spt-ppn?period=${period}`),
+  pphUnifikasi: (tenantId: string, period: string) =>
+    request<ApiPphUnifikasi>("GET", `/api/tenants/${tenantId}/tax/pph-unifikasi?period=${period}`),
 
   // --- Akuntansi dimensi + rekonsiliasi v2 ---------------------------------------
   costCenters: (tenantId: string) => request<{ items: ApiCostCenter[] }>("GET", `/api/tenants/${tenantId}/cost-centers`),

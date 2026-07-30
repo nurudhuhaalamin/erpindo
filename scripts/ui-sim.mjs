@@ -950,6 +950,28 @@ try {
     `→ EN=${adaDkEn} tanpaID=${tanpaDkId}`,
   );
 
+  // F1v — Fase 20d: tab PPh Unifikasi di halaman Pajak.
+  // Rute diverifikasi ke audit-routes.mjs: /app/keuangan/pajak.
+  //
+  // Penandanya diambil dari kartu yang dirender TANPA SYARAT DATA (judul +
+  // pengantar). Memakai angka rekapnya akan rapuh: perusahaan demo belum tentu
+  // punya PPh pada masa berjalan, dan cek yang bergantung data semacam itu
+  // merah karena alasan yang salah (pelajaran F1c/F1o).
+  await gotoRoute("/app/keuangan/pajak", 900);
+  await page.getByRole("button", { name: "Unified WHT", exact: true }).first().click();
+  await page.waitForTimeout(500);
+  const pphEn = await page.innerText("body");
+  const adaPphEn =
+    pphEn.includes("Withholding tax recap per period") &&
+    pphEn.includes("PPh 21 from payroll");
+  const tanpaPphId =
+    !pphEn.includes("Rekap PPh per masa") && !pphEn.includes("PPh 21 dari penggajian");
+  check(
+    "F1v tab PPh Unifikasi ikut EN: judul + pengantar rekap, tanpa teks Indonesia",
+    adaPphEn && tanpaPphId,
+    `→ EN=${adaPphEn} tanpaID=${tanpaPphId}`,
+  );
+
   // F1t — Fase 19s: kerangka aplikasi (topbar/spanduk) + panel Asisten AI.
   //
   // Kerangka muncul di SETIAP halaman, jadi satu kalimat yang tertinggal

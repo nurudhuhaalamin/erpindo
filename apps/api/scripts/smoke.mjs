@@ -50,7 +50,13 @@ const child = spawn(
     // Untuk memicu cron via /__scheduled dan menyimulasikan trial kedaluwarsa.
     "--test-scheduled",
     "--var",
-    "TRIAL_DAYS_OVERRIDE:0",
+    // Fase 20c: dulu 0 (trial habis tepat saat dibuat). Setelah masa tenggang
+    // 3 hari diperkenalkan, nilai 0 berarti tenant masih DALAM tenggang dan
+    // tidak diturunkan cron — belasan asersi baca-saja di bawah akan merah.
+    // Diubah ke -4 supaya trial-nya benar-benar habis 4 hari lalu, yakni
+    // SUDAH lewat tenggang. Perubahan disengaja, bukan pelonggaran: yang
+    // diuji tetap perilaku baca-saja yang sama persis.
+    "TRIAL_DAYS_OVERRIDE:-4",
     // Uji jalur akun comped (Fase 4a): email Dewi mendapat tenant aktif permanen.
     "--var",
     "COMPED_EMAILS:dewi@majujaya.co.id",
@@ -1215,6 +1221,29 @@ try {
     spt.status === 200 && spt.json?.totalOutputPpn === 110_000 && spt.json?.totalInputPpn === 110_000 && spt.json?.net === 0 && spt.json?.output?.length === 1 && spt.json?.input?.length === 1,
     `→ ${JSON.stringify(spt.json && { o: spt.json.totalOutputPpn, i: spt.json.totalInputPpn, net: spt.json.net })}`,
   );
+
+  // PPh unifikasi (Fase 20d) — rekap semua PPh masa Oktober. Bukti potong
+  // PPh 23 di atas sudah DISETOR, jadi belumDisetor harus 0. Ini penting
+  // diperiksa: kalau kolom `deposited` salah dibaca, angkanya akan terlihat
+  // wajar tetapi menyesatkan saat mengisi SPT.
+  const pphu = await owner("GET", `/api/tenants/${tenantId}/tax/pph-unifikasi?period=2026-10`);
+  check(
+    "PPh unifikasi Oktober: memuat bukti potong PPh 23 yang sudah disetor",
+    pphu.status === 200 &&
+      pphu.json?.totalPph23 > 0 &&
+      pphu.json?.belumDisetor === 0 &&
+      pphu.json?.rows?.some((r) => r.jenis === "pph23" && r.deposited === true),
+    `→ ${JSON.stringify(pphu.json && { p23: pphu.json.totalPph23, belum: pphu.json.belumDisetor, n: pphu.json.rows?.length })}`,
+  );
+  check(
+    "PPh unifikasi: total = jumlah ketiga jenisnya",
+    pphu.json?.total === pphu.json?.totalPph21 + pphu.json?.totalPph23 + pphu.json?.totalPphFinal,
+    `→ total=${pphu.json?.total}`,
+  );
+  const pphuBadPeriod = await owner("GET", `/api/tenants/${tenantId}/tax/pph-unifikasi?period=2026-13`);
+  check("PPh unifikasi masa tak valid DITOLAK 400", pphuBadPeriod.status === 400);
+  const pphuViewer = await viewer("GET", `/api/tenants/${tenantId}/tax/pph-unifikasi?period=2026-10`);
+  check("PPh unifikasi boleh dibaca viewer (laporan, bukan aksi)", pphuViewer.status === 200);
 
   const tbAfterTax = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("neraca saldo TETAP seimbang setelah alur pajak", tbAfterTax.json?.balanced === true);
@@ -4017,7 +4046,10 @@ try {
   check("laporan laba rugi tetap 200 di bawah pembatas per pengguna", rlReport.status === 200);
 
   console.log("14. Siklus langganan (trial berakhir)");
-  // Semua tenant dibuat dengan TRIAL_DAYS_OVERRIDE=0 → trial sudah lewat.
+  // Semua tenant dibuat dengan TRIAL_DAYS_OVERRIDE=-4 → trial habis 4 hari
+  // lalu, jadi sudah melewati masa tenggang 3 hari (Fase 20c) dan cron berhak
+  // menurunkannya. Dengan nilai 0 tenant masih di dalam tenggang dan TETAP
+  // boleh menulis — itu perilaku yang benar, bukan kegagalan.
   const cron = await fetch(`${BASE}/__scheduled?cron=17+1+*+*+*`);
   check("cron trigger dieksekusi", cron.status === 200);
 
