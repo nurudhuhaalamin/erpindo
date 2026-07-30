@@ -2,6 +2,7 @@ import { applyMigrations, CONTROL_PLANE_MIGRATIONS } from "@erpindo/db";
 import { Hono } from "hono";
 import { secureHeaders } from "hono/secure-headers";
 import type { AppEnv, Env } from "./env";
+import { DUNNING_MILESTONES, dunningWindow } from "./lib/dunning";
 import { getMailer } from "./lib/mailer";
 import { getTenantDb, migrateAllTenants } from "./lib/tenantDb";
 import { accountingRoutes } from "./routes/accounting";
@@ -271,27 +272,51 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
   }
   if (lapsed.length > 0) console.log(`[cron] ${lapsed.length} langganan berakhir → past_due`);
 
-  // 2) Pengingat trial akan berakhir dalam ≤3 hari (sekali per tenant).
-  const in3Days = new Date(Date.now() + 3 * 86_400_000).toISOString();
-  const { results: expiring } = await env.DB.prepare(
-    `SELECT id, name, trial_ends_at FROM tenants
-     WHERE status = 'trial' AND trial_ends_at IS NOT NULL AND trial_ends_at >= ? AND trial_ends_at <= ?`,
-  )
-    .bind(nowIso, in3Days)
-    .all<{ id: string; name: string; trial_ends_at: string }>();
+  // 2) Dunning: rangkaian pengingat SEBELUM akun jatuh ke baca-saja.
+  //
+  //    Sebelum Fase 20a hanya ada SATU pengingat, dan hanya untuk trial —
+  //    pelanggan BERBAYAR tidak diperingatkan sama sekali sebelum
+  //    langganannya habis dan akunnya mendadak baca-saja. Itu celah yang
+  //    paling merugikan: yang tak diperingatkan justru yang sudah membayar.
+  //
+  //    Sekarang dua tonggak (H-7 dan H-1) untuk KEDUA jenis. Tiap tonggak
+  //    dikirim sekali per tenant, ditandai di KV — tonggak dipisah supaya
+  //    pengingat H-1 tetap terkirim walau H-7 sudah lewat.
+  for (const { hari, tag } of DUNNING_MILESTONES) {
+    const { bawah: batasBawah, atas: batasAtas } = dunningWindow(hari);
 
-  for (const tenant of expiring) {
-    const kvKey = `notified:trial-reminder:${tenant.id}`;
-    if (await env.RATE_KV.get(kvKey)) continue;
-    const daysLeft = Math.max(Math.ceil((Date.parse(tenant.trial_ends_at) - Date.now()) / 86_400_000), 0);
-    for (const owner of await ownerEmails(env, tenant.id)) {
-      await mailer.send({
-        to: owner.email,
-        subject: `Trial ${tenant.name} berakhir ${daysLeft} hari lagi`,
-        text: `Halo ${owner.name},\n\nMasa trial ${tenant.name} di erpindo akan berakhir dalam ${daysLeft} hari. Setelah itu akun menjadi baca-saja (data tetap aman).\n\nAktifkan langganan agar operasional tidak terputus.\n\n— Tim erpindo`,
-      });
+    const { results: akanHabis } = await env.DB.prepare(
+      `SELECT id, name, status,
+              CASE WHEN status = 'trial' THEN trial_ends_at ELSE subscription_ends_at END AS habis_pada
+         FROM tenants
+        WHERE (status = 'trial'  AND trial_ends_at        IS NOT NULL AND trial_ends_at        > ? AND trial_ends_at        <= ?)
+           OR (status = 'active' AND subscription_ends_at IS NOT NULL AND subscription_ends_at > ? AND subscription_ends_at <= ?)`,
+    )
+      .bind(batasBawah, batasAtas, batasBawah, batasAtas)
+      .all<{ id: string; name: string; status: string; habis_pada: string }>();
+
+    for (const tenant of akanHabis) {
+      const kvKey = `notified:dunning:${tag}:${tenant.id}`;
+      if (await env.RATE_KV.get(kvKey)) continue;
+      const sisaHari = Math.max(Math.ceil((Date.parse(tenant.habis_pada) - Date.now()) / 86_400_000), 0);
+      const trial = tenant.status === "trial";
+      const apa = trial ? "Masa trial" : "Langganan";
+      const ajakan = trial
+        ? "Aktifkan langganan agar operasional tidak terputus."
+        : "Perpanjang langganan agar operasional tidak terputus.";
+      const tautan = env.APP_URL ? `\n\n${env.APP_URL}/app/pengaturan` : "\n\nBuka menu Pengaturan untuk memperpanjang.";
+      for (const owner of await ownerEmails(env, tenant.id)) {
+        await mailer.send({
+          to: owner.email,
+          subject: `${apa} ${tenant.name} berakhir ${sisaHari} hari lagi`,
+          text: `Halo ${owner.name},\n\n${apa} ${tenant.name} di erpindo akan berakhir dalam ${sisaHari} hari. Setelah itu akun menjadi baca-saja — seluruh data Anda tetap aman dan tetap bisa dilihat serta diekspor.\n\n${ajakan}${tautan}\n\n— Tim erpindo`,
+        });
+      }
+      // TTL sedikit lebih panjang dari jarak antar-tonggak supaya tidak
+      // terkirim dua kali, tetapi tetap kedaluwarsa sebelum siklus berikutnya.
+      await env.RATE_KV.put(kvKey, "1", { expirationTtl: (hari + 2) * 86_400 });
+      console.log(`[cron] dunning ${tag} → ${tenant.name} (${tenant.status}, ${sisaHari} hari lagi)`);
     }
-    await env.RATE_KV.put(kvKey, "1", { expirationTtl: 4 * 86_400 });
   }
 
   // 3) Tugas bulanan (penyusutan, rekap, backup Drive) — jendela tanggal 1–3.

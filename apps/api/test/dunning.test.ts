@@ -1,0 +1,53 @@
+import { describe, expect, it } from "vitest";
+import { DUNNING_MILESTONES, dalamJendela, dunningWindow } from "../src/lib/dunning";
+
+/**
+ * Fase 20a — jadwal pengingat sebelum akun jatuh ke baca-saja.
+ *
+ * Yang dijaga di sini adalah aritmetika jendelanya, bukan pengiriman email.
+ * Alasannya: kalau batas jendela salah, pengingat TIDAK PERNAH terkirim — dan
+ * kegagalan itu SENYAP. Tidak ada galat, tidak ada log merah; yang ada hanya
+ * pelanggan yang mendadak kehilangan akses tulis tanpa peringatan.
+ */
+
+const HARI = 86_400_000;
+const NOW = Date.parse("2026-07-27T12:00:00.000Z");
+const dalam = (jam: number) => new Date(NOW + jam * 3_600_000).toISOString();
+
+describe("jadwal dunning (Fase 20a)", () => {
+  it("dua tonggak: H-7 lalu H-1", () => {
+    expect(DUNNING_MILESTONES.map((m) => m.hari)).toEqual([7, 1]);
+    expect(DUNNING_MILESTONES.map((m) => m.tag)).toEqual(["h7", "h1"]);
+  });
+
+  it("jendela antar-tonggak tidak tumpang-tindih", () => {
+    const h7 = dunningWindow(7, NOW);
+    const h1 = dunningWindow(1, NOW);
+    // Atas H-1 (+1 hari) tidak boleh melewati bawah H-7 (+6 hari).
+    expect(Date.parse(h1.atas)).toBeLessThanOrEqual(Date.parse(h7.bawah));
+  });
+
+  it("H-1 menangkap yang habis dalam 12 jam, bukan yang masih 3 hari", () => {
+    expect(dalamJendela(dalam(12), 1, NOW)).toBe(true);
+    expect(dalamJendela(dalam(3 * 24), 1, NOW)).toBe(false);
+  });
+
+  it("H-7 menangkap yang habis 6,5 hari lagi, bukan yang 3 hari", () => {
+    expect(dalamJendela(dalam(6.5 * 24), 7, NOW)).toBe(true);
+    expect(dalamJendela(dalam(3 * 24), 7, NOW)).toBe(false);
+  });
+
+  it("yang SUDAH lewat tidak masuk jendela mana pun — itu urusan blok kedaluwarsa", () => {
+    const kemarin = new Date(NOW - HARI).toISOString();
+    for (const { hari } of DUNNING_MILESTONES) expect(dalamJendela(kemarin, hari, NOW)).toBe(false);
+  });
+
+  it("tenant berumur pendek melewati H-1 walau tak pernah melewati H-7", () => {
+    // Trial 3 hari: saat dibuat tak masuk jendela H-7 (benar — percuma
+    // memperingatkan 7 hari di muka untuk trial 3 hari), tetapi dua hari
+    // kemudian ia melewati H-1 dan tetap diperingatkan.
+    const habis = new Date(NOW + 3 * HARI).toISOString();
+    expect(dalamJendela(habis, 7, NOW)).toBe(false);
+    expect(dalamJendela(habis, 1, NOW + 2 * HARI + 3_600_000)).toBe(true);
+  });
+});
