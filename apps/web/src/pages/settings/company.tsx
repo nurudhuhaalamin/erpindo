@@ -4,7 +4,8 @@ import { DOC_TYPES, isValidDocPattern, PLAN_LABELS, PLAN_LIMITS, renderDocNumber
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { api, formatDate } from "../../api/client";
-import { Badge, Button, Card, CardBody, CardHeader, Input, Label, Skeleton, Spinner, useToast } from "../../components/ui";
+import { Badge, Button, Card, CardBody, CardHeader, ConfirmDialog, Input, Label, Skeleton, Spinner, useToast } from "../../components/ui";
+import { useUi } from "../../i18n/ui";
 import { useWorkspace } from "../app";
 
 export function DocNumberingCard({ tenantId }: { tenantId: string }) {
@@ -100,10 +101,35 @@ const INVOICE_STATUS_LABEL: Record<string, string> = {
 };
 
 export function SubscriptionCard() {
+  const u = useUi();
   const { tenant } = useWorkspace();
   const toast = useToast();
+  const queryClient = useQueryClient();
   const isOwner = tenant.role === "owner";
   const billing = useQuery({ queryKey: ["billing", tenant.tenantId], queryFn: () => api.billing(tenant.tenantId) });
+
+  // --- Ganti paket dengan prorata (Fase 20k) --------------------------------
+  // Paket tujuan yang sedang dipertimbangkan. Pratinjau diambil untuk paket
+  // ini SEBELUM apa pun ditagih — angkanya harus terlihat dulu.
+  const [targetPlan, setTargetPlan] = useState<"starter" | "business" | "enterprise" | null>(null);
+  const prorata = useQuery({
+    queryKey: ["prorata", tenant.tenantId, targetPlan],
+    queryFn: () => api.billingProrata(tenant.tenantId, targetPlan!),
+    enabled: Boolean(targetPlan),
+  });
+  const changePlan = useMutation({
+    mutationFn: (plan: "starter" | "business" | "enterprise") => api.billingChangePlan(tenant.tenantId, plan),
+    onSuccess: (r) => {
+      if (r.redirectUrl) {
+        window.location.href = r.redirectUrl;
+        return;
+      }
+      setTargetPlan(null);
+      queryClient.invalidateQueries({ queryKey: ["billing", tenant.tenantId] });
+      toast("success", `${u("turunPaket")} — ${u("prorataTurunInfo")}`);
+    },
+    onError: (e) => toast("error", (e as Error).message),
+  });
 
   const checkout = useMutation({
     mutationFn: (plan: "starter" | "business" | "enterprise") => api.billingCheckout(tenant.tenantId, plan),
@@ -120,6 +146,9 @@ export function SubscriptionCard() {
     : null;
   const subUntil = b?.subscriptionEndsAt ?? tenant.subscriptionEndsAt ?? null;
   const legacy = b?.legacyFullAccess ?? false;
+  // Prorata hanya masuk akal bila ada siklus berjalan yang tersisa; tanpa itu
+  // pindah paket = pembelian biasa (server juga menolaknya dengan 400).
+  const langgananAktif = Boolean(subUntil && Date.parse(subUntil) > Date.now());
 
   return (
     <Card>
@@ -136,6 +165,14 @@ export function SubscriptionCard() {
             <Badge>aktif{subUntil ? ` s/d ${formatDate(subUntil.slice(0, 10))}` : ""}</Badge>
           )}
           {legacy ? <Badge tone="brand">akses penuh (pelanggan awal)</Badge> : null}
+          {/* Fase 20k: penurunan paket yang menunggu akhir periode. Ditampilkan
+              supaya pemilik tidak mengira permintaannya tidak tercatat. */}
+          {b?.pendingPlan ? (
+            <Badge tone="amber">
+              {u("paketTurunTerjadwal")} {PLAN_LABELS[b.pendingPlan]}
+              {subUntil ? ` ${u("padaTanggal")} ${formatDate(subUntil.slice(0, 10))}` : ""}
+            </Badge>
+          ) : null}
         </div>
 
         {legacy ? (
@@ -179,7 +216,21 @@ export function SubscriptionCard() {
                   </li>
                   <li>AI {info.aiDailyLimit}/hari{info.maxEntities > 1 ? ` · ${info.maxEntities} entitas` : ""}</li>
                 </ul>
-                {b?.configured && isOwner && !current ? (
+                {isOwner && !current && langgananAktif ? (
+                  // Sudah berlangganan → pindah paket dihitung prorata, bukan
+                  // dibeli ulang sebulan penuh.
+                  <Button
+                    className="mt-2 h-8 w-full text-xs"
+                    variant={popular ? "primary" : "secondary"}
+                    data-testid={`ganti-paket-${plan}`}
+                    onClick={() => setTargetPlan(plan)}
+                    disabled={changePlan.isPending}
+                  >
+                    {info.pricePerMonth > PLAN_LIMITS[tenant.plan].pricePerMonth
+                      ? u("naikPaket")
+                      : u("turunPaket")}
+                  </Button>
+                ) : b?.configured && isOwner && !current ? (
                   <Button
                     className="mt-2 h-8 w-full text-xs"
                     variant={popular ? "primary" : "secondary"}
@@ -195,6 +246,41 @@ export function SubscriptionCard() {
             );
           })}
         </div>
+
+        {/* Fase 20k — pratinjau prorata SEBELUM apa pun ditagih. Angkanya
+            berasal dari `hitungProrata()` di server, rumus yang sama persis
+            dengan yang dipakai saat menagih; tidak ada hitungan kedua di sini
+            yang bisa berbeda diam-diam. */}
+        <ConfirmDialog
+          open={Boolean(targetPlan)}
+          title={`${u("gantiPaket")} — ${targetPlan ? PLAN_LABELS[targetPlan] : ""}`}
+          description={
+            prorata.isLoading || !prorata.data ? (
+              u("hitungProrataMemuat")
+            ) : (
+              <span className="space-y-2 block" data-testid="pratinjau-prorata">
+                {prorata.data.arah === "naik" ? (
+                  <>
+                    <span className="block text-base font-semibold tabular-nums">
+                      {u("prorataBayarSekarang")}: Rp{" "}
+                      {prorata.data.bayarSekarang.toLocaleString("id-ID")}
+                    </span>
+                    <span className="block text-xs">
+                      {prorata.data.sisaHari} {u("prorataSisaHari")}
+                    </span>
+                    <span className="block">{u("prorataNaikInfo")}</span>
+                  </>
+                ) : (
+                  <span className="block">{u("prorataTurunInfo")}</span>
+                )}
+              </span>
+            )
+          }
+          confirmLabel={u("gantiPaket")}
+          busy={changePlan.isPending}
+          onConfirm={() => targetPlan && changePlan.mutate(targetPlan)}
+          onCancel={() => setTargetPlan(null)}
+        />
 
         {!b?.configured ? (
           <p className="text-slate-500 dark:text-slate-400">

@@ -1,4 +1,6 @@
 import type {
+  PaidPlan,
+  ProrataResult,
   ApiAccount,
   IntercompanyInput,
   ApiAgingRow,
@@ -231,6 +233,20 @@ export const api = {
   billing: (tenantId: string) => request<BillingStatus>("GET", `/api/tenants/${tenantId}/billing`),
   billingCheckout: (tenantId: string, plan: "starter" | "business" | "enterprise") =>
     request<{ orderId: string; redirectUrl: string }>("POST", `/api/tenants/${tenantId}/billing/checkout`, { plan }),
+  // Fase 20k — pratinjau prorata (tanpa efek samping) lalu eksekusinya.
+  billingProrata: (tenantId: string, plan: PaidPlan) =>
+    request<ProrataResult & { planSekarang: string; planBaru: string }>(
+      "GET",
+      `/api/tenants/${tenantId}/billing/prorata?plan=${plan}`,
+    ),
+  billingChangePlan: (tenantId: string, plan: PaidPlan) =>
+    request<{
+      arah: "naik" | "turun";
+      redirectUrl?: string;
+      amount?: number;
+      pendingPlan?: string;
+      efektifPada?: string | null;
+    }>("POST", `/api/tenants/${tenantId}/billing/change-plan`, { plan }),
 
   submitFeedback: (input: FeedbackInput) => request<{ ok: true; id: string }>("POST", "/api/feedback", input),
   myFeedback: () => request<{ feedback: ApiFeedback[] }>("GET", "/api/feedback/mine"),

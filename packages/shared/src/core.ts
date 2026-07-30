@@ -171,6 +171,87 @@ export const PLAN_LABELS: Record<Plan, string> = {
 export const PAID_PLANS = ["starter", "business", "enterprise"] as const;
 export type PaidPlan = (typeof PAID_PLANS)[number];
 
+// --- Ganti paket dengan prorata (Fase 20k) ----------------------------------
+
+/** Panjang satu siklus tagihan, dalam hari. Langganan ditagih bulanan. */
+export const BILLING_CYCLE_DAYS = 30;
+
+export type ProrataArah = "naik" | "turun" | "sama";
+
+export type ProrataInput = {
+  planSekarang: Plan;
+  planBaru: Plan;
+  /** `subscription_ends_at` tenant; `null` bila belum pernah berlangganan. */
+  berakhirPada: string | null;
+  nowMs?: number;
+  siklusHari?: number;
+};
+
+export type ProrataResult = {
+  arah: ProrataArah;
+  /** Sisa hari pada siklus berjalan; 0 bila tidak ada langganan aktif. */
+  sisaHari: number;
+  /** Yang harus dibayar SEKARANG. Nol untuk turun & sama. */
+  bayarSekarang: number;
+  /** Kapan paket barunya berlaku. */
+  berlakuMulai: "sekarang" | "akhir-periode";
+  hargaLama: number;
+  hargaBaru: number;
+  /** Prorata hanya berlaku bila ada siklus berjalan yang tersisa. */
+  bisaProrata: boolean;
+};
+
+/**
+ * Hitung biaya pindah paket di TENGAH siklus (Fase 20k).
+ *
+ * Aturannya sengaja tidak simetris, dan itu keputusan yang disadari:
+ *
+ * - **Naik paket berlaku SEKARANG**, ditagih selisih harga untuk sisa hari saja.
+ *   Orang menaikkan paket karena butuh kapasitasnya hari itu juga; menundanya
+ *   ke akhir periode membuat pembayaran terasa seperti hukuman.
+ * - **Turun paket berlaku di AKHIR PERIODE**, tanpa tagihan dan tanpa refund.
+ *   Mereka sudah membayar sisa periode ini, jadi mereka berhak memakainya.
+ *   Refund tunai tidak dilakukan: uang keluar menuntut jalur persetujuan,
+ *   rekonsiliasi, dan penanganan sengketa yang belum ada di sistem ini —
+ *   membangunnya setengah jadi lebih berbahaya daripada tidak sama sekali.
+ *
+ * Fungsi murni: tidak menyentuh DB maupun Midtrans, sehingga bisa dipakai
+ * pratinjau di layar dan penagihan di server dari SATU rumus yang sama.
+ */
+export function hitungProrata(input: ProrataInput): ProrataResult {
+  const siklusHari = input.siklusHari ?? BILLING_CYCLE_DAYS;
+  const nowMs = input.nowMs ?? Date.now();
+  const hargaLama = PLAN_LIMITS[input.planSekarang].pricePerMonth;
+  const hargaBaru = PLAN_LIMITS[input.planBaru].pricePerMonth;
+  const arah: ProrataArah =
+    hargaBaru > hargaLama ? "naik" : hargaBaru < hargaLama ? "turun" : "sama";
+
+  const akhirMs = input.berakhirPada ? Date.parse(input.berakhirPada) : NaN;
+  const sisaHari = Number.isFinite(akhirMs)
+    ? Math.max(Math.ceil((akhirMs - nowMs) / 86_400_000), 0)
+    : 0;
+  const bisaProrata = sisaHari > 0;
+
+  // Dibatasi satu siklus: bila suatu hari ada langganan prabayar lebih dari
+  // sebulan, tenant tidak boleh ditagih berkali-kali lipat selisihnya dalam
+  // satu transaksi tanpa keputusan harga yang eksplisit.
+  const hariDitagih = Math.min(sisaHari, siklusHari);
+  const bayarSekarang =
+    arah === "naik" && bisaProrata
+      ? Math.max(Math.ceil(((hargaBaru - hargaLama) * hariDitagih) / siklusHari), 1)
+      : 0;
+
+  return {
+    arah,
+    sisaHari,
+    bayarSekarang,
+    berlakuMulai: arah === "naik" ? "sekarang" : "akhir-periode",
+    hargaLama,
+    hargaBaru,
+    bisaProrata,
+  };
+}
+
 /**
  * Alias kompatibilitas (deprecated): billing lama memakai satu harga Rp389rb.
  * Dipertahankan agar billing.ts belum berubah di Fase 13a; billing 4 paket
@@ -412,6 +493,8 @@ export type BillingStatus = {
   pricePerMonth: number;
   /** Grandfather: pelanggan lama harga tunggal → akses penuh walau paketnya starter/business. */
   legacyFullAccess: boolean;
+  /** Penurunan paket yang menunggu akhir periode (Fase 20k); `null` bila tidak ada. */
+  pendingPlan: Plan | null;
   invoices: ApiSubscriptionInvoice[];
 };
 
@@ -421,11 +504,24 @@ export const checkoutSchema = z.object({
 });
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
 
+/** Pindah paket di tengah siklus (Fase 20k) — naik ditagih prorata, turun dijadwalkan. */
+export const changePlanSchema = z.object({
+  plan: z.enum(PAID_PLANS),
+});
+export type ChangePlanInput = z.infer<typeof changePlanSchema>;
+
 /** Set paket tenant manual oleh platform admin (Fase 13b). */
 export const setTenantPlanSchema = z.object({
   plan: z.enum(PLANS),
   status: z.enum(["trial", "active", "past_due", "suspended", "provisioning"]).optional(),
   legacyFullAccess: z.boolean().optional(),
+  /**
+   * Akhir periode berlangganan (Fase 20k). Admin platform mengaktifkan
+   * pelanggan yang membayar di luar Midtrans — transfer manual masih cara
+   * paling umum di segmen ini, dan tanpa ini tenant semacam itu tidak punya
+   * siklus berjalan sehingga tidak bisa pindah paket dengan prorata.
+   */
+  subscriptionEndsAt: z.string().datetime().nullable().optional(),
 });
 export type SetTenantPlanInput = z.infer<typeof setTenantPlanSchema>;
 

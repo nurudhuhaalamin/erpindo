@@ -246,7 +246,7 @@ export const adminRoutes = new Hono<AppEnv>()
     const tenantId = c.req.param("id");
     const parsed = setTenantPlanSchema.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success) return c.json({ error: "Data tidak valid.", issues: parsed.error.flatten().fieldErrors }, 400);
-    const { plan, status, legacyFullAccess } = parsed.data;
+    const { plan, status, legacyFullAccess, subscriptionEndsAt } = parsed.data;
 
     const exists = await c.env.DB.prepare(`SELECT id FROM tenants WHERE id = ?`).bind(tenantId).first();
     if (!exists) return c.json({ error: "Perusahaan tidak ditemukan." }, 404);
@@ -262,6 +262,12 @@ export const adminRoutes = new Hono<AppEnv>()
       sets.push("legacy_full_access = ?");
       binds.push(legacyFullAccess ? 1 : 0);
     }
+    if (subscriptionEndsAt !== undefined) {
+      sets.push("subscription_ends_at = ?");
+      // `null` dikirim sengaja untuk mencabut periode (mis. comped), jadi
+      // dibedakan dari `undefined` yang berarti "jangan sentuh".
+      binds.push(subscriptionEndsAt as unknown as string);
+    }
     binds.push(tenantId);
     await c.env.DB.prepare(`UPDATE tenants SET ${sets.join(", ")} WHERE id = ?`)
       .bind(...binds)
@@ -270,7 +276,7 @@ export const adminRoutes = new Hono<AppEnv>()
       action: "admin.tenant_plan_set",
       userId: c.get("user").id,
       tenantId,
-      detail: { plan, status, legacyFullAccess },
+      detail: { plan, status, legacyFullAccess, subscriptionEndsAt },
       ip: clientIp(c),
     });
     return c.json({ ok: true, plan });

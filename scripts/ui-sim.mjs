@@ -1711,6 +1711,24 @@ try {
     perusahaanBody.includes("Starter") && perusahaanBody.includes("Business") && perusahaanBody.includes("Enterprise") && /Rp\s?999\.000/.test(perusahaanBody),
     `→ ${/Rp\s?999\.000/.test(perusahaanBody)}`,
   );
+  // F2b — Fase 20k: penjaga tombol ganti paket.
+  //
+  // Tenant ui-sim adalah akun comped: paketnya enterprise TANPA periode
+  // berlangganan. Persis di situlah prorata tidak boleh ditawarkan — tanpa
+  // siklus berjalan, "naik paket prorata" berarti naik paket seharga nyaris
+  // nol. Server sudah menolaknya (400), dan cek ini menjaga layar tidak pernah
+  // sampai menawarkannya.
+  //
+  // Dialog prorata-nya sendiri TIDAK bisa dicapai dari sini — butuh langganan
+  // aktif yang tak bisa dimiliki tenant comped. Cakupannya ada di 7 unit test
+  // (angka rupiahnya) + 11 cek smoke; dinyatakan apa adanya di log fase.
+  const tombolGantiPaket = await page.locator('[data-testid^="ganti-paket-"]').count();
+  check(
+    "F2b tenant tanpa periode berlangganan TIDAK ditawari ganti paket prorata",
+    tombolGantiPaket === 0,
+    `→ ${tombolGantiPaket} tombol`,
+  );
+
   // Fase 13i: kartu Penomoran dokumen dengan pratinjau langsung.
   check(
     "F19 Penomoran dokumen: kartu + pratinjau nomor tampil",

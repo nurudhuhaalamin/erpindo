@@ -152,6 +152,23 @@ export const UI = {
     id: "Usulan pembelian otomatis",
     en: "Automatic purchase suggestions",
   },
+  // Ganti paket dengan prorata (Fase 20k)
+  naikPaket: { id: "Naik paket", en: "Upgrade plan" },
+  turunPaket: { id: "Turun paket", en: "Downgrade plan" },
+  gantiPaket: { id: "Ganti paket", en: "Change plan" },
+  hitungProrataMemuat: { id: "Menghitung…", en: "Calculating…" },
+  prorataBayarSekarang: { id: "Dibayar sekarang", en: "Payable now" },
+  prorataSisaHari: { id: "sisa hari pada periode ini", en: "days left in this period" },
+  prorataNaikInfo: {
+    id: "Paket baru berlaku seketika. Yang ditagih hanya selisih harga untuk sisa hari periode ini — bukan satu bulan penuh.",
+    en: "The new plan takes effect immediately. You are only billed the price difference for the days left in this period — not a full month.",
+  },
+  prorataTurunInfo: {
+    id: "Paket turun mulai berlaku di akhir periode yang sudah Anda bayar. Tidak ada tagihan dan tidak ada pengembalian dana — sisa periode ini tetap Anda pakai.",
+    en: "The lower plan takes effect at the end of the period you already paid for. There is no charge and no refund — you keep using the rest of this period.",
+  },
+  paketTurunTerjadwal: { id: "turun ke", en: "downgrading to" },
+  padaTanggal: { id: "pada", en: "on" },
   // Pemindai barcode kamera (Fase 20i)
   pindaiBarcode: { id: "Pindai barcode", en: "Scan barcode" },
   tutupPemindai: { id: "Tutup pemindai", en: "Close scanner" },

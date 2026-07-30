@@ -305,6 +305,23 @@ export const CONTROL_PLANE_MIGRATIONS: Migration[] = [
       `CREATE INDEX webhook_deliveries_pending ON webhook_deliveries (status, next_attempt_at)`,
     ],
   },
+  {
+    // Fase 20k: ganti paket mandiri dengan prorata.
+    //
+    // `pending_plan` menampung penurunan paket yang BERLAKU DI AKHIR PERIODE —
+    // tenant sudah membayar sisa periode ini, jadi paketnya tidak boleh turun
+    // seketika. Cron yang memperpanjang/menurunkan status ikut menerapkannya.
+    //
+    // `is_prorata` menandai invoice selisih harga: webhook TIDAK boleh
+    // memperpanjang `subscription_ends_at` untuk invoice semacam ini — yang
+    // dibeli hanyalah kenaikan paket untuk sisa periode yang sudah berjalan,
+    // bukan satu bulan tambahan.
+    id: "0015_plan_change_prorata",
+    statements: [
+      `ALTER TABLE tenants ADD COLUMN pending_plan TEXT`,
+      `ALTER TABLE subscription_invoices ADD COLUMN is_prorata INTEGER NOT NULL DEFAULT 0`,
+    ],
+  },
 ];
 
 /**

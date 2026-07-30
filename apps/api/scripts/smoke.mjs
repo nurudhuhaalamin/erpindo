@@ -4839,6 +4839,82 @@ try {
   const billWebhook = await makeClient()("POST", "/api/billing/notification", { order_id: "x", transaction_status: "settlement" });
   check("webhook billing tanpa kunci → 200 diabaikan", billWebhook.status === 200 && billWebhook.json?.ignored === true, `→ HTTP ${billWebhook.status}`);
 
+  // --- Fase 20k: ganti paket dengan prorata ---------------------------------
+  // Tanpa siklus berjalan, prorata tidak berlaku — dan yang penting BUKAN
+  // sekadar "angkanya 0" melainkan `bisaProrata:false`, karena 0 tanpa penanda
+  // itu berarti naik paket GRATIS.
+  const proTrial = await owner("GET", `/api/tenants/${tenantId}/billing/prorata?plan=business`);
+  check(
+    "prorata tanpa langganan aktif: bisaProrata=false, tidak menagih",
+    proTrial.status === 200 && proTrial.json?.bisaProrata === false && proTrial.json?.bayarSekarang === 0,
+    `→ ${JSON.stringify(proTrial.json)}`,
+  );
+  const proTrialChange = await owner("POST", `/api/tenants/${tenantId}/billing/change-plan`, { plan: "business" });
+  check(
+    "ganti paket tanpa langganan aktif DITOLAK 400 (diarahkan ke pembelian biasa)",
+    proTrialChange.status === 400,
+    `→ ${proTrialChange.status} ${proTrialChange.json?.error ?? ""}`,
+  );
+
+  // Aktifkan siklus berjalan 15 hari pada paket starter lewat admin platform.
+  const akhirPeriode = new Date(Date.now() + 15 * 86_400_000).toISOString();
+  const setPeriode = await owner("POST", `/api/admin/tenants/${tenantId}/plan`, {
+    plan: "starter", status: "active", subscriptionEndsAt: akhirPeriode,
+  });
+  check("admin platform menyetel akhir periode langganan 200", setPeriode.status === 200);
+
+  const proNaik = await owner("GET", `/api/tenants/${tenantId}/billing/prorata?plan=business`);
+  check(
+    "prorata naik starter→business, sisa 15 hari: ditagih 250.000 (selisih × 15/30)",
+    proNaik.json?.arah === "naik" && proNaik.json?.sisaHari === 15 &&
+      proNaik.json?.bayarSekarang === 250_000 && proNaik.json?.berlakuMulai === "sekarang",
+    `→ ${JSON.stringify(proNaik.json)}`,
+  );
+  // Pratinjau TIDAK boleh mengubah apa pun — ini yang membuatnya aman ditekan.
+  const billSetelahPratinjau = await owner("GET", `/api/tenants/${tenantId}/billing`);
+  check(
+    "pratinjau prorata tidak mengubah paket maupun tagihan apa pun",
+    billSetelahPratinjau.json?.plan === "starter" && billSetelahPratinjau.json?.pendingPlan === null,
+    `→ ${JSON.stringify({ plan: billSetelahPratinjau.json?.plan, pending: billSetelahPratinjau.json?.pendingPlan })}`,
+  );
+  const proNaikExec = await owner("POST", `/api/tenants/${tenantId}/billing/change-plan`, { plan: "business" });
+  check("naik paket tanpa konfigurasi Midtrans → 503 (degradasi anggun)", proNaikExec.status === 503, `→ ${proNaikExec.status}`);
+  const proSama = await owner("POST", `/api/tenants/${tenantId}/billing/change-plan`, { plan: "starter" });
+  check("ganti ke paket yang sudah aktif DITOLAK 400", proSama.status === 400, `→ ${proSama.status}`);
+
+  // Turun paket: dijadwalkan, TIDAK menagih, dan paket berjalan tidak berubah.
+  await owner("POST", `/api/admin/tenants/${tenantId}/plan`, {
+    plan: "enterprise", status: "active", subscriptionEndsAt: akhirPeriode,
+  });
+  const proTurun = await owner("GET", `/api/tenants/${tenantId}/billing/prorata?plan=starter`);
+  check(
+    "prorata turun: tanpa tagihan, berlaku akhir periode",
+    proTurun.json?.arah === "turun" && proTurun.json?.bayarSekarang === 0 &&
+      proTurun.json?.berlakuMulai === "akhir-periode",
+    `→ ${JSON.stringify(proTurun.json)}`,
+  );
+  const proTurunExec = await owner("POST", `/api/tenants/${tenantId}/billing/change-plan`, { plan: "starter" });
+  check(
+    "turun paket dijadwalkan 200 tanpa Midtrans (tak butuh pembayaran)",
+    proTurunExec.status === 200 && proTurunExec.json?.pendingPlan === "starter",
+    `→ ${proTurunExec.status} ${JSON.stringify(proTurunExec.json)}`,
+  );
+  const billTurun = await owner("GET", `/api/tenants/${tenantId}/billing`);
+  check(
+    "paket BERJALAN tetap enterprise sampai akhir periode; penurunan tercatat sebagai pendingPlan",
+    billTurun.json?.plan === "enterprise" && billTurun.json?.pendingPlan === "starter",
+    `→ ${JSON.stringify({ plan: billTurun.json?.plan, pending: billTurun.json?.pendingPlan })}`,
+  );
+  const proTurunAdmin = await admin("POST", `/api/tenants/${tenantId}/billing/change-plan`, { plan: "starter" });
+  check("ganti paket oleh non-Pemilik → 403", proTurunAdmin.status === 403, `→ ${proTurunAdmin.status}`);
+  const proBadPlan = await owner("GET", `/api/tenants/${tenantId}/billing/prorata?plan=gratis`);
+  check("pratinjau prorata paket tak dikenal → 400", proBadPlan.status === 400, `→ ${proBadPlan.status}`);
+
+  // Kembalikan tenant ke trial agar asersi lain di bawah tidak terganggu.
+  await owner("POST", `/api/admin/tenants/${tenantId}/plan`, {
+    plan: "trial", status: "trial", subscriptionEndsAt: null,
+  });
+
   // Fase 11d: payment collection link (tanpa Midtrans → degradasi anggun).
   const plStatus = await owner("GET", `/api/tenants/${tenantId}/invoices/inv-x/payment-link`);
   check(
