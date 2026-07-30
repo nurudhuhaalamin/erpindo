@@ -1,5 +1,6 @@
 import type {
   ApiAccount,
+  IntercompanyInput,
   ApiAgingRow,
   ApiAiWeeklySummary,
   ApiApprovalFlow,
@@ -342,6 +343,8 @@ export const api = {
     request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/accounts`, input),
   renameAccount: (tenantId: string, accountId: string, name: string) =>
     request<{ ok: true }>("PATCH", `/api/tenants/${tenantId}/accounts/${accountId}`, { name }),
+  setAccountIntercompany: (tenantId: string, accountId: string, input: IntercompanyInput) =>
+    request<{ ok: true }>("PATCH", `/api/tenants/${tenantId}/accounts/${accountId}/intercompany`, input),
   archiveAccount: (tenantId: string, accountId: string) =>
     request<{ ok: true }>("POST", `/api/tenants/${tenantId}/accounts/${accountId}/archive`),
   journalEntries: (tenantId: string, opts?: ListOpts) =>

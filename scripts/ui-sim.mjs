@@ -998,6 +998,18 @@ try {
     `→ tombol=${adaTombolReval} EN=${adaRvEn} tanpaID=${tanpaRvId}`,
   );
 
+  // F1x — Fase 20f: penanda akun antar-perusahaan di Bagan Akun.
+  // Rute diverifikasi ke audit-routes.mjs: /app/keuangan/akun.
+  await gotoRoute("/app/keuangan/akun", 900);
+  const koaEn = await page.innerText("body");
+  const adaKoaEn = koaEn.includes("Mark intercompany");
+  const tanpaKoaId = !koaEn.includes("Tandai antar-perusahaan");
+  check(
+    "F1x tombol penanda antar-perusahaan ikut EN, tanpa teks Indonesia",
+    adaKoaEn && tanpaKoaId,
+    `→ EN=${adaKoaEn} tanpaID=${tanpaKoaId}`,
+  );
+
   // F1t — Fase 19s: kerangka aplikasi (topbar/spanduk) + panel Asisten AI.
   //
   // Kerangka muncul di SETIAP halaman, jadi satu kalimat yang tertinggal

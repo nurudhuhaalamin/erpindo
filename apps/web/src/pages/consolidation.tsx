@@ -79,10 +79,19 @@ function ConsolidatedTable({
             </Tr>
           ) : (
             rows.map((r) => (
-              <Tr key={r.code}>
+              <Tr key={r.code} className={r.eliminated ? "text-slate-400 dark:text-slate-500" : undefined}>
                 {/* Bukan `numeric`: selnya memuat kode DAN nama akun. */}
                 <Td label={u("akun")}>
                   <span className="font-mono text-xs text-slate-400">{r.code}</span> {r.name}
+                  {/* Baris antar-perusahaan tetap DITAMPILKAN, hanya ditandai:
+                      eliminasi yang menghilangkan angka diam-diam membuat
+                      laporan mustahil ditelusuri saat totalnya tidak cocok
+                      dengan pembukuan masing-masing perusahaan. */}
+                  {r.eliminated ? (
+                    <span className="ml-2">
+                      <Badge tone="amber">{u("dieliminasi")}</Badge>
+                    </span>
+                  ) : null}
                 </Td>
                 {companies.map((c) => {
                   const v = r.amounts[c.tenantId] ?? 0;

@@ -1552,6 +1552,20 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `CREATE INDEX asset_revaluations_asset ON asset_revaluations (asset_id, reval_date)`,
     ],
   },
+  {
+    // Eliminasi transaksi antar-perusahaan (Fase 20f).
+    //
+    // Penandanya di AKUN, bukan di transaksi. Alasannya praktis: pemilik grup
+    // UKM sudah memisahkan piutang/utang afiliasi ke akun tersendiri ("Piutang
+    // Antar-Perusahaan", "Penjualan ke Afiliasi"). Menandai per-transaksi akan
+    // menuntut mereka mengingatnya tiap kali menjurnal — sekali lupa, laporan
+    // gabungannya dobel tanpa ada yang tahu. Menandai akunnya sekali saja
+    // membuat eliminasinya otomatis dan tak bisa lupa.
+    id: "0040_intercompany",
+    statements: [
+      `ALTER TABLE accounts ADD COLUMN is_intercompany INTEGER NOT NULL DEFAULT 0`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

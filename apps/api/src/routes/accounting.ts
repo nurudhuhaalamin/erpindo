@@ -8,6 +8,7 @@ import {
   type ApiJournalLine,
   type ApiTrialBalanceRow,
   type AccountType,
+  intercompanySchema,
 } from "@erpindo/shared";
 import { Hono } from "hono";
 import type { AppEnv } from "../env";
@@ -24,6 +25,7 @@ import { requireAuth, requireTenantRole, resolvePermissions } from "../middlewar
 import { clientIp } from "./auth";
 
 type AccountRow = {
+  is_intercompany?: number;
   id: string;
   code: string;
   name: string;
@@ -40,6 +42,7 @@ function toApiAccount(r: AccountRow): ApiAccount {
     type: r.type,
     isSystem: r.is_system === 1,
     isArchived: r.is_archived === 1,
+    isIntercompany: r.is_intercompany === 1,
   };
 }
 
@@ -51,7 +54,7 @@ export const accountingRoutes = new Hono<AppEnv>()
   .get("/:tenantId/accounts", requireAuth, requireTenantRole("viewer"), async (c) => {
     const db = getTenantDb(c.env, c.get("tenant").dbRef);
     const { results } = await db
-      .prepare(`SELECT id, code, name, type, is_system, is_archived FROM accounts ORDER BY code`)
+      .prepare(`SELECT id, code, name, type, is_system, is_archived, is_intercompany FROM accounts ORDER BY code`)
       .all<AccountRow>();
     return c.json({ accounts: results.map(toApiAccount) });
   })
@@ -142,6 +145,44 @@ export const accountingRoutes = new Hono<AppEnv>()
       userId: c.get("user").id,
       tenantId: tenant.id,
       detail: { accountId },
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true });
+  })
+
+  /**
+   * Tandai akun sebagai ANTAR-PERUSAHAAN (Fase 20f).
+   *
+   * Penandanya di akun, bukan di transaksi: pemilik grup UKM sudah memisahkan
+   * piutang/utang afiliasi ke akun tersendiri. Menandai per-transaksi menuntut
+   * mereka mengingatnya tiap kali menjurnal — sekali lupa, laporan gabungan
+   * dobel tanpa ada yang tahu. Menandai akunnya sekali membuat eliminasinya
+   * otomatis dan tak bisa lupa.
+   */
+  .patch("/:tenantId/accounts/:accountId/intercompany", requireAuth, requireTenantRole("admin"), async (c) => {
+    const parsed = intercompanySchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) {
+      return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
+    }
+    const tenant = c.get("tenant");
+    const db = getTenantDb(c.env, tenant.dbRef);
+    const accountId = c.req.param("accountId");
+    const { results } = await db
+      .prepare(`SELECT code, name FROM accounts WHERE id = ?`)
+      .bind(accountId)
+      .all<{ code: string; name: string }>();
+    const account = results[0];
+    if (!account) return c.json({ error: "Akun tidak ditemukan." }, 404);
+
+    await db
+      .prepare(`UPDATE accounts SET is_intercompany = ? WHERE id = ?`)
+      .bind(parsed.data.isIntercompany ? 1 : 0, accountId)
+      .run();
+    await audit(c.env, {
+      action: "accounting.account_intercompany",
+      userId: c.get("user").id,
+      tenantId: tenant.id,
+      detail: { code: account.code, name: account.name, isIntercompany: parsed.data.isIntercompany },
       ip: clientIp(c),
     });
     return c.json({ ok: true });

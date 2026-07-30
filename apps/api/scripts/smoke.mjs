@@ -2844,6 +2844,49 @@ try {
     `→ ${JSON.stringify({ ta: consBS.json?.totalAssets, a2: consBS.json?.totalAssetsByCompany?.[tenant2] })}`,
   );
 
+  // Eliminasi antar-perusahaan (Fase 20f). Akun Pendapatan Penjualan di
+  // perusahaan kedua ditandai antar-perusahaan, lalu konsolidasi diminta ulang:
+  // pendapatannya HARUS keluar dari total, sementara barisnya tetap tampil
+  // (ditandai) supaya angkanya bisa ditelusuri.
+  const accs2 = (await owner("GET", `/api/tenants/${tenant2}/accounts`)).json?.accounts ?? [];
+  const pend2Acc = accs2.find((a) => a.code === "4-1000");
+  check("akun awalnya BUKAN antar-perusahaan", pend2Acc?.isIntercompany === false);
+
+  const tandai = await owner("PATCH", `/api/tenants/${tenant2}/accounts/${pend2Acc.id}/intercompany`, {
+    isIntercompany: true,
+  });
+  check("tandai akun sebagai antar-perusahaan 200", tandai.status === 200);
+
+  const consElim = await owner("GET", `/api/consolidation/income-statement?${win}`);
+  const barisElim = consElim.json?.income?.find((r) => r.code === "4-1000");
+  check(
+    "baris antar-perusahaan DITANDAI tapi tetap tampil (bisa ditelusuri)",
+    barisElim?.eliminated === true && barisElim?.total > 0,
+    `→ ${JSON.stringify(barisElim && { e: barisElim.eliminated, t: barisElim.total })}`,
+  );
+  check(
+    "pendapatan antar-perusahaan DIKELUARKAN dari total konsolidasi",
+    consElim.json?.eliminatedIncome === barisElim?.total &&
+      consElim.json?.totalIncome === consIS.json?.totalIncome - barisElim?.total,
+    `→ elim=${consElim.json?.eliminatedIncome} total=${consElim.json?.totalIncome} sebelum=${consIS.json?.totalIncome}`,
+  );
+  check(
+    "laba konsolidasi ikut turun sebesar yang dieliminasi",
+    consElim.json?.netProfit === consIS.json?.netProfit - barisElim?.total,
+    `→ ${consElim.json?.netProfit} vs ${consIS.json?.netProfit}`,
+  );
+
+  // Dikembalikan supaya blok setelah ini memakai angka yang sama seperti semula.
+  const lepasTanda = await owner("PATCH", `/api/tenants/${tenant2}/accounts/${pend2Acc.id}/intercompany`, {
+    isIntercompany: false,
+  });
+  check("lepas tanda antar-perusahaan 200", lepasTanda.status === 200);
+  const consPulih = await owner("GET", `/api/consolidation/income-statement?${win}`);
+  check(
+    "setelah tanda dilepas, total konsolidasi kembali seperti semula",
+    consPulih.json?.totalIncome === consIS.json?.totalIncome && consPulih.json?.eliminatedIncome === 0,
+  );
+
   // --- Fase 13b: penegakan paket (matriks modul × paket) + pagar trial --------
   // Dipakai perusahaan kedua (tenant2) yang sudah ada agar tidak menabrak batas
   // pool DB tenant lokal / rate-limit register. Paket disetel via admin (budi =

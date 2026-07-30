@@ -41,6 +41,12 @@ export type ApiConsolidatedRow = {
   /** tenantId -> nilai untuk perusahaan itu (0 bila tak muncul). */
   amounts: Record<string, number>;
   total: number;
+  /**
+   * Baris akun antar-perusahaan (Fase 20f). Nilainya TETAP ditampilkan supaya
+   * angkanya transparan, tetapi TIDAK ikut ke total konsolidasi — laporan
+   * gabungan tidak boleh menghitung jual-beli internal grup sebagai omzet.
+   */
+  eliminated: boolean;
 };
 
 export type ApiConsolidatedIncomeStatement = {
@@ -55,6 +61,9 @@ export type ApiConsolidatedIncomeStatement = {
   totalIncome: number;
   totalExpense: number;
   netProfit: number;
+  /** Nilai yang dikeluarkan dari total karena antar-perusahaan (Fase 20f). */
+  eliminatedIncome: number;
+  eliminatedExpense: number;
 };
 
 export type ApiConsolidatedBalanceSheet = {
@@ -70,6 +79,9 @@ export type ApiConsolidatedBalanceSheet = {
   totalLiabilities: number;
   totalEquity: number;
   balanced: boolean;
+  /** Nilai yang dikeluarkan dari total karena antar-perusahaan (Fase 20f). */
+  eliminatedAssets: number;
+  eliminatedLiabilities: number;
 };
 
 // ---------------------------------------------------------------------------

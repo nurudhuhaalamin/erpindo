@@ -42,6 +42,10 @@ export const renameAccountSchema = z.object({
   name: z.string().trim().min(2, "Nama akun minimal 2 karakter").max(100),
 });
 
+/** Tandai/lepas tanda akun antar-perusahaan (Fase 20f). */
+export const intercompanySchema = z.object({ isIntercompany: z.boolean() });
+export type IntercompanyInput = z.infer<typeof intercompanySchema>;
+
 // --- Asisten AI (Workers AI) -------------------------------------------------
 
 export const aiChatSchema = z.object({
@@ -400,6 +404,8 @@ export type ApiAccount = {
   type: AccountType;
   isSystem: boolean;
   isArchived: boolean;
+  /** Akun antar-perusahaan — dieliminasi dari laporan gabungan (Fase 20f). */
+  isIntercompany: boolean;
 };
 
 export type ApiJournalLine = {

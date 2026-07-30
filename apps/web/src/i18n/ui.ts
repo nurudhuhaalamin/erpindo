@@ -2441,6 +2441,26 @@ export const UI = {
   toastSurplusRevaluasi: { id: "Revaluasi tersimpan. Surplus", en: "Revaluation saved. Surplus" },
   toastRugiRevaluasi: { id: "Revaluasi tersimpan. Rugi penurunan nilai", en: "Revaluation saved. Impairment loss" },
 
+  // — Eliminasi antar-perusahaan (Fase 20f) —
+  antarPerusahaan: { id: "Antar-perusahaan", en: "Intercompany" },
+  tandaiAntarPerusahaan: { id: "Tandai antar-perusahaan", en: "Mark intercompany" },
+  lepasTandaAntarPerusahaan: { id: "Lepas tanda", en: "Unmark" },
+  descAntarPerusahaan: {
+    id: "Akun bertanda ini dikeluarkan dari total laporan gabungan, supaya jual-beli internal grup tidak terhitung dua kali.",
+    en: "Accounts marked this way are excluded from consolidated totals, so trade inside the group is not counted twice.",
+  },
+  toastDitandaiAntarPerusahaan: {
+    id: "Akun ditandai antar-perusahaan.",
+    en: "Account marked as intercompany.",
+  },
+  toastTandaAntarPerusahaanDilepas: {
+    id: "Tanda antar-perusahaan dilepas.",
+    en: "Intercompany mark removed.",
+  },
+  dieliminasi: { id: "Dieliminasi", en: "Eliminated" },
+  totalDieliminasi: { id: "Dikeluarkan dari total (antar-perusahaan)", en: "Excluded from totals (intercompany)" },
+  akunSistem: { id: "sistem", en: "system" },
+
   // — Komponen bersama & Asisten AI (Fase 19s). Awalan `cp` (komponen). —
   cpKetikCari: { id: "Ketik untuk mencari…", en: "Type to search…" },
   cpMencari: { id: "Mencari…", en: "Searching…" },
