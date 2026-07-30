@@ -42,6 +42,16 @@ describe("jadwal dunning (Fase 20a)", () => {
     for (const { hari } of DUNNING_MILESTONES) expect(dalamJendela(kemarin, hari, NOW)).toBe(false);
   });
 
+  it("jendela H+3 (hari negatif) menoleh ke BELAKANG dengan aritmetika yang sama", () => {
+    // Susulan untuk tenant yang sudah baca-saja: yang jatuh 3,5 hari lalu
+    // masuk; yang baru jatuh kemarin belum, dan yang jatuh 10 hari lalu sudah
+    // lewat — supaya susulannya sekali, bukan tiap hari.
+    const laluJam = (jam: number) => new Date(NOW - jam * 3_600_000).toISOString();
+    expect(dalamJendela(laluJam(3.5 * 24), -3, NOW)).toBe(true);
+    expect(dalamJendela(laluJam(24), -3, NOW)).toBe(false);
+    expect(dalamJendela(laluJam(10 * 24), -3, NOW)).toBe(false);
+  });
+
   it("tenant berumur pendek melewati H-1 walau tak pernah melewati H-7", () => {
     // Trial 3 hari: saat dibuat tak masuk jendela H-7 (benar — percuma
     // memperingatkan 7 hari di muka untuk trial 3 hari), tetapi dua hari
