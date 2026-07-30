@@ -1729,6 +1729,73 @@ try {
     `→ ${tombolGantiPaket} tombol`,
   );
 
+  // F2c — Fase 20j: field kustom per modul, dari definisi sampai terpakai.
+  //
+  // Diuji ujung-ke-ujung lewat UI: buat definisi di Pengaturan, lalu buktikan
+  // kolomnya benar-benar MUNCUL di form Kontak. Memeriksa daftar definisinya
+  // saja akan hijau walau kolomnya tak pernah sampai ke form mana pun —
+  // dan itulah satu-satunya hal yang berguna bagi pemilik.
+  await page.locator("#cf-key").fill("kode_wilayah");
+  await page.locator("#cf-label").fill("Kode Wilayah");
+  const cfPost = postDone("/custom-fields");
+  await page.getByRole("button", { name: "Tambah field" }).click();
+  await cfPost;
+  await page.waitForTimeout(600);
+  const daftarCf = await page.locator('[data-testid="daftar-field-kustom"]').innerText();
+  check(
+    "F2c definisi field kustom tampil di daftar (modul + kunci + tipe)",
+    daftarCf.includes("Kode Wilayah") && daftarCf.includes("kode_wilayah"),
+    `→ ${daftarCf.slice(0, 120)}`,
+  );
+
+  await gotoRoute("/app/master/kontak", 1100);
+  const cfKontakAda = await page.locator('[data-testid="field-kustom-kontak"]').count();
+  check(
+    "F2c kolom kustom benar-benar muncul di form Kontak, bukan hanya di daftar definisi",
+    cfKontakAda === 1,
+    `→ ${cfKontakAda} blok`,
+  );
+  const labelCf = await page.locator('label[for="kontak-cf-kode_wilayah"]').count();
+  check(
+    "F2c label kolom kustom terpasang pada input-nya (bukan kolom tanpa nama)",
+    labelCf === 1,
+    `→ ${labelCf}`,
+  );
+
+  // Kartu Field kustom menjanjikan kolomnya ikut "form, cetakan, dan ekspor".
+  // Dua yang terakhir diperiksa di sini — janji di layar yang tidak ditepati
+  // lebih buruk daripada fitur yang tidak ada.
+  const tombolEkspor = await page.locator('[data-testid="ekspor-kontak.csv"]').count();
+  check(
+    "F2c tombol ekspor CSV kontak tersedia (kolom kustom ikut di dalamnya)",
+    tombolEkspor === 1,
+    `→ ${tombolEkspor}`,
+  );
+
+  if (process.env.UI_SIM_SHOT) {
+    mkdirSync(process.env.UI_SIM_SHOT, { recursive: true });
+    await page.screenshot({ path: path.join(process.env.UI_SIM_SHOT, "kustom-form.png") });
+  }
+
+  // Bersihkan agar suite selanjutnya (dan jalannya berikutnya) tidak terpengaruh.
+  await gotoRoute("/app/pengaturan", 800);
+  if (process.env.UI_SIM_SHOT) {
+    await page.getByRole("tab", { name: "Perusahaan" }).click();
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: path.join(process.env.UI_SIM_SHOT, "kustom-def.png"), fullPage: true });
+  }
+  await page.getByRole("tab", { name: "Perusahaan" }).click();
+  await page.waitForTimeout(500);
+  await page.getByRole("button", { name: "Arsipkan field Kode Wilayah" }).click();
+  await page.getByRole("button", { name: "Arsipkan field", exact: true }).click();
+  await page.waitForTimeout(700);
+  const setelahArsip = await page.locator('[data-testid="daftar-field-kustom"]').count();
+  check(
+    "F2c field kustom terakhir diarsipkan → daftar definisi kosong lagi",
+    setelahArsip === 0,
+    `→ ${setelahArsip}`,
+  );
+
   // Fase 13i: kartu Penomoran dokumen dengan pratinjau langsung.
   check(
     "F19 Penomoran dokumen: kartu + pratinjau nomor tampil",

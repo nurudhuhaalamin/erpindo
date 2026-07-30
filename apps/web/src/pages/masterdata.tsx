@@ -9,7 +9,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLang } from "../i18n";
 import { useUi, type UiKey } from "../i18n/ui";
-import { Contact, Package, Search, Upload, Warehouse } from "lucide-react";
+import { Contact, Download, Package, Search, Upload, Warehouse } from "lucide-react";
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { api, downloadCsv, formatIDR, parseCsv } from "../api/client";
 import { useDebounced } from "./commerce";
@@ -34,6 +34,7 @@ import {
   Tr,
   useToast,
 } from "../components/ui";
+import { CustomFieldInputs, useFieldKustom } from "../components/customFields";
 import { useWorkspace } from "./app";
 
 // Peta label INDUSTRY_LABELS tinggal di packages/shared dan tetap
@@ -218,6 +219,46 @@ function useEntityPage<Row extends { id: string }>(entity: "products" | "contact
     limit,
     setLimit,
   };
+}
+
+/**
+ * Ekspor CSV master data beserta KOLOM FIELD KUSTOM (Fase 20j).
+ *
+ * Judul kolomnya memakai `fieldKey`, bukan label — label boleh berubah
+ * sewaktu-waktu, sedangkan kunci tidak. Berkas ekspor yang judul kolomnya
+ * berubah diam-diam akan merusak spreadsheet penerimanya.
+ */
+function ExportCsvButton<Row extends Record<string, unknown>>({
+  namaBerkas,
+  kolom,
+  rows,
+  defs,
+}: {
+  namaBerkas: string;
+  kolom: { header: string; ambil: (r: Row) => string | number }[];
+  rows: Row[];
+  defs: { fieldKey: string }[];
+}) {
+  const u = useUi();
+  return (
+    <Button
+      variant="ghost"
+      data-testid={`ekspor-${namaBerkas}`}
+      onClick={() => {
+        const headers = [...kolom.map((k) => k.header), ...defs.map((d) => d.fieldKey)];
+        const data = rows.map((r) => {
+          const kustom = (r.customFields ?? []) as { fieldKey: string; value: string }[];
+          return [
+            ...kolom.map((k) => k.ambil(r)),
+            ...defs.map((d) => kustom.find((v) => v.fieldKey === d.fieldKey)?.value ?? ""),
+          ];
+        });
+        downloadCsv(namaBerkas, headers, data);
+      }}
+    >
+      <Download className="size-4" aria-hidden /> {u("eksporCsv")}
+    </Button>
+  );
 }
 
 /** Kotak cari daftar master data (debounce lewat useEntityPage). */
@@ -458,7 +499,9 @@ export function ProductsPage() {
     setSearch,
     q,
     setLimit,
+    tenant,
   } = useEntityPage<ProductRow>("products");
+  const kustom = useFieldKustom(tenant.tenantId, "product");
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -484,9 +527,14 @@ export function ProductsPage() {
       return;
     }
     if (editing) {
-      update.mutate({ id: editing.id, input: parsed.data });
+      update.mutate({ id: editing.id, input: { ...parsed.data, ...kustom.payload() } });
     } else {
-      create.mutate(parsed.data, { onSuccess: () => form.reset() });
+      create.mutate({ ...parsed.data, ...kustom.payload() }, {
+        onSuccess: () => {
+          form.reset();
+          kustom.reset();
+        },
+      });
     }
   }
 
@@ -601,6 +649,14 @@ export function ProductsPage() {
                   </Button>
                 ) : null}
               </div>
+              <div className="sm:col-span-7">
+                <CustomFieldInputs
+                  defs={kustom.defs}
+                  values={kustom.values}
+                  onChange={kustom.setValue}
+                  idPrefix="produk"
+                />
+              </div>
               <label className="flex items-center gap-2 text-sm text-slate-600 sm:col-span-3 dark:text-slate-300">
                 <input
                   type="checkbox"
@@ -669,14 +725,28 @@ export function ProductsPage() {
 
       <Card>
         <CardBody className="space-y-3">
-          <SearchBox
-            label={u("cariProduk")}
-            value={search}
-            onChange={(v) => {
-              setSearch(v);
-              setLimit(100);
-            }}
-          />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <SearchBox
+              label={u("cariProduk")}
+              value={search}
+              onChange={(v) => {
+                setSearch(v);
+                setLimit(100);
+              }}
+            />
+            <ExportCsvButton
+              namaBerkas="produk.csv"
+              defs={kustom.defs}
+              rows={(query.data?.items ?? []) as unknown as Record<string, unknown>[]}
+              kolom={[
+                { header: "sku", ambil: (r) => String(r.sku ?? "") },
+                { header: "nama", ambil: (r) => String(r.name ?? "") },
+                { header: "satuan", ambil: (r) => String(r.unit ?? "") },
+                { header: "harga_jual", ambil: (r) => Number(r.sell_price ?? 0) },
+                { header: "harga_beli", ambil: (r) => Number(r.buy_price ?? 0) },
+              ]}
+            />
+          </div>
           {query.isLoading ? (
             <Spinner />
           ) : (query.data?.items.length ?? 0) === 0 ? (
@@ -811,7 +881,9 @@ export function ContactsPage() {
     setSearch,
     q,
     setLimit,
+    tenant,
   } = useEntityPage<ContactRow>("contacts");
+  const kustom = useFieldKustom(tenant.tenantId, "contact");
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -822,10 +894,16 @@ export function ContactsPage() {
       setIssues(parsed.error.flatten().fieldErrors as Record<string, string[]>);
       return;
     }
+    const input = { ...parsed.data, ...kustom.payload() };
     if (editing) {
-      update.mutate({ id: editing.id, input: parsed.data });
+      update.mutate({ id: editing.id, input });
     } else {
-      create.mutate(parsed.data, { onSuccess: () => form.reset() });
+      create.mutate(input, {
+        onSuccess: () => {
+          form.reset();
+          kustom.reset();
+        },
+      });
     }
   }
 
@@ -922,6 +1000,14 @@ export function ContactsPage() {
                   </Button>
                 ) : null}
               </div>
+              <div className="sm:col-span-5">
+                <CustomFieldInputs
+                  defs={kustom.defs}
+                  values={kustom.values}
+                  onChange={kustom.setValue}
+                  idPrefix="kontak"
+                />
+              </div>
               {editing ? (
                 <>
                   <div className="sm:col-span-2">
@@ -951,14 +1037,27 @@ export function ContactsPage() {
 
       <Card>
         <CardBody className="space-y-3">
-          <SearchBox
-            label={u("cariKontak")}
-            value={search}
-            onChange={(v) => {
-              setSearch(v);
-              setLimit(100);
-            }}
-          />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <SearchBox
+              label={u("cariKontak")}
+              value={search}
+              onChange={(v) => {
+                setSearch(v);
+                setLimit(100);
+              }}
+            />
+            <ExportCsvButton
+              namaBerkas="kontak.csv"
+              defs={kustom.defs}
+              rows={(query.data?.items ?? []) as unknown as Record<string, unknown>[]}
+              kolom={[
+                { header: "nama", ambil: (r) => String(r.name ?? "") },
+                { header: "jenis", ambil: (r) => String(r.type ?? "") },
+                { header: "email", ambil: (r) => String(r.email ?? "") },
+                { header: "telepon", ambil: (r) => String(r.phone ?? "") },
+              ]}
+            />
+          </div>
           {query.isLoading ? (
             <Spinner />
           ) : (query.data?.items.length ?? 0) === 0 ? (

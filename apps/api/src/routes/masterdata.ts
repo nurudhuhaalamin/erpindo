@@ -1,8 +1,9 @@
-import { contactSchema, importRowsSchema, productSchema, warehouseSchema } from "@erpindo/shared";
+import { contactSchema, importRowsSchema, productSchema, warehouseSchema, type CustomFieldModule } from "@erpindo/shared";
 import { Hono } from "hono";
 import type { z } from "zod";
 import type { AppEnv } from "../env";
 import { audit } from "../lib/audit";
+import { CustomFieldError, nilaiKustomBanyak, simpanNilaiKustom } from "../lib/customFields";
 import { getTenantDb } from "../lib/tenantDb";
 import { requireAuth, requireTenantRole } from "../middleware/auth";
 import { clientIp } from "./auth";
@@ -21,7 +22,25 @@ type EntityConfig<S extends z.ZodTypeAny> = {
   /** Kolom yang dicari saat parameter ?q= diisi (LIKE, case-insensitive). */
   searchColumns: string[];
   toRow: (input: z.infer<S>) => Record<string, string | number | null>;
+  /** Modul field kustom (Fase 20j); absen = entitas ini tak menerima field kustom. */
+  customModule?: CustomFieldModule;
 };
+
+/**
+ * Ambil `customFields` dari badan permintaan (Fase 20j).
+ *
+ * Dibaca dari badan MENTAH, bukan dari hasil skema: skema entitasnya menyaring
+ * kunci tak dikenal, jadi field kustom tak akan pernah sampai ke `parsed.data`.
+ */
+function fieldKustomDariBadan(body: unknown): Record<string, string> | undefined {
+  const cf = (body as { customFields?: unknown } | null)?.customFields;
+  if (!cf || typeof cf !== "object" || Array.isArray(cf)) return undefined;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(cf as Record<string, unknown>)) {
+    out[k] = typeof v === "string" ? v : String(v ?? "");
+  }
+  return out;
+}
 
 function crudRoutes<S extends z.ZodTypeAny>(path: string, cfg: EntityConfig<S>) {
   return new Hono<AppEnv>()
@@ -53,11 +72,19 @@ function crudRoutes<S extends z.ZodTypeAny>(path: string, cfg: EntityConfig<S>) 
           .bind(...binds)
           .all<{ n: number }>(),
       ]);
+      // Fase 20j: lampirkan nilai field kustom untuk seluruh halaman dalam SATU
+      // kueri, bukan satu per baris.
+      if (cfg.customModule) {
+        const ids = results.map((r) => String(r.id));
+        const peta = await nilaiKustomBanyak(db, cfg.customModule, ids);
+        for (const r of results) r.customFields = peta.get(String(r.id)) ?? [];
+      }
       return c.json({ items: results, total: countRows[0]?.n ?? results.length, limit, offset });
     })
 
     .post(`/:tenantId/${path}`, requireAuth, requireTenantRole("admin"), async (c) => {
-      const parsed = cfg.schema.safeParse(await c.req.json().catch(() => ({})));
+      const badan = await c.req.json().catch(() => ({}));
+      const parsed = cfg.schema.safeParse(badan);
       if (!parsed.success) {
         return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
       }
@@ -83,6 +110,20 @@ function crudRoutes<S extends z.ZodTypeAny>(path: string, cfg: EntityConfig<S>) 
         .bind(id, ...columns.map((k) => row[k]))
         .run();
 
+      if (cfg.customModule) {
+        try {
+          await simpanNilaiKustom(db, {
+            module: cfg.customModule,
+            refType: cfg.customModule,
+            refId: id,
+            values: fieldKustomDariBadan(badan),
+          });
+        } catch (err) {
+          if (err instanceof CustomFieldError) return c.json({ error: err.message }, 400);
+          throw err;
+        }
+      }
+
       await audit(c.env, {
         action: `${cfg.auditPrefix}.created`,
         userId: c.get("user").id,
@@ -94,7 +135,8 @@ function crudRoutes<S extends z.ZodTypeAny>(path: string, cfg: EntityConfig<S>) 
     })
 
     .put(`/:tenantId/${path}/:id`, requireAuth, requireTenantRole("admin"), async (c) => {
-      const parsed = cfg.schema.safeParse(await c.req.json().catch(() => ({})));
+      const badan = await c.req.json().catch(() => ({}));
+      const parsed = cfg.schema.safeParse(badan);
       if (!parsed.success) {
         return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
       }
@@ -121,6 +163,20 @@ function crudRoutes<S extends z.ZodTypeAny>(path: string, cfg: EntityConfig<S>) 
         .prepare(`UPDATE ${cfg.table} SET ${columns.map((k) => `${k} = ?`).join(", ")} WHERE id = ?`)
         .bind(...columns.map((k) => row[k]), id)
         .run();
+
+      if (cfg.customModule) {
+        try {
+          await simpanNilaiKustom(db, {
+            module: cfg.customModule,
+            refType: cfg.customModule,
+            refId: id,
+            values: fieldKustomDariBadan(badan),
+          });
+        } catch (err) {
+          if (err instanceof CustomFieldError) return c.json({ error: err.message }, 400);
+          throw err;
+        }
+      }
 
       await audit(c.env, {
         action: `${cfg.auditPrefix}.updated`,
@@ -213,6 +269,7 @@ export const masterDataRoutes = new Hono<AppEnv>()
       schema: productSchema,
       uniqueField: { column: "sku", input: "SKU" },
       searchColumns: ["sku", "name"],
+      customModule: "product",
       toRow: (p) => ({
         sku: p.sku,
         name: p.name,
@@ -236,6 +293,7 @@ export const masterDataRoutes = new Hono<AppEnv>()
       auditPrefix: "masterdata.contact",
       schema: contactSchema,
       searchColumns: ["name", "email", "phone"],
+      customModule: "contact",
       toRow: (k) => ({
         type: k.type,
         name: k.name,

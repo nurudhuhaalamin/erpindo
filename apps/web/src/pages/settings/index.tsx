@@ -7,7 +7,7 @@ import { useState } from "react";
 import { Tabs } from "../../components/ui";
 import { useWorkspace } from "../app";
 import { ProfileCard, DisplayModeCard, SecurityCard } from "./account";
-import { SubscriptionCard, CompanySettingsCard, DocNumberingCard, NewCompanyCard } from "./company";
+import { SubscriptionCard, CompanySettingsCard, CustomFieldsCard, DocNumberingCard, NewCompanyCard } from "./company";
 import { MembersCard, RolesCard, ApprovalThresholdCard } from "./team";
 import { ExportBackupCard, TenantSecurityCard, AuditLogCard } from "./data";
 import { ApiIntegrationCard, CloseBooksCard } from "./integrations";
@@ -55,6 +55,7 @@ export function SettingsPage() {
         <div className="space-y-6">
           <SubscriptionCard />
           <CompanySettingsCard tenantId={tenant.tenantId} readOnly={!isAdmin} />
+          {isAdmin ? <CustomFieldsCard tenantId={tenant.tenantId} /> : null}
           {isOwner ? <DocNumberingCard tenantId={tenant.tenantId} /> : null}
           {isOwner ? <NewCompanyCard /> : null}
         </div>

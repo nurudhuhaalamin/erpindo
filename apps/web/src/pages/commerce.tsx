@@ -22,6 +22,7 @@ import {
   Spinner,
   useToast,
 } from "../components/ui";
+import { CustomFieldInputs, useFieldKustom } from "../components/customFields";
 import { useWorkspace } from "./app";
 
 type Mode = "sale" | "purchase";
@@ -174,6 +175,9 @@ export function CommercePage({ mode }: { mode: Mode }) {
   const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
   const [error, setError] = useState<string | null>(null);
   const isForeign = currency !== "IDR";
+  // Fase 20j: field kustom faktur. Hanya mode penjualan — modul `invoice`
+  // memang hanya mendefinisikannya untuk faktur keluar.
+  const kustom = useFieldKustom(tenant.tenantId, "invoice");
 
   const create = useMutation({
     mutationFn: async (
@@ -193,6 +197,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
       }
       setLines([emptyLine()]);
       setError(null);
+      kustom.reset();
       queryClient.invalidateQueries({ queryKey: [cfg.queryKey, tenant.tenantId] });
       queryClient.invalidateQueries({ queryKey: ["stock", tenant.tenantId] });
       queryClient.invalidateQueries({ queryKey: ["stock-lots", tenant.tenantId] });
@@ -303,6 +308,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
       warehouseId: warehouseId || warehouses[0]?.id || "",
       ...(projectId ? { projectId } : {}),
       ...(isForeign ? { currency, exchangeRate: Number(exchangeRate) || 0 } : {}),
+      ...(mode === "sale" ? kustom.payload() : {}),
       lines: lines
         .filter((l) => l.productId)
         .map((l) => ({
@@ -593,6 +599,15 @@ export function CommercePage({ mode }: { mode: Mode }) {
                 );
               })}
             </div>
+
+            {mode === "sale" ? (
+              <CustomFieldInputs
+                defs={kustom.defs}
+                values={kustom.values}
+                onChange={kustom.setValue}
+                idPrefix="faktur"
+              />
+            ) : null}
 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <Button

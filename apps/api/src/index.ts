@@ -41,6 +41,7 @@ import { masterDataRoutes } from "./routes/masterdata";
 import { payrollRoutes } from "./routes/payroll";
 import { procurementRoutes } from "./routes/procurement";
 import { salesOrderRoutes } from "./routes/salesOrders";
+import { customFieldRoutes } from "./routes/customFields";
 import { stockAdvancedRoutes } from "./routes/stockAdvanced";
 import { taxRoutes } from "./routes/tax";
 import { dimensionRoutes } from "./routes/dimensions";
@@ -130,6 +131,7 @@ const app = new Hono<AppEnv>()
   .route("/api/tenants", approvalEngineRoutes)
   .route("/api/tenants", salesOrderRoutes)
   .route("/api/tenants", stockAdvancedRoutes)
+  .route("/api/tenants", customFieldRoutes)
   .route("/api/tenants", taxRoutes)
   .route("/api/tenants", dimensionRoutes)
   .route("/api/tenants", currencyRoutes)

@@ -468,7 +468,7 @@ tabel perbandingan **kategori** (tanpa merek), form **Jadwalkan Demo**, halaman 
 | **Payment gateway Midtrans** — checkout QRIS/VA/e-wallet aktif (**menunggu Server Key dari pemilik**; kode siap sejak 11b/13b) | T | T | – |
 | **Dunning otomatis** — rangkaian pengingat gagal bayar/berakhir (H-7/H-1/H+3) + masa tenggang sebelum read-only | T | S | – |
 | ✅ **Upgrade/downgrade paket mandiri dengan prorata** (Fase 20k; naik berlaku seketika ditagih selisih × sisa hari, turun berlaku akhir periode tanpa refund) | S | S | – |
-| **Custom field per modul** (lanjutan 13i) — definisi field kustom (faktur/kontak/produk) yang tampil di form + cetakan + ekspor | S | S | – |
+| ✅ **Custom field per modul** (lanjutan 13i) — definisi field kustom (faktur/kontak/produk) yang tampil di form + cetakan + ekspor (Fase 20j; empat tipe, hapus = arsip) | S | S | – |
 | Tulis penuh via API publik (faktur/pembayaran, dengan kurasi posting jurnal) | S | S | – |
 | Kupon/referral untuk akuisisi awal | R | S | – |
 

@@ -1,4 +1,7 @@
 import type {
+  ApiCustomFieldDef,
+  CustomFieldDefInput,
+  CustomFieldModule,
   PaidPlan,
   ProrataResult,
   ApiAccount,
@@ -709,6 +712,17 @@ export const api = {
     request<{ ok: true; doNo: string }>("POST", `/api/tenants/${tenantId}/sales-orders/${id}/deliver`, input),
   invoiceSalesOrder: (tenantId: string, id: string, input: InvoiceFromSoInput) =>
     request<{ ok: true; invoiceNo: string; total: number }>("POST", `/api/tenants/${tenantId}/sales-orders/${id}/invoice`, input),
+
+  // --- Field kustom per modul (Fase 20j) -----------------------------------------
+  customFieldDefs: (tenantId: string, module?: CustomFieldModule) =>
+    request<{ defs?: ApiCustomFieldDef[]; byModule?: Record<CustomFieldModule, ApiCustomFieldDef[]> }>(
+      "GET",
+      `/api/tenants/${tenantId}/custom-fields${module ? `?module=${module}` : ""}`,
+    ),
+  createCustomFieldDef: (tenantId: string, input: CustomFieldDefInput) =>
+    request<{ ok: true; id: string }>("POST", `/api/tenants/${tenantId}/custom-fields`, input),
+  archiveCustomFieldDef: (tenantId: string, id: string) =>
+    request<{ ok: true }>("DELETE", `/api/tenants/${tenantId}/custom-fields/${id}`),
 
   // --- Stok lanjut (titik pesan, barcode, nomor seri) ----------------------------
   reorderSuggestions: (tenantId: string) =>

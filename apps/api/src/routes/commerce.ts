@@ -37,6 +37,7 @@ import {
   PURCHASE_CFG,
   voidDoc,
 } from "../lib/commercePosting";
+import { CustomFieldError, nilaiKustomBanyak, periksaNilaiKustom, simpanNilaiKustom } from "../lib/customFields";
 import { getTenantDb } from "../lib/tenantDb";
 import { requireAuth, requireTenantRole } from "../middleware/auth";
 import { clientIp } from "./auth";
@@ -47,6 +48,22 @@ import { clientIp } from "./auth";
  * handler HTTP-nya.
  */
 
+/**
+ * Ambil `customFields` dari badan permintaan faktur (Fase 20j).
+ *
+ * Dibaca dari badan MENTAH: `createInvoiceSchema` menyaring kunci tak dikenal,
+ * jadi field kustom tak akan pernah sampai ke `parsed.data`.
+ */
+function fieldKustomFaktur(body: unknown): Record<string, string> | undefined {
+  const cf = (body as { customFields?: unknown } | null)?.customFields;
+  if (!cf || typeof cf !== "object" || Array.isArray(cf)) return undefined;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(cf as Record<string, unknown>)) {
+    out[k] = typeof v === "string" ? v : String(v ?? "");
+  }
+  return out;
+}
+
 export const commerceRoutes = new Hono<AppEnv>()
 
   // -------------------------------------------------------------------------
@@ -54,25 +71,49 @@ export const commerceRoutes = new Hono<AppEnv>()
   // -------------------------------------------------------------------------
   .get("/:tenantId/invoices", requireAuth, requireTenantRole("viewer"), async (c) => {
     const db = getTenantDb(c.env, c.get("tenant").dbRef);
-    return c.json(
-      await listDocs(db, INVOICE_CFG, {
-        q: c.req.query("q"),
-        limit: Number(c.req.query("limit")) || undefined,
-        offset: Number(c.req.query("offset")) || undefined,
-      }),
-    );
+    const hasil = await listDocs(db, INVOICE_CFG, {
+      q: c.req.query("q"),
+      limit: Number(c.req.query("limit")) || undefined,
+      offset: Number(c.req.query("offset")) || undefined,
+    });
+    // Fase 20j: nilai field kustom ikut daftar — cetakan & ekspor membacanya
+    // dari sini, satu kueri untuk seluruh halaman.
+    const peta = await nilaiKustomBanyak(db, "invoice", hasil.docs.map((d) => d.id));
+    return c.json({
+      ...hasil,
+      docs: hasil.docs.map((d) => ({ ...d, customFields: peta.get(d.id) ?? [] })),
+    });
   })
 
   .post("/:tenantId/invoices", requireAuth, requireTenantRole("admin"), async (c) => {
-    const parsed = createInvoiceSchema.safeParse(await c.req.json().catch(() => ({})));
+    const badan = await c.req.json().catch(() => ({}));
+    const parsed = createInvoiceSchema.safeParse(badan);
     if (!parsed.success) {
       return c.json({ error: "Data tidak valid", issues: parsed.error.flatten().fieldErrors }, 400);
     }
     const tenant = c.get("tenant");
     const db = getTenantDb(c.env, tenant.dbRef);
 
+    // Fase 20j: field kustom diperiksa SEBELUM faktur diposting. Memeriksanya
+    // sesudah berarti jurnal & stok sudah terlanjur bergerak untuk faktur yang
+    // ditolak — dan jurnal di repo ini tidak bisa dihapus, hanya dibalik.
+    const fieldKustom = fieldKustomFaktur(badan);
+    try {
+      await periksaNilaiKustom(db, "invoice", fieldKustom);
+    } catch (err) {
+      if (err instanceof CustomFieldError) return c.json({ error: err.message }, 400);
+      throw err;
+    }
+
     const result = await executeInvoice(db, parsed.data, c.get("user").id);
     if ("error" in result) return c.json({ error: result.error }, 400);
+
+    await simpanNilaiKustom(db, {
+      module: "invoice",
+      refType: "invoice",
+      refId: result.invoiceId,
+      values: fieldKustom,
+    });
 
     await audit(c.env, {
       action: "sales.invoice_posted",

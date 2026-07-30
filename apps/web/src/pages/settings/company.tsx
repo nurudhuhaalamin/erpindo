@@ -1,11 +1,24 @@
 // Bagian Pengaturan (dipecah dari settings.tsx pada Fase 14b — nama ekspor
 // tak berubah; settings/index.tsx merakit ulang tab).
-import { DOC_TYPES, isValidDocPattern, PLAN_LABELS, PLAN_LIMITS, renderDocNumber, type ApiDocNumbering, type DocType } from "@erpindo/shared";
+import {
+  CUSTOM_FIELD_MODULES,
+  CUSTOM_FIELD_TYPES,
+  DOC_TYPES,
+  isValidDocPattern,
+  PLAN_LABELS,
+  PLAN_LIMITS,
+  renderDocNumber,
+  type ApiDocNumbering,
+  type CustomFieldModule,
+  type CustomFieldType,
+  type DocType,
+} from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { api, formatDate } from "../../api/client";
-import { Badge, Button, Card, CardBody, CardHeader, ConfirmDialog, Input, Label, Skeleton, Spinner, useToast } from "../../components/ui";
-import { useUi } from "../../i18n/ui";
+import { Badge, Button, Card, CardBody, CardHeader, ConfirmDialog, Input, Label, Select, Skeleton, Spinner, useToast } from "../../components/ui";
+import { TIPE_KEY } from "../../components/customFields";
+import { useUi, type UiKey } from "../../i18n/ui";
 import { useWorkspace } from "../app";
 
 export function DocNumberingCard({ tenantId }: { tenantId: string }) {
@@ -322,6 +335,186 @@ export function SubscriptionCard() {
   );
 }
 
+
+/**
+ * Definisi field kustom per modul (Fase 20j).
+ *
+ * Menghapus definisi = MENGARSIPKAN, bukan menghapus. Penghapusan sungguhan
+ * ikut membuang seluruh nilainya (ON DELETE CASCADE) — data yang sudah dicatat
+ * pemilik pada ratusan dokumen lenyap karena satu klik di layar pengaturan.
+ */
+export function CustomFieldsCard({ tenantId }: { tenantId: string }) {
+  const u = useUi();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: ["custom-fields", tenantId],
+    queryFn: () => api.customFieldDefs(tenantId),
+  });
+
+  const [module, setModule] = useState<CustomFieldModule>("contact");
+  const [fieldKey, setFieldKey] = useState("");
+  const [label, setLabel] = useState("");
+  const [type, setType] = useState<CustomFieldType>("teks");
+  const [options, setOptions] = useState("");
+  const [required, setRequired] = useState(false);
+  const [hapusId, setHapusId] = useState<string | null>(null);
+
+  const MODUL_KEY: Record<CustomFieldModule, UiKey> = {
+    contact: "modulKontak",
+    product: "modulProduk",
+    invoice: "modulFaktur",
+  };
+
+  const reset = () => {
+    setFieldKey("");
+    setLabel("");
+    setOptions("");
+    setRequired(false);
+  };
+
+  const buat = useMutation({
+    mutationFn: () =>
+      api.createCustomFieldDef(tenantId, {
+        module,
+        fieldKey,
+        label,
+        type,
+        required,
+        sortOrder: 0,
+        ...(type === "pilihan"
+          ? { options: options.split(",").map((o) => o.trim()).filter(Boolean) }
+          : {}),
+      }),
+    onSuccess: () => {
+      reset();
+      queryClient.invalidateQueries({ queryKey: ["custom-fields", tenantId] });
+      toast("success", `${u("fieldKustom")}: ${label}`);
+    },
+    onError: (e: Error) => toast("error", e.message),
+  });
+
+  const arsip = useMutation({
+    mutationFn: (id: string) => api.archiveCustomFieldDef(tenantId, id),
+    onSuccess: () => {
+      setHapusId(null);
+      queryClient.invalidateQueries({ queryKey: ["custom-fields", tenantId] });
+    },
+    onError: (e: Error) => toast("error", e.message),
+  });
+
+  const byModule = query.data?.byModule;
+  const semua = byModule ? Object.values(byModule).flat() : [];
+
+  return (
+    <Card>
+      <CardHeader title={u("fieldKustom")} description={u("descFieldKustom")} />
+      <CardBody className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-[10rem_10rem_1fr_9rem_auto] sm:items-end">
+          <div>
+            <Label htmlFor="cf-module">{u("modulField")}</Label>
+            <Select
+              id="cf-module"
+              value={module}
+              onChange={(e) => setModule(e.target.value as CustomFieldModule)}
+            >
+              {CUSTOM_FIELD_MODULES.map((m) => (
+                <option key={m} value={m}>
+                  {u(MODUL_KEY[m])}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="cf-key">{u("kunciField")}</Label>
+            <Input id="cf-key" value={fieldKey} onChange={(e) => setFieldKey(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="cf-label">{u("labelField")}</Label>
+            <Input id="cf-label" value={label} onChange={(e) => setLabel(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="cf-type">{u("tipeField")}</Label>
+            <Select
+              id="cf-type"
+              value={type}
+              onChange={(e) => setType(e.target.value as CustomFieldType)}
+            >
+              {CUSTOM_FIELD_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {u(TIPE_KEY[t])}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <Button
+            onClick={() => buat.mutate()}
+            disabled={buat.isPending || !fieldKey.trim() || label.trim().length < 2}
+          >
+            {buat.isPending ? <Spinner /> : null} {u("tambahFieldKustom")}
+          </Button>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+          {type === "pilihan" ? (
+            <div>
+              <Label htmlFor="cf-options">{u("pilihanField")}</Label>
+              <Input id="cf-options" value={options} onChange={(e) => setOptions(e.target.value)} />
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500 dark:text-slate-400">{u("hintKunciField")}</p>
+          )}
+          <label className="flex h-9 items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={required}
+              onChange={(e) => setRequired(e.target.checked)}
+            />
+            {u("wajibDiisi")}
+          </label>
+        </div>
+
+        {query.isLoading ? (
+          <Spinner />
+        ) : semua.length === 0 ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">{u("belumAdaFieldKustom")}</p>
+        ) : (
+          <div data-testid="daftar-field-kustom" className="space-y-1">
+            {semua.map((d) => (
+              <div
+                key={d.id}
+                className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 p-2 text-sm dark:border-slate-800"
+              >
+                <Badge>{u(MODUL_KEY[d.module])}</Badge>
+                <span className="font-medium">{d.label}</span>
+                <span className="font-mono text-xs text-slate-400">{d.fieldKey}</span>
+                <Badge tone="neutral">{u(TIPE_KEY[d.type])}</Badge>
+                {d.required ? <Badge tone="amber">{u("wajibDiisi")}</Badge> : null}
+                <Button
+                  className="ml-auto h-8 text-xs"
+                  variant="ghost"
+                  aria-label={`${u("arsipkanField")} ${d.label}`}
+                  onClick={() => setHapusId(d.id)}
+                >
+                  ✕
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <ConfirmDialog
+          open={Boolean(hapusId)}
+          title={u("konfirmArsipField")}
+          description={u("descArsipField")}
+          confirmLabel={u("arsipkanField")}
+          busy={arsip.isPending}
+          onConfirm={() => hapusId && arsip.mutate(hapusId)}
+          onCancel={() => setHapusId(null)}
+        />
+      </CardBody>
+    </Card>
+  );
+}
 
 export function CompanySettingsCard({ tenantId, readOnly }: { tenantId: string; readOnly: boolean }) {
   const toast = useToast();

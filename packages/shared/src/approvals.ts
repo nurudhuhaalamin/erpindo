@@ -1,3 +1,4 @@
+import type { ApiCustomFieldValue } from "./customFields";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
@@ -157,6 +158,8 @@ export type ApiCommerceDoc = {
   /** Terisi bila dokumen dibatalkan (jurnal pembalik diposting, stok dikembalikan). */
   voidedAt: string | null;
   lines: ApiCommerceLine[];
+  /** Nilai field kustom faktur (Fase 20j); absen pada dokumen pembelian. */
+  customFields?: ApiCustomFieldValue[];
 };
 
 export const createReturnSchema = z.object({

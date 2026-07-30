@@ -93,6 +93,15 @@ export function InvoicePrintPage() {
           <div>
             Status: <span className="font-medium">{doc.status === "paid" ? "LUNAS" : "BELUM LUNAS"}</span>
           </div>
+          {/* Fase 20j: field kustom ikut tercetak. Kolom yang ditambahkan
+              pemilik biasanya justru yang dituntut pembeli ada di faktur
+              (nomor PO, nomor pesanan) — kalau tidak tercetak, fiturnya tak
+              menyelesaikan masalah yang membuatnya dibuat. */}
+          {(doc.customFields ?? []).map((f) => (
+            <div key={f.defId} data-testid={`cetak-kustom-${f.fieldKey}`}>
+              {f.label}: <span className="font-medium">{f.value}</span>
+            </div>
+          ))}
         </div>
       </section>
 
