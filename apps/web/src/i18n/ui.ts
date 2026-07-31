@@ -293,6 +293,20 @@ export const UI = {
   contohLimaJuta: { id: "mis. 5000000", en: "e.g. 5000000" },
   ambangRp: { id: "Ambang (Rp)", en: "Threshold (Rp)" },
   peranKolom: { id: "Peran", en: "Role" },
+  // Rasio keuangan (Fase 21b)
+  rasioKeuangan: { id: "Rasio keuangan", en: "Financial ratios" },
+  rasioLancar: { id: "Rasio lancar", en: "Current ratio" },
+  perputaranPersediaan: { id: "Perputaran persediaan", en: "Inventory turnover" },
+  descRasioLancar: {
+    id: "Aset lancar dibagi kewajiban. Di atas 1 berarti kewajiban jangka pendek tertutup.",
+    en: "Current assets divided by liabilities. Above 1 means short-term obligations are covered.",
+  },
+  descPerputaran: {
+    id: "HPP tahun berjalan dibagi persediaan akhir — bukan rata-rata, karena neraca hanya satu titik waktu.",
+    en: "Year-to-date COGS divided by ending inventory — not an average, because the balance sheet is a single point in time.",
+  },
+  kaliSetahun: { id: "kali", en: "×" },
+  rasioTakBisaDihitung: { id: "belum bisa dihitung", en: "not computable yet" },
   // Data & keamanan (Fase 20m)
   eksporCadangan: { id: "Ekspor & Cadangan", en: "Export & Backup" },
   descEksporCadangan: {

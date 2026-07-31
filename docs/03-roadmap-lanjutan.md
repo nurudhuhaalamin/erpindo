@@ -206,7 +206,7 @@ semua ekspor CSV, sebagian bisa dicetak.
 | Laporan terjadwal via email bulanan (PDF Laba Rugi + ringkasan) ke owner — 🟡 **SEBAGIAN** — rekap bulanan **dibuat otomatis Cron** & tersimpan (`routes/scheduledReports.ts`), tetapi **tidak dikirim email** dan tanpa PDF | S | S | – |
 | Narasi otomatis di bawah laporan ("beban naik terutama dari…") | S | R | ✓ |
 | ✅ **Ekspor Excel (.xlsx) berformat, bukan hanya CSV** — penulis OOXML mandiri di `api/client.ts` (Fase 7h) | S | S | – |
-| Rasio keuangan otomatis (margin kotor, lancar, perputaran persediaan) + penjelasan — 🟡 **SEBAGIAN** — baru margin kotor (`pages/reports.tsx`); rasio lancar & perputaran persediaan belum | S | R | ✓ |
+| ✅ **Rasio keuangan otomatis** (margin kotor, lancar, perputaran persediaan) + penjelasan — Fase 21b, `hitungRasioKeuangan()` di `packages/shared/src/reporting.ts`; perputaran memakai persediaan akhir dan menyebutnya apa adanya | S | R | ✓ |
 
 ## 9. Pajak
 
@@ -421,7 +421,7 @@ kuota 50 permintaan/hari/perusahaan; degradasi anggun bila AI tak tersedia. Prin
 
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
-| 🟡 **Ringkasan bulanan otomatis** — **SEBAGIAN**: rekap kinerja **dibuat otomatis Cron tiap awal bulan** dan tersimpan sebagai snapshot (`routes/scheduledReports.ts` → tabel `report_snapshots`), **tetapi tidak dikirim email ke pemilik**. Koreksi Fase 21a: baris ini sempat saya centang penuh di Fase 20l atas dasar keberadaan `runMonthlyRecap`, tanpa memeriksa bahwa fungsi itu tidak memanggil mailer sama sekali | T | S | ✓ |
+| ✅ **Ringkasan bulanan otomatis** — rekap kinerja dibuat Cron tiap awal bulan **dan dikirim email ke pemilik** (Fase 21b; `teksRekapBulanan()` + blok cron 3b). Bulan tanpa transaksi dijelaskan, bukan dilaporkan "Rp 0" telanjang | T | S | ✓ |
 | **Deteksi anomali jurnal** (lihat §6) sebagai laporan mingguan Asisten | S | S | ✓ |
 | Tanya-data ("berapa penjualan minggu lalu?") — AI memilih dari daftar query aman yang sudah ditentukan (bukan SQL bebas), hasil dari database | T | T | ✓ |
 | Draf dokumen lain dari bahasa alami: penawaran, produk baru, kontak — pola sama dengan draf jurnal | S | S | ✓ |

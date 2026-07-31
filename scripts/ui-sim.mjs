@@ -1105,6 +1105,35 @@ try {
     adaNeracaEn && tanpaNeracaId,
     `→ lencana=${adaNeracaEn} tanpaID=${tanpaNeracaId}`,
   );
+  // F3a — Fase 21b: kartu Rasio keuangan (rasio lancar & perputaran persediaan).
+  // Menutup sisa baris roadmap "rasio keuangan otomatis".
+  const adaRasioEn =
+    nrEn.includes("Financial ratios") &&
+    nrEn.includes("Current ratio") &&
+    nrEn.includes("Inventory turnover");
+  const tanpaRasioId =
+    !nrEn.includes("Rasio keuangan") && !nrEn.includes("Perputaran persediaan");
+  check(
+    "F3a tombol Ekspor CSV ikut EN (label bawaannya dulu Indonesia harfiah)",
+    nrEn.includes("Export CSV") && !nrEn.includes("Ekspor CSV"),
+    `→ ${nrEn.includes("Export CSV")}`,
+  );
+  check(
+    "F3a kartu Rasio keuangan ikut EN: judul + kedua rasio, tanpa teks Indonesia",
+    adaRasioEn && tanpaRasioId,
+    `→ EN=${adaRasioEn} tanpaID=${tanpaRasioId}`,
+  );
+  // Angkanya harus benar-benar terhitung, bukan sekadar kartunya ter-render:
+  // perusahaan demo punya persediaan & kewajiban, jadi keduanya wajib berisi
+  // angka — bukan "not computable yet".
+  const isiRasio = await page.locator('[data-testid="rasio-lancar"]').innerText();
+  const isiPerputaran = await page.locator('[data-testid="rasio-perputaran"]').innerText();
+  check(
+    "F3a kedua rasio benar-benar terhitung dari data (bukan 'belum bisa dihitung')",
+    /\d/.test(isiRasio) && /\d/.test(isiPerputaran) &&
+      !isiRasio.includes("not computable") && !isiPerputaran.includes("not computable"),
+    `→ lancar="${isiRasio.replace(/\n/g, " ").slice(0, 60)}" perputaran="${isiPerputaran.replace(/\n/g, " ").slice(0, 60)}"`,
+  );
   await gotoRoute("/app/keuangan/neraca-saldo", 700);
   const tbEn = await page.innerText("body");
   check(

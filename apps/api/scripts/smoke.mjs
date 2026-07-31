@@ -57,6 +57,10 @@ const child = spawn(
     // SUDAH lewat tenggang. Perubahan disengaja, bukan pelonggaran: yang
     // diuji tetap perilaku baca-saja yang sama persis.
     "TRIAL_DAYS_OVERRIDE:-4",
+    // Fase 21b: paksa blok tugas bulanan berjalan supaya email rekap bulanan
+    // bisa diuji — tanpa ini jalurnya hanya hidup tanggal 1–3 tiap bulan.
+    "--var",
+    "MONTHLY_JOBS_OVERRIDE:3",
     // Uji jalur akun comped (Fase 4a): email Dewi mendapat tenant aktif permanen.
     "--var",
     "COMPED_EMAILS:dewi@majujaya.co.id",
@@ -4436,6 +4440,19 @@ try {
   await new Promise((r) => setTimeout(r, 400));
   const trialMail = findInLogs(/subject="Masa trial .* telah berakhir"/);
   check("email pemberitahuan trial berakhir terkirim ke Owner", Boolean(trialMail));
+
+  // --- Fase 21b: rekap bulanan DIKIRIM, bukan hanya disimpan ----------------
+  // Sebelum fase ini rekap tersusun rapi tiap awal bulan lalu mengendap di
+  // database; pemilik tak pernah tahu ia ada, sementara roadmap terlanjur
+  // mengklaim "dikirim email tiap awal bulan" (koreksi Fase 21a).
+  const rekapMail = findInLogs(/subject="Rekap penjualan \d{4}-\d{2} — .*"/);
+  check("email rekap bulanan terkirim ke Owner", Boolean(rekapMail), `→ ${rekapMail?.[0] ?? "tidak ada di log"}`);
+  const snapAfterCron = await owner("GET", `/api/tenants/${tenantId}/report-snapshots`);
+  check(
+    "rekap juga tersimpan sebagai snapshot (kirim TIDAK menggantikan simpan)",
+    snapAfterCron.status === 200 && (snapAfterCron.json?.snapshots?.length ?? 0) > 0,
+    `→ ${snapAfterCron.json?.snapshots?.length} snapshot`,
+  );
 
   const readWhilePastDue = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
   check("mode baca-saja: MEMBACA laporan tetap boleh (200)", readWhilePastDue.status === 200);

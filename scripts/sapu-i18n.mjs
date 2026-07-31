@@ -333,7 +333,11 @@ for (const file of process.argv.slice(2)) {
    * memang berisi teks tampilan, titik. Yang sah hanyalah bentuk `={u("…")}`,
    * dan bentuk itu bukan literal sehingga tidak tertangkap pola ini.
    */
-  const ATRIBUT_TAMPILAN = /\b(label|title|confirmLabel|cancelLabel|placeholder|aria-label)="([^"]{2,60})"/g;
+  // `\s*=\s*` (bukan `=` polos) sejak Fase 21b: bentuk NILAI BAWAAN PARAMETER
+  // — `label = "Ekspor CSV"` di tanda tangan komponen — luput dari pola lama
+  // yang menuntut `=` tanpa spasi. Satu default semacam itu membuat SEBELAS
+  // tombol ekspor tetap berbahasa Indonesia di mode Inggris tanpa terlihat.
+  const ATRIBUT_TAMPILAN = /\b(label|title|confirmLabel|cancelLabel|placeholder|aria-label)\s*=\s*"([^"]{2,60})"/g;
   for (const m of src.matchAll(ATRIBUT_TAMPILAN)) {
     const teks = m[2];
     // Buang yang jelas bukan kalimat tampilan: kode/slug (huruf kecil berstrip),

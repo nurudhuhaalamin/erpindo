@@ -27,6 +27,12 @@ export type Env = {
 
   /** Hanya untuk pengujian: override lama trial (hari). */
   TRIAL_DAYS_OVERRIDE?: string;
+  /**
+   * Paksa blok tugas bulanan (penyusutan, rekap, backup) berjalan di hari apa
+   * pun. Hanya untuk suite pengujian: tanpa ini jalur email rekap bulanan cuma
+   * bisa diuji pada tanggal 1–3 tiap bulan, yang berarti hampir tak pernah.
+   */
+  MONTHLY_JOBS_OVERRIDE?: string;
 
   /**
    * Daftar email (dipisah koma, case-insensitive) yang mendapat tenant
