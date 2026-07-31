@@ -61,6 +61,10 @@ async function listQuotationLines(db: SqlExecutor, quotationIds: string[]): Prom
       unitPrice: l.unit_price,
       discountPct: 0, // penawaran belum mendukung diskon per baris
       amount: l.amount,
+      // Penawaran selalu dalam satuan dasar: barisnya tidak menyimpan satuan,
+      // jadi konversinya baru bisa dipilih saat penawaran jadi faktur.
+      uomFactor: 1,
+      uomName: null,
     });
     byQuote.set(l.quotation_id, list);
   }

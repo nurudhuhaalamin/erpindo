@@ -9,6 +9,14 @@ export const TAX_RATES = [0, 11, 12] as const;
 
 const commerceAmountSchema = z.number().int().min(0).max(1_000_000_000_000);
 
+/**
+ * Satuan yang dipakai saat mengisi baris transaksi (Fase 21c).
+ * `dasar` = satuan stok produk (mis. pcs); `besar` = satuan kemasan
+ * (`uomSecondary`, mis. dus) dengan `uomFactor` sebagai konversinya.
+ */
+export const SATUAN_BARIS = ["dasar", "besar"] as const;
+export type SatuanBaris = (typeof SATUAN_BARIS)[number];
+
 export const commerceLineSchema = z.object({
   productId: z.string().min(1, "Produk wajib dipilih"),
   description: z.string().trim().max(200).optional(),
@@ -39,6 +47,12 @@ export const commerceLineSchema = z.object({
       }),
     )
     .optional(),
+  /**
+   * Satuan pengisian baris (Fase 21c). Kosong/`dasar` = perilaku lama persis.
+   * `besar` berarti `qty`, `unitPrice`, dan `picks[].qty` semuanya dinyatakan
+   * dalam satuan kemasan produk — konversinya dilakukan server, bukan layar.
+   */
+  uom: z.enum(SATUAN_BARIS).optional(),
 });
 
 export const createInvoiceSchema = z.object({
@@ -190,6 +204,70 @@ export type ApiCurrency = { code: string; name: string; rate: number; isBase: bo
 /** Skema pembelian identik dengan penjualan (pihak = pemasok). */
 export const createPurchaseSchema = createInvoiceSchema;
 export type CreatePurchaseInput = z.infer<typeof createPurchaseSchema>;
+
+// ---------------------------------------------------------------------------
+// Satuan ganda pada transaksi (Fase 21c)
+// ---------------------------------------------------------------------------
+
+export type HasilKonversiSatuan = {
+  /** Qty dalam satuan DASAR — yang bergerak di stok dan tersimpan di baris. */
+  qtyDasar: number;
+  /** Harga/biaya per satuan DASAR, dibulatkan ke rupiah bulat. */
+  hargaSatuanDasar: number;
+  /**
+   * Selisih rupiah antara nilai baris dan `qtyDasar × hargaSatuanDasar` akibat
+   * pembulatan. Dikembalikan supaya bisa diuji dan dilihat, bukan disembunyikan:
+   * harga per dus yang tidak habis dibagi isinya SELALU menyisakan sisa, dan
+   * lebih baik sisanya diketahui daripada muncul diam-diam di nilai persediaan.
+   */
+  sisaPembulatan: number;
+};
+
+/**
+ * Konversi satu baris transaksi dari satuan input ke satuan dasar.
+ *
+ * `hargaSatuan` adalah harga per satuan yang DIINPUT dan SUDAH dikurangi
+ * diskon, dalam IDR. Pada `faktor` efektif 1 seluruh keluarannya identik dengan
+ * perilaku sebelum Fase 21c — jadi transaksi satuan tunggal tidak berubah sama
+ * sekali.
+ */
+export function konversiSatuanBaris(input: {
+  qty: number;
+  satuan?: SatuanBaris;
+  faktor: number;
+  hargaSatuan: number;
+  nilaiBaris: number;
+}): HasilKonversiSatuan {
+  const faktor = input.satuan === "besar" ? Math.max(1, Math.trunc(input.faktor)) : 1;
+  const qtyDasar = input.qty * faktor;
+  const hargaSatuanDasar = Math.round(input.hargaSatuan / faktor);
+  return {
+    qtyDasar,
+    hargaSatuanDasar,
+    sisaPembulatan: input.nilaiBaris - qtyDasar * hargaSatuanDasar,
+  };
+}
+
+/**
+ * Tolak baris bersatuan besar pada produk yang tidak punya satuan besar.
+ *
+ * Tanpa pemeriksaan ini "2 dus" pada produk tanpa konversi akan diam-diam
+ * diperlakukan sebagai 2 pcs: totalnya tetap terlihat wajar, tetapi stok dan
+ * HPP-nya keliru berlipat-lipat. Mengembalikan pesan kesalahan, atau `null`
+ * bila barisnya sah.
+ */
+export function periksaSatuanBaris(input: {
+  satuan?: SatuanBaris;
+  namaProduk: string;
+  uomSecondary: string | null;
+  faktor: number;
+}): string | null {
+  if (input.satuan !== "besar") return null;
+  if (!input.uomSecondary?.trim() || input.faktor <= 1) {
+    return `Produk "${input.namaProduk}" belum punya satuan besar — atur satuan & isi per satuan di Master Data sebelum memakainya di transaksi.`;
+  }
+  return null;
+}
 
 // ---------------------------------------------------------------------------
 // Procurement / procure-to-pay (Fase 6d): PR → PO → penerimaan (GRN) → faktur

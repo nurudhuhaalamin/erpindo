@@ -4114,6 +4114,133 @@ try {
     `→ debit ${tbAfterPick.json?.totalDebit} vs kredit ${tbAfterPick.json?.totalCredit}`,
   );
 
+  // --- Satuan ganda dipakai saat transaksi (Fase 21c) -------------------------
+  console.log("13y3. Satuan ganda dipakai saat transaksi (Fase 21c)");
+  // Kolom `uom_secondary`/`uom_factor` sudah ada di master produk sejak Fase 7c,
+  // tetapi konversinya tak pernah dipakai saat transaksi. Yang diuji di sini
+  // adalah konversinya SAMPAI ke stok & buku besar — bukan sekadar medannya
+  // diterima, karena baris "2 dus" yang diam-diam jadi 2 pcs menghasilkan
+  // dokumen yang setiap angkanya terlihat wajar.
+  const dusProd = await owner("POST", `/api/tenants/${tenantId}/products`, {
+    sku: "DUS-21C", name: "Sirup Markisa 600ml", unit: "pcs",
+    sellPrice: 25_000, buyPrice: 15_000, uomSecondary: "dus", uomFactor: 20,
+  });
+  check("buat produk bersatuan besar (1 dus = 20 pcs) 201", dusProd.status === 201, `→ ${dusProd.status}`);
+
+  // Beli 5 dus @ Rp 300.000 → 100 pcs @ Rp 15.000.
+  const dusBuy = await owner("POST", `/api/tenants/${tenantId}/purchases`, {
+    contactId: supplier.json.id, invoiceDate: "2027-07-02", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: dusProd.json.id, qty: 5, unitPrice: 300_000, uom: "besar" }],
+  });
+  check(
+    "beli 5 dus diposting senilai 1.500.000 (5 × harga per DUS, bukan per pcs)",
+    dusBuy.status === 201 && dusBuy.json?.total === 1_500_000,
+    `→ ${dusBuy.status} total ${dusBuy.json?.total}`,
+  );
+
+  const stokDus = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  const lvlDus = stokDus.json?.levels?.find((l) => l.sku === "DUS-21C" && l.warehouseId === whUtama.id);
+  check("stok bertambah 100 pcs (5 dus × 20), bukan 5", lvlDus?.qty === 100, `→ ${lvlDus?.qty}`);
+  check("biaya rata-rata = harga per dus ÷ isi = 15.000/pcs", lvlDus?.avgCost === 15_000, `→ ${lvlDus?.avgCost}`);
+
+  // Baris dokumen menyimpan qty dalam satuan DASAR + jejak satuan inputnya,
+  // supaya SUM(qty) di laporan & validasi retur tidak pernah campur dus & pcs.
+  const dusPurchases = await owner("GET", `/api/tenants/${tenantId}/purchases?limit=50`);
+  const dusDoc = dusPurchases.json?.docs?.find((d) => d.docNo === dusBuy.json.docNo);
+  check(
+    "baris pembelian tersimpan 100 pcs + jejak satuan (uomFactor 20, uomName 'dus')",
+    dusDoc?.lines?.[0]?.qty === 100 && dusDoc?.lines?.[0]?.uomFactor === 20 && dusDoc?.lines?.[0]?.uomName === "dus",
+    `→ ${JSON.stringify(dusDoc?.lines?.[0])}`,
+  );
+
+  // Jual 1 dus → 20 pcs keluar, HPP 20 × 15.000.
+  const hppBeforeDus = await owner("GET", `/api/tenants/${tenantId}/ledger/${hppAcc.id}`);
+  const dusSell = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id, invoiceDate: "2027-07-03", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: dusProd.json.id, qty: 1, unitPrice: 500_000, uom: "besar" }],
+  });
+  check("jual 1 dus diposting senilai 500.000", dusSell.status === 201 && dusSell.json?.total === 500_000, `→ ${JSON.stringify(dusSell.json)}`);
+  const hppAfterDus = await owner("GET", `/api/tenants/${tenantId}/ledger/${hppAcc.id}`);
+  check(
+    "HPP penjualan satuan besar = 20 × 15.000 = 300.000",
+    hppAfterDus.json?.balance - hppBeforeDus.json?.balance === 300_000,
+    `→ selisih ${hppAfterDus.json?.balance - hppBeforeDus.json?.balance}`,
+  );
+  const stokDus2 = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  const lvlDus2 = stokDus2.json?.levels?.find((l) => l.sku === "DUS-21C" && l.warehouseId === whUtama.id);
+  check("stok berkurang 20 pcs (1 dus), tersisa 80", lvlDus2?.qty === 80, `→ ${lvlDus2?.qty}`);
+
+  // Penjaga terpenting: satuan besar pada produk yang TIDAK punya satuan besar.
+  // Tanpa penolakan ini "2 dus" jadi 2 pcs tanpa satu angka pun terlihat aneh.
+  const dusTanpaUom = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id, invoiceDate: "2027-07-03", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: pickProd.json.id, qty: 2, unitPrice: 5_000, uom: "besar" }],
+  });
+  check(
+    "satuan besar pada produk TANPA satuan besar DITOLAK 400 dengan pesan jelas",
+    dusTanpaUom.status === 400 && /satuan besar/.test(dusTanpaUom.json?.error ?? ""),
+    `→ ${dusTanpaUom.status} ${JSON.stringify(dusTanpaUom.json?.error)}`,
+  );
+
+  // Harga per dus yang tidak habis dibagi isinya: sisanya harus kecil & terkendali,
+  // bukan menggeser biaya per pcs ke angka yang keliru besar.
+  const dus24 = await owner("POST", `/api/tenants/${tenantId}/products`, {
+    sku: "DUS24-21C", name: "Teh Kotak 200ml", unit: "pcs",
+    sellPrice: 5_000, buyPrice: 3_000, uomSecondary: "dus", uomFactor: 24,
+  });
+  await owner("POST", `/api/tenants/${tenantId}/purchases`, {
+    contactId: supplier.json.id, invoiceDate: "2027-07-04", taxRate: 0, warehouseId: whUtama.id,
+    lines: [{ productId: dus24.json.id, qty: 1, unitPrice: 1_000_000, uom: "besar" }],
+  });
+  const stokDus24 = await owner("GET", `/api/tenants/${tenantId}/stock`);
+  const lvlDus24 = stokDus24.json?.levels?.find((l) => l.sku === "DUS24-21C");
+  check(
+    "harga tak habis dibagi: 1.000.000 ÷ 24 → 24 pcs @ 41.667 (sisa pembulatan 8 rupiah)",
+    lvlDus24?.qty === 24 && lvlDus24?.avgCost === 41_667,
+    `→ qty ${lvlDus24?.qty} avgCost ${lvlDus24?.avgCost}`,
+  );
+
+  const tbAfterDus = await owner("GET", `/api/tenants/${tenantId}/trial-balance`);
+  check(
+    "neraca saldo TETAP seimbang setelah transaksi bersatuan ganda",
+    tbAfterDus.json?.balanced === true,
+    `→ debit ${tbAfterDus.json?.totalDebit} vs kredit ${tbAfterDus.json?.totalCredit}`,
+  );
+
+  // e-Faktur: `qty` tersimpan dalam satuan dasar sedangkan `unit_price` per dus,
+  // jadi ekspor XML harus mengembalikan qty ke satuan input. Kalau tidak,
+  // TaxBase-nya 20× lipat dan XML-nya tidak akan pernah cocok dengan fakturnya.
+  const dusPpn = await owner("POST", `/api/tenants/${tenantId}/invoices`, {
+    contactId: customer.json.id, invoiceDate: "2027-07-05", taxRate: 11, warehouseId: whUtama.id,
+    lines: [{ productId: dusProd.json.id, qty: 2, unitPrice: 600_000, uom: "besar" }],
+  });
+  check(
+    "faktur PPN bersatuan dus diposting (1.200.000 + PPN 132.000 = 1.332.000)",
+    dusPpn.status === 201 && dusPpn.json?.total === 1_332_000,
+    `→ ${JSON.stringify(dusPpn.json)}`,
+  );
+  const dusXmlRes = await owner("GET", `/api/tenants/${tenantId}/reports/efaktur-xml?from=2027-07-01&to=2027-07-31`);
+  const dusXml = dusXmlRes.text ?? "";
+  const dusXmlDoc = dusXml.split("<TaxInvoice>").find((s) => s.includes(`<RefDesc>${dusPpn.json.docNo}</RefDesc>`));
+  check(
+    "XML e-Faktur memakai satuan INPUT: Qty 2 (bukan 40), Price 600.000, TaxBase 1.200.000",
+    dusXmlDoc?.includes("<Qty>2</Qty>") === true &&
+      dusXmlDoc?.includes("<Price>600000.00</Price>") === true &&
+      dusXmlDoc?.includes("<TaxBase>1200000.00</TaxBase>") === true,
+    `→ ${dusXmlDoc?.match(/<Qty>[^<]*<\/Qty>|<TaxBase>[^<]*<\/TaxBase>/g)?.join(" ")}`,
+  );
+  // Jaminan yang sebenarnya dituntut DJP: jumlah seluruh TaxBase pada satu
+  // faktur = subtotal fakturnya. Inilah alasan `unit_price` TIDAK ikut dibagi.
+  const dusTaxBases = [...(dusXmlDoc ?? "").matchAll(/<TaxBase>([\d.]+)<\/TaxBase>/g)].reduce(
+    (s, m) => s + Number(m[1]),
+    0,
+  );
+  check(
+    "jumlah TaxBase XML = subtotal faktur (1.200.000) — tanpa selisih pembulatan",
+    dusTaxBases === 1_200_000,
+    `→ ${dusTaxBases}`,
+  );
+
   console.log("13z. Deteksi anomali beban (Fase 15c)");
   const accsAnom = await owner("GET", `/api/tenants/${tenantId}/accounts`);
   const sewaAcc = accsAnom.json?.accounts?.find((a) => a.code === "5-3000");

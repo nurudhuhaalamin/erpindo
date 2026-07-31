@@ -1,4 +1,5 @@
-import type { ApiCommerceDoc, ApiCommerceLine, CreateInvoiceInput, CreatePurchaseInput } from "@erpindo/shared";
+import type { ApiCommerceDoc, ApiCommerceLine, CreateInvoiceInput, CreatePurchaseInput, SatuanBaris } from "@erpindo/shared";
+import { konversiSatuanBaris, periksaSatuanBaris } from "@erpindo/shared";
 import type { SqlExecutor } from "@erpindo/db";
 import {
   accountIdByCode,
@@ -94,7 +95,8 @@ export async function listDocs(
   const { results: lines } = await db
     .prepare(
       `SELECT l.id, l.${cfg.fk} AS doc_id, l.product_id, p.name AS product_name,
-              l.description, l.qty, l.unit_price, l.discount_pct, l.amount
+              l.description, l.qty, l.unit_price, l.discount_pct, l.amount,
+              l.uom_factor, l.uom_name
        FROM ${cfg.lineTable} l JOIN products p ON p.id = l.product_id
        WHERE l.${cfg.fk} IN (${docs.map(() => "?").join(",")})`,
     )
@@ -109,6 +111,8 @@ export async function listDocs(
       unit_price: number;
       discount_pct: number;
       amount: number;
+      uom_factor: number;
+      uom_name: string | null;
     }>();
 
   const byDoc = new Map<string, ApiCommerceLine[]>();
@@ -123,6 +127,8 @@ export async function listDocs(
       unitPrice: l.unit_price,
       discountPct: l.discount_pct,
       amount: l.amount,
+      uomFactor: l.uom_factor || 1,
+      uomName: l.uom_name,
     });
     byDoc.set(l.doc_id, list);
   }
@@ -227,6 +233,48 @@ export async function checkPeriodOpen(db: SqlExecutor, date: string): Promise<st
   return null;
 }
 
+/** Konversi satuan besar yang berlaku untuk satu baris (Fase 21c). */
+export type SatuanTerpakai = { faktor: number; nama: string };
+
+/**
+ * Muat konversi satuan besar untuk baris yang memintanya, sekaligus menolak
+ * permintaan pada produk yang tidak punya satuan besar.
+ *
+ * Pemeriksaan ini ada di jalur posting — bukan di route — supaya SELURUH
+ * pemanggil (form, API publik, konversi penawaran, impor marketplace) tunduk
+ * pada aturan yang sama. Baris tanpa `uom: "besar"` tidak menyentuh database
+ * sama sekali, jadi jalur lama tetap satu query lebih sedikit.
+ */
+export async function resolveUom(
+  db: SqlExecutor,
+  lines: { productId: string; uom?: SatuanBaris }[],
+): Promise<{ satuan: Map<string, SatuanTerpakai> } | { error: string }> {
+  const satuan = new Map<string, SatuanTerpakai>();
+  const ids = [...new Set(lines.filter((l) => l.uom === "besar").map((l) => l.productId))];
+  if (ids.length === 0) return { satuan };
+
+  const { results } = await db
+    .prepare(
+      `SELECT id, name, uom_secondary, uom_factor FROM products WHERE id IN (${ids.map(() => "?").join(",")})`,
+    )
+    .bind(...ids)
+    .all<{ id: string; name: string; uom_secondary: string | null; uom_factor: number }>();
+  const byId = new Map(results.map((p) => [p.id, p]));
+
+  for (const id of ids) {
+    const p = byId.get(id);
+    const pesan = periksaSatuanBaris({
+      satuan: "besar",
+      namaProduk: p?.name ?? "ini",
+      uomSecondary: p?.uom_secondary ?? null,
+      faktor: p?.uom_factor ?? 1,
+    });
+    if (pesan) return { error: pesan };
+    satuan.set(id, { faktor: p!.uom_factor, nama: p!.uom_secondary!.trim() });
+  }
+  return { satuan };
+}
+
 /** Ambang persetujuan pembelian dari settings tenant (0 = nonaktif). */
 export async function approvalThreshold(db: SqlExecutor): Promise<number> {
   const { results } = await db
@@ -267,12 +315,25 @@ export async function executePurchase(
   const cur = await resolveCurrency(db, input.currency, input.exchangeRate);
   if ("error" in cur) return { error: cur.error };
 
+  const uom = await resolveUom(db, input.lines);
+  if ("error" in uom) return { error: uom.error };
+
   // Nilai baris = qty × harga × (1 − diskon/100), dibulatkan per baris; PPN &
-  // jurnal mengikuti nilai setelah diskon.
+  // jurnal mengikuti nilai setelah diskon. Qty & harga di sini masih dalam
+  // satuan yang diinput; konversi ke satuan dasar hanya menyentuh stok.
   const idrLines = input.lines.map((l) => {
     const disc = l.discountPct ?? 0;
     const unitIdr = Math.round(l.unitPrice * cur.rate);
-    return { ...l, disc, unitIdr, amountIdr: Math.round(l.qty * unitIdr * (1 - disc / 100)) };
+    const amountIdr = Math.round(l.qty * unitIdr * (1 - disc / 100));
+    const sat = l.uom === "besar" ? uom.satuan.get(l.productId) : undefined;
+    const konv = konversiSatuanBaris({
+      qty: l.qty,
+      satuan: l.uom,
+      faktor: sat?.faktor ?? 1,
+      hargaSatuan: Math.round(unitIdr * (1 - disc / 100)),
+      nilaiBaris: amountIdr,
+    });
+    return { ...l, disc, unitIdr, amountIdr, konv, uomFactor: sat?.faktor ?? 1, uomName: sat?.nama ?? null };
   });
   const foreignSubtotal = input.lines.reduce(
     (s, l) => s + Math.round(l.qty * l.unitPrice * (1 - (l.discountPct ?? 0) / 100)),
@@ -331,26 +392,30 @@ export async function executePurchase(
   for (const line of idrLines) {
     await db
       .prepare(
-        `INSERT INTO purchase_lines (id, purchase_id, product_id, description, qty, unit_price, discount_pct, amount)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO purchase_lines (id, purchase_id, product_id, description, qty, unit_price, discount_pct, amount, uom_factor, uom_name)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         crypto.randomUUID(),
         purchaseId,
         line.productId,
         line.description ?? null,
-        line.qty,
+        line.konv.qtyDasar,
         line.unitPrice,
         line.disc,
         Math.round(line.qty * line.unitPrice * (1 - line.disc / 100)),
+        line.uomFactor,
+        line.uomName,
       )
       .run();
-    // Biaya persediaan = harga satuan IDR setelah diskon (senilai jurnal Persediaan).
+    // Biaya persediaan = harga satuan DASAR IDR setelah diskon. Pada satuan
+    // besar, harga per dus dibagi isinya — nilainya senilai jurnal Persediaan
+    // sampai batas pembulatan rupiah (lihat `konversiSatuanBaris`).
     await stockIn(db, {
       productId: line.productId,
       warehouseId: input.warehouseId,
-      qty: line.qty,
-      unitCost: Math.round(line.unitIdr * (1 - line.disc / 100)),
+      qty: line.konv.qtyDasar,
+      unitCost: line.konv.hargaSatuanDasar,
       refType: "purchase",
       refId: purchaseId,
       lot: line.expiryDate || line.lotNo ? { lotNo: line.lotNo ?? null, expiryDate: line.expiryDate ?? null } : undefined,
@@ -378,12 +443,18 @@ export async function executeInvoice(
   const cur = await resolveCurrency(db, input.currency, input.exchangeRate);
   if ("error" in cur) return { error: cur.error };
 
+  const uom = await resolveUom(db, input.lines);
+  if ("error" in uom) return { error: uom.error };
+
   // Nilai baris dikonversi ke IDR pada kurs posting (buku selalu IDR), setelah
   // diskon per baris. foreign_total = total dalam mata uang faktur.
   const idrLines = input.lines.map((l) => {
     const disc = l.discountPct ?? 0;
     const unitIdr = Math.round(l.unitPrice * cur.rate);
-    return { ...l, disc, unitIdr, amountIdr: Math.round(l.qty * unitIdr * (1 - disc / 100)) };
+    const amountIdr = Math.round(l.qty * unitIdr * (1 - disc / 100));
+    const sat = l.uom === "besar" ? uom.satuan.get(l.productId) : undefined;
+    const faktor = sat?.faktor ?? 1;
+    return { ...l, disc, unitIdr, amountIdr, faktor, qtyDasar: l.qty * faktor, uomName: sat?.nama ?? null };
   });
   const foreignSubtotal = input.lines.reduce(
     (s, l) => s + Math.round(l.qty * l.unitPrice * (1 - (l.discountPct ?? 0) / 100)),
@@ -410,22 +481,27 @@ export async function executeInvoice(
   let totalCogs = 0;
   if (!opts?.skipStock) {
     try {
-      for (const line of input.lines) {
+      for (const line of idrLines) {
         if (serviceIds.has(line.productId)) continue;
         // Fase 20g: bila baris menyebut `picks`, stok diambil dari beberapa
         // gudang sekaligus dan HPP-nya dijumlahkan per sumber. Tanpa `picks`,
         // perilakunya persis seperti sebelumnya.
+        //
+        // Fase 21c: qty picking dinyatakan dalam satuan yang sama dengan
+        // barisnya (itulah yang dijamin `refine` di skema), jadi konversinya
+        // ikut dikalikan di sini — kalau tidak, jumlah picking dan qty baris
+        // akan cocok di layar tetapi stok yang keluar tinggal 1/faktor-nya.
         totalCogs += line.picks?.length
           ? await stockOutMulti(db, {
               productId: line.productId,
-              picks: line.picks,
+              picks: line.picks.map((p) => ({ warehouseId: p.warehouseId, qty: p.qty * line.faktor })),
               refType: "sale",
               refId: invoiceId,
             })
           : await stockOut(db, {
               productId: line.productId,
               warehouseId: input.warehouseId,
-              qty: line.qty,
+              qty: line.qtyDasar,
               refType: "sale",
               refId: invoiceId,
             });
@@ -490,18 +566,20 @@ export async function executeInvoice(
   for (const line of idrLines) {
     await db
       .prepare(
-        `INSERT INTO invoice_lines (id, invoice_id, product_id, description, qty, unit_price, discount_pct, amount)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO invoice_lines (id, invoice_id, product_id, description, qty, unit_price, discount_pct, amount, uom_factor, uom_name)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         crypto.randomUUID(),
         invoiceId,
         line.productId,
         line.description ?? null,
-        line.qty,
+        line.qtyDasar,
         line.unitIdr,
         line.disc,
         line.amountIdr,
+        line.faktor,
+        line.uomName,
       )
       .run();
   }

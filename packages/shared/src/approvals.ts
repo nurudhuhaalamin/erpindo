@@ -130,11 +130,17 @@ export type ApiCommerceLine = {
   productId: string;
   productName: string;
   description: string | null;
+  /** SELALU dalam satuan dasar produk (Fase 21c). */
   qty: number;
+  /** Harga per satuan yang DIINPUT — per `uomName` bila `uomFactor` > 1. */
   unitPrice: number;
   /** Diskon per baris (persen, 0–100). */
   discountPct: number;
   amount: number;
+  /** Isi satuan besar saat baris dibuat; 1 = baris bersatuan dasar (Fase 21c). */
+  uomFactor: number;
+  /** Nama satuan besar saat baris dibuat (mis. "dus"); null bila satuan dasar. */
+  uomName: string | null;
 };
 
 export type ApiCommerceDoc = {

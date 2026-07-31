@@ -1,4 +1,4 @@
-import type { ApiCommerceDoc } from "@erpindo/shared";
+import type { ApiCommerceDoc, SatuanBaris } from "@erpindo/shared";
 import { useLang, pick } from "../i18n";
 import { useUi } from "../i18n/ui";
 import { useHeading } from "../i18n/pageHeadings";
@@ -70,8 +70,18 @@ type DraftLine = {
   /**
    * Picking multi-gudang (Fase 20g). Kosong = stok diambil seluruhnya dari
    * gudang faktur, persis seperti sebelum fase ini.
+   *
+   * Qty di sini memakai satuan yang sama dengan barisnya (lihat `uom`).
    */
   picks: DraftPick[];
+  /** Satuan pengisian baris (Fase 21c). */
+  uom: SatuanBaris;
+  /** Nama satuan dasar produk (mis. "pcs") — hanya untuk label. */
+  unitDasar: string;
+  /** Nama satuan besar produk (mis. "dus"); kosong = produk tanpa satuan besar. */
+  uomSecondary: string;
+  /** Isi satuan besar (1 dus = `uomFactor` satuan dasar). */
+  uomFactor: number;
 };
 const emptyLine = (): DraftLine => ({
   productId: "",
@@ -83,7 +93,16 @@ const emptyLine = (): DraftLine => ({
   lotNo: "",
   expiryDate: "",
   picks: [],
+  uom: "dasar",
+  unitDasar: "",
+  uomSecondary: "",
+  uomFactor: 1,
 });
+
+/** Qty baris dinyatakan dalam satuan dasar — meniru konversi backend. */
+function qtyDasar(l: DraftLine): number {
+  return (Number(l.qty) || 0) * (l.uom === "besar" ? l.uomFactor : 1);
+}
 
 /** Total qty yang sudah dialokasikan ke gudang-gudang pada satu baris. */
 function totalPicked(l: DraftLine): number {
@@ -109,9 +128,12 @@ type ProductRow = {
   id: string;
   sku: string;
   name: string;
+  unit: string;
   sell_price: number;
   buy_price: number;
   track_expiry: number;
+  uom_secondary: string | null;
+  uom_factor: number;
 };
 type ContactRow = { id: string; name: string; type: string };
 type WarehouseRow = { id: string; name: string };
@@ -263,11 +285,36 @@ export function CommercePage({ mode }: { mode: Mode }) {
 
   function pickProduct(i: number, opt: { value: string; label: string }) {
     const product = productCache.current.get(opt.value);
+    const faktor = Number(product?.uom_factor) || 1;
     setLine(i, {
       productId: opt.value,
       productLabel: opt.label,
       trackExpiry: product?.track_expiry === 1,
       unitPrice: product ? String(product[cfg.priceField] || "") : "",
+      // Ganti produk selalu kembali ke satuan dasar: satuan besar produk lama
+      // tidak berlaku untuk produk baru, dan harga isiannya ikut per satuan dasar.
+      uom: "dasar",
+      unitDasar: product?.unit ?? "",
+      uomSecondary: faktor > 1 ? (product?.uom_secondary ?? "") : "",
+      uomFactor: faktor,
+    });
+  }
+
+  /**
+   * Ganti satuan sebuah baris — sekaligus menskalakan harganya.
+   *
+   * Harga terisi otomatis dari master produk **per satuan dasar**. Kalau satuan
+   * diganti ke dus tanpa harganya ikut dikali isi, faktur beli sedus akan
+   * ditagih seharga sepcs: totalnya masuk akal di layar, hutangnya jauh terlalu
+   * kecil, dan tidak ada satu pun angka yang terlihat aneh.
+   */
+  function gantiSatuan(i: number, line: DraftLine, satuan: SatuanBaris) {
+    if (satuan === line.uom) return;
+    const harga = Number(line.unitPrice) || 0;
+    const skala = satuan === "besar" ? line.uomFactor : 1 / line.uomFactor;
+    setLine(i, {
+      uom: satuan,
+      unitPrice: harga > 0 ? String(Math.round(harga * skala)) : line.unitPrice,
     });
   }
 
@@ -283,17 +330,28 @@ export function CommercePage({ mode }: { mode: Mode }) {
     setDate(new Date().toISOString().slice(0, 10));
     setTaxRate((doc.taxRate === 11 || doc.taxRate === 12 ? doc.taxRate : 0) as 0 | 11 | 12);
     setLines(
-      doc.lines.map((l) => ({
-        productId: l.productId,
-        productLabel: l.productName,
-        trackExpiry: false,
-        qty: String(l.qty),
-        unitPrice: String(l.unitPrice),
-        discountPct: l.discountPct > 0 ? String(l.discountPct) : "",
-        lotNo: "",
-        expiryDate: "",
-        picks: [],
-      }))
+      doc.lines.map((l) => {
+        // Fase 21c: dokumen menyimpan qty dalam satuan DASAR sedangkan harganya
+        // per satuan yang diinput. Mengisi ulang form tanpa membagi qty dengan
+        // `uomFactor` akan menghasilkan dokumen baru bernilai berlipat-lipat —
+        // dan "Ubah" adalah jalur yang paling sering dipakai.
+        const faktor = l.uomFactor > 1 ? l.uomFactor : 1;
+        return {
+          productId: l.productId,
+          productLabel: l.productName,
+          trackExpiry: false,
+          qty: String(l.qty / faktor),
+          unitPrice: String(l.unitPrice),
+          discountPct: l.discountPct > 0 ? String(l.discountPct) : "",
+          lotNo: "",
+          expiryDate: "",
+          picks: [],
+          uom: (faktor > 1 ? "besar" : "dasar") as SatuanBaris,
+          unitDasar: "",
+          uomSecondary: l.uomName ?? "",
+          uomFactor: faktor,
+        };
+      })
     );
     setError(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -315,6 +373,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
           productId: l.productId,
           qty: Number(l.qty) || 0,
           unitPrice: Number(l.unitPrice) || 0,
+          ...(l.uom === "besar" ? { uom: "besar" as const } : {}),
           ...(Number(l.discountPct) > 0 ? { discountPct: Number(l.discountPct) } : {}),
           ...(mode === "purchase" && l.lotNo ? { lotNo: l.lotNo } : {}),
           ...(mode === "purchase" && l.expiryDate ? { expiryDate: l.expiryDate } : {}),
@@ -392,7 +451,7 @@ export function CommercePage({ mode }: { mode: Mode }) {
                     value={projectId}
                     onChange={(e) => setProjectId(e.target.value)}
                   >
-                    <option value="">— tanpa proyek —</option>
+                    <option value="">{u("tanpaProyek")}</option>
                     {activeProjects.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.code} · {p.name}
@@ -441,7 +500,11 @@ export function CommercePage({ mode }: { mode: Mode }) {
                 const tracked = mode === "purchase" && line.trackExpiry;
                 return (
                   <div key={i} className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_5rem_9rem_5.5rem_9rem_2.5rem] sm:items-center">
+                    {/* Kolom qty dilebarkan dari 5rem (Fase 21c): kolom lama pas
+                        untuk satu kotak angka, tetapi setelah pemilih satuan
+                        ikut di dalamnya kotak qty-nya tergencet jadi sesobek
+                        garis — angkanya tak terbaca dan tak bisa diketik. */}
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_8.5rem_9rem_5.5rem_9rem_2.5rem] sm:items-center">
                       <SearchSelect
                         value={line.productId}
                         valueLabel={line.productLabel}
@@ -449,13 +512,28 @@ export function CommercePage({ mode }: { mode: Mode }) {
                         fetchOptions={fetchProductOptions}
                         onSelect={(opt) => pickProduct(i, opt)}
                       />
-                      <Input
-                        aria-label={`Qty baris ${i + 1}`}
-                        type="number"
-                        min={1}
-                        value={line.qty}
-                        onChange={(e) => setLine(i, { qty: e.target.value })}
-                      />
+                      <div className="flex gap-1">
+                        <Input
+                          aria-label={`Qty baris ${i + 1}`}
+                          type="number"
+                          min={1}
+                          className="min-w-0 flex-1"
+                          value={line.qty}
+                          onChange={(e) => setLine(i, { qty: e.target.value })}
+                        />
+                        {line.uomSecondary ? (
+                          <select
+                            aria-label={`${u("satuan")} ${i + 1}`}
+                            data-testid={`satuan-baris-${i}`}
+                            className="w-16 shrink-0 rounded-lg border border-slate-300 bg-white px-1 text-xs dark:border-slate-700 dark:bg-slate-900"
+                            value={line.uom}
+                            onChange={(e) => gantiSatuan(i, line, e.target.value as SatuanBaris)}
+                          >
+                            <option value="dasar">{line.unitDasar || u("satuan").toLowerCase()}</option>
+                            <option value="besar">{line.uomSecondary}</option>
+                          </select>
+                        ) : null}
+                      </div>
                       <Input
                         aria-label={`Harga baris ${i + 1}`}
                         type="number"
@@ -487,6 +565,18 @@ export function CommercePage({ mode }: { mode: Mode }) {
                         ✕
                       </Button>
                     </div>
+                    {line.uom === "besar" ? (
+                      // Konversi ditampilkan apa adanya: inilah satu-satunya
+                      // tempat pengguna bisa melihat berapa banyak barang yang
+                      // sebenarnya bergerak sebelum dokumennya diposting.
+                      <p
+                        data-testid={`konversi-baris-${i}`}
+                        className="text-xs text-slate-500 tabular-nums dark:text-slate-400"
+                      >
+                        {Number(line.qty) || 0} {line.uomSecondary} = {qtyDasar(line)}{" "}
+                        {line.unitDasar || u("satuan").toLowerCase()}
+                      </p>
+                    ) : null}
                     {tracked ? (
                       <div className="grid grid-cols-2 gap-2 rounded-lg bg-amber-50 p-2 sm:grid-cols-[10rem_11rem_1fr] sm:items-center dark:bg-amber-950/40">
                         <Input
