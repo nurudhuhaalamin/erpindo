@@ -1621,6 +1621,38 @@ export const TENANT_MIGRATIONS: Migration[] = [
       `CREATE INDEX custom_field_values_ref ON custom_field_values (ref_type, ref_id)`,
     ],
   },
+  {
+    // Fase 21c: satuan ganda dipakai saat transaksi.
+    //
+    // Aturan penyimpanan yang dipilih — dan alasannya, karena inilah bagian
+    // yang paling mudah salah:
+    //
+    //   `qty`        SELALU dalam satuan DASAR (pcs).
+    //   `unit_price` dalam satuan yang DIINPUT (mis. per dus).
+    //   `uom_factor` isi satuan besar; 1 untuk seluruh baris lama & baris
+    //                bersatuan dasar, sehingga `qty_input = qty / uom_factor`.
+    //
+    // `qty` dibuat konsisten satuannya karena SUM(qty) dipakai di beberapa
+    // tempat (laporan produk terlaris, validasi retur, agregat dokumen).
+    // Menyimpan qty campur dus & pcs di satu kolom membuat penjumlahan itu
+    // salah tanpa satu pun angkanya terlihat aneh.
+    //
+    // `unit_price` justru TIDAK dibagi, supaya `qty_input × unit_price` tetap
+    // eksak; ekspor e-Faktur menjumlahkan ulang TaxBase dari kolom-kolom ini
+    // dan hasilnya wajib sama persis dengan subtotal faktur. Harga per dus yang
+    // tak habis dibagi isinya (mis. Rp 1.000.000 ÷ 24) akan meleset bila
+    // dibulatkan lebih dulu.
+    //
+    // `uom_name` hanya untuk tampilan/cetak: nama satuan boleh berubah di
+    // master produk, dan dokumen lama harus tetap tercetak seperti saat dibuat.
+    id: "0042_uom_baris_transaksi",
+    statements: [
+      `ALTER TABLE invoice_lines ADD COLUMN uom_factor INTEGER NOT NULL DEFAULT 1`,
+      `ALTER TABLE invoice_lines ADD COLUMN uom_name TEXT`,
+      `ALTER TABLE purchase_lines ADD COLUMN uom_factor INTEGER NOT NULL DEFAULT 1`,
+      `ALTER TABLE purchase_lines ADD COLUMN uom_name TEXT`,
+    ],
+  },
 ];
 
 /** Antarmuka minimal database yang dibutuhkan runner migrasi (kompatibel D1). */

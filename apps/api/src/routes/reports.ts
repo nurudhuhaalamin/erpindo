@@ -270,6 +270,7 @@ export const reportRoutes = new Hono<AppEnv>()
       qty: number;
       unit_price: number;
       discount_pct: number;
+      uom_factor: number;
       product_name: string;
       is_service: number;
     };
@@ -279,7 +280,7 @@ export const reportRoutes = new Hono<AppEnv>()
       const res = await db
         .prepare(
           `SELECT il.invoice_id, il.description, il.qty, il.unit_price, il.discount_pct,
-                  p.name AS product_name, p.is_service
+                  il.uom_factor, p.name AS product_name, p.is_service
            FROM invoice_lines il JOIN products p ON p.id = il.product_id
            WHERE il.invoice_id IN (${ph}) ORDER BY il.rowid`,
         )
@@ -328,9 +329,15 @@ export const reportRoutes = new Hono<AppEnv>()
       for (const l of linesByDoc.get(d.id) ?? []) {
         // Reproduksi persis perhitungan posting: harga satuan dikonversi ke IDR,
         // lalu nilai baris dibulatkan setelah diskon — jumlah TaxBase = subtotal faktur.
+        //
+        // Fase 21c: `qty` disimpan dalam satuan dasar sedangkan `unit_price`
+        // dalam satuan yang diinput, jadi qty dikembalikan dulu ke satuan input.
+        // Membiarkannya (48 pcs × harga per dus) akan melipatgandakan TaxBase
+        // dan menghasilkan XML yang tidak pernah cocok dengan total fakturnya.
+        const qtyInput = l.qty / (l.uom_factor || 1);
         const unitIdr = Math.round(l.unit_price * d.exchange_rate);
-        const taxBase = Math.round(l.qty * unitIdr * (1 - l.discount_pct / 100));
-        const totalDiscount = unitIdr * l.qty - taxBase;
+        const taxBase = Math.round(qtyInput * unitIdr * (1 - l.discount_pct / 100));
+        const totalDiscount = unitIdr * qtyInput - taxBase;
         const otherTaxBase = d.tax_rate === 12 ? taxBase : Math.round((taxBase * 11 * 100) / 12) / 100;
         const vat = Math.round(otherTaxBase * 12) / 100;
         out.push(
@@ -340,7 +347,7 @@ export const reportRoutes = new Hono<AppEnv>()
           `          <Name>${xmlEscape(l.description?.trim() || l.product_name)}</Name>`,
           `          <Unit>UM.0018</Unit>`,
           `          <Price>${unitIdr.toFixed(2)}</Price>`,
-          `          <Qty>${l.qty}</Qty>`,
+          `          <Qty>${qtyInput}</Qty>`,
           `          <TotalDiscount>${totalDiscount.toFixed(2)}</TotalDiscount>`,
           `          <TaxBase>${taxBase.toFixed(2)}</TaxBase>`,
           `          <OtherTaxBase>${otherTaxBase.toFixed(2)}</OtherTaxBase>`,

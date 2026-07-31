@@ -398,9 +398,14 @@ try {
   // F1y — Fase 20g: panel picking multi-gudang baru muncul setelah produk
   // dipilih, jadi tidak terbaca dari innerText halaman kosong seperti cek di
   // atas. Layar baru wajib dwibahasa sejak awal (aturan Fase 19).
-  await page.getByPlaceholder("Search product (SKU/name)…").first().fill("Kopi");
-  await page.waitForTimeout(700);
-  await page.locator("div.absolute.z-30 button").first().click();
+  await page.getByPlaceholder("Search product (SKU/name)…").first().fill("Kopi Arabika");
+  // Ditunggu eksplisit, bukan lewat `waitForTimeout`: dengan jeda tetap,
+  // pemilihan produknya kadang jadi kadang tidak. F1y tetap hijau tanpa produk
+  // terpilih (panel pickingnya muncul tanpa itu), jadi kegagalannya menular
+  // diam-diam ke cek lain yang benar-benar butuh produknya — dan itu terjadi.
+  const opsiProduk = page.locator("div.absolute.z-30 button").first();
+  await opsiProduk.waitFor({ state: "visible", timeout: 15_000 });
+  await opsiProduk.click();
   await page.waitForTimeout(300);
   await page.getByRole("button", { name: "Pick from several warehouses" }).first().click();
   await page.waitForTimeout(400);
@@ -414,6 +419,54 @@ try {
     "F1y panel picking multi-gudang ikut EN: tombol + petunjuk jumlah, tanpa teks Indonesia",
     adaPickEn && tanpaPickId,
     `→ EN=${adaPickEn} tanpaID=${tanpaPickId}`,
+  );
+  // F34 — Fase 21c: pemilih satuan per baris. Produk demo "Kopi Arabika Gayo"
+  // punya satuan besar (1 dus = 20 pcs), jadi barisnya wajib menawarkan pilihan
+  // satuan. Diuji di sini karena produknya sudah terpilih oleh F1y di atas.
+  const selSatuan = page.locator('[data-testid="satuan-baris-0"]');
+  await selSatuan.waitFor({ state: "visible", timeout: 15_000 });
+  const opsiSatuan = await selSatuan.locator("option").allInnerTexts();
+  check(
+    "F34a baris menawarkan satuan dasar & satuan besar produk (pcs + dus)",
+    opsiSatuan.join("|") === "pcs|dus",
+    `→ ${JSON.stringify(opsiSatuan)}`,
+  );
+  const hargaSebelumSatuan = await page.locator('input[placeholder="Unit price"]').first().inputValue();
+  await selSatuan.selectOption("besar");
+  await page.waitForTimeout(300);
+  const teksKonversi = (await page.locator('[data-testid="konversi-baris-0"]').innerText()).trim();
+  check(
+    "F34b keterangan konversi menyebut jumlah satuan dasar yang benar (1 dus = 20 pcs)",
+    teksKonversi === "1 dus = 20 pcs",
+    `→ ${JSON.stringify(teksKonversi)}`,
+  );
+  // Harga terisi otomatis PER SATUAN DASAR. Kalau tidak ikut dikali isi saat
+  // satuan diganti, faktur sedus akan ditagih seharga sepcs — totalnya masuk
+  // akal di layar dan tidak ada satu angka pun yang terlihat aneh.
+  // F34d — temuan pemeriksaan mata: pemilih satuan sempat menggencet kotak qty
+  // di kolom yang sama sampai tinggal sesobek garis. Diukur dari lebar yang
+  // BENAR-BENAR ter-render, bukan dari kelas Tailwind-nya: kelasnya bisa saja
+  // betul sementara kolom gridnya yang kurang lebar.
+  const lebarQty = (await page.locator('input[aria-label="Qty baris 1"]').first().boundingBox())?.width ?? 0;
+  check(
+    "F34d kotak qty tetap cukup lebar setelah pemilih satuan muncul (≥ 48px)",
+    lebarQty >= 48,
+    `→ ${Math.round(lebarQty)}px`,
+  );
+  const hargaSesudahSatuan = await page.locator('input[placeholder="Unit price"]').first().inputValue();
+  check(
+    "F34c harga ikut diskalakan saat satuan diganti (85.000/pcs → 1.700.000/dus)",
+    hargaSebelumSatuan === "85000" && hargaSesudahSatuan === "1700000",
+    `→ ${hargaSebelumSatuan} → ${hargaSesudahSatuan}`,
+  );
+  // F34e — temuan pemeriksaan mata Fase 21c: pilihan "— tanpa proyek —" masih
+  // Indonesia di mode Inggris (halaman Penjualan/Pembelian & Keuangan). Isi
+  // <option> bukan atribut dan bukan teks anak biasa, jadi penyapu tak melihatnya.
+  const jualEn2 = await page.innerText("body");
+  check(
+    "F34e pilihan proyek kosong ikut EN ('— no project —'), tanpa sisa Indonesia",
+    jualEn2.includes("— no project —") && !jualEn2.includes("— tanpa proyek —"),
+    `→ EN=${jualEn2.includes("— no project —")} sisaID=${jualEn2.includes("— tanpa proyek —")}`,
   );
   await gotoRoute("/app/stok", 800);
   const stokEn = await page.innerText("body");

@@ -147,7 +147,7 @@ notifikasi, kartu stok.
 |---|:---:|:---:|:---:|
 | ✅ **Peramalan stok** — proyeksi kebutuhan per produk dari riwayat penjualan → saran jumlah & waktu beli ulang (Fase 20h; **deterministik**, bukan AI — lihat log fasenya) | T | S | – |
 | ✅ **Picking multi-gudang** — satu faktur mengambil stok dari beberapa gudang sekaligus (Fase 20g; HPP dihitung per gudang asal) | S | S | – |
-| Satuan ganda (beli per dus, jual per pcs, konversi otomatis) — 🟡 **SEBAGIAN** — kolom `uom_secondary`/`uom_factor` ada di master produk, tetapi konversinya **tidak dipakai saat transaksi** (`lib/commercePosting.ts` tak menyentuhnya) | T | T | – |
+| ✅ **Satuan ganda** — beli per dus, jual per pcs, konversi otomatis saat transaksi (Fase 21c: `konversiSatuanBaris()` di `packages/shared/src/commerce.ts`, `resolveUom()` di `lib/commercePosting.ts`, migrasi `0042_uom_baris_transaksi`). **Belum** di POS (kasir memindai per satuan dasar) dan **belum** di penawaran CRM | T | T | – |
 | ✅ **Reorder point otomatis** — ambang dihitung dari kecepatan jual, bukan angka statis (Fase 20h: `titikPesan = rata-rata harian × (lead time + cadangan)`) | S | S | – |
 | Stok konsinyasi (barang titipan terpisah dari milik sendiri) | R | T | – |
 

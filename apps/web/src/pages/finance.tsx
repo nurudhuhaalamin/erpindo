@@ -481,7 +481,7 @@ export function JournalPage() {
                     value={projectId}
                     onChange={(e) => setProjectId(e.target.value)}
                   >
-                    <option value="">— tanpa proyek —</option>
+                    <option value="">{u("tanpaProyek")}</option>
                     {activeProjects.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.code} · {p.name}

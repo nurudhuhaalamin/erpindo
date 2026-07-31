@@ -44,6 +44,9 @@ export const UI = {
   telepon: { id: "Telepon", en: "Phone" },
   email: { id: "Email", en: "Email" },
   satuan: { id: "Satuan", en: "Unit" },
+  // Temuan pemeriksaan mata Fase 21c: tertinggal Indonesia di mode Inggris pada
+  // dua halaman. Bukan atribut & bukan teks anak elemen biasa — isi <option>.
+  tanpaProyek: { id: "— tanpa proyek —", en: "— no project —" },
   dari: { id: "Dari", en: "From" },
   sampai: { id: "Sampai", en: "To" },
   opsional: { id: "opsional", en: "optional" },
