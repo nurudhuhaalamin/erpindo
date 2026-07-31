@@ -253,4 +253,57 @@ export type ApiAuditLog = {
   createdAt: string;
 };
 
+// --- Rasio keuangan (Fase 21b) ----------------------------------------------
+
+/**
+ * Batas kode akun aset lancar pada template COA repo ini.
+ *
+ * Aset tetap dimulai di `1-1500` (Aset Tetap) dan `1-1510` (Akumulasi
+ * Penyusutan). Segala akun aset ber-kode DI BAWAH itu diperlakukan lancar.
+ *
+ * Keterbatasan yang disadari: pemilik boleh menambah akun sendiri, jadi akun
+ * aset baru ber-kode ≥ 1-1500 akan terhitung tidak lancar meski sebenarnya
+ * lancar. Aturannya dibuat eksplisit di sini agar bisa diperbaiki di satu
+ * tempat, bukan tersebar sebagai tebakan di layar.
+ */
+export const KODE_ASET_TETAP_MULAI = "1-1500";
+
+export type RasioKeuangan = {
+  /** Aset lancar ÷ kewajiban lancar. `null` bila tak ada kewajiban. */
+  rasioLancar: number | null;
+  /** HPP ÷ persediaan akhir. `null` bila persediaan nol. */
+  perputaranPersediaan: number | null;
+  asetLancar: number;
+  persediaan: number;
+};
+
+/**
+ * Rasio lancar & perputaran persediaan dari data neraca + HPP yang sudah ada.
+ *
+ * **Perputaran memakai persediaan AKHIR, bukan rata-rata**, karena neraca yang
+ * diambil layar hanya satu titik waktu. Rasio rata-rata butuh saldo awal
+ * periode; memakai saldo akhir lalu menyebutnya "rata-rata" akan menghasilkan
+ * angka yang terlihat wajar tetapi salah nama. Layar menyebutnya apa adanya.
+ */
+export function hitungRasioKeuangan(input: {
+  assets: ApiReportLine[];
+  liabilities: ApiReportLine[];
+  hpp: number;
+}): RasioKeuangan {
+  const asetLancar = input.assets
+    .filter((l) => l.code < KODE_ASET_TETAP_MULAI)
+    .reduce((s, l) => s + l.amount, 0);
+  const persediaan = input.assets
+    .filter((l) => l.code === "1-1300")
+    .reduce((s, l) => s + l.amount, 0);
+  const kewajiban = input.liabilities.reduce((s, l) => s + l.amount, 0);
+
+  return {
+    asetLancar,
+    persediaan,
+    rasioLancar: kewajiban > 0 ? asetLancar / kewajiban : null,
+    perputaranPersediaan: persediaan > 0 ? input.hpp / persediaan : null,
+  };
+}
+
 // --- POS / Kasir ------------------------------------------------------------

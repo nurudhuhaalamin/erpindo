@@ -1,6 +1,7 @@
 import {
   AGING_BUCKETS,
   AGING_BUCKET_LABELS,
+  hitungRasioKeuangan,
   type AgingBucket,
   type ApiReportLine,
 } from "@erpindo/shared";
@@ -45,14 +46,20 @@ const AGING_BUCKET_KEY: Record<AgingBucket, UiKey> = {
 
 export function ExportButton({
   onClick,
-  label = "Ekspor CSV",
+  label,
 }: {
   onClick: () => void;
   label?: string;
 }) {
+  const u = useUi();
+  // Fase 21b: label bawaannya dulu string Indonesia harfiah di tanda tangan
+  // fungsi (`label = "Ekspor CSV"`). Sebelas tombol ekspor memakainya tanpa
+  // mengirim label sendiri, jadi SEMUANYA berbahasa Indonesia walau aplikasi
+  // disetel Inggris — dan penyapu i18n tak melihatnya karena bentuk "nilai
+  // bawaan parameter" bukan atribut JSX maupun teks layar.
   return (
     <Button variant="secondary" className="h-9" onClick={onClick}>
-      <Download className="size-4" aria-hidden /> {label}
+      <Download className="size-4" aria-hidden /> {label ?? u("eksporCsv")}
     </Button>
   );
 }
@@ -662,6 +669,27 @@ export function BalanceSheetPage() {
     enabled: Boolean(asOf),
   });
 
+  // Fase 21b: perputaran persediaan butuh HPP, yang tinggal di laba rugi —
+  // bukan di neraca. Diambil sejak awal tahun berjalan sampai tanggal neraca,
+  // supaya perputarannya bermakna (HPP satu hari tidak berarti apa-apa).
+  const awalTahun = `${asOf.slice(0, 4)}-01-01`;
+  const labaRugiQuery = useQuery({
+    queryKey: ["income-statement", tenant.tenantId, awalTahun, asOf],
+    queryFn: () => api.incomeStatement(tenant.tenantId, awalTahun, asOf),
+    enabled: Boolean(asOf),
+  });
+
+  const hppTahunBerjalan = (labaRugiQuery.data?.expense ?? [])
+    .filter((l) => l.code.startsWith("5-1"))
+    .reduce((s, l) => s + l.amount, 0);
+  const rasio = query.data
+    ? hitungRasioKeuangan({
+        assets: query.data.assets,
+        liabilities: query.data.liabilities,
+        hpp: hppTahunBerjalan,
+      })
+    : null;
+
   return (
     <div className="max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
@@ -739,6 +767,41 @@ export function BalanceSheetPage() {
           ) : null}
         </CardBody>
       </Card>
+
+      {/* Fase 21b — rasio lancar & perputaran persediaan. Menutup sisa baris
+          roadmap "rasio keuangan otomatis"; margin kotor & bersih sudah ada di
+          halaman Laba Rugi sejak lama. */}
+      {rasio ? (
+        <Card>
+          <CardHeader title={u("rasioKeuangan")} />
+          <CardBody className="grid gap-4 sm:grid-cols-2">
+            <div data-testid="rasio-lancar">
+              <div className="text-sm text-slate-500 dark:text-slate-400">{u("rasioLancar")}</div>
+              <div className="text-xl font-semibold tabular-nums">
+                {rasio.rasioLancar === null
+                  ? u("rasioTakBisaDihitung")
+                  : rasio.rasioLancar.toFixed(2).replace(".", ",")}
+              </div>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                {u("descRasioLancar")}
+              </p>
+            </div>
+            <div data-testid="rasio-perputaran">
+              <div className="text-sm text-slate-500 dark:text-slate-400">
+                {u("perputaranPersediaan")}
+              </div>
+              <div className="text-xl font-semibold tabular-nums">
+                {rasio.perputaranPersediaan === null
+                  ? u("rasioTakBisaDihitung")
+                  : `${rasio.perputaranPersediaan.toFixed(2).replace(".", ",")} ${u("kaliSetahun")}`}
+              </div>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                {u("descPerputaran")}
+              </p>
+            </div>
+          </CardBody>
+        </Card>
+      ) : null}
     </div>
   );
 }

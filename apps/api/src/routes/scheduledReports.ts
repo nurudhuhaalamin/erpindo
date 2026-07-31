@@ -16,12 +16,48 @@ import { clientIp } from "./auth";
 
 const KIND_MONTHLY_SALES = "monthly_sales";
 
-type RecapPayload = {
+export type RecapPayload = {
   totalRevenue: number;
   invoiceCount: number;
   topProduct: string | null;
   note?: string;
 };
+
+
+/**
+ * Badan email rekap bulanan (Fase 21b).
+ *
+ * Fungsi murni supaya isinya bisa diuji tanpa cron & tanpa mailer — bagian yang
+ * paling mudah salah di email otomatis bukan pengirimannya, melainkan angka
+ * yang salah format atau kalimat yang janggal saat datanya kosong.
+ */
+export function teksRekapBulanan(input: {
+  namaPemilik: string;
+  namaTenant: string;
+  periode: string;
+  totalRevenue: number;
+  invoiceCount: number;
+  topProduct: string | null;
+}): string {
+  const rupiah = `Rp ${input.totalRevenue.toLocaleString("id-ID")}`;
+
+  // Bulan tanpa transaksi bukan kesalahan — dan kalimatnya tidak boleh
+  // terdengar seperti kesalahan. Toko yang tutup sebulan tetap layak dapat
+  // laporan yang tenang, bukan yang berbunyi "Rp 0" tanpa penjelasan.
+  const isi =
+    input.invoiceCount === 0
+      ? `Tidak ada faktur penjualan yang tercatat pada periode ini. Bila seharusnya ada, cek kembali apakah fakturnya sudah diposting.`
+      : `Omzet ${rupiah} dari ${input.invoiceCount} faktur.` +
+        (input.topProduct ? ` Produk terlaris: ${input.topProduct}.` : "");
+
+  return (
+    `Halo ${input.namaPemilik},\n\n` +
+    `Rekap penjualan ${input.periode} untuk ${input.namaTenant}:\n\n` +
+    `${isi}\n\n` +
+    `Rincian lengkapnya bisa dilihat di menu Laporan.\n\n` +
+    `— Tim ERPindo`
+  );
+}
 
 /**
  * Susun rekap penjualan satu bulan (YYYY-MM) dan simpan sebagai snapshot.

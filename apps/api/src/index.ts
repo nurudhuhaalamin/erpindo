@@ -50,7 +50,7 @@ import { projectRoutes } from "./routes/projects";
 import { driveCallbackRoutes, driveRoutes, runDriveBackup } from "./routes/drive";
 import { exportRoutes } from "./routes/export";
 import { orgStructureRoutes } from "./routes/orgStructure";
-import { previousMonth, runMonthlyRecap, scheduledReportsRoutes } from "./routes/scheduledReports";
+import { previousMonth, runMonthlyRecap, scheduledReportsRoutes, teksRekapBulanan } from "./routes/scheduledReports";
 import { inviteRoutes, tenantRoutes } from "./routes/tenants";
 import { enforcePlanByPath } from "./middleware/auth";
 
@@ -442,14 +442,19 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
   //    dan puncak subrequest hari-1 turun ~1/3. Semua tugas tetap idempoten di
   //    lapis DB (unik per periode), marker hanya penghemat kerja ulang.
   const now = new Date();
-  const day = now.getUTCDate();
+  // MONTHLY_JOBS_OVERRIDE (Fase 21b): suite pengujian memaksa hari ke-1 supaya
+  // jalur tugas bulanan — termasuk email rekap — bisa diuji di tanggal berapa
+  // pun. Tanpa ini jalurnya hanya hidup 3 hari sebulan dan praktis tak teruji.
+  const day = env.MONTHLY_JOBS_OVERRIDE ? Number(env.MONTHLY_JOBS_OVERRIDE) : now.getUTCDate();
   if (day >= 1 && day <= 3) {
     const prev = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
     const period = prev.toISOString().slice(0, 7); // YYYY-MM bulan lalu
     const date = nowIso.slice(0, 10); // dijalankan hari ini (periode berjalan sudah terbuka)
     const { results: tenants } = await env.DB.prepare(
-      `SELECT id, db_ref FROM tenants WHERE status IN ('active', 'trial')`,
-    ).all<{ id: string; db_ref: string }>();
+      // `name` ikut ditarik sejak Fase 21b: email rekap bulanan menyebut nama
+      // perusahaan, dan pemilik beberapa perusahaan harus bisa membedakannya.
+      `SELECT id, name, db_ref FROM tenants WHERE status IN ('active', 'trial')`,
+    ).all<{ id: string; name: string; db_ref: string }>();
     // Grup 0 diproses mulai tanggal 1, grup 1 mulai tanggal 2, grup 2 tanggal 3;
     // tanggal 3 sekaligus menyapu semua yang belum bertanda (resume).
     const dueTenants = tenants.filter((t) => day >= monthlyGroup(t.id) + 1);
@@ -492,8 +497,25 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
       try {
         if (await monthlyDone(env, "recap", t.id, recapPeriod)) continue;
         const db = getTenantDb(env, t.db_ref);
-        await runMonthlyRecap(db, recapPeriod, null);
+        const { payload } = await runMonthlyRecap(db, recapPeriod, null);
         recapTenants++;
+
+        // Fase 21b: rekapnya DIKIRIM, bukan hanya disimpan. Sebelum ini rekap
+        // tersusun rapi tiap awal bulan lalu mengendap di database — pemilik
+        // tak pernah tahu ia ada, dan roadmap terlanjur mengklaim "dikirim
+        // email tiap awal bulan" (koreksi Fase 21a).
+        for (const owner of await ownerEmails(env, t.id)) {
+          await mailer.send({
+            to: owner.email,
+            subject: `Rekap penjualan ${recapPeriod} — ${t.name}`,
+            text: teksRekapBulanan({
+              namaPemilik: owner.name,
+              namaTenant: t.name,
+              periode: recapPeriod,
+              ...payload,
+            }),
+          });
+        }
         await env.DB.prepare(
           `INSERT INTO audit_logs (id, tenant_id, user_id, action, detail, ip, created_at)
            VALUES (?, ?, NULL, 'report.recap_generated', ?, NULL, ?)`,
