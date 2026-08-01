@@ -166,9 +166,9 @@ periode), audit log, draf jurnal dari bahasa alami via Asisten AI.
 
 | Ide | Dampak | Usaha | AI |
 |---|:---:|:---:|:---:|
-| Jurnal berulang terjadwal otomatis via Cron (dari template di atas) — 🟡 **SEBAGIAN** — template jurnal ada (`routes/financeExtras.ts`), tetapi **tidak dijadwalkan Cron** | S | R | – |
+| ✅ **Jurnal berulang terjadwal otomatis via Cron** (dari template di atas) — `runScheduledTemplates()` di `routes/financeExtras.ts` dipanggil blok cron harian `apps/api/src/index.ts`. **Koreksi Fase 21d**: baris ini sempat ditandai 🟡 "tidak dijadwalkan Cron" — keliru, sambungannya sudah ada sejak lama | S | R | – |
 | ✅ **Deteksi anomali jurnal** — tandai entri tak lazim untuk direview (`lib/reports.ts`; **deterministik**, bukan AI — angkanya bisa ditelusuri pemilik) | S | S | – |
-| Jurnal penutup tahunan otomatis (laba berjalan → laba ditahan) — 🟡 **SEBAGIAN** — jurnal penutup ada (`routes/financeExtras.ts`) tetapi **ditekan manual** dari Pengaturan, belum otomatis | S | S | – |
+| ✅ **Jurnal penutup tahunan otomatis** (laba berjalan → laba ditahan) — `runYearlyClosing()` di `routes/financeExtras.ts` dipanggil blok cron `4b` tiap 1–3 Januari untuk tahun buku sebelumnya (Fase 21d). **Opt-in per tenant** (sakelar khusus Pemilik di Pengaturan → Lainnya, bawaan mati); periode yang sudah terkunci dilewati dengan alasan tercatat di log audit | S | S | – |
 | ✅ **Departemen/kelas sebagai dimensi tambahan pelaporan (di samping Proyek)** — cost center di `routes/dimensions.ts` + laporan per dimensi | S | T | – |
 
 ## 7. Kas & Bank

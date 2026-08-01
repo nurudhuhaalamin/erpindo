@@ -1951,6 +1951,41 @@ try {
     `→ ${lainnyaBody.includes("API & Integrasi")}`,
   );
 
+  // F35 — Fase 21d: sakelar jurnal penutup tahunan otomatis. Layar baru wajib
+  // dwibahasa sejak awal, dan sakelar yang memicu posting jurnal otomatis wajib
+  // menjelaskan sendiri apa yang akan terjadi — bukan sekadar kotak centang.
+  const sakelarTutup = page.locator('[data-testid="penutup-otomatis"]');
+  await sakelarTutup.waitFor({ state: "visible", timeout: 15_000 });
+  check(
+    "F35a sakelar penutup otomatis tampil di kartu Tutup Buku, bawaan MATI",
+    (await sakelarTutup.isChecked()) === false,
+    `→ checked=${await sakelarTutup.isChecked()}`,
+  );
+  check(
+    "F35b keterangan sakelar menyebut kapan jalan & apa yang terjadi bila periode terkunci",
+    lainnyaBody.includes("Tutup buku tahunan otomatis") &&
+      lainnyaBody.includes("31 Desember") &&
+      lainnyaBody.includes("log audit"),
+    `→ ${lainnyaBody.includes("Tutup buku tahunan otomatis")}`,
+  );
+
+  // F35c — temuan pemeriksaan mata Fase 21d: label peristiwa webhook masih
+  // Indonesia di mode Inggris. Petanya ada di packages/shared (dipakai apps/api
+  // sehingga tetap Indonesia), jadi sisi web wajib memetakan kode→kamus — pola
+  // Fase 16t. Diperiksa DI MODE EN, lalu bahasanya dikembalikan.
+  await page.locator("aside").getByRole("button", { name: "EN", exact: true }).first().click();
+  await page.waitForTimeout(700);
+  const lainnyaEn = await page.innerText("body");
+  check(
+    "F35c label peristiwa webhook ikut EN, tanpa sisa Indonesia",
+    lainnyaEn.includes("Sales invoice created") &&
+      lainnyaEn.includes("Payment received") &&
+      !lainnyaEn.includes("Faktur penjualan dibuat"),
+    `→ EN=${lainnyaEn.includes("Sales invoice created")} sisaID=${lainnyaEn.includes("Faktur penjualan dibuat")}`,
+  );
+  await page.locator("aside").getByRole("button", { name: "ID", exact: true }).first().click();
+  await page.waitForTimeout(700);
+
   await gotoRoute("/app/hr/penggajian", 900);
   check("F19 Penggajian bertab: default tab Karyawan (form #emp-name)", (await page.locator("#emp-name").count()) === 1);
   await page.getByRole("tab", { name: "Kasbon" }).click();

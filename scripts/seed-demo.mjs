@@ -94,6 +94,22 @@ const _kini = new Date();
 const lastMonth = new Date(Date.UTC(_kini.getUTCFullYear(), _kini.getUTCMonth() - 1, 1))
   .toISOString()
   .slice(0, 7);
+/**
+ * Tanggal `n` hari lalu, tetapi TIDAK PERNAH keluar dari bulan berjalan.
+ *
+ * Siklus grosir "bulan berjalan" di bawah memakai `daysAgo(4..10)`. Pada
+ * tanggal 1–3, semuanya mendarat di bulan LALU — sehingga dasbor demo
+ * menampilkan gaji bulan ini tanpa satu pun penjualannya, dan kartu "Laba
+ * Bulan Ini" kembali merah persis seperti sebelum Fase 19b. Bentuk bugnya sama
+ * dengan `lastMonth` di atas: hanya muncul beberapa hari sebulan, jadi tak
+ * pernah terlihat di hari biasa.
+ */
+const awalBulanIni = `${thisMonth}-01`;
+const dalamBulanIni = (n) => {
+  const d = daysAgo(n);
+  return d < awalBulanIni ? awalBulanIni : d;
+};
+
 /** Hari terakhir bulan lalu — hari gajian yang benar untuk periode itu. */
 const akhirBulanLalu = new Date(Date.UTC(_kini.getUTCFullYear(), _kini.getUTCMonth(), 0))
   .toISOString()
@@ -298,14 +314,14 @@ for (let i = 0; i < 22; i++) {
 }
 // Faktur jasa (tanpa stok) + faktur sambal (FEFO lot).
 const invJasa = await step("faktur jasa racik + kirim", "POST", `${T}/invoices`, {
-  contactId: custHotel.id, invoiceDate: daysAgo(8), dueDate: daysAgo(-6), taxRate: 11, warehouseId: whUtama.id,
+  contactId: custHotel.id, invoiceDate: dalamBulanIni(8), dueDate: daysAgo(-6), taxRate: 11, warehouseId: whUtama.id,
   lines: [
     { productId: jasaKonsul.id, qty: 3, unitPrice: 150_000 },
     { productId: jasaKirim.id, qty: 2, unitPrice: 25_000 },
   ],
 });
 await step("faktur sambal (FEFO otomatis)", "POST", `${T}/invoices`, {
-  contactId: custToko.id, invoiceDate: daysAgo(5), dueDate: daysAgo(-9), taxRate: 0, warehouseId: whUtama.id,
+  contactId: custToko.id, invoiceDate: dalamBulanIni(5), dueDate: daysAgo(-9), taxRate: 0, warehouseId: whUtama.id,
   lines: [{ productId: sambal.id, qty: 10, unitPrice: 35_000 }],
 });
 
@@ -326,9 +342,9 @@ await step("faktur sambal (FEFO otomatis)", "POST", `${T}/invoices`, {
 await purchase("kulakan grosir bulan ini (12 hari lalu)", {
   contactId: suppAneka.id, invoiceDate: daysAgo(12), taxRate: 0, warehouseId: whUtama.id,
   lines: [
-    { productId: kopi.id, qty: 300, unitPrice: 55_000 },
+    { productId: kopi.id, qty: 420, unitPrice: 55_000 },
     { productId: teh.id, qty: 250, unitPrice: 28_000 },
-    { productId: keripik.id, qty: 500, unitPrice: 14_000 },
+    { productId: keripik.id, qty: 620, unitPrice: 14_000 },
     { productId: gula.id, qty: 200, unitPrice: 38_000 },
     { productId: madu.id, qty: 60, unitPrice: 80_000 },
     { productId: sirup.id, qty: 250, unitPrice: 24_000 },
@@ -349,9 +365,17 @@ for (const [nama, cust, back, lines] of [
     { productId: gula.id, qty: 150, unitPrice: 60_000 },
     { productId: teh.id, qty: 70, unitPrice: 45_000 },
   ]],
+  // Faktur keempat ditambahkan Fase 21d: dengan tiga faktur saja, sebulan
+  // penjualan grosir belum menutup sebulan gaji pada tanggal 1 — dasbor demo
+  // tetap merah di hari pertama tiap bulan. Kulakan di atas dinaikkan seiring
+  // ini supaya tidak ada baris stok yang minus.
+  ["grosir kantor (kopi + keripik)", custUmum, 2, [
+    { productId: kopi.id, qty: 100, unitPrice: 85_000 },
+    { productId: keripik.id, qty: 100, unitPrice: 25_000 },
+  ]],
 ]) {
   const invGrosir = await step(`faktur ${nama}`, "POST", `${T}/invoices`, {
-    contactId: cust.id, invoiceDate: daysAgo(back), dueDate: daysAgo(back - 21),
+    contactId: cust.id, invoiceDate: dalamBulanIni(back), dueDate: daysAgo(back - 21),
     taxRate: 0, warehouseId: whUtama.id, lines,
   });
   // Dua dari tiga dilunasi; satu sengaja dibiarkan terbuka agar piutang
@@ -359,7 +383,7 @@ for (const [nama, cust, back, lines] of [
   if (back !== 4) {
     await step(`pelunasan ${nama}`, "POST", `${T}/payments`, {
       refType: "invoice", refId: invGrosir.invoiceId ?? invGrosir.id, accountId: bank.id,
-      amount: invGrosir.total, paymentDate: daysAgo(back - 3),
+      amount: invGrosir.total, paymentDate: dalamBulanIni(back - 3),
     });
   }
 }
@@ -430,7 +454,7 @@ const quote = await step("penawaran untuk pelanggan baru", "POST", `${T}/quotati
   ],
 });
 await step("penawaran diterima", "PATCH", `${T}/quotations/${quote.id}/status`, { status: "accepted" });
-await step("konversi penawaran → faktur", "POST", `${T}/quotations/${quote.id}/convert`, { warehouseId: whUtama.id, invoiceDate: daysAgo(2) });
+await step("konversi penawaran → faktur", "POST", `${T}/quotations/${quote.id}/convert`, { warehouseId: whUtama.id, invoiceDate: dalamBulanIni(2) });
 await step("penawaran kedua (masih berlaku)", "POST", `${T}/quotations`, {
   contactId: conv.contactId, quoteDate: daysAgo(1), validUntil: daysAgo(-14), taxRate: 11,
   lines: [{ productId: sambal.id, qty: 30, unitPrice: 32_000 }],

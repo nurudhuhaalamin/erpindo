@@ -128,6 +128,20 @@ async function shiftTotals(db: SqlExecutor, shiftId: string): Promise<{ count: n
   };
 }
 
+/**
+ * Tanggal "hari ini" untuk POS.
+ *
+ * POS satu-satunya modul yang menanggalkan transaksinya dari jam server, bukan
+ * dari isian pengguna. Suite smoke hidup di dunia bertanggal tetap (Juli 2026),
+ * jadi tanpa override entri POS berpindah bulan mengikuti kalender nyata dan
+ * asersi arus kas berubah hijau/merah tergantung tanggal berapa ia dijalankan —
+ * persis yang terjadi pada 1 Agustus. Mengikuti pola `TRIAL_DAYS_OVERRIDE`,
+ * `MONTHLY_JOBS_OVERRIDE`, dan `YEARLY_JOBS_OVERRIDE` yang sudah ada.
+ */
+function posToday(env: { POS_DATE_OVERRIDE?: string }): string {
+  return env.POS_DATE_OVERRIDE || new Date().toISOString().slice(0, 10);
+}
+
 export const posRoutes = new Hono<AppEnv>()
 
   // -------------------------------------------------------------------------
@@ -173,7 +187,7 @@ export const posRoutes = new Hono<AppEnv>()
   .get("/:tenantId/pos/recap", requireAuth, requireTenantRole("viewer"), async (c) => {
     const db = getTenantDb(c.env, c.get("tenant").dbRef);
     const q = c.req.query("date");
-    const date = q && /^\d{4}-\d{2}-\d{2}$/.test(q) ? q : new Date().toISOString().slice(0, 10);
+    const date = q && /^\d{4}-\d{2}-\d{2}$/.test(q) ? q : posToday(c.env);
 
     const [totalRows, hourRows, shiftRows, methodRows, legacyRows] = await Promise.all([
       db
@@ -297,7 +311,7 @@ export const posRoutes = new Hono<AppEnv>()
     const tenant = c.get("tenant");
     const db = getTenantDb(c.env, tenant.dbRef);
     const input = parsed.data;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = posToday(c.env);
 
     const lockedBefore = await getLockedBefore(db);
     if (lockedBefore && today <= lockedBefore) {
@@ -506,7 +520,7 @@ export const posRoutes = new Hono<AppEnv>()
     const db = getTenantDb(c.env, tenant.dbRef);
     const user = c.get("user");
     const input = parsed.data;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = posToday(c.env);
 
     const lockedBefore = await getLockedBefore(db);
     if (lockedBefore && today <= lockedBefore) {
@@ -704,7 +718,7 @@ export const posRoutes = new Hono<AppEnv>()
     const tenant = c.get("tenant");
     const db = getTenantDb(c.env, tenant.dbRef);
     const shiftId = c.req.param("shiftId");
-    const today = new Date().toISOString().slice(0, 10);
+    const today = posToday(c.env);
 
     const { results: shifts } = await db
       .prepare(`SELECT id, shift_no, opening_cash FROM pos_shifts WHERE id = ? AND status = 'open'`)

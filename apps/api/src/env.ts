@@ -33,6 +33,17 @@ export type Env = {
    * bisa diuji pada tanggal 1–3 tiap bulan, yang berarti hampir tak pernah.
    */
   MONTHLY_JOBS_OVERRIDE?: string;
+  /**
+   * Fase 21d: memaksa blok jurnal penutup tahunan berjalan dengan `asOf` ini.
+   * Tanpa itu jalurnya hanya hidup 1–3 Januari — tiga hari SETAHUN.
+   */
+  YEARLY_JOBS_OVERRIDE?: string;
+  /**
+   * Fase 21d: memaku tanggal transaksi POS. POS satu-satunya modul yang memakai
+   * jam server, sehingga tanpa ini asersi bertanggal tetap di smoke berubah
+   * hasil mengikuti kalender nyata.
+   */
+  POS_DATE_OVERRIDE?: string;
 
   /**
    * Daftar email (dipisah koma, case-insensitive) yang mendapat tenant

@@ -439,6 +439,12 @@ export const updateTenantSettingsSchema = z.object({
     .max(90_000, "Logo terlalu besar — maksimal ±64KB")
     .refine((v) => v === "" || /^data:image\/(png|jpeg|webp|svg\+xml);base64,/.test(v), "Format logo tidak dikenal")
     .optional(),
+  /**
+   * Jurnal penutup tahunan otomatis (Fase 21d). Default mati, dan hanya Pemilik
+   * yang boleh mengubahnya — endpoint ini sendiri terbuka untuk admin, jadi
+   * penjaganya ada di route.
+   */
+  autoClosingEntry: z.boolean().optional(),
 });
 export type UpdateTenantSettingsInput = z.infer<typeof updateTenantSettingsSchema>;
 

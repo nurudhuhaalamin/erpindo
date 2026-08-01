@@ -28,7 +28,7 @@ import { consolidationRoutes } from "./routes/consolidation";
 import { contractRoutes, runBilling } from "./routes/contracts";
 import { crmRoutes } from "./routes/crm";
 import { currencyRoutes } from "./routes/currencies";
-import { financeExtraRoutes, runScheduledTemplates } from "./routes/financeExtras";
+import { financeExtraRoutes, runScheduledTemplates, runYearlyClosing } from "./routes/financeExtras";
 import { helpdeskRoutes } from "./routes/helpdesk";
 import { maintenanceRoutes, runMaintenance } from "./routes/maintenance";
 import { manufacturingRoutes } from "./routes/manufacturing";
@@ -602,6 +602,70 @@ async function scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContex
   }
   if (billed > 0) console.log(`[cron] ${billed} faktur kontrak diterbitkan`);
   if (woGenerated > 0) console.log(`[cron] ${woGenerated} work order servis diterbitkan`);
+
+  // 4b) Jurnal penutup tahunan (Fase 21d) — 1–3 Januari, menutup tahun buku
+  //     sebelumnya. Hanya untuk tenant yang MENYALAKANNYA sendiri; pemeriksaan
+  //     sakelarnya ada di `runYearlyClosing()`, bukan di sini.
+  //
+  //     SENGAJA dijalankan SESUDAH tugas harian, bukan sebelumnya. Template
+  //     jurnal yang jatuh tempo akhir Desember diposting bertanggal jatuh
+  //     temponya; kalau penutup jalan lebih dulu, entri itu mendarat di tahun
+  //     yang sudah ditutup dan tak pernah ikut tersapu ke Laba Ditahan.
+  //
+  //     YEARLY_JOBS_OVERRIDE berisi tanggal `asOf` langsung: tanpa itu jalur ini
+  //     hanya bisa diuji tiga hari SETAHUN, dan cek yang hanya bisa hijau di
+  //     jendela itu sama saja dengan tak ada cek.
+  const closingAsOf =
+    env.YEARLY_JOBS_OVERRIDE ||
+    (day >= 1 && day <= 3 && now.getUTCMonth() === 0 ? `${now.getUTCFullYear() - 1}-12-31` : null);
+  if (closingAsOf) {
+    const tahunBuku = closingAsOf.slice(0, 4);
+    const { results: closingTenants } = await env.DB.prepare(
+      `SELECT id, db_ref FROM tenants WHERE status IN ('active', 'trial')`,
+    ).all<{ id: string; db_ref: string }>();
+    let ditutup = 0;
+    for (const t of closingTenants) {
+      if (overBudget()) {
+        console.log(`[cron] anggaran waktu habis — jurnal penutup dilanjutkan run berikutnya`);
+        break;
+      }
+      try {
+        if (await monthlyDone(env, "closing", t.id, tahunBuku)) continue;
+        const res = await runYearlyClosing(getTenantDb(env, t.db_ref), closingAsOf, "system");
+        if (res.status === "diposting") {
+          ditutup++;
+          await env.DB.prepare(
+            `INSERT INTO audit_logs (id, tenant_id, user_id, action, detail, ip, created_at)
+             VALUES (?, ?, NULL, 'accounting.closing_entry_auto', ?, NULL, ?)`,
+          )
+            .bind(
+              crypto.randomUUID(),
+              t.id,
+              JSON.stringify({ asOf: closingAsOf, entryNo: res.entryNo, netProfit: res.netProfit }),
+              nowIso,
+            )
+            .run();
+        } else if (res.status === "terkunci") {
+          // Dicatat, bukan didiamkan: pemilik harus bisa tahu kenapa buku
+          // tahunannya tidak tertutup otomatis padahal sakelarnya menyala.
+          await env.DB.prepare(
+            `INSERT INTO audit_logs (id, tenant_id, user_id, action, detail, ip, created_at)
+             VALUES (?, ?, NULL, 'accounting.closing_entry_skipped', ?, NULL, ?)`,
+          )
+            .bind(crypto.randomUUID(), t.id, JSON.stringify({ asOf: closingAsOf, alasan: res.alasan }), nowIso)
+            .run();
+        }
+        // Ditandai selesai untuk semua hasil KECUALI 'mati'. Menandai tenant
+        // yang sakelarnya mati akan menghukum orang yang menyalakannya tanggal
+        // 2 Januari: fiturnya baru aktif tahun depan, tanpa penjelasan apa pun.
+        // Biayanya cuma satu query settings per tenant per run.
+        if (res.status !== "mati") await markMonthlyDone(env, "closing", t.id, tahunBuku);
+      } catch (err) {
+        console.error(`[cron] jurnal penutup tenant ${t.id} gagal:`, err);
+      }
+    }
+    if (ditutup > 0) console.log(`[cron] jurnal penutup ${tahunBuku} diposting untuk ${ditutup} tenant`);
+  }
 
   // 5) Kirim antrean webhook keluar yang jatuh tempo (Fase 13h). Control-plane,
   //    satu batch — retry berjenjang menjadwalkan ulang yang gagal.
