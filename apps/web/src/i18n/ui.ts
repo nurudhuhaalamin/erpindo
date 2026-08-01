@@ -547,6 +547,18 @@ export const UI = {
     en: "All revenue and expense balances up to that date are zeroed; the net profit/loss moves to Retained Earnings.",
   },
   yaPostingJurnalPenutup: { id: "Ya, posting jurnal penutup", en: "Yes, post the closing entry" },
+  // Peristiwa webhook — peta label di packages/shared tetap Indonesia (dipakai
+  // apps/api); sisi web memetakan kode→kunci kamus, pola Fase 16t. Ketahuan
+  // dari pemeriksaan mata Fase 21d: ketiganya masih Indonesia di mode Inggris.
+  "webhook.invoice.created": { id: "Faktur penjualan dibuat", en: "Sales invoice created" },
+  "webhook.payment.received": { id: "Pembayaran diterima", en: "Payment received" },
+  "webhook.stock.low": { id: "Stok menipis (di bawah minimum)", en: "Stock running low (below minimum)" },
+  // Fase 21d — sakelar jurnal penutup otomatis (khusus Pemilik).
+  penutupOtomatis: { id: "Tutup buku tahunan otomatis", en: "Close the year automatically" },
+  descPenutupOtomatis: {
+    id: "Tiap awal Januari, sistem memposting sendiri jurnal penutup untuk tahun buku sebelumnya (per 31 Desember). Bila periodenya sudah Anda kunci lebih dulu, penutupan dilewati dan alasannya dicatat di log audit.",
+    en: "Each early January the system posts the closing entry for the previous fiscal year (as of 31 December) on its own. If you have already locked that period, the closing is skipped and the reason is recorded in the audit log.",
+  },
   andaKecil: { id: "(Anda)", en: "(you)" },
   // Label izin modul tinggal di packages/shared (dipakai apps/api) dan tetap
   // berbahasa Indonesia; pemetaan kode→kunci kamus dilakukan di sisi web —

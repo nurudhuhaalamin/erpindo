@@ -318,11 +318,21 @@ export const tenantRoutes = new Hono<AppEnv>()
     const tenant = c.get("tenant");
     const db = getTenantDb(c.env, tenant.dbRef);
 
+    // Fase 21d: menyalakan jurnal penutup otomatis berarti mengizinkan sistem
+    // memposting jurnal ke buku besar tanpa ditekan siapa pun. Rute ini terbuka
+    // untuk admin, jadi medan itu sendiri dinaikkan ke Pemilik — sejajar dengan
+    // tombol penutup manualnya yang memang owner-only.
+    if (parsed.data.autoClosingEntry !== undefined && tenant.role !== "owner") {
+      return c.json({ error: "Hanya Pemilik yang boleh mengatur jurnal penutup otomatis." }, 403);
+    }
+
     const entries = Object.entries({
       display_name: parsed.data.displayName,
       address: parsed.data.address,
       npwp: parsed.data.npwp,
       logo_data_url: parsed.data.logoDataUrl,
+      auto_closing_entry:
+        parsed.data.autoClosingEntry === undefined ? undefined : parsed.data.autoClosingEntry ? "1" : "0",
     }).filter(([, v]) => v !== undefined) as [string, string][];
 
     for (const [key, value] of entries) {

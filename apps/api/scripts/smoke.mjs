@@ -61,6 +61,15 @@ const child = spawn(
     // bisa diuji — tanpa ini jalurnya hanya hidup tanggal 1–3 tiap bulan.
     "--var",
     "MONTHLY_JOBS_OVERRIDE:3",
+    // Fase 21d: paksa blok jurnal penutup tahunan berjalan dengan `asOf` hari
+    // ini — tanpa ini jalurnya hanya hidup 1–3 Januari, tiga hari SETAHUN.
+    "--var",
+    `YEARLY_JOBS_OVERRIDE:${new Date().toISOString().slice(0, 10)}`,
+    // Fase 21d: pakukan tanggal POS ke dunia bertanggal tetap suite ini.
+    // Tanpa ini entri POS ikut kalender nyata dan asersi arus kas Juli berubah
+    // merah setiap kali smoke dijalankan di bulan lain.
+    "--var",
+    "POS_DATE_OVERRIDE:2026-07-20",
     // Uji jalur akun comped (Fase 4a): email Dewi mendapat tenant aktif permanen.
     "--var",
     "COMPED_EMAILS:dewi@majujaya.co.id",
@@ -3771,6 +3780,17 @@ try {
   const duSetLogo = await owner("PATCH", `/api/tenants/${tenantId}/settings`, { logoDataUrl: duLogo });
   const duSettings = await owner("GET", `/api/tenants/${tenantId}/settings`);
   check("logo tersimpan di settings tenant", duSetLogo.status === 200 && duSettings.json?.settings?.logo_data_url === duLogo);
+  // Fase 21d: sakelar penutup otomatis dinaikkan ke Pemilik walau endpoint
+  // settings-nya terbuka untuk admin — menyalakannya berarti mengizinkan sistem
+  // memposting jurnal ke buku besar tanpa ditekan siapa pun.
+  const acAdmin = await admin("PATCH", `/api/tenants/${tenantId}/settings`, { autoClosingEntry: true });
+  check(
+    "sakelar penutup otomatis oleh ADMIN (bukan Pemilik) DITOLAK 403",
+    acAdmin.status === 403 && /Pemilik/.test(acAdmin.json?.error ?? ""),
+    `→ ${acAdmin.status} ${JSON.stringify(acAdmin.json?.error)}`,
+  );
+  const acAdminLain = await admin("PATCH", `/api/tenants/${tenantId}/settings`, { address: "Jl. Uji 1" });
+  check("admin TETAP boleh mengubah setelan biasa (bukan pengetatan menyeluruh)", acAdminLain.status === 200, `→ ${acAdminLain.status}`);
   const duBadLogo = await owner("PATCH", `/api/tenants/${tenantId}/settings`, { logoDataUrl: "data:text/html;base64,PGI+" });
   check("format logo tidak dikenal DITOLAK 400", duBadLogo.status === 400);
   const duClearLogo = await owner("PATCH", `/api/tenants/${tenantId}/settings`, { logoDataUrl: "" });
@@ -4733,6 +4753,135 @@ try {
 
   const tbAfterClose = await admin("GET", `/api/tenants/${dewiOwn.tenantId}/trial-balance`);
   check("neraca saldo tetap seimbang setelah seluruh alur 5d", tbAfterClose.status === 200 && tbAfterClose.json?.balanced === true);
+
+  // --- Jurnal penutup TAHUNAN otomatis (Fase 21d) -----------------------------
+  console.log("14c2. Jurnal penutup tahunan otomatis (Fase 21d)");
+  // Saldo P/L baru supaya ada yang bisa ditutup (penutup manual di atas sudah
+  // menolkan yang lama).
+  // (a) Template jurnal berulang BENAR-BENAR diposting lewat jalur cron.
+  //     Roadmap sempat menandai baris ini 🟡 "tidak dijadwalkan Cron" — keliru,
+  //     sambungannya sudah ada. Cek ini membuat klaim ✅-nya berdiri di atas
+  //     bukti, bukan di atas pembacaan kode saya.
+  const tplCron = await admin("POST", `/api/tenants/${dewiOwn.tenantId}/journal-templates`, {
+    name: "Listrik bulanan (uji cron)",
+    memo: "Listrik bulanan otomatis",
+    lines: [
+      { accountId: dwSewa.id, debit: 250_000, credit: 0 },
+      { accountId: dwKas.id, debit: 0, credit: 250_000 },
+    ],
+    schedule: "monthly",
+    nextRunDate: todayStr,
+  });
+  const cronTpl = await fetch(`${BASE}/__scheduled?cron=17+1+*+*+*`);
+  const jurnalTpl = await admin("GET", `/api/tenants/${dewiOwn.tenantId}/journal-entries?limit=100`);
+  check(
+    "template terjadwal diposting oleh CRON (bukan hanya tombol manual)",
+    tplCron.status === 201 &&
+      cronTpl.status === 200 &&
+      (jurnalTpl.json?.entries ?? []).some((e) => e.memo === "Listrik bulanan otomatis"),
+    `→ tpl ${tplCron.status} cron ${cronTpl.status}`,
+  );
+  const tplSetelahCron = await admin("GET", `/api/tenants/${dewiOwn.tenantId}/journal-templates`);
+  const tplJadwal = tplSetelahCron.json?.templates?.find((t) => t.id === tplCron.json.id);
+  check(
+    "jadwal template dimajukan sebulan setelah cron (tidak menumpuk tiap hari)",
+    tplJadwal?.nextRunDate > todayStr,
+    `→ ${tplJadwal?.nextRunDate} (dari ${todayStr})`,
+  );
+  // Dihapus supaya cron berikutnya di blok ini tidak menambah beban lagi.
+  await admin("DELETE", `/api/tenants/${dewiOwn.tenantId}/journal-templates/${tplCron.json.id}`);
+
+  // (b) Sakelar penutup MATI (bawaan): cron di atas sudah berjalan sekali dan
+  //     tidak boleh menutup buku siapa pun.
+  await admin("POST", `/api/tenants/${dewiOwn.tenantId}/journal-entries`, {
+    entryDate: todayStr,
+    memo: "Beban sewa untuk uji penutup otomatis",
+    lines: [
+      { accountId: dwSewa.id, debit: 400_000, credit: 0 },
+      { accountId: dwKas.id, debit: 0, credit: 400_000 },
+    ],
+  });
+  const plCronOff = await admin(
+    "GET",
+    `/api/tenants/${dewiOwn.tenantId}/reports/income-statement?from=${todayStr}&to=${todayStr}`,
+  );
+  check(
+    "sakelar MATI: cron TIDAK menutup buku — saldo P/L masih ada (250rb template + 400rb sewa)",
+    plCronOff.json?.totalExpense === 650_000,
+    `→ beban ${plCronOff.json?.totalExpense}`,
+  );
+
+  // Nyalakan sebagai Pemilik (Dewi pemilik tenant-nya sendiri), lalu cron ulang.
+  const acOn = await admin("PATCH", `/api/tenants/${dewiOwn.tenantId}/settings`, { autoClosingEntry: true });
+  const acSettings = await admin("GET", `/api/tenants/${dewiOwn.tenantId}/settings`);
+  check(
+    "Pemilik menyalakan sakelar 200 + tersimpan di settings",
+    acOn.status === 200 && acSettings.json?.settings?.auto_closing_entry === "1",
+    `→ ${acOn.status} ${acSettings.json?.settings?.auto_closing_entry}`,
+  );
+  // Template yang jatuh tempo hari ini, dibuat SEBELUM cron penutup berjalan.
+  // Ini menguji URUTAN di dalam satu run cron: template harus diposting dulu,
+  // baru dibuku-tutup. Kalau penutup jalan lebih dulu, entri template mendarat
+  // di tahun yang sudah ditutup dan tak pernah tersapu ke Laba Ditahan.
+  const tplUrut = await admin("POST", `/api/tenants/${dewiOwn.tenantId}/journal-templates`, {
+    name: "Internet bulanan (uji urutan)",
+    memo: "Internet bulanan otomatis",
+    lines: [
+      { accountId: dwSewa.id, debit: 125_000, credit: 0 },
+      { accountId: dwKas.id, debit: 0, credit: 125_000 },
+    ],
+    schedule: "monthly",
+    nextRunDate: todayStr,
+  });
+  const cronOn = await fetch(`${BASE}/__scheduled?cron=17+1+*+*+*`);
+  const plCronOn = await admin(
+    "GET",
+    `/api/tenants/${dewiOwn.tenantId}/reports/income-statement?from=${todayStr}&to=${todayStr}`,
+  );
+  check(
+    "sakelar NYALA: cron memposting jurnal penutup — saldo P/L jadi nol",
+    cronOn.status === 200 && plCronOn.json?.totalExpense === 0 && plCronOn.json?.totalIncome === 0,
+    `→ cron ${cronOn.status} i=${plCronOn.json?.totalIncome} e=${plCronOn.json?.totalExpense}`,
+  );
+  // Urutan dibuktikan dari NOMOR jurnalnya, bukan dari keberadaan entrinya:
+  // entri template tetap ada walau diposting sesudah penutup, jadi asersi
+  // "entrinya ada" akan hijau pada urutan yang salah sekalipun. Nomor dokumen
+  // terbit berurutan, sehingga nomor penutup wajib LEBIH BESAR dari nomor
+  // template bila template benar-benar diposting lebih dulu.
+  const jurnalUrut = await admin("GET", `/api/tenants/${dewiOwn.tenantId}/journal-entries?limit=100`);
+  const entriTpl = (jurnalUrut.json?.entries ?? []).find((e) => e.memo === "Internet bulanan otomatis");
+  const entriTutup = (jurnalUrut.json?.entries ?? [])
+    .filter((e) => /Jurnal penutup s.d./.test(e.memo ?? ""))
+    .sort((a, b) => (a.entryNo < b.entryNo ? 1 : -1))[0];
+  check(
+    "template jatuh tempo diposting SEBELUM penutup dalam run cron yang sama (nomor jurnal berurutan)",
+    tplUrut.status === 201 && Boolean(entriTpl) && Boolean(entriTutup) && entriTutup.entryNo > entriTpl.entryNo,
+    `→ template ${entriTpl?.entryNo} vs penutup ${entriTutup?.entryNo}`,
+  );
+  await admin("DELETE", `/api/tenants/${dewiOwn.tenantId}/journal-templates/${tplUrut.json.id}`);
+  // Hasilnya harus IDENTIK dengan jalur manual: memo yang sama, lewat
+  // `postClosingEntry()` yang sama — bukan salinan logika di blok cron.
+  const dwJurnal = await admin("GET", `/api/tenants/${dewiOwn.tenantId}/journal-entries?limit=100`);
+  const jurnalPenutupAuto = (dwJurnal.json?.entries ?? []).filter((e) => /Jurnal penutup s.d./.test(e.memo ?? ""));
+  check(
+    "jurnal penutup otomatis memakai memo yang sama dengan jalur manual (logika dipakai bersama)",
+    jurnalPenutupAuto.length === 2,
+    `→ ${jurnalPenutupAuto.length} entri: ${JSON.stringify(jurnalPenutupAuto.map((e) => e.memo))}`,
+  );
+  const tbAfterAuto = await admin("GET", `/api/tenants/${dewiOwn.tenantId}/trial-balance`);
+  check(
+    "neraca saldo TETAP seimbang setelah penutup otomatis",
+    tbAfterAuto.json?.balanced === true,
+    `→ debit ${tbAfterAuto.json?.totalDebit} vs kredit ${tbAfterAuto.json?.totalCredit}`,
+  );
+  // Idempoten: cron ketiga tidak boleh menumpuk jurnal penutup kedua.
+  await fetch(`${BASE}/__scheduled?cron=17+1+*+*+*`);
+  const dwJurnal2 = await admin("GET", `/api/tenants/${dewiOwn.tenantId}/journal-entries?limit=100`);
+  check(
+    "cron berulang TIDAK menumpuk jurnal penutup lagi (idempoten)",
+    (dwJurnal2.json?.entries ?? []).filter((e) => /Jurnal penutup s.d./.test(e.memo ?? "")).length === 2,
+    `→ ${(dwJurnal2.json?.entries ?? []).filter((e) => /Jurnal penutup s.d./.test(e.memo ?? "")).length}`,
+  );
 
   // --- Fase 10b: akun demo publik baca-saja ------------------------------------
   // Perusahaan demo dites pada tenant comped "Cabang Dewi" (via var

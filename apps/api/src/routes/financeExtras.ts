@@ -74,6 +74,91 @@ export async function runScheduledTemplates(db: SqlExecutor, today: string, crea
   return { posted };
 }
 
+/**
+ * Jurnal penutup: pindahkan seluruh saldo pendapatan/beban s.d. `asOf` ke Laba
+ * Ditahan (Fase 21d — diekstrak dari route supaya cron memakai logika yang SAMA).
+ *
+ * Disatukan dengan sengaja: menyalin perhitungannya ke cron berarti dua definisi
+ * "laba ditahan" yang bisa menyimpang tanpa ada yang menyadarinya, dan selisih
+ * antara tutup buku manual & otomatis adalah jenis selisih yang paling sulit
+ * ditelusuri pemilik.
+ *
+ * `PeriodLockedError` sengaja TIDAK ditangkap di sini — pemanggilnya yang tahu
+ * cara memperlakukannya (route → 409, cron → dilewati dengan alasan tercatat).
+ */
+export async function postClosingEntry(
+  db: SqlExecutor,
+  asOf: string,
+  createdBy: string,
+): Promise<{ entryNo: string; netProfit: number } | { error: string }> {
+  const { results } = await db
+    .prepare(
+      `SELECT a.id, a.type, SUM(jl.credit) - SUM(jl.debit) AS net
+       FROM journal_lines jl
+       JOIN journal_entries je ON je.id = jl.entry_id
+       JOIN accounts a ON a.id = jl.account_id
+       WHERE a.type IN ('income', 'expense') AND je.entry_date <= ?
+       GROUP BY a.id, a.type
+       HAVING net != 0`,
+    )
+    .bind(asOf)
+    .all<{ id: string; type: string; net: number }>();
+  if (results.length === 0) return { error: "Tidak ada saldo pendapatan/beban untuk ditutup." };
+
+  const retained = (
+    await db.prepare(`SELECT id FROM accounts WHERE code = '3-2000'`).all<{ id: string }>()
+  ).results[0];
+  if (!retained) return { error: "Akun Laba Ditahan (3-2000) tidak ditemukan." };
+
+  // Balik saldo tiap akun P/L (income bersaldo kredit → debit; expense sebaliknya),
+  // selisihnya (laba/rugi bersih) mendarat di Laba Ditahan.
+  const lines = results.map((r) => ({
+    accountId: r.id,
+    debit: r.net > 0 ? r.net : 0,
+    credit: r.net < 0 ? -r.net : 0,
+  }));
+  const netProfit = results.reduce((s, r) => s + r.net, 0);
+  lines.push({ accountId: retained.id, debit: netProfit < 0 ? -netProfit : 0, credit: netProfit > 0 ? netProfit : 0 });
+
+  const res = await postJournal(db, {
+    entryDate: asOf,
+    memo: `Jurnal penutup s.d. ${asOf} — laba/rugi bersih ke Laba Ditahan`,
+    createdBy,
+    lines: lines.filter((l) => l.debit !== 0 || l.credit !== 0),
+  });
+  return { entryNo: res.entryNo, netProfit };
+}
+
+/**
+ * Jurnal penutup tahunan otomatis (Fase 21d), dipanggil blok cron awal tahun.
+ *
+ * Menolak jalan bila tenant belum menyalakannya. Memposting jurnal ke buku besar
+ * orang lain tanpa diminta bukan hal yang boleh menyala diam-diam — apalagi
+ * jurnal penutup, yang menggeser SELURUH saldo laba-rugi sekaligus.
+ */
+export async function runYearlyClosing(
+  db: SqlExecutor,
+  asOf: string,
+  createdBy: string,
+): Promise<{ status: "mati" | "kosong" | "terkunci" | "diposting"; entryNo?: string; netProfit?: number; alasan?: string }> {
+  const { results } = await db
+    .prepare(`SELECT value FROM settings WHERE key = 'auto_closing_entry'`)
+    .all<{ value: string }>();
+  if (results[0]?.value !== "1") return { status: "mati" };
+
+  try {
+    const res = await postClosingEntry(db, asOf, createdBy);
+    if ("error" in res) return { status: "kosong", alasan: res.error };
+    return { status: "diposting", entryNo: res.entryNo, netProfit: res.netProfit };
+  } catch (err) {
+    // Justru tenant yang rajin tutup buku yang paling mungkin sudah mengunci
+    // Desember sebelum cron sempat jalan. Itu keadaan wajar, bukan kegagalan
+    // sistem — dilewati dengan alasannya, cron lanjut ke tenant berikutnya.
+    if (err instanceof PeriodLockedError) return { status: "terkunci", alasan: err.message };
+    throw err;
+  }
+}
+
 /** Baris jurnal kandidat pencocokan untuk satu akun (nominal bertanda = debit − kredit). */
 async function candidateLines(db: SqlExecutor, accountId: string) {
   const { results } = await db
@@ -293,42 +378,13 @@ export const financeExtraRoutes = new Hono<AppEnv>()
     const asOf = body.asOf ?? "";
     if (!/^\d{4}-\d{2}-\d{2}$/.test(asOf)) return c.json({ error: "Tanggal tidak valid (YYYY-MM-DD)" }, 400);
     const db = getTenantDb(c.env, c.get("tenant").dbRef);
-    const { results } = await db
-      .prepare(
-        `SELECT a.id, a.type, SUM(jl.credit) - SUM(jl.debit) AS net
-         FROM journal_lines jl
-         JOIN journal_entries je ON je.id = jl.entry_id
-         JOIN accounts a ON a.id = jl.account_id
-         WHERE a.type IN ('income', 'expense') AND je.entry_date <= ?
-         GROUP BY a.id, a.type
-         HAVING net != 0`,
-      )
-      .bind(asOf)
-      .all<{ id: string; type: string; net: number }>();
-    if (results.length === 0) return c.json({ error: "Tidak ada saldo pendapatan/beban untuk ditutup." }, 400);
-    const retained = (
-      await db.prepare(`SELECT id FROM accounts WHERE code = '3-2000'`).all<{ id: string }>()
-    ).results[0];
-    if (!retained) return c.json({ error: "Akun Laba Ditahan (3-2000) tidak ditemukan." }, 400);
-
-    // Balik saldo tiap akun P/L (income bersaldo kredit → debit; expense sebaliknya),
-    // selisihnya (laba/rugi bersih) mendarat di Laba Ditahan.
-    const lines = results.map((r) => ({
-      accountId: r.id,
-      debit: r.net > 0 ? r.net : 0,
-      credit: r.net < 0 ? -r.net : 0,
-    }));
-    const netProfit = results.reduce((s, r) => s + r.net, 0);
-    lines.push({ accountId: retained.id, debit: netProfit < 0 ? -netProfit : 0, credit: netProfit > 0 ? netProfit : 0 });
     try {
-      const res = await postJournal(db, {
-        entryDate: asOf,
-        memo: `Jurnal penutup s.d. ${asOf} — laba/rugi bersih ke Laba Ditahan`,
-        createdBy: c.get("user").id,
-        lines: lines.filter((l) => l.debit !== 0 || l.credit !== 0),
-      });
-      await audit(c.env, { action: "accounting.closing_entry", userId: c.get("user").id, tenantId: c.get("tenant").id, detail: { asOf, netProfit }, ip: clientIp(c) });
-      return c.json({ ok: true, entryNo: res.entryNo, netProfit }, 201);
+      // Fase 21d: perhitungannya dipakai bersama jalur cron tahunan — satu
+      // definisi "laba ditahan", bukan dua yang bisa menyimpang diam-diam.
+      const res = await postClosingEntry(db, asOf, c.get("user").id);
+      if ("error" in res) return c.json({ error: res.error }, 400);
+      await audit(c.env, { action: "accounting.closing_entry", userId: c.get("user").id, tenantId: c.get("tenant").id, detail: { asOf, netProfit: res.netProfit }, ip: clientIp(c) });
+      return c.json({ ok: true, entryNo: res.entryNo, netProfit: res.netProfit }, 201);
     } catch (err) {
       if (err instanceof PeriodLockedError) return c.json({ error: err.message }, 409);
       return c.json({ error: (err as Error).message }, 400);

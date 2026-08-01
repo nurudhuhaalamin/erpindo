@@ -1,6 +1,6 @@
 // Bagian Pengaturan (dipecah dari settings.tsx pada Fase 14b — nama ekspor
 // tak berubah; settings/index.tsx merakit ulang tab).
-import { WEBHOOK_EVENTS, WEBHOOK_EVENT_LABELS, type ApiApiKey, type ApiWebhook, type WebhookEvent } from "@erpindo/shared";
+import { WEBHOOK_EVENTS, type ApiApiKey, type ApiWebhook, type WebhookEvent } from "@erpindo/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, ApiRequestError } from "../../api/client";
@@ -157,7 +157,7 @@ export function ApiIntegrationCard({ tenantId }: { tenantId: string }) {
                       setHookEvents((prev) => (e.target.checked ? [...prev, ev] : prev.filter((x) => x !== ev)))
                     }
                   />
-                  {WEBHOOK_EVENT_LABELS[ev]}
+                  {u(`webhook.${ev}` as Parameters<typeof u>[0])}
                 </label>
               ))}
             </div>
@@ -207,6 +207,13 @@ export function CloseBooksCard({ tenantId }: { tenantId: string }) {
   const queryClient = useQueryClient();
   const settingsQuery = useQuery({ queryKey: ["settings", tenantId], queryFn: () => api.settings(tenantId) });
   const lockedBefore = settingsQuery.data?.settings.locked_before;
+
+  const penutupOtomatis = settingsQuery.data?.settings.auto_closing_entry === "1";
+  const setelanOtomatis = useMutation({
+    mutationFn: (aktif: boolean) => api.updateSettings(tenantId, { autoClosingEntry: aktif }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["settings", tenantId] }),
+    onError: (err) => toast("error", (err as Error).message),
+  });
 
   const [date, setDate] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -287,6 +294,26 @@ export function CloseBooksCard({ tenantId }: { tenantId: string }) {
             onConfirm={() => closing.mutate()}
             onCancel={() => setClosingOpen(false)}
           />
+
+          {/* Fase 21d — sakelar penutup otomatis. Default MATI: memposting
+              jurnal ke buku besar tanpa diminta bukan hal yang boleh menyala
+              diam-diam, apalagi jurnal yang menggeser seluruh saldo laba-rugi. */}
+          <label className="mt-3 flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              data-testid="penutup-otomatis"
+              className="mt-1"
+              checked={penutupOtomatis}
+              disabled={setelanOtomatis.isPending}
+              onChange={(e) => setelanOtomatis.mutate(e.target.checked)}
+            />
+            <span>
+              <span className="font-medium">{u("penutupOtomatis")}</span>
+              <span className="block text-xs text-slate-500 dark:text-slate-400">
+                {u("descPenutupOtomatis")}
+              </span>
+            </span>
+          </label>
         </div>
       </CardBody>
     </Card>

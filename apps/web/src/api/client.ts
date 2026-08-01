@@ -352,7 +352,7 @@ export const api = {
     request<{ settings: Record<string, string> }>("GET", `/api/tenants/${tenantId}/settings`),
   updateSettings: (
     tenantId: string,
-    input: { displayName?: string; address?: string; npwp?: string; logoDataUrl?: string },
+    input: { displayName?: string; address?: string; npwp?: string; logoDataUrl?: string; autoClosingEntry?: boolean },
   ) => request<{ ok: true }>("PATCH", `/api/tenants/${tenantId}/settings`, input),
   notifications: (tenantId: string) =>
     request<{ notifications: ApiNotification[]; count: number }>("GET", `/api/tenants/${tenantId}/notifications`),
